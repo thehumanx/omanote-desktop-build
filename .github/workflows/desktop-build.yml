@@ -60,12 +60,13 @@ jobs:
         run: npm run build --prefix apps/desktop -- ${{ matrix.args }}
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
       - name: Repack AppImage without bundled libwayland
         if: startsWith(matrix.platform, 'ubuntu')
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           APPIMAGE=$(find apps/desktop/src-tauri/target -name '*.AppImage' -print -quit)
@@ -77,7 +78,7 @@ jobs:
           ./appimagetool --appimage-extract-and-run squashfs-root "$APPIMAGE"
           rm -rf squashfs-root appimagetool
           npm --prefix apps/desktop exec -- tauri signer sign \
-            --private-key "$TAURI_SIGNING_PRIVATE_KEY" --password "" "$APPIMAGE"
+            --private-key "$TAURI_SIGNING_PRIVATE_KEY" --password "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" "$APPIMAGE"
 
       - name: Upload installers
         uses: actions/upload-artifact@v4
