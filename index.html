@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (() => {
+        try {
+          const key = "omanote:theme-mode";
+          const stored = window.localStorage ? window.localStorage.getItem(key) : null;
+          const mode = stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
+          const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+          const resolved = mode === "dark" || (mode === "system" && prefersDark) ? "dark" : "light";
+          document.documentElement.classList.toggle("dark", resolved === "dark");
+          document.documentElement.style.colorScheme = resolved;
+          if (resolved === "dark") {
+            document.documentElement.style.background = "rgb(9 9 11)";
+          }
+        } catch {
+          document.documentElement.style.colorScheme = "light";
+        }
+      })();
+    </script>
+    <title>omanote | Capture the day before it disappears</title>
+    <meta
+      name="description"
+      content="omanote is your personal daily workspace for capturing notes, todos, bookmarks, events, and small moments before the day disappears."
+    />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://omanote.iambishistha.com/" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta property="og:title" content="omanote | Capture the day before it disappears" />
+    <meta
+      property="og:description"
+      content="A personal daily workspace for capturing notes, todos, bookmarks, events, and small moments in one calm place."
+    />
+    <meta property="og:url" content="https://omanote.iambishistha.com/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://omanote.iambishistha.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="omanote daily workspace preview" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="omanote | Personal daily workspace" />
+    <meta
+      name="twitter:description"
+      content="Capture the day before it disappears with notes, todos, bookmarks, events, and hashtags in one personal daily workspace."
+    />
+    <meta name="twitter:image" content="https://omanote.iambishistha.com/og.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://omanote.iambishistha.com/#website",
+            "name": "omanote",
+            "url": "https://omanote.iambishistha.com/",
+            "description": "omanote is a personal daily workspace for capturing notes, todos, bookmarks, events, and small moments before the day disappears.",
+            "inLanguage": "en"
+          },
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://omanote.iambishistha.com/#software",
+            "name": "omanote",
+            "applicationCategory": "ProductivityApplication",
+            "operatingSystem": "Web",
+            "url": "https://omanote.iambishistha.com/",
+            "description": "A personal daily workspace for notes, todos, bookmarks, events, hashtags, offline capture, and client-side encryption.",
+            "offers": {
+              "@type": "Offer",
+              "availability": "https://schema.org/OnlineOnly",
+              "url": "https://omanote.iambishistha.com/"
+            }
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://omanote.iambishistha.com/#faq",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "What is omanote?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "omanote (stylized in smallcase) is an opinionated and personal daily workspace for capturing notes, todos, bookmarks, events, and the small moments of a day in one place."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is omanote an AI note-taking app?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. omanote is not an AI note-taking app. It is an opinionated daily workspace built around simple capture, organization, hashtags, and private daily context."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What is the canvas?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "The canvas is your day-first inbox. It's your daily dumping ground — in the best way. Anything you capture today lands there first, then can also live in Notes, Todos, Bookmarks, or Events."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Do I need slash commands?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. You can type plain notes, paste links, or use slash commands when you want to create a todo, bookmark, or event entry directly."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How are notes, todos, bookmarks, and events connected?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "They are specialist views for the same daily workspace. The canvas captures the moment; each view organizes and helps you manage that item later."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How does Explore work?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Hashtags in omanote acts like a theme; a common place to connect related artifacts, whether that's notes, tasks or todos. Add hashtags like #work or #health to notes, todos, and events. Explore groups related items so you can revisit connected context."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does omanote work offline?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. You can capture and edit while offline. Changes are saved locally and synced when your connection returns."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is my data private?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "User content is encrypted on the client before storage. You unlock it with your passphrase, so the app is designed around private personal use."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What if I forget my passphrase?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "During setup, omanote downloads a recovery key. Keep it somewhere safe because it is needed if you forget your passphrase."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I move my data to another account?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. Settings includes export and import tools. Exported data is plain text after decryption, so store it carefully."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body class="bg-app-canvas text-app-ink antialiased">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
