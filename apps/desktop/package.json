@@ -1,0 +1,13 @@
+{
+  "name": "@omanote/desktop",
+  "version": "0.22.2",
+  "private": true,
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}
