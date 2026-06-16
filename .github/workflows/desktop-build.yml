@@ -1,0 +1,151 @@
+name: Desktop apps
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ["desktop-v*"]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ubuntu-22.04
+            args: ""
+            runner: ubuntu-latest
+          - platform: windows-latest
+            args: ""
+            runner: windows-latest
+          - platform: macos-latest
+            args: "--target universal-apple-darwin"
+            runner: macos-latest
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ startsWith(matrix.platform, 'macos') && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+
+      - name: Install Linux dependencies
+        if: startsWith(matrix.platform, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+            librsvg2-dev patchelf libgtk-3-dev build-essential curl wget file libxdo-dev libssl-dev
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install desktop dependencies
+        run: npm ci --prefix apps/desktop
+
+      - name: Write production env
+        shell: bash
+        env:
+          DESKTOP_ENV_PRODUCTION: ${{ secrets.DESKTOP_ENV_PRODUCTION }}
+        run: printf '%s' "$DESKTOP_ENV_PRODUCTION" > .env.production
+
+      - name: Build desktop app
+        run: npm run build --prefix apps/desktop -- ${{ matrix.args }}
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+
+      - name: Repack AppImage without bundled libwayland
+        if: startsWith(matrix.platform, 'ubuntu')
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          APPIMAGE=$(find apps/desktop/src-tauri/target -name '*.AppImage' -print -quit)
+          "$APPIMAGE" --appimage-extract > /dev/null
+          rm -fv squashfs-root/usr/lib/libwayland-*.so*
+          curl -fsSL -o appimagetool \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool
+          ./appimagetool --appimage-extract-and-run squashfs-root "$APPIMAGE"
+          rm -rf squashfs-root appimagetool
+          npm --prefix apps/desktop exec -- tauri signer sign \
+            --private-key "$TAURI_SIGNING_PRIVATE_KEY" --password "" "$APPIMAGE"
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: omanote-desktop-${{ matrix.platform }}
+          path: |
+            apps/desktop/src-tauri/target/**/bundle/msi/*.msi
+            apps/desktop/src-tauri/target/**/bundle/nsis/*.exe
+            apps/desktop/src-tauri/target/**/bundle/nsis/*.sig
+            apps/desktop/src-tauri/target/**/bundle/deb/*.deb
+            apps/desktop/src-tauri/target/**/bundle/rpm/*.rpm
+            apps/desktop/src-tauri/target/**/bundle/appimage/*.AppImage
+            apps/desktop/src-tauri/target/**/bundle/appimage/*.sig
+            apps/desktop/src-tauri/target/**/bundle/dmg/*.dmg
+            apps/desktop/src-tauri/target/**/bundle/macos/*.app.tar.gz
+            apps/desktop/src-tauri/target/**/bundle/macos/*.app.tar.gz.sig
+          if-no-files-found: error
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/desktop-v')
+    needs: build
+    runs-on: self-hosted
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Generate updater manifest
+        run: |
+          VERSION="${GITHUB_REF_NAME#desktop-}"
+          VER_NUM="${VERSION#v}"
+          BASE="https://github.com/thehumanx/omanote-releases/releases/download/$VERSION"
+
+          APP_TGZ=$(find artifacts -name '*.app.tar.gz' | head -1)
+          NSIS=$(find artifacts -name '*-setup.exe' | head -1)
+          APPIMAGE=$(find artifacts -name '*.AppImage' | head -1)
+
+          jq -n \
+            --arg version "$VER_NUM" \
+            --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg mac_url "$BASE/$(basename "$APP_TGZ")" \
+            --arg mac_sig "$(cat "$APP_TGZ.sig")" \
+            --arg win_url "$BASE/$(basename "$NSIS")" \
+            --arg win_sig "$(cat "$NSIS.sig")" \
+            --arg lin_url "$BASE/$(basename "$APPIMAGE")" \
+            --arg lin_sig "$(cat "$APPIMAGE.sig")" \
+            '{
+              version: $version,
+              pub_date: $pub_date,
+              platforms: {
+                "darwin-universal": { url: $mac_url, signature: $mac_sig },
+                "darwin-aarch64":  { url: $mac_url, signature: $mac_sig },
+                "darwin-x86_64":   { url: $mac_url, signature: $mac_sig },
+                "windows-x86_64":  { url: $win_url, signature: $win_sig },
+                "linux-x86_64":    { url: $lin_url, signature: $lin_sig }
+              }
+            }' > artifacts/latest.json
+          cat artifacts/latest.json
+
+      - name: Publish release to omanote-releases
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#desktop-}"
+          gh release delete "$VERSION" --repo thehumanx/omanote-releases --yes || true
+          gh release create "$VERSION" --repo thehumanx/omanote-releases \
+            --title "omanote desktop $VERSION" \
+            --notes "Installers for Windows (.msi/.exe), macOS (.dmg, universal), and Linux (.deb/.rpm/.AppImage)." \
+            artifacts/latest.json \
+            $(find artifacts -type f \( -name '*.dmg' -o -name '*.msi' -o -name '*.exe' -o -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' -o -name '*.app.tar.gz' \))
