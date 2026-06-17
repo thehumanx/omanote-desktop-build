@@ -6,3 +6,6 @@ dist
 .env.*
 !.env.example
 coverage
+.claude/worktrees/
+docs/html/
+public/version.json

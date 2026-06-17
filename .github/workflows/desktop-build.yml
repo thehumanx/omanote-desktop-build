@@ -3,7 +3,6 @@ name: Desktop apps
 on:
   workflow_dispatch:
   push:
-    branches: [main]
     tags: ["desktop-v*"]
 
 jobs:
@@ -18,6 +17,7 @@ jobs:
           - platform: windows-latest
             args: ""
             runner: windows-latest
+          # Universal binary covers both Apple Silicon and Intel Macs.
           - platform: macos-latest
             args: "--target universal-apple-darwin"
             runner: macos-latest
@@ -50,6 +50,14 @@ jobs:
       - name: Install desktop dependencies
         run: npm ci --prefix apps/desktop
 
+      # The desktop build bundles the web frontend (tauri's beforeBuildCommand
+      # runs the repo-root vite build), which needs the production env file
+      # that is gitignored. DESKTOP_ENV_PRODUCTION holds the full contents of
+      # .env.production (VITE_CONVEX_URL, VITE_CONVEX_SITE_URL,
+      # VITE_CLERK_PUBLISHABLE_KEY, VITE_VAPID_PUBLIC_KEY).
+      # The secret is passed via env, NOT inlined in the script — inlining
+      # lets shell metacharacters in the file (e.g. backticks in comments)
+      # execute as commands on the runner.
       - name: Write production env
         shell: bash
         env:
@@ -59,14 +67,19 @@ jobs:
       - name: Build desktop app
         run: npm run build --prefix apps/desktop -- ${{ matrix.args }}
         env:
+          # Signs the updater artifacts (.sig files) so installed apps can
+          # verify auto-updates. Generated with `tauri signer generate`.
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
 
+      # The AppImage bundles Ubuntu 22.04's libwayland-client, which breaks
+      # EGL init (EGL_BAD_PARAMETER, blank window) on distros with newer
+      # mesa (e.g. Arch + Intel Arc). Strip it so the system library is
+      # used, then re-sign the updater signature for the modified file.
       - name: Repack AppImage without bundled libwayland
         if: startsWith(matrix.platform, 'ubuntu')
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           APPIMAGE=$(find apps/desktop/src-tauri/target -name '*.AppImage' -print -quit)
@@ -78,7 +91,7 @@ jobs:
           ./appimagetool --appimage-extract-and-run squashfs-root "$APPIMAGE"
           rm -rf squashfs-root appimagetool
           npm --prefix apps/desktop exec -- tauri signer sign \
-            --private-key "$TAURI_SIGNING_PRIVATE_KEY" --password "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" "$APPIMAGE"
+            --private-key "$TAURI_SIGNING_PRIVATE_KEY" --password "" "$APPIMAGE"
 
       - name: Upload installers
         uses: actions/upload-artifact@v4
@@ -97,6 +110,12 @@ jobs:
             apps/desktop/src-tauri/target/**/bundle/macos/*.app.tar.gz.sig
           if-no-files-found: error
 
+  # On desktop-v* tags, publish all installers as a GitHub Release on the
+  # public releases repo. The build matrix stays on GitHub-hosted runners,
+  # but publish runs on a self-hosted runner so GitHub Actions billing blocks
+  # cannot stop publication after the artifacts already exist.
+  # Requires the RELEASES_TOKEN secret: a fine-grained PAT with Contents
+  # read/write on thehumanx/omanote-releases.
   publish:
     if: startsWith(github.ref, 'refs/tags/desktop-v')
     needs: build
@@ -107,6 +126,9 @@ jobs:
           path: artifacts
           merge-multiple: true
 
+      # latest.json is what installed apps poll for auto-updates
+      # (tauri-plugin-updater). It points at the signed updater artifacts in
+      # this same release.
       - name: Generate updater manifest
         run: |
           VERSION="${GITHUB_REF_NAME#desktop-}"
@@ -144,6 +166,7 @@ jobs:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
         run: |
           VERSION="${GITHUB_REF_NAME#desktop-}"
+          # Re-tagging a version replaces its release instead of failing.
           gh release delete "$VERSION" --repo thehumanx/omanote-releases --yes || true
           gh release create "$VERSION" --repo thehumanx/omanote-releases \
             --title "omanote desktop $VERSION" \
