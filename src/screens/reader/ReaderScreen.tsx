@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import { createPortal } from "react-dom";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { useLiveQuery } from "dexie-react-hooks";
 import DOMPurify from "dompurify";
@@ -29,6 +29,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { useApp } from "../../app/AppProvider";
 import { useAuth } from "../../app/auth/AuthContext";
 import { db } from "../../app/db";
+import { fetchRssFeed, fetchFeedForDisplay, RssFetchError } from "../../lib/rssFetcher";
 import { BaseModal } from "../../components/BaseModal";
 import { BookmarkCategoryIconPicker } from "../../components/BookmarkCategoryIconPicker";
 import { EmptyState } from "../../components/EmptyState";
@@ -96,11 +97,20 @@ const ERROR_COPY: Record<string, string> = {
   rss_feed_limit: "You've reached the feed limit for the free plan.",
 };
 
+const RSS_FETCH_ERROR_COPY: Record<string, string> = {
+  network: "We couldn't reach the feed. Check your connection and try again.",
+  parse: "We found a feed, but it seems to be broken and can't be read right now.",
+  unknown: "Something went wrong while fetching the feed. Please try again.",
+};
+
 function friendlyErrorMessage(err: unknown, fallback: string): string {
   if (err instanceof ConvexError) {
     const data = err.data as { code?: string } | string | undefined;
     const code = typeof data === "string" ? data : data?.code;
     if (code && ERROR_COPY[code]) return ERROR_COPY[code];
+  }
+  if (err instanceof RssFetchError) {
+    if (RSS_FETCH_ERROR_COPY[err.code]) return RSS_FETCH_ERROR_COPY[err.code];
   }
   return fallback;
 }
@@ -316,16 +326,37 @@ export function ReaderScreen({ savedView = false }: { savedView?: boolean }) {
   const deleteCategory = useMutation(api.rss.deleteCategory);
   const unsubscribeFeed = useMutation(api.rss.unsubscribe);
   const updateSubscriptionCategory = useMutation(api.rss.updateSubscription);
-  const refreshFeedNow = useAction(api.actions.rssFetch.refreshFeedNow);
+  const applyClientFetch = useMutation(api.rss.applyClientFetch);
   const [fetchingFeedNow, setFetchingFeedNow] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const fetchFeedNow = () => {
+  const fetchFeedNow = async () => {
     if (!selectedFeedId || fetchingFeedNow) return;
     setFetchingFeedNow(true);
-    void refreshFeedNow({ feedId: selectedFeedId })
-      .then(() => scheduleSync())
-      .catch(() => {})
-      .finally(() => setFetchingFeedNow(false));
+    setFetchError(null);
+    try {
+      const subscription = subscriptions?.find(
+        (s) => String(s.feedId) === String(selectedFeedId),
+      );
+      if (!subscription?.feedUrl) return;
+
+      const feed = await fetchRssFeed(subscription.feedUrl);
+
+      await applyClientFetch({
+        feedId: selectedFeedId,
+        items: feed.items,
+        title: feed.title,
+        description: feed.description,
+        siteUrl: feed.siteUrl,
+      });
+
+      await scheduleSync();
+    } catch (error) {
+      console.error("Failed to refresh feed:", error);
+      setFetchError(friendlyErrorMessage(error, "Failed to refresh the feed. Please try again."));
+    } finally {
+      setFetchingFeedNow(false);
+    }
   };
 
   useEffect(() => {
@@ -454,25 +485,30 @@ export function ReaderScreen({ savedView = false }: { savedView?: boolean }) {
         <LoadingSpinner className="h-5 w-5" />
       </div>
     ) : items.length === 0 ? (
-      <EmptyState
-        title={savedView ? "Nothing saved yet" : "No articles yet"}
-        description={
-          savedView
-            ? "Articles you save in the reader land here so you can come back to them anytime."
-            : "Fresh articles are on their way — feeds refresh automatically every half hour."
-        }
-        actionLabel={
-          !savedView && selectedFeedId ? (fetchingFeedNow ? "Fetching…" : "Fetch now") : undefined
-        }
-        actionIcon={
-          fetchingFeedNow ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCw className="h-4 w-4" />
-          )
-        }
-        onAction={fetchFeedNow}
-      />
+      <>
+        <EmptyState
+          title={savedView ? "Nothing saved yet" : "No articles yet"}
+          description={
+            savedView
+              ? "Articles you save in the reader land here so you can come back to them anytime."
+              : "Fresh articles are on their way — feeds refresh automatically every half hour."
+          }
+          actionLabel={
+            !savedView && selectedFeedId ? (fetchingFeedNow ? "Fetching…" : "Fetch now") : undefined
+          }
+          actionIcon={
+            fetchingFeedNow ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )
+          }
+          onAction={fetchFeedNow}
+        />
+        {fetchError ? (
+          <p className="px-6 pb-4 text-center text-[13px] text-red-600">{fetchError}</p>
+        ) : null}
+      </>
     ) : (
       <div className={cn("min-h-0 flex-1 overflow-y-auto pb-24", isMobileDrawer && "px-4")}>
         <div className="divide-y divide-app-line">
@@ -1959,7 +1995,6 @@ function AddFeedModal({
   onClose: () => void;
 }) {
   const { scheduleSync } = useApp();
-  const discoverFeed = useAction(api.actions.rssFetch.discoverFeed);
   const subscribe = useMutation(api.rss.subscribe);
   const createCategory = useMutation(api.rss.createCategory);
   const [url, setUrl] = useState("");
@@ -1976,8 +2011,16 @@ function AddFeedModal({
     setError(null);
     setResult(null);
     try {
-      const found = (await discoverFeed({ url: trimmed })) as DiscoverResult;
-      setResult(found);
+      const found = await fetchFeedForDisplay(trimmed);
+      setResult({
+        feedUrl: found.feedUrl,
+        title: found.title,
+        description: found.description,
+        siteUrl: found.siteUrl,
+        faviconUrl: undefined,
+        itemCount: found.itemCount,
+        latestItemTitle: found.items[0]?.title,
+      });
     } catch (err) {
       setError(friendlyErrorMessage(err, "Something went wrong while looking for the feed. Please try again."));
     } finally {
