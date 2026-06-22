@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import readmeMarkdown from "../../README.md?raw";
+import changelogMarkdown from "../../CHANGELOG.md?raw";
 import { CHANGELOG_TABS, type ChangelogProduct } from "../components/ChangelogProductTabs";
 import { SegmentedPill } from "../components/ui";
 import { useTopChrome } from "../components/layout/useTopChrome";
@@ -169,7 +169,7 @@ function renderInline(text: string): ReactNode[] {
 export function UpdatesScreen() {
   const [activeTab, setActiveTab] = useState<ChangelogProduct>("webapp");
   const activeTabConfig = CHANGELOG_TABS.find((tab) => tab.id === activeTab) ?? CHANGELOG_TABS[0];
-  const versionLabel = useMemo(() => parseLatestVersion(readmeMarkdown)?.version ?? "", []);
+  const versionLabel = useMemo(() => parseLatestVersion(changelogMarkdown)?.version ?? "", []);
 
   const topChrome = useMemo(
     () => (
@@ -186,7 +186,7 @@ export function UpdatesScreen() {
   );
   useTopChrome(topChrome);
 
-  const versionsMarkdown = useMemo(() => extractVersionsSection(readmeMarkdown, activeTabConfig.sectionTitle), [activeTabConfig.sectionTitle]);
+  const versionsMarkdown = useMemo(() => extractVersionsSection(changelogMarkdown, activeTabConfig.sectionTitle), [activeTabConfig.sectionTitle]);
   const versionBlocks = useMemo(() => parseSimpleMarkdown(versionsMarkdown), [versionsMarkdown]);
   const versionGroups = useMemo(() => groupVersionBlocks(versionBlocks), [versionBlocks]);
 
@@ -297,7 +297,7 @@ export function UpdatesScreen() {
           </div>
         ) : (
           <p className="mt-3 text-sm text-app-ink-muted">
-            Add a <code className="rounded bg-app-surface-muted px-1.5 py-0.5 text-xs text-app-ink-muted">## Versions</code> section in <code className="rounded bg-app-surface-muted px-1.5 py-0.5 text-xs text-app-ink-muted">README.md</code> to populate this area.
+            Add a <code className="rounded bg-app-surface-muted px-1.5 py-0.5 text-xs text-app-ink-muted">## Versions</code> section in <code className="rounded bg-app-surface-muted px-1.5 py-0.5 text-xs text-app-ink-muted">CHANGELOG.md</code> to populate this area.
           </p>
         )}
       </section>

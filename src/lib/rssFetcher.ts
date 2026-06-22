@@ -1,6 +1,6 @@
 import { parseFeed, type ParsedFeed } from "../../convex/lib/rssParser";
 
-const PROXY_URL = import.meta.env.VITE_RSS_PROXY_URL || "http://localhost:8787";
+const PROXY_URL = "https://omanote-rss-proxy.iambishistha.workers.dev";
 const FETCH_TIMEOUT_MS = 15_000;
 const MAX_BODY_BYTES = 5 * 1024 * 1024;
 

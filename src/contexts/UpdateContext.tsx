@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import readmeMarkdown from "../../README.md?raw";
+import changelogMarkdown from "../../CHANGELOG.md?raw";
 import { getLastSeenVersion, getUnseenVersions, markVersionSeen, parseVersions, type VersionInfo } from "../lib/update-checker";
 
 const MODAL_OPEN_TRANSITION_MS = 320;
@@ -23,7 +23,7 @@ const UpdateContext = createContext<UpdateContextValue | null>(null);
 const POLL_INTERVAL_MS = 5 * 60 * 1000;
 
 export function UpdateProvider({ children }: { children: ReactNode }) {
-  const [versions, setVersions] = useState<VersionInfo[]>(() => parseVersions(readmeMarkdown));
+  const [versions, setVersions] = useState<VersionInfo[]>(() => parseVersions(changelogMarkdown));
   const bundledVersion = useRef<string | null>(versions[0]?.version ?? null);
   const [lastSeen, setLastSeen] = useState<string | null>(() => getLastSeenVersion());
   const [isModalOpen, setIsModalOpen] = useState(false);

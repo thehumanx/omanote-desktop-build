@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type TouchEvent as ReactTouchEvent, type WheelEvent as ReactWheelEvent } from "react";
 import { ExternalLink, RefreshCw, Sparkles, FileText, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import readmeMarkdown from "../../README.md?raw";
+import changelogMarkdown from "../../CHANGELOG.md?raw";
 import { Button, SegmentedPill } from "./ui";
 import { CHANGELOG_TABS, type ChangelogProduct } from "./ChangelogProductTabs";
 import { BaseModal } from "./BaseModal";
@@ -20,8 +20,8 @@ export function UpdateModal() {
   const navigate = useNavigate();
   const [isEntered, setIsEntered] = useState(false);
   const [activeTab, setActiveTab] = useState<ChangelogProduct>("webapp");
-  const extensionVersions = useMemo<VersionInfo[]>(() => parseVersions(readmeMarkdown, "Extension Versions"), []);
-  const desktopVersions = useMemo<VersionInfo[]>(() => parseVersions(readmeMarkdown, "Desktop Versions"), []);
+  const extensionVersions = useMemo<VersionInfo[]>(() => parseVersions(changelogMarkdown, "Extension Versions"), []);
+  const desktopVersions = useMemo<VersionInfo[]>(() => parseVersions(changelogMarkdown, "Desktop Versions"), []);
   const latestExtensionVersions = useMemo(() => extensionVersions.slice(0, 1), [extensionVersions]);
   const latestDesktopVersions = useMemo(() => desktopVersions.slice(0, 1), [desktopVersions]);
   const displayedVersions = activeTab === "extension" ? latestExtensionVersions : activeTab === "desktop" ? latestDesktopVersions : modalVersions;

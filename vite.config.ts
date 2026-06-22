@@ -36,10 +36,10 @@ function versionJsonPlugin(): Plugin {
 
   const write = () => {
     try {
-      const readmePath = new URL("./README.md", import.meta.url).pathname;
+      const changelogPath = new URL("./CHANGELOG.md", import.meta.url).pathname;
       const outPath = new URL("./public/version.json", import.meta.url).pathname;
-      const readme = readFileSync(readmePath, "utf-8");
-      const versions = parseVersionsFromMarkdown(readme);
+      const changelog = readFileSync(changelogPath, "utf-8");
+      const versions = parseVersionsFromMarkdown(changelog);
       if (!versions.length) return;
       writeFileSync(outPath, JSON.stringify({ version: versions[0].version, versions }));
     } catch (e) {
