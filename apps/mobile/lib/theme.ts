@@ -1,0 +1,71 @@
+import { ColorSchemeName } from 'react-native';
+
+const light = {
+  canvas: '#ffffff',
+  surface: '#ffffff',
+  surfaceRaised: '#ffffff',
+  surfaceMuted: '#f4f4f5',
+  surfaceHover: '#fafafa',
+  ink: '#18181b',
+  inkMuted: '#52525b',
+  inkFaint: '#71717a',
+  inkInverted: '#ffffff',
+  line: '#e4e4e7',
+  lineStrong: '#d4d4d8',
+  actionPrimary: '#18181b',
+  actionPrimaryInk: '#ffffff',
+  actionPrimaryHover: '#27272a',
+  dangerSurface: '#fef2f2',
+  dangerInk: '#b91c1c',
+  dangerLine: '#fecaca',
+  successSurface: '#ecfdf5',
+  successInk: '#047857',
+  warningSurface: '#fffbeb',
+  warningInk: '#b45309',
+  infoSurface: '#eff6ff',
+  infoInk: '#1d4ed8',
+  accent: '#6366f1',
+  accentMuted: '#e0e7ff',
+  tabBarBg: '#ffffff',
+  tabBarBorder: '#e4e4e7',
+  tabActive: '#18181b',
+  tabInactive: '#a1a1aa',
+};
+
+const dark: typeof light = {
+  canvas: '#09090b',
+  surface: '#18181b',
+  surfaceRaised: '#27272a',
+  surfaceMuted: '#27272a',
+  surfaceHover: '#1c1c20',
+  ink: '#f4f4f5',
+  inkMuted: '#d4d4d8',
+  inkFaint: '#a1a1aa',
+  inkInverted: '#09090b',
+  line: '#3f3f46',
+  lineStrong: '#52525b',
+  actionPrimary: '#f4f4f5',
+  actionPrimaryInk: '#09090b',
+  actionPrimaryHover: '#e4e4e7',
+  dangerSurface: '#231212',
+  dangerInk: '#f87171',
+  dangerLine: '#7f1d1d',
+  successSurface: '#022c22',
+  successInk: '#34d399',
+  warningSurface: '#451a03',
+  warningInk: '#fbbf24',
+  infoSurface: '#172554',
+  infoInk: '#60a5fa',
+  accent: '#818cf8',
+  accentMuted: '#1e1b4b',
+  tabBarBg: '#18181b',
+  tabBarBorder: '#27272a',
+  tabActive: '#f4f4f5',
+  tabInactive: '#52525b',
+};
+
+export type Theme = typeof light;
+
+export function getTheme(scheme: ColorSchemeName): Theme {
+  return scheme === 'dark' ? dark : light;
+}

@@ -1,0 +1,903 @@
+@import url("https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&family=Aleo:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root,
+.public-page {
+  color-scheme: light;
+  --app-font-family: "Lato", ui-sans-serif, system-ui, sans-serif;
+  --app-font-family-serif: "Aleo", Georgia, ui-serif, serif;
+  --app-font-variation-settings: normal;
+  --app-font-bold-weight: 700;
+  --app-font-letter-spacing: normal;
+  --color-canvas: 255 255 255;
+  --color-surface: 255 255 255;
+  --color-surface-raised: 255 255 255;
+  --color-surface-muted: 244 244 245;
+  --color-surface-hover: 250 250 250;
+  --color-ink: 24 24 27;
+  --color-ink-muted: 82 82 91;
+  --color-ink-faint: 113 113 122;
+  --color-ink-inverted: 255 255 255;
+  --color-line: 228 228 231;
+  --color-line-strong: 161 161 170;
+  --color-focus: 24 24 27;
+  --color-action-primary: 24 24 27;
+  --color-action-primary-hover: 39 39 42;
+  --color-action-primary-ink: 255 255 255;
+  --color-danger-surface: 254 242 242;
+  --color-danger-line: 254 202 202;
+  --color-danger-ink: 185 28 28;
+  --color-danger-solid: 220 38 38;
+  --color-danger-solid-hover: 185 28 28;
+  --color-danger-solid-line: 239 68 68;
+  --color-danger-solid-ink: 255 255 255;
+  --color-success-surface: 236 253 245;
+  --color-success-line: 167 243 208;
+  --color-success-ink: 4 120 87;
+  --color-success-solid: 5 150 105;
+  --color-warning-surface: 255 251 235;
+  --color-warning-line: 253 230 138;
+  --color-warning-ink: 146 64 14;
+  --color-warning-solid: 245 158 11;
+  --color-info-surface: 239 246 255;
+  --color-info-line: 147 197 253;
+  --color-info-ink: 37 99 235;
+  --color-info-solid: 37 99 235;
+  --color-bg-overlay: rgba(9, 9, 11, 0.55);
+  --color-border-info: #93c5fd;
+  --color-text-info: #2563eb;
+  --color-nav-active: 24 24 27;
+  --color-nav-active-border: 77 77 77;
+  --color-nav-active-ink: 255 255 255;
+  --color-chart-todo: #4D4D4D;
+  --color-chart-note: #A99E4E;
+  --color-chart-bookmark: #5D9F89;
+  --color-chart-event: #9F6FDA;
+  --color-chart-empty: #E6E6E6;
+  --space-app-page-x: 1rem;
+  --space-app-page-y: 1rem;
+  --space-app-section-gap: 1.5rem;
+  --space-app-content-gap: 1rem;
+  --space-app-compact-gap: 0.5rem;
+  --space-field-x: 0.75rem;
+  --space-field-y: 0.5rem;
+  --space-field-gap: 0.375rem;
+  --space-card-padding: 1rem;
+  --space-card-compact-padding: 0.75rem;
+  --radius-app-field: 0.375rem;
+  --radius-app-button: 0.5rem;
+  --radius-app-chip: 9999px;
+  --radius-app-panel: 0.75rem;
+  --radius-app-card: 1rem;
+  --radius-app-dialog: 1rem;
+  --radius-app-drawer: 1rem;
+  --component-segmented-radius: 90px;
+  --component-segmented-item-radius: 70px;
+  --component-segmented-label-max-width: 6rem;
+  --component-segmented-label-gap: 0.375rem;
+  --component-segmented-highlight-gloss-start: rgba(255, 255, 255, 0.18);
+  --component-segmented-highlight-gloss-end: rgba(255, 255, 255, 0);
+  --component-segmented-highlight-gloss-stop: 44%;
+  --component-todo-checkmark-size: 1.25rem;
+  --component-todo-checkmark-compact-size: 1rem;
+  --component-todo-checkmark-bleed: 0.375rem;
+  --component-todo-checkmark-text-align-offset: -0.125rem;
+  --component-todo-checkmark-compact-text-align-offset: 0rem;
+  --shadow-soft: 0 4px 16px rgba(0, 0, 0, 0.06);
+  --shadow-nav: 0px 4px 16px 0px rgba(0, 0, 0, 0.08);
+  --shadow-nav-active: 0px 1px 4px 0px rgba(0, 0, 0, 0.4);
+  --shadow-nav-active-inset: inset 0px 3px 4px 0px rgba(255, 255, 255, 0.25);
+  --shadow-danger-active: 0px 10px 30px rgba(185, 28, 28, 0.18), 0px 2px 8px rgba(185, 28, 28, 0.16);
+  --shadow-danger-active-inset: inset 0px 3px 4px 0px rgba(255, 255, 255, 0.24);
+  --shadow-menu: 0 18px 40px rgba(0, 0, 0, 0.12);
+  --shadow-dialog: 0 24px 60px rgba(0, 0, 0, 0.18);
+  --shadow-drawer: 0 -8px 40px rgba(0, 0, 0, 0.14);
+  --shadow-app-soft: var(--shadow-soft);
+  --shadow-app-nav: var(--shadow-nav);
+  --shadow-app-nav-active: var(--shadow-nav-active);
+  --shadow-app-nav-active-inset: var(--shadow-nav-active-inset);
+  --shadow-app-menu: var(--shadow-menu);
+  --shadow-app-dialog: var(--shadow-dialog);
+  --shadow-app-drawer: var(--shadow-drawer);
+  --shadow-app-bubble: 0 4px 16px rgba(0, 0, 0, 0.1), 0 1px 4px rgba(0, 0, 0, 0.06);
+  --shadow-app-bubble-hover: 0 6px 20px rgba(0, 0, 0, 0.12);
+  --motion-duration-fast: 150ms;
+  --motion-duration-base: 200ms;
+  --motion-duration-slow: 300ms;
+  --motion-duration-date-strip-active: 250ms;
+  --motion-duration-week-slide: 280ms;
+  --motion-duration-drawer: 360ms;
+  --motion-easing-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --motion-easing-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --motion-easing-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --z-app-top-bar: 40;
+  --z-app-bottom-nav: 50;
+  --z-app-modal: 60;
+  --z-app-floating: 70;
+  --z-app-toast: 50;
+  --z-app-overlay: 80;
+  --z-app-drawer: 81;
+  --z-app-menu: 82;
+  --z-app-tooltip: 83;
+  --z-app-dialog: 90;
+  --z-app-popover: 100;
+  --z-app-linked-artifact-sheet: 120;
+  --z-app-extension-root: 2147483647;
+  --color-canvas-dot: 225 225 229;
+  --color-founder-note-paper: 251 248 240;
+  --color-founder-note-rule: 176 193 212;
+  --color-founder-note-margin: 228 128 128;
+  --color-founder-note-rule-step: 2.5rem;
+  --color-founder-note-rule-offset: 1.875rem;
+}
+
+.dark {
+  color-scheme: dark;
+  --color-canvas: 9 9 11;
+  --color-canvas-dot: 30 30 36;
+  --color-surface: 24 24 27;
+  --color-surface-raised: 39 39 42;
+  --color-surface-muted: 39 39 42;
+  --color-surface-hover: 28 28 32;
+  --color-ink: 244 244 245;
+  --color-ink-muted: 212 212 216;
+  --color-ink-faint: 161 161 170;
+  --color-ink-inverted: 9 9 11;
+  --color-line: 63 63 70;
+  --color-line-strong: 113 113 122;
+  --color-focus: 244 244 245;
+  --color-action-primary: 244 244 245;
+  --color-action-primary-hover: 228 228 231;
+  --color-action-primary-ink: 9 9 11;
+  --color-danger-surface: 35 18 18;
+  --color-danger-line: 72 28 28;
+  --color-danger-ink: 252 165 165;
+  --color-danger-solid: 248 113 113;
+  --color-danger-solid-hover: 239 68 68;
+  --color-danger-solid-line: 252 165 165;
+  --color-danger-solid-ink: 255 255 255;
+  --color-success-surface: 2 44 34;
+  --color-success-line: 6 95 70;
+  --color-success-ink: 110 231 183;
+  --color-success-solid: 52 211 153;
+  --color-warning-surface: 69 26 3;
+  --color-warning-line: 146 64 14;
+  --color-warning-ink: 252 211 77;
+  --color-warning-solid: 251 191 36;
+  --color-info-surface: 23 37 84;
+  --color-info-line: 30 64 175;
+  --color-info-ink: 147 197 253;
+  --color-info-solid: 96 165 250;
+  --color-bg-overlay: rgba(0, 0, 0, 0.68);
+  --color-border-info: #1d4ed8;
+  --color-text-info: #93c5fd;
+  --color-nav-active: 82 82 91;
+  --color-nav-active-border: 52 52 58;
+  --color-nav-active-ink: 255 255 255;
+  --color-chart-todo: #A99E4E;
+  --color-chart-note: #5D9F89;
+  --color-chart-bookmark: #4CA7C8;
+  --color-chart-event: #8C64BC;
+  --color-chart-empty: #52525B;
+  --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.28);
+  --shadow-nav: 0px 10px 30px 0px rgba(0, 0, 0, 0.32);
+  --shadow-nav-active: 0px 1px 4px 0px rgba(0, 0, 0, 0.6);
+  --shadow-nav-active-inset: inset 0px 3px 4px 0px rgba(255, 255, 255, 0.12);
+  --shadow-danger-active: 0px 10px 30px rgba(239, 68, 68, 0.28), 0px 2px 8px rgba(185, 28, 28, 0.24);
+  --shadow-danger-active-inset: inset 0px 3px 4px 0px rgba(255, 255, 255, 0.18);
+  --shadow-menu: 0 18px 40px rgba(0, 0, 0, 0.38);
+  --shadow-dialog: 0 24px 60px rgba(0, 0, 0, 0.48);
+  --shadow-drawer: 0 -8px 40px rgba(0, 0, 0, 0.42);
+  --shadow-app-soft: var(--shadow-soft);
+  --shadow-app-nav: var(--shadow-nav);
+  --shadow-app-nav-active: var(--shadow-nav-active);
+  --shadow-app-nav-active-inset: var(--shadow-nav-active-inset);
+  --shadow-app-menu: var(--shadow-menu);
+  --shadow-app-dialog: var(--shadow-dialog);
+  --shadow-app-drawer: var(--shadow-drawer);
+  --shadow-app-bubble: 0 4px 16px rgba(0, 0, 0, 0.32), 0 1px 4px rgba(0, 0, 0, 0.24);
+  --shadow-app-bubble-hover: 0 6px 20px rgba(0, 0, 0, 0.36);
+  --color-founder-note-paper: 29 27 24;
+  --color-founder-note-rule: 83 89 99;
+  --color-founder-note-margin: 147 118 118;
+  --color-founder-note-rule-step: 1.5rem;
+  --color-founder-note-rule-offset: 0.5rem;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+html {
+  background: rgb(var(--color-canvas));
+}
+
+body {
+  background: rgb(var(--color-canvas));
+  color: rgb(var(--color-ink));
+  font-family: var(--app-font-family);
+  font-optical-sizing: auto;
+  font-variation-settings: var(--app-font-variation-settings);
+  letter-spacing: var(--app-font-letter-spacing);
+}
+
+.font-bold {
+  font-weight: var(--app-font-bold-weight);
+}
+
+/* Make the landing heading utility resolve to the shared app serif stack. */
+.font-serif-heading {
+  font-family: var(--app-font-family-serif);
+}
+
+/* Landing hero heading emphasis for the shared serif stack. */
+.font-serif-heading-smooth {
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+@layer components {
+  .founder-note-card {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 18%),
+      rgb(var(--color-founder-note-paper));
+  }
+
+  .founder-note-body {
+    background-color: rgb(var(--color-founder-note-paper));
+    background-image:
+      linear-gradient(
+        to right,
+        transparent 0,
+        transparent 3rem,
+        rgba(var(--color-founder-note-margin) / 0.24) 3rem,
+        rgba(var(--color-founder-note-margin) / 0.24) calc(3rem + 1px),
+        transparent calc(3rem + 1px)
+      ),
+      repeating-linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent calc(var(--color-founder-note-rule-step) - 1px),
+        rgba(var(--color-founder-note-rule) / 0.18) calc(var(--color-founder-note-rule-step) - 1px),
+        rgba(var(--color-founder-note-rule) / 0.18) var(--color-founder-note-rule-step)
+      );
+    background-position: 0 0, 0 var(--color-founder-note-rule-offset);
+    background-attachment: local;
+  }
+
+  .founder-note-paragraph {
+    line-height: var(--color-founder-note-rule-step);
+  }
+}
+
+@layer components {
+  .omanote-button-chrome {
+    border: 1px solid rgb(var(--color-nav-active-border));
+    border-radius: var(--radius-app-button);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 44%),
+      rgb(var(--color-nav-active));
+    box-shadow: var(--shadow-nav-active), var(--shadow-nav-active-inset);
+  }
+
+  .omanote-button-chrome:hover {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.02) 48%),
+      rgb(var(--color-action-primary-hover));
+  }
+
+  .dark .omanote-button-chrome {
+    border-color: rgb(var(--color-nav-active-border));
+    color: rgb(var(--color-nav-active-ink));
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 44%),
+      rgb(var(--color-nav-active));
+    box-shadow: var(--shadow-nav-active), var(--shadow-nav-active-inset);
+  }
+
+  .dark .omanote-button-chrome:not(:disabled):hover {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.02) 48%),
+      rgb(var(--color-nav-active));
+  }
+
+  .omanote-button-destructive {
+    border: 1px solid rgb(var(--color-danger-solid-line));
+    border-radius: var(--radius-app-button);
+    color: rgb(var(--color-danger-solid-ink));
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0) 44%),
+      rgb(var(--color-danger-solid));
+    box-shadow: var(--shadow-danger-active), var(--shadow-danger-active-inset);
+  }
+
+  .omanote-button-destructive:not(:disabled):hover {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.02) 48%),
+      rgb(var(--color-danger-solid-hover));
+  }
+
+  .omanote-button-plain {
+    border-radius: var(--radius-app-button);
+  }
+
+  .omanote-button-danger-ghost {
+    border-radius: var(--radius-app-button);
+  }
+
+  .omanote-segmented-shell {
+    border-radius: var(--component-segmented-radius);
+  }
+
+  .omanote-segmented-highlight {
+    border-color: rgb(var(--color-nav-active-border));
+    border-radius: var(--component-segmented-item-radius);
+    background:
+      linear-gradient(
+        180deg,
+        var(--component-segmented-highlight-gloss-start),
+        var(--component-segmented-highlight-gloss-end) var(--component-segmented-highlight-gloss-stop)
+      ),
+      rgb(var(--color-nav-active));
+    box-shadow: var(--shadow-nav-active);
+    transition-property: transform, width, height, opacity;
+    transition-duration: var(--motion-duration-fast);
+    transition-timing-function: var(--motion-easing-in-out);
+    will-change: transform, width, height, opacity;
+  }
+
+  .omanote-segmented-highlight-shine {
+    border-radius: var(--component-segmented-item-radius);
+    box-shadow: var(--shadow-nav-active-inset);
+  }
+
+  .omanote-segmented-item {
+    border-radius: var(--component-segmented-item-radius);
+  }
+
+  .omanote-segmented-item-active {
+    color: rgb(var(--color-nav-active-ink));
+  }
+
+  .omanote-segmented-label {
+    display: none;
+    width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    opacity: 0;
+    margin-left: 0;
+    transition-property: opacity, margin-left;
+    transition-duration: var(--motion-duration-slow);
+    transition-timing-function: var(--motion-easing-in-out);
+    will-change: opacity, margin-left;
+  }
+
+  .omanote-segmented-label-visible {
+    width: auto;
+    opacity: 1;
+  }
+
+  .omanote-segmented-label-gap {
+    margin-left: var(--component-segmented-label-gap);
+  }
+
+  @media (min-width: 768px) {
+    .omanote-segmented-label {
+      display: inline-block;
+    }
+  }
+
+  .omanote-date-active-highlight {
+    background: rgb(var(--color-nav-active));
+    transition-property: transform, width, height, opacity;
+    transition-duration: var(--motion-duration-date-strip-active);
+    transition-timing-function: var(--motion-easing-in-out);
+  }
+
+  .omanote-todo-checkmark {
+    position: relative;
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    padding: 0;
+    transition-property: transform, color, opacity;
+    transition-duration: var(--motion-duration-fast);
+    transition-timing-function: var(--motion-easing-out);
+  }
+
+  .omanote-todo-checkmark-bleed-md {
+    width: calc(var(--component-todo-checkmark-size) + (var(--component-todo-checkmark-bleed) * 2));
+    height: calc(var(--component-todo-checkmark-size) + (var(--component-todo-checkmark-bleed) * 2));
+  }
+
+  .omanote-todo-checkmark-bleed-sm {
+    width: calc(var(--component-todo-checkmark-compact-size) + (var(--component-todo-checkmark-bleed) * 2));
+    height: calc(var(--component-todo-checkmark-compact-size) + (var(--component-todo-checkmark-bleed) * 2));
+  }
+
+  .omanote-todo-checkmark-align-text-md {
+    margin-top: var(--component-todo-checkmark-text-align-offset);
+  }
+
+  .omanote-todo-checkmark-align-text-sm {
+    margin-top: var(--component-todo-checkmark-compact-text-align-offset);
+  }
+
+  .omanote-todo-checkmark-chrome {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    border: 1px solid currentColor;
+    border-radius: inherit;
+    pointer-events: none;
+    transform: translate3d(-50%, -50%, 0);
+    transition-property: border-color, background-color, box-shadow;
+    transition-duration: var(--motion-duration-fast);
+    transition-timing-function: var(--motion-easing-out);
+  }
+
+  .omanote-todo-checkmark-chrome-md {
+    width: var(--component-todo-checkmark-size);
+    height: var(--component-todo-checkmark-size);
+  }
+
+  .omanote-todo-checkmark-chrome-sm {
+    width: var(--component-todo-checkmark-compact-size);
+    height: var(--component-todo-checkmark-compact-size);
+  }
+
+  .omanote-todo-checkmark-icon {
+    position: relative;
+    z-index: 1;
+  }
+
+  .omanote-todo-checkmark-open {
+    color: rgb(var(--color-line-strong));
+  }
+
+  .omanote-todo-checkmark-open .omanote-todo-checkmark-chrome {
+    border-color: rgb(var(--color-line-strong));
+    background:
+      linear-gradient(145deg, rgb(var(--color-surface-raised)), rgb(var(--color-surface-muted))),
+      rgb(var(--color-surface));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.72),
+      inset 0 -1px 1px rgba(0, 0, 0, 0.04),
+      0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+
+  .omanote-todo-checkmark-open .omanote-todo-checkmark-icon {
+    color: transparent;
+  }
+
+  .omanote-todo-checkmark-done {
+    color: rgb(var(--color-nav-active-ink));
+  }
+
+  .omanote-todo-checkmark-done .omanote-todo-checkmark-chrome {
+    border-color: rgb(var(--color-nav-active-border));
+    background:
+      linear-gradient(145deg, rgb(var(--color-nav-active)), rgb(var(--color-action-primary-hover))),
+      rgb(var(--color-nav-active));
+    box-shadow:
+      var(--shadow-nav-active),
+      var(--shadow-nav-active-inset);
+  }
+
+  @keyframes omanoteTooltipPop {
+    from {
+      opacity: 0;
+      translate: 0 4px;
+      scale: 0.985;
+    }
+    to {
+      opacity: 1;
+      translate: 0 0;
+      scale: 1;
+    }
+  }
+
+  .omanote-tooltip-pop {
+    animation: omanoteTooltipPop 140ms var(--motion-easing-out);
+    transform-origin: top center;
+    will-change: opacity, transform;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .omanote-tooltip-pop {
+      animation: none;
+    }
+  }
+
+  .omanote-todo-checkmark:not(:disabled):hover {
+    transform: translateY(-1px);
+  }
+
+  .omanote-todo-checkmark:not(:disabled):active {
+    transform: translateY(1px) scale(0.96);
+  }
+
+  .omanote-todo-checkmark-disabled {
+    cursor: not-allowed;
+    opacity: 0.62;
+  }
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.app-range-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 9999px;
+  background: rgb(var(--color-line));
+  outline: none;
+  cursor: pointer;
+}
+
+.app-range-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: rgb(var(--color-ink));
+  border: 2px solid rgb(var(--color-surface));
+  box-shadow: 0 0 0 1px rgb(var(--color-line-strong));
+  cursor: pointer;
+  transition: box-shadow 150ms ease;
+}
+
+.app-range-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: rgb(var(--color-ink));
+  border: 2px solid rgb(var(--color-surface));
+  box-shadow: 0 0 0 1px rgb(var(--color-line-strong));
+  cursor: pointer;
+  transition: box-shadow 150ms ease;
+}
+
+.app-range-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px rgb(var(--color-focus) / 0.25);
+}
+
+.app-range-slider:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 3px rgb(var(--color-focus) / 0.25);
+}
+
+@keyframes omanote-week-slide-next {
+  from {
+    opacity: 0;
+    transform: translate3d(24px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes omanote-week-slide-prev {
+  from {
+    opacity: 0;
+    transform: translate3d(-24px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.omanote-canvas-grid {
+  background-image: radial-gradient(circle, rgb(var(--color-canvas-dot)) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+@keyframes omanote-canvas-slide-next {
+  from {
+    opacity: 0;
+    transform: translate3d(40px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes omanote-canvas-slide-prev {
+  from {
+    opacity: 0;
+    transform: translate3d(-40px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes omanote-page-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes omanote-sheet-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes omanote-modal-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes omanote-article-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes omanote-todo-view-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.omanote-todo-section-stack > * + *,
+.omanote-todo-section-list > * + * {
+  margin-top: 0.75rem;
+}
+
+.omanote-todo-complete-exit,
+.omanote-todo-section-exit {
+  height: var(--omanote-todo-exit-height);
+  animation: omanote-todo-collapse-exit 360ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  overflow: hidden;
+  transform-origin: center;
+  will-change: height, margin-top, opacity, transform;
+}
+
+.omanote-todo-complete-fade {
+  animation: omanote-todo-fade-exit 360ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+.omanote-todo-section-stack > * + .omanote-todo-section-exit,
+.omanote-todo-section-list > * + .omanote-todo-complete-exit {
+  animation-name: omanote-todo-collapse-exit-with-gap;
+}
+
+.omanote-todo-section-stack > .omanote-todo-section-exit:first-child + *,
+.omanote-todo-section-list > .omanote-todo-complete-exit:first-child + * {
+  margin-top: 0;
+  transition: margin-top 360ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.omanote-todo-complete-exit > *,
+.omanote-todo-section-exit > * {
+  overflow: hidden;
+}
+
+@keyframes omanote-todo-collapse-exit {
+  from {
+    height: var(--omanote-todo-exit-height);
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    height: 0;
+    opacity: 0;
+    transform: translate3d(10px, -2px, 0);
+  }
+}
+
+@keyframes omanote-todo-collapse-exit-with-gap {
+  from {
+    height: var(--omanote-todo-exit-height);
+    margin-top: 0.75rem;
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    height: 0;
+    margin-top: 0;
+    opacity: 0;
+    transform: translate3d(10px, -2px, 0);
+  }
+}
+
+@keyframes omanote-todo-fade-exit {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(10px, -2px, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .omanote-todo-complete-exit,
+  .omanote-todo-section-exit {
+    animation-name: omanote-todo-complete-dissolve;
+    animation-duration: 160ms;
+    animation-timing-function: linear;
+  }
+
+  .omanote-todo-section-stack > * + .omanote-todo-section-exit,
+  .omanote-todo-section-list > * + .omanote-todo-complete-exit {
+    animation-name: omanote-todo-complete-dissolve-with-gap;
+  }
+
+  .omanote-todo-section-stack > .omanote-todo-section-exit:first-child + *,
+  .omanote-todo-section-list > .omanote-todo-complete-exit:first-child + * {
+    transition-duration: 160ms;
+    transition-timing-function: linear;
+  }
+
+  .omanote-todo-complete-fade {
+    animation-name: omanote-todo-fade-dissolve;
+    animation-duration: 160ms;
+    animation-timing-function: linear;
+  }
+
+  @keyframes omanote-todo-complete-dissolve {
+    from {
+      height: var(--omanote-todo-exit-height);
+      opacity: 1;
+    }
+    to {
+      height: 0;
+      opacity: 0;
+    }
+  }
+
+  @keyframes omanote-todo-complete-dissolve-with-gap {
+    from {
+      height: var(--omanote-todo-exit-height);
+      margin-top: 0.75rem;
+      opacity: 1;
+    }
+    to {
+      height: 0;
+      margin-top: 0;
+      opacity: 0;
+    }
+  }
+
+  @keyframes omanote-todo-fade-dissolve {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+}
+
+/* Tiptap / ProseMirror editor resets */
+.ProseMirror {
+  outline: none;
+}
+.ProseMirror p {
+  margin: 0;
+}
+.ProseMirror ul,
+.ProseMirror ol {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+.ProseMirror ul {
+  list-style-type: disc;
+}
+.ProseMirror ol {
+  list-style-type: decimal;
+}
+.ProseMirror li {
+  margin: 0;
+}
+.ProseMirror li::marker {
+  color: theme('colors.zinc.400');
+}
+.ProseMirror li p {
+  margin: 0;
+}
+.omanote-note-editor p + p {
+  margin-top: 1.5rem;
+}
+.omanote-note-editor p + ul,
+.omanote-note-editor p + ol,
+.omanote-note-editor ul + p,
+.omanote-note-editor ol + p,
+.omanote-note-editor ul + ul,
+.omanote-note-editor ol + ol,
+.omanote-note-editor ul + ol,
+.omanote-note-editor ol + ul {
+  margin-top: 1.5rem;
+}
+.omanote-rich-text p + ul,
+.omanote-rich-text p + ol,
+.omanote-rich-text ul + p,
+.omanote-rich-text ol + p,
+.omanote-rich-text ul + ul,
+.omanote-rich-text ol + ol,
+.omanote-rich-text ul + ol,
+.omanote-rich-text ol + ul {
+  margin-top: 1.5rem;
+}
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: theme('colors.zinc.300');
+  pointer-events: none;
+  height: 0;
+}
+
+@keyframes omanote-toast-enter-from-top {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes omanote-toast-exit-to-top {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+  }
+}
+
+.omanote-toast-enter {
+  animation: omanote-toast-enter-from-top 180ms var(--motion-easing-out, ease-out);
+}
+
+.omanote-toast-exit {
+  animation: omanote-toast-exit-to-top 180ms var(--motion-easing-out, ease-out) forwards;
+}

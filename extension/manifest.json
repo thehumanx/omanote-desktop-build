@@ -1,0 +1,90 @@
+{
+  "manifest_version": 3,
+  "name": "omanote",
+  "version": "2.3.2",
+  "description": "Capture notes, bookmarks, and todos from anywhere into your omanote workspace.",
+
+  "permissions": [
+    "storage",
+    "contextMenus",
+    "activeTab",
+    "scripting",
+    "alarms",
+    "tabs"
+  ],
+
+  "host_permissions": [
+    "https://omanote.iambishistha.com/*",
+    "<all_urls>"
+  ],
+
+  "background": {
+    "service_worker": "background/worker.js",
+    "type": "module"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "exclude_matches": ["https://omanote.iambishistha.com/*"],
+      "js": ["content/index.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://omanote.iambishistha.com/auth/extension*"
+      ],
+      "js": ["content/auth-bridge.js"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "action": {
+    "default_popup": "popup/index.html",
+    "default_icon": {
+      "16": "assets/icon-16.png",
+      "32": "assets/icon-32.png",
+      "48": "assets/icon-48.png",
+      "128": "assets/icon-128.png"
+    },
+    "default_title": "omanote"
+  },
+
+  "commands": {
+    "open-popup": {
+      "suggested_key": {
+        "default": "Alt+Shift+O",
+        "mac": "Alt+Shift+O"
+      },
+      "description": "Open omanote quick capture"
+    }
+  },
+
+  "icons": {
+    "16": "assets/icon-16.png",
+    "48": "assets/icon-48.png",
+    "128": "assets/icon-128.png"
+  },
+
+  "web_accessible_resources": [
+    {
+      "resources": ["save-modal/index.html", "assets/*", "assets/fonts/*"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "omanote@iambishistha.com",
+      "data_collection_permissions": {
+        "required": [
+          "authenticationInfo",
+          "personallyIdentifyingInfo",
+          "websiteActivity",
+          "websiteContent"
+        ]
+      },
+      "strict_min_version": "109.0"
+    }
+  }
+}
