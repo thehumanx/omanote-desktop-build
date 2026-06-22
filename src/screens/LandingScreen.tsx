@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { SignInButton } from "@clerk/react";
 import { CookieNotice } from "../components/CookieNotice";
 import { Bookmark, CheckSquare, Compass, FileText, CalendarDays, SquarePen, Folder, Link2, Settings, Zap, MousePointerClick, Lock, Puzzle, LayoutDashboard, Hash, Share2, Moon, Monitor, Bell, RefreshCw, Download, Rss, BookOpen, ChevronDown, X } from "lucide-react";
-import readmeMarkdown from "../../README.md?raw";
+import changelogMarkdown from "../../CHANGELOG.md?raw";
 import { color } from "../design-system/tokens";
 import { parseLatestVersion } from "../lib/update-checker";
 import { useOutsideClick } from "../lib/useOutsideClick";
@@ -1217,7 +1217,7 @@ function JournalCta({ label = "Start your daily workspace" }: { label?: string }
 // ─── Main landing page ────────────────────────────────────────────────────────
 export function LandingScreen() {
   const year = new Date().getFullYear();
-  const currentVersion = parseLatestVersion(readmeMarkdown)?.version ?? "v0.9";
+  const currentVersion = parseLatestVersion(changelogMarkdown)?.version ?? "v0.9";
 
   return (
     <div className="public-page min-h-screen flex flex-col bg-app-surface text-app-ink">
