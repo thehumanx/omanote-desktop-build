@@ -14,7 +14,7 @@ The app auto-updates when a new version is released.
 
 ## Changelog
 
-### v23.1.0 [June 22, 2026]
+### v0.23.1 [June 22, 2026]
 
 > Desktop catches up with the latest webapp — cleaner feed controls, scheduled todos in Event, and calmer link previews.
 

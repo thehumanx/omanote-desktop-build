@@ -1,6 +1,6 @@
 {
   "name": "@omanote/desktop",
-  "version": "23.1.0",
+  "version": "0.23.1",
   "private": true,
   "scripts": {
     "dev": "tauri dev",
