@@ -4,6 +4,7 @@ import type {
   BookmarkItem,
   DateKey,
   TodoChecklistItem,
+  TodoFolder,
   HabitDefinition,
   NoteFolder,
   NoteItem,
@@ -45,6 +46,7 @@ export interface AppState {
     notesDrawerOpen: boolean;
   };
   todos: TodoItem[];
+  todoFolders: TodoFolder[];
   checklistItems: TodoChecklistItem[];
   notes: NoteItem[];
   deletedNotes: NoteItem[];
@@ -66,11 +68,11 @@ export type AppAction =
   | { type: "ui/set-search-query"; query: string }
   | { type: "ui/set-search-open"; open: boolean }
   | { type: "ui/set-notes-drawer-open"; open: boolean }
-  | { type: "todo/create"; title: string; dateKey: DateKey; dueDateKey?: DateKey; dueTime?: string; hashtags?: string[]; fromReminder?: boolean }
+  | { type: "todo/create"; title: string; dateKey: DateKey; dueDateKey?: DateKey; dueTime?: string; hashtags?: string[]; fromReminder?: boolean; folderId?: string; folderName?: string }
   | { type: "todo/toggle"; todoId: string; completedAt?: number }
   | { type: "todo/delete"; todoId: string }
   | { type: "todo/restore"; todoId: string }
-  | { type: "todo/update"; todoId: string; title: string; dueDateKey?: DateKey; dueTime?: string; hashtags?: string[] }
+  | { type: "todo/update"; todoId: string; title: string; dueDateKey?: DateKey; dueTime?: string; hashtags?: string[]; folderId?: string; folderName?: string }
   | { type: "todo/snooze"; todoId: string; minutes: number }
   | { type: "todo/mark-fired"; todoId: string; timestamp: number }
   | { type: "note/create"; body: string; dateKey: DateKey; title?: string; tags?: string[]; hashtags?: string[]; folderName?: string; folderId?: string }

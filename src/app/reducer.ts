@@ -115,6 +115,8 @@ export function appReducer(state: AppState = createInitialState(), action: AppAc
         createdDateKey: action.dateKey,
         dueDateKey,
         dueTime: action.dueTime,
+        folderId: action.folderId,
+        folderName: action.folderName,
       };
 
       return {
@@ -217,6 +219,8 @@ export function appReducer(state: AppState = createInitialState(), action: AppAc
               title: action.title,
               dueDateKey,
               dueTime: action.dueTime,
+              folderId: action.folderId,
+              folderName: action.folderName,
               reminderFiredAt: undefined,
             })
           : todo,

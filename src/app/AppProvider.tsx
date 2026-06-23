@@ -4,7 +4,7 @@ import { useLocation } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { conjugateTitleToPastTense, toDateKey } from "@omanote/shared";
-import type { ActivityItem, BookmarkCategory, BookmarkItem, DateKey, NoteFolder, NoteItem, EventEntry, TodoChecklistItem, TodoItem } from "@omanote/shared";
+import type { ActivityItem, BookmarkCategory, BookmarkItem, DateKey, NoteFolder, NoteItem, EventEntry, TodoChecklistItem, TodoFolder, TodoItem } from "@omanote/shared";
 import { useEncryption } from "../contexts/EncryptionContext";
 import { useUserSettings } from "../contexts/UserSettingsContext";
 
@@ -322,6 +322,18 @@ function mapTodo(todo: Doc<"todos">): TodoItem {
     createdDateKey: asDateKey(todo.createdDateKey),
     sourceNoteId: todo.sourceNoteId ? String(todo.sourceNoteId) : undefined,
     reminderFiredAt: todo.reminderFiredAt ?? undefined,
+    folderId: todo.folderId ? String(todo.folderId) : undefined,
+    folderName: todo.folderName ?? undefined,
+  };
+}
+
+function mapTodoFolder(folder: Doc<"todoFolders">): TodoFolder {
+  return {
+    id: String(folder._id),
+    name: folder.name,
+    icon: folder.icon ?? undefined,
+    createdAt: folder.createdAt,
+    updatedAt: folder.updatedAt,
   };
 }
 
@@ -531,7 +543,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const clear = stored && stored !== clerkUserId;
     if (clear) {
       void Promise.all([
-        db.todos.clear(), db.todoChecklistItems.clear(), db.notes.clear(),
+        db.todos.clear(), db.todoFolders.clear(), db.todoChecklistItems.clear(), db.notes.clear(),
         db.noteFolders.clear(), db.bookmarks.clear(), db.bookmarkCategories.clear(),
         db.events.clear(), db.canvasPlacements.clear(), db.activityHistory.clear(),
         db.syncCursors.clear(),
@@ -558,6 +570,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   ) ?? EMPTY;
   const serverTodoIds = useMemo(() => new Set(serverTodos.map((todo) => String(todo._id))), [serverTodos]);
   const rawChecklistItems = useLiveQuery(() => db.todoChecklistItems.toArray()) ?? EMPTY;
+  const rawTodoFolders = useLiveQuery(
+    () => db.todoFolders.toArray().then(rows => rows.sort((a, b) => b.createdAt - a.createdAt)),
+  ) ?? EMPTY;
   const rawNotes = useLiveQuery(
     () => db.notes.filter(n => !n.deletedAt).toArray().then(rows => rows.sort((a, b) => b.createdAt - a.createdAt)),
   ) ?? EMPTY;
@@ -593,6 +608,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Decrypted copies of each query result (populated asynchronously).
   const [decryptedTodos, setDecryptedTodos] = useState<TodoItem[]>([]);
+  const [decryptedTodoFolders, setDecryptedTodoFolders] = useState<TodoFolder[]>([]);
   const [decryptedChecklistItems, setDecryptedChecklistItems] = useState<TodoChecklistItem[]>([]);
   const [decryptedNotes, setDecryptedNotes] = useState<NoteItem[]>([]);
   const [decryptedDeletedNotes, setDecryptedDeletedNotes] = useState<NoteItem[]>([]);
@@ -611,11 +627,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ...mapTodo(t),
         title: await decrypt(t.title),
         notes: t.notes ? await decrypt(t.notes) : undefined,
+        folderName: t.folderName ? await decrypt(t.folderName) : undefined,
       })));
       if (!cancelled) setDecryptedTodos(result);
     })();
     return () => { cancelled = true; };
   }, [serverTodos, isLocked, decrypt]);
+
+  useEffect(() => {
+    if (isLocked) { setDecryptedTodoFolders([]); return; }
+    let cancelled = false;
+    void (async () => {
+      const result = await Promise.all(rawTodoFolders.map(async (folder) => ({
+        ...mapTodoFolder(folder),
+        name: await decrypt(folder.name),
+      })));
+      if (!cancelled) setDecryptedTodoFolders(result);
+    })();
+    return () => { cancelled = true; };
+  }, [rawTodoFolders, isLocked, decrypt]);
 
   useEffect(() => {
     if (isLocked) { setDecryptedChecklistItems([]); return; }
@@ -801,6 +831,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Mutations
   const createTodo = useMutation(api.todos.createTodo);
+  const createTodoFolder = useMutation(api.todos.createTodoFolder);
   const backfillTodoDueDates = useMutation(api.todos.backfillTodoDueDates);
   const backfillBookmarkUpdatedAt = useMutation(api.bookmarks.backfillBookmarkUpdatedAt);
   const backfillBookmarkCategoryUpdatedAt = useMutation(api.bookmarks.backfillBookmarkCategoryUpdatedAt);
@@ -1220,6 +1251,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const decryptedBookmarkCategoriesRef = useRef(decryptedBookmarkCategories);
   decryptedBookmarkCategoriesRef.current = decryptedBookmarkCategories;
 
+  const decryptedTodoFoldersRef = useRef(decryptedTodoFolders);
+  decryptedTodoFoldersRef.current = decryptedTodoFolders;
+
+  const resolveTodoFolderInput = useCallback(
+    async (folderId?: string, folderName?: string) => {
+      if (folderId) return { folderId, folderName };
+      const folders = decryptedTodoFoldersRef.current;
+      const trimmed = folderName?.trim() || "Others";
+      const existing = folders.find((folder) => folder.name.toLowerCase() === trimmed.toLowerCase());
+      if (existing) return { folderId: existing.id, folderName: existing.name };
+      const createdFolderId = (await createTodoFolder({ name: await encrypt(trimmed) })) as string;
+      return { folderId: createdFolderId, folderName: trimmed };
+    },
+    [createTodoFolder, encrypt],
+  );
+
   const clearBookmarkDraft = useCallback((draftKey?: string) => {
     if (!draftKey) return;
     removeCanvasDraft(`${draftKey}:categoryId`);
@@ -1409,6 +1456,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       "todo/toggle": async (payload) => {
         await toggleTodo({ todoId: payload.todoId as any, completedAt: payload.completedAt });
       },
+      "todo/create": async (payload) => {
+        await createTodo({
+          title: payload.title,
+          createdDateKey: payload.dateKey,
+          clientKey: payload.clientKey,
+          source: "web",
+          dueDateKey: payload.dueDateKey,
+          dueTime: payload.dueTime,
+          hashtags: payload.hashtags,
+          folderId: payload.folderId as any,
+          folderName: payload.folderName,
+        });
+      },
+      "todo/update": async (payload) => {
+        await updateTodo({
+          todoId: payload.todoId as any,
+          title: payload.title,
+          dueDateKey: payload.dueDateKey,
+          dueTime: payload.dueTime,
+          hashtags: payload.hashtags,
+          folderId: payload.folderId as any,
+          folderName: payload.folderName,
+        });
+      },
       "todo/checklist/ensure": async (payload) => {
         await ensureChecklistItem({ todoId: payload.todoId as any, text: payload.text });
       },
@@ -1431,6 +1502,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }).then(() => scheduleSync());
   }, [
     createChecklistItem,
+    createTodo,
     createNote,
     createEventEntry,
     deleteChecklistItem,
@@ -1443,6 +1515,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     snoozeTodo,
     toggleChecklistItem,
     updateChecklistItem,
+    updateTodo,
     updateNote,
     updateEventEntry,
     scheduleSync,
@@ -1509,6 +1582,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const normalizedDue = normalizeTodoDueInput({ dueDateKey: action.dueDateKey, dueTime: action.dueTime });
         const hashtags = action.hashtags ?? buildHashtagsFromText(action.title);
         const clientKey = prefixedRandomId("todo");
+        const optimisticFolder =
+          action.folderId || action.folderName
+            ? { folderId: action.folderId, folderName: action.folderName }
+            : { folderName: "Others" };
         const optimisticTodo: TodoItem = {
           id: clientKey,
           clientKey,
@@ -1524,10 +1601,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           createdDateKey: action.dateKey,
           sourceNoteId: undefined,
           reminderFiredAt: undefined,
+          folderId: optimisticFolder.folderId,
+          folderName: optimisticFolder.folderName,
         };
         localDispatch({ type: "todo/add-optimistic", todo: optimisticTodo });
         void (async () => {
           const encTitle = await encrypt(action.title);
+          const resolvedFolder = await resolveTodoFolderInput(action.folderId, action.folderName);
           try {
             const todoId = (await createTodo({
               title: encTitle,
@@ -1537,6 +1617,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               dueDateKey: normalizedDue.dueDateKey,
               dueTime: normalizedDue.dueTime,
               hashtags,
+              folderId: resolvedFolder.folderId as any,
+              folderName: resolvedFolder.folderId ? undefined : resolvedFolder.folderName ? await encrypt(resolvedFolder.folderName) : undefined,
             })) as string;
             localDispatch({ type: "todo/confirm-optimistic", clientKey });
             scheduleSync();
@@ -1550,10 +1632,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 dueDateKey: normalizedDue.dueDateKey,
                 dueTime: normalizedDue.dueTime,
                 hashtags,
+                folderId: resolvedFolder.folderId,
+                folderName: resolvedFolder.folderName,
               }),
             });
           } catch {
-            enqueueCanvasMutation("todo/create", { title: encTitle, dateKey: action.dateKey, clientKey, dueDateKey: normalizedDue.dueDateKey, dueTime: normalizedDue.dueTime, hashtags });
+            enqueueCanvasMutation("todo/create", {
+              title: encTitle,
+              dateKey: action.dateKey,
+              clientKey,
+              dueDateKey: normalizedDue.dueDateKey,
+              dueTime: normalizedDue.dueTime,
+              hashtags,
+              folderId: resolvedFolder.folderId,
+              folderName: resolvedFolder.folderId ? undefined : resolvedFolder.folderName ? await encrypt(resolvedFolder.folderName) : undefined,
+            });
           }
         })();
         return true;
@@ -1655,8 +1748,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const snapshot = stateRef.current?.todos.find((t) => t.id === action.todoId);
           const hashtags = action.hashtags ?? buildHashtagsFromText(action.title, snapshot?.notes);
           const encTitle = await encrypt(action.title);
+          const resolvedFolder = await resolveTodoFolderInput(action.folderId ?? snapshot?.folderId, action.folderName ?? snapshot?.folderName);
           try {
-            await updateTodo({ todoId: action.todoId as any, title: encTitle, dueDateKey: normalizedDue.dueDateKey, dueTime: normalizedDue.dueTime, hashtags });
+            await updateTodo({
+              todoId: action.todoId as any,
+              title: encTitle,
+              dueDateKey: normalizedDue.dueDateKey,
+              dueTime: normalizedDue.dueTime,
+              hashtags,
+              folderId: resolvedFolder.folderId as any,
+              folderName: resolvedFolder.folderId ? undefined : resolvedFolder.folderName ? await encrypt(resolvedFolder.folderName) : undefined,
+            });
             scheduleSync();
             if (snapshot) {
               const snapshotHashtags = buildHashtagsFromText(snapshot.title, snapshot.notes);
@@ -1669,6 +1771,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   dueDateKey: snapshot.dueDateKey,
                   dueTime: snapshot.dueTime,
                   hashtags: snapshotHashtags,
+                  folderId: snapshot.folderId,
+                  folderName: snapshot.folderName,
                 }),
                 redo: () => dispatchRef.current({
                   type: "todo/update",
@@ -1677,11 +1781,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   dueDateKey: normalizedDue.dueDateKey,
                   dueTime: normalizedDue.dueTime,
                   hashtags,
+                  folderId: resolvedFolder.folderId,
+                  folderName: resolvedFolder.folderName,
                 }),
               });
             }
           } catch {
-            enqueueCanvasMutation("todo/update", { todoId: action.todoId, title: encTitle, dueDateKey: normalizedDue.dueDateKey, dueTime: normalizedDue.dueTime, hashtags });
+            enqueueCanvasMutation("todo/update", {
+              todoId: action.todoId,
+              title: encTitle,
+              dueDateKey: normalizedDue.dueDateKey,
+              dueTime: normalizedDue.dueTime,
+              hashtags,
+              folderId: resolvedFolder.folderId,
+              folderName: resolvedFolder.folderId ? undefined : resolvedFolder.folderName ? await encrypt(resolvedFolder.folderName) : undefined,
+            });
           }
         })();
         return true;
@@ -1739,7 +1853,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       default:
         return false;
     }
-  }, [createTodo, updateTodo, toggleTodo, deleteTodo, restoreTodo, snoozeTodo, markFired, pushHistory, showDeleteToast, localDispatch, encrypt, scheduleSync]);
+  }, [createTodo, updateTodo, toggleTodo, deleteTodo, restoreTodo, snoozeTodo, markFired, pushHistory, showDeleteToast, localDispatch, encrypt, resolveTodoFolderInput, scheduleSync]);
 
   const handleNoteAction = useCallback((action: AppAction): boolean => {
     switch (action.type) {
@@ -2193,6 +2307,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         serverTodoClientKeys,
         deletingTodoIds: localState.deletingTodoIds,
       }),
+      todoFolders: decryptedTodoFolders,
       checklistItems: decryptedChecklistItems,
       notes: [
         ...decryptedNotes.filter((note) => !localState.deletingNoteIds.includes(note.id)),

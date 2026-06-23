@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toDateKey, type DateKey, type TodoFilter, type TodoItem } from "@omanote/shared";
-import { Calendar, CalendarClock, CircleCheckBig, ClockAlert, Plus } from "lucide-react";
+import { Calendar, CalendarClock, CircleCheckBig, ClockAlert, Folder, Plus } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useApp } from "../app/AppProvider";
 import { EmptyState } from "../components/EmptyState";
@@ -22,6 +22,25 @@ const todoViews: Array<{ key: TodoFilter; label: string; icon: ReactNode }> = [
 
 const TODO_COMPLETION_EXIT_MS = 360;
 const TODO_VIEW_TRANSITION_MS = 180;
+const TODOS_LAST_SELECTED_FOLDER_KEY = "omanote.todos-last-selected-folder";
+
+function readLastSelectedTodoFolder() {
+  if (typeof window === "undefined") return "";
+  try {
+    return window.localStorage.getItem(TODOS_LAST_SELECTED_FOLDER_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function writeLastSelectedTodoFolder(value: string) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(TODOS_LAST_SELECTED_FOLDER_KEY, value);
+  } catch {
+    // Ignore storage failures.
+  }
+}
 
 type CompletionFilterByTodoId = Partial<Record<string, TodoFilter>>;
 type CompletedLabelByTodoId = Partial<Record<string, string>>;
@@ -98,6 +117,47 @@ function TodoViewRow({
         )}
       >
         {icon}
+      </span>
+      <span className="min-w-0 flex-1 truncate text-[15px] font-bold">{label}</span>
+      <span
+        className={cn(
+          "rounded-full px-2 py-0.5 text-[11px] font-medium",
+          selected ? "bg-app-surface text-app-ink" : "bg-app-surface-muted text-app-ink-faint",
+        )}
+      >
+        {count}
+      </span>
+    </button>
+  );
+}
+
+function TodoFolderRow({
+  label,
+  count,
+  selected,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "group flex w-full items-center gap-2 rounded-md p-2 text-left transition-[background-color,color] duration-app-base ease-app-in-out",
+        selected ? "bg-app-surface-muted text-app-ink" : "bg-transparent text-app-ink-muted hover:bg-app-surface-hover",
+      )}
+    >
+      <span
+        className={cn(
+          "flex h-8 w-8 flex-none items-center justify-center rounded-md",
+          selected ? "bg-app-surface text-app-ink-faint" : "bg-app-surface-muted text-app-ink-faint",
+        )}
+      >
+        <Folder className="h-4 w-4" />
       </span>
       <span className="min-w-0 flex-1 truncate text-[15px] font-bold">{label}</span>
       <span
@@ -265,6 +325,7 @@ export function TodosScreen() {
   const [editing, setEditing] = useState<string | null>(null);
   const [focusedTodoId, setFocusedTodoId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(() => readLastSelectedTodoFolder() || null);
   const [todoViewFading, setTodoViewFading] = useState(false);
   const [completionFilterByTodoId, setCompletionFilterByTodoId] = useState<CompletionFilterByTodoId>({});
   const [uncompletionFilterByTodoId, setUncompletionFilterByTodoId] = useState<CompletionFilterByTodoId>({});
@@ -334,9 +395,44 @@ export function TodosScreen() {
   }, [dispatch]);
 
   const activeTodos = useMemo(() => state.todos.filter((todo) => !todo.deletedAt), [state.todos]);
+  const effectiveTodoFolders = useMemo(() => {
+    if (state.todoFolders.length) return state.todoFolders;
+    return [{ id: "__others__", name: "Others", createdAt: 0, updatedAt: 0 }];
+  }, [state.todoFolders]);
+  const selectedFolder = useMemo(() => {
+    return effectiveTodoFolders.find((folder) => folder.id === selectedFolderId) ?? effectiveTodoFolders[0] ?? null;
+  }, [effectiveTodoFolders, selectedFolderId]);
+  const todoBelongsToSelectedFolder = useCallback((todo: TodoItem) => {
+    if (!selectedFolder) return true;
+    if (todo.folderId) return todo.folderId === selectedFolder.id;
+    return selectedFolder.name.toLowerCase() === "others";
+  }, [selectedFolder]);
+  const folderTodos = useMemo(
+    () => activeTodos.filter(todoBelongsToSelectedFolder),
+    [activeTodos, todoBelongsToSelectedFolder],
+  );
+  const folderCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const folder of effectiveTodoFolders) counts.set(folder.id, 0);
+    for (const todo of activeTodos) {
+      const folderId =
+        todo.folderId && counts.has(todo.folderId)
+          ? todo.folderId
+          : effectiveTodoFolders.find((folder) => folder.name.toLowerCase() === "others")?.id ?? effectiveTodoFolders[0]?.id;
+      if (folderId) counts.set(folderId, (counts.get(folderId) ?? 0) + 1);
+    }
+    return counts;
+  }, [activeTodos, effectiveTodoFolders]);
 
   useEffect(() => {
-    const todosById = new Map(activeTodos.map((todo) => [todo.id, todo]));
+    if (!selectedFolder) return;
+    if (selectedFolderId === selectedFolder.id) return;
+    setSelectedFolderId(selectedFolder.id);
+    writeLastSelectedTodoFolder(selectedFolder.id);
+  }, [selectedFolder, selectedFolderId]);
+
+  useEffect(() => {
+    const todosById = new Map(folderTodos.map((todo) => [todo.id, todo]));
 
     for (const todoId of Object.keys(completionFilterByTodoId)) {
       if (completionExitTimersRef.current.has(todoId)) continue;
@@ -360,10 +456,10 @@ export function TodosScreen() {
       window.clearTimeout(timeoutId);
       completionExitTimersRef.current.delete(todoId);
     }
-  }, [activeTodos, completionFilterByTodoId]);
+  }, [folderTodos, completionFilterByTodoId]);
 
   useEffect(() => {
-    const todosById = new Map(activeTodos.map((todo) => [todo.id, todo]));
+    const todosById = new Map(folderTodos.map((todo) => [todo.id, todo]));
 
     for (const todoId of Object.keys(uncompletionFilterByTodoId)) {
       if (uncompletionExitTimersRef.current.has(todoId)) continue;
@@ -397,7 +493,7 @@ export function TodosScreen() {
       window.clearTimeout(timeoutId);
       uncompletionExitTimersRef.current.delete(todoId);
     }
-  }, [activeTodos, uncompletionFilterByTodoId]);
+  }, [folderTodos, uncompletionFilterByTodoId]);
 
   useEffect(() => {
     return () => {
@@ -469,7 +565,7 @@ export function TodosScreen() {
 
   const sortedTodos = useMemo(
     () =>
-      [...activeTodos].sort((left, right) => {
+      [...folderTodos].sort((left, right) => {
         const leftStatus = completionFilterByTodoId[left.id] ? "open" : uncompletionFilterByTodoId[left.id] ? "done" : left.status;
         const rightStatus = completionFilterByTodoId[right.id] ? "open" : uncompletionFilterByTodoId[right.id] ? "done" : right.status;
 
@@ -482,14 +578,14 @@ export function TodosScreen() {
 
         return right.createdAt - left.createdAt;
       }),
-    [activeTodos, completionFilterByTodoId, uncompletionFilterByTodoId],
+    [folderTodos, completionFilterByTodoId, uncompletionFilterByTodoId],
   );
 
   const viewCounts = useMemo(() => {
-    const today = activeTodos.filter((todo) => todo.dueDateKey === todayKey);
-    const overdue = activeTodos.filter((todo) => todo.dueDateKey && todo.dueDateKey < todayKey && todo.status !== "done");
-    const upcoming = activeTodos.filter((todo) => todo.dueDateKey && todo.dueDateKey > todayKey && todo.status !== "done");
-    const completed = activeTodos.filter((todo) => todo.status === "done");
+    const today = folderTodos.filter((todo) => todo.dueDateKey === todayKey);
+    const overdue = folderTodos.filter((todo) => todo.dueDateKey && todo.dueDateKey < todayKey && todo.status !== "done");
+    const upcoming = folderTodos.filter((todo) => todo.dueDateKey && todo.dueDateKey > todayKey && todo.status !== "done");
+    const completed = folderTodos.filter((todo) => todo.status === "done");
 
     return {
       today: today.length,
@@ -497,7 +593,7 @@ export function TodosScreen() {
       upcoming: upcoming.length,
       completed: completed.length,
     } satisfies Record<TodoFilter, number>;
-  }, [activeTodos, todayKey]);
+  }, [folderTodos, todayKey]);
 
   const visibleTodos = useMemo(() => {
     return sortedTodos.filter((todo) => {
@@ -606,19 +702,21 @@ export function TodosScreen() {
         maxWidth: "1200px",
       }}
     >
-      <div className="grid h-full min-h-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-4 overflow-hidden lg:grid-cols-[284px_minmax(0,1fr)] lg:grid-rows-1">
+        <div className="grid h-full min-h-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-4 overflow-hidden lg:grid-cols-[284px_minmax(0,1fr)_220px] lg:grid-rows-1">
         <aside className="hidden min-h-0 overflow-hidden pt-4 lg:block lg:h-full">
           <div className="flex h-full min-h-0 flex-col">
             <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto pb-8" onScroll={notifyTodosScroll}>
               <div className="space-y-2 pr-1">
-                {todoViews.map((view) => (
-                  <TodoViewRow
-                    key={view.key}
-                    label={view.label}
-                    icon={view.icon}
-                    count={viewCounts[view.key]}
-                    selected={state.ui.todoFilter === view.key}
-                    onClick={() => dispatch({ type: "ui/set-todo-filter", filter: view.key })}
+                {effectiveTodoFolders.map((folder) => (
+                  <TodoFolderRow
+                    key={folder.id}
+                    label={folder.name}
+                    count={folderCounts.get(folder.id) ?? 0}
+                    selected={selectedFolder?.id === folder.id}
+                    onClick={() => {
+                      setSelectedFolderId(folder.id);
+                      writeLastSelectedTodoFolder(folder.id);
+                    }}
                   />
                 ))}
               </div>
@@ -756,9 +854,29 @@ export function TodosScreen() {
             </div>
           </div>
         </section>
+        <aside className="hidden min-h-0 overflow-hidden pt-4 lg:block lg:h-full">
+          <div className="flex h-full min-h-0 flex-col">
+            <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto pb-8" onScroll={notifyTodosScroll}>
+              <div className="space-y-2 pr-1">
+                {todoViews.map((view) => (
+                  <TodoViewRow
+                    key={view.key}
+                    label={view.label}
+                    icon={view.icon}
+                    count={viewCounts[view.key]}
+                    selected={state.ui.todoFilter === view.key}
+                    onClick={() => dispatch({ type: "ui/set-todo-filter", filter: view.key })}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </aside>
       </div>
       {creating ? (
         <TodoEditorModal
+          folders={state.todoFolders}
+          selectedFolderId={selectedFolder?.id}
           selectedDateKey={state.ui.selectedDateKey}
           onClose={() => setCreating(false)}
           onSave={(payload) => {
@@ -769,6 +887,8 @@ export function TodosScreen() {
               dateKey: state.ui.selectedDateKey,
               dueDateKey: payload.dueDateKey as DateKey,
               dueTime: payload.dueTime,
+              folderId: payload.folderId,
+              folderName: payload.folderName,
             });
             setCreating(false);
           }}

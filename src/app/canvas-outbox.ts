@@ -68,6 +68,8 @@ type TodoCreatePayload = {
   dueDateKey?: string;
   dueTime?: string;
   hashtags?: string[];
+  folderId?: string;
+  folderName?: string;
 };
 
 type TodoUpdatePayload = {
@@ -76,6 +78,8 @@ type TodoUpdatePayload = {
   dueDateKey?: string;
   dueTime?: string;
   hashtags?: string[];
+  folderId?: string;
+  folderName?: string;
 };
 
 type TodoDeletePayload = {

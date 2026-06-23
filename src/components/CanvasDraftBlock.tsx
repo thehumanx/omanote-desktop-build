@@ -181,6 +181,8 @@ export function CanvasDraftBlock() {
   const allowEventBlurRef = useRef(false);
   const [todoLines, setTodoLines] = useState<TodoDraftLine[]>(() => [createTodoDraftLine()]);
   const [activeTodoLineId, setActiveTodoLineId] = useState<string>(todoLines[0]?.id ?? "");
+  const [todoFolderValue, setTodoFolderValue] = useState("Others");
+  const [todoFolderOpen, setTodoFolderOpen] = useState(false);
   const todoFocusPendingRef = useRef(false);
   const [bookmarkUrl, setBookmarkUrl] = useState("");
   const [bookmarkCategoryValue, setBookmarkCategoryValue] = useState(() => readLastBookmarkCategory());
@@ -273,6 +275,16 @@ export function CanvasDraftBlock() {
   const editorValue = showPicker ? commandValue : body;
   const showNoteFolderPicker = mode === "note" && !showPicker && hasMeaningfulNoteInput(body);
   const noteFolderMatch = useMemo(() => resolveNoteFolderByName(state.noteFolders, noteFolderValue), [noteFolderValue, state.noteFolders]);
+  const todoFolderTrimmed = todoFolderValue.trim();
+  const todoFolderFilter = todoFolderTrimmed.toLowerCase();
+  const todoFolderOptions = useMemo(() => {
+    if (!todoFolderFilter) return state.todoFolders;
+    return state.todoFolders.filter((folder) => folder.name.toLowerCase().includes(todoFolderFilter));
+  }, [state.todoFolders, todoFolderFilter]);
+  const todoFolderExactMatch = useMemo(
+    () => state.todoFolders.find((folder) => folder.name.toLowerCase() === todoFolderFilter) ?? null,
+    [state.todoFolders, todoFolderFilter],
+  );
   const bookmarkCategoryFilter = bookmarkCategoryValue.trim().toLowerCase();
   const bookmarkCategoryTrimmed = bookmarkCategoryValue.trim();
   const bookmarkCategoryOptions = useMemo(() => {
@@ -454,7 +466,14 @@ export function CanvasDraftBlock() {
     }
 
     if (mode === "todo") {
-      dispatch({ type: "todo/create", title: text, hashtags: parseHashtags(text), dateKey: state.ui.selectedDateKey });
+      dispatch({
+        type: "todo/create",
+        title: text,
+        hashtags: parseHashtags(text),
+        dateKey: state.ui.selectedDateKey,
+        folderId: todoFolderExactMatch?.id,
+        folderName: todoFolderTrimmed || "Others",
+      });
     }
 
     if (mode === "bookmark") {
@@ -591,6 +610,8 @@ export function CanvasDraftBlock() {
         dateKey: state.ui.selectedDateKey,
         dueDateKey: line.dueDateKey,
         dueTime: line.dueTime,
+        folderId: todoFolderExactMatch?.id,
+        folderName: todoFolderTrimmed || "Others",
       });
     }
 
@@ -1184,6 +1205,40 @@ export function CanvasDraftBlock() {
                       className="relative min-w-0 w-full flex-1 border-0 bg-transparent px-0 py-0.5 text-[15px] leading-6 text-app-ink caret-app-ink outline-none placeholder:text-app-line-strong selection:bg-app-surface-muted selection:text-app-ink"
                     />
                   </div>
+                  {mode === "todo" && index === 0 ? (
+                    <div className="relative hidden w-[180px] flex-none md:block">
+                      <Input
+                        value={todoFolderValue}
+                        onChange={(event) => {
+                          setTodoFolderValue(event.target.value);
+                          setTodoFolderOpen(true);
+                        }}
+                        onFocus={() => setTodoFolderOpen(true)}
+                        placeholder="Folder"
+                        className="h-9 rounded-xl border-app-line bg-app-surface text-sm"
+                      />
+                      {todoFolderOpen && todoFolderOptions.length ? (
+                        <div
+                          className="absolute left-0 right-0 top-full z-20 mt-2 rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
+                          onMouseDown={(event) => event.preventDefault()}
+                        >
+                          {todoFolderOptions.map((folder) => (
+                            <button
+                              key={folder.id}
+                              type="button"
+                              className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink"
+                              onClick={() => {
+                                setTodoFolderValue(folder.name);
+                                setTodoFolderOpen(false);
+                              }}
+                            >
+                              {folder.name}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               ))}
               {mode === "todo" ? (

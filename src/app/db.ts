@@ -67,6 +67,7 @@ export interface CachedRssSubscription {
 class OmanoteDB extends Dexie {
   syncCursors!: Table<SyncCursor, string>;
   todos!: Table<Doc<"todos">, string>;
+  todoFolders!: Table<Doc<"todoFolders">, string>;
   todoChecklistItems!: Table<Doc<"todoChecklistItems">, string>;
   notes!: Table<Doc<"notes">, string>;
   noteFolders!: Table<Doc<"noteFolders">, string>;
@@ -123,6 +124,25 @@ class OmanoteDB extends Dexie {
       activityHistory:      "_id, userId, timestamp",
       linkPreviews:         "url, fetchedAt",
       // RSS tables (no encryption — article content is public)
+      rssFeeds:             "_id, updatedAt",
+      rssSubscriptions:     "_id, userId, feedId, categoryId, updatedAt, deletedAt",
+      rssCategories:        "_id, userId, updatedAt",
+      rssItems:             "_id, feedId, publishedAt",
+      rssReadState:         "_id, userId, itemId, feedId, updatedAt",
+    });
+    this.version(4).stores({
+      syncCursors:          "table",
+      todos:                "_id, userId, updatedAt, deletedAt, createdDateKey, status, dueDateKey, folderId",
+      todoFolders:          "_id, userId, updatedAt",
+      todoChecklistItems:   "_id, userId, todoId, updatedAt",
+      notes:                "_id, userId, updatedAt, deletedAt, createdDateKey",
+      noteFolders:          "_id, userId, updatedAt",
+      bookmarks:            "_id, userId, updatedAt, deletedAt, createdDateKey, categoryId",
+      bookmarkCategories:   "_id, userId, updatedAt",
+      events:               "_id, userId, updatedAt, deletedAt, createdDateKey",
+      canvasPlacements:     "_id, userId, dateKey, updatedAt",
+      activityHistory:      "_id, userId, timestamp",
+      linkPreviews:         "url, fetchedAt",
       rssFeeds:             "_id, updatedAt",
       rssSubscriptions:     "_id, userId, feedId, categoryId, updatedAt, deletedAt",
       rssCategories:        "_id, userId, updatedAt",
