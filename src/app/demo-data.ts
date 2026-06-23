@@ -39,6 +39,7 @@ export function createInitialState(): AppState {
         dueTime: "00:00",
       },
     ],
+    todoFolders: [],
     checklistItems: [
       {
         id: "checklist-1",

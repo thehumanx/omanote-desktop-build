@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import type { TodoItem } from "@omanote/shared";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import type { TodoFolder, TodoItem } from "@omanote/shared";
 import { formatDueChip, formatNaturalLanguageDueInput, parseNaturalLanguageDueInput } from "@omanote/shared";
 import { CheckCircle2 } from "lucide-react";
 import { handlePasteAsLink } from "../lib/link-utils";
@@ -24,24 +24,37 @@ function formatCompletedAt(value?: number) {
 
 export function TodoEditorModal({
   todo,
+  folders = [],
+  selectedFolderId,
   selectedDateKey,
   onClose,
   onSave,
   onToggle,
 }: {
   todo?: TodoItem | null;
+  folders?: TodoFolder[];
+  selectedFolderId?: string | null;
   selectedDateKey: string;
   onClose: () => void;
-  onSave: (payload: { title: string; hashtags: string[]; dueDateKey?: string; dueTime?: string }) => void;
+  onSave: (payload: { title: string; hashtags: string[]; dueDateKey?: string; dueTime?: string; folderId?: string; folderName?: string }) => void;
   onToggle?: (todoId: string) => void;
 }) {
   const initialTitle = todo?.title ?? "";
+  const initialFolderName =
+    todo?.folderName ??
+    (todo?.folderId ? folders.find((folder) => folder.id === todo.folderId)?.name : undefined) ??
+    (selectedFolderId ? folders.find((folder) => folder.id === selectedFolderId)?.name : undefined) ??
+    folders.find((folder) => folder.name.toLowerCase() === "others")?.name ??
+    folders[0]?.name ??
+    "";
   const initialDue = formatNaturalLanguageDueInput(
     todo?.dueDateKey ?? (selectedDateKey as TodoItem["dueDateKey"]),
     todo?.dueTime,
   );
   const [draftTitle, setDraftTitle] = useState(initialTitle);
   const [draftWhen, setDraftWhen] = useState(initialDue);
+  const [draftFolder, setDraftFolder] = useState(initialFolderName);
+  const [folderMenuOpen, setFolderMenuOpen] = useState(false);
   const [error, setError] = useState("");
   const titleRef = useRef<HTMLInputElement | null>(null);
   const canSave = Boolean(draftTitle.trim());
@@ -55,8 +68,20 @@ export function TodoEditorModal({
   useEffect(() => {
     setDraftTitle(initialTitle);
     setDraftWhen(initialDue);
+    setDraftFolder(initialFolderName);
     setError("");
-  }, [initialDue, initialTitle]);
+  }, [initialDue, initialFolderName, initialTitle]);
+
+  const trimmedFolder = draftFolder.trim();
+  const folderFilter = trimmedFolder.toLowerCase();
+  const visibleFolders = useMemo(() => {
+    if (!folderFilter) return folders;
+    return folders.filter((folder) => folder.name.toLowerCase().includes(folderFilter));
+  }, [folderFilter, folders]);
+  const exactFolderMatch = useMemo(
+    () => folders.find((folder) => folder.name.toLowerCase() === folderFilter) ?? null,
+    [folderFilter, folders],
+  );
 
   useEffect(() => {
     titleRef.current?.focus();
@@ -80,11 +105,20 @@ export function TodoEditorModal({
       return;
     }
 
+    const folderPayload =
+      folders.length || todo?.folderId || todo?.folderName || selectedFolderId
+        ? {
+            folderId: exactFolderMatch?.id,
+            folderName: trimmedFolder || exactFolderMatch?.name || "Others",
+          }
+        : {};
+
     onSave({
       title,
       hashtags: parseHashtags(draftTitle),
       dueDateKey: parsedDue?.dateKey,
       dueTime: parsedDue?.time,
+      ...folderPayload,
     });
   };
 
@@ -199,6 +233,42 @@ export function TodoEditorModal({
                 placeholder="Tomorrow 9:30pm, 1 hour later, 5 days later"
                 className="min-w-[220px] flex-1 rounded-none border-0 border-b border-app-line bg-transparent px-0 py-1 text-[15px] text-app-ink-faint outline-none placeholder:text-app-line-strong focus:border-app-line-strong"
               />
+              {(folders.length || todo?.folderId || todo?.folderName || selectedFolderId) ? (
+                <div className="relative min-w-[180px] flex-1">
+                  <input
+                    aria-label="Todo folder"
+                    value={draftFolder}
+                    onChange={(event) => {
+                      setDraftFolder(event.target.value);
+                      setFolderMenuOpen(true);
+                    }}
+                    onFocus={() => setFolderMenuOpen(true)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Folder"
+                    className="w-full rounded-none border-0 border-b border-app-line bg-transparent px-0 py-1 text-[15px] text-app-ink-faint outline-none placeholder:text-app-line-strong focus:border-app-line-strong"
+                  />
+                  {folderMenuOpen && visibleFolders.length ? (
+                    <div
+                      className="absolute left-0 right-0 top-full z-20 mt-2 rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
+                      onMouseDown={(event) => event.preventDefault()}
+                    >
+                      {visibleFolders.map((folder) => (
+                        <button
+                          key={folder.id}
+                          type="button"
+                          className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink"
+                          onClick={() => {
+                            setDraftFolder(folder.name);
+                            setFolderMenuOpen(false);
+                          }}
+                        >
+                          {folder.name}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
 
             {error ? <p className="text-xs text-danger-ink">{error}</p> : null}

@@ -60,11 +60,13 @@ export function ExportDataPanel() {
       };
 
       if (selected.has("todos")) {
+        const todoFolderById = new Map(state.todoFolders.map((folder) => [folder.id, folder.name]));
         payload.todos = state.todos
           .filter((t) => !t.deletedAt)
           .map((t) => ({
             title: t.title,
             notes: t.notes ?? null,
+            folderName: t.folderId ? (todoFolderById.get(t.folderId) ?? t.folderName ?? null) : (t.folderName ?? null),
             dueDateKey: t.dueDateKey ?? null,
             dueTime: t.dueTime ?? null,
             priority: t.priority,

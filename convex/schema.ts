@@ -34,6 +34,8 @@ export default defineSchema({
     reminderFiredAt: v.optional(v.number()),
     pushJobId: v.optional(v.id("_scheduled_functions")),
     sourceNoteId: v.optional(v.id("notes")),
+    folderId: v.optional(v.id("todoFolders")),
+    folderName: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -42,9 +44,21 @@ export default defineSchema({
     .index("by_user_status_createdAt", ["userId", "status", "createdAt"])
     .index("by_user_completedAt", ["userId", "completedAt"])
     .index("by_user_dueDate", ["userId", "dueDateKey"])
+    .index("by_user_folderId", ["userId", "folderId"])
     .index("by_user_deletedAt", ["userId", "deletedAt"])
     .index("by_user_deletedAt_status_createdAt", ["userId", "deletedAt", "status", "createdAt"])
     .index("by_user_deletedAt_status_dueDate_createdAt", ["userId", "deletedAt", "status", "dueDateKey", "createdAt"]),
+  todoFolders: defineTable({
+    userId: v.string(),
+    name: v.string(),
+    nameLower: v.string(),
+    icon: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user_createdAt", ["userId", "createdAt"])
+    .index("by_user_updatedAt", ["userId", "updatedAt"])
+    .index("by_user_nameLower", ["userId", "nameLower"]),
   todoChecklistItems: defineTable({
     userId: v.string(),
     todoId: v.id("todos"),

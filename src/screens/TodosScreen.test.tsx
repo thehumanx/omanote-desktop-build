@@ -35,6 +35,8 @@ function makeTodo(overrides: Partial<TodoItem> = {}): TodoItem {
     createdAt: 1_776_816_000_000,
     updatedAt: 1_776_816_000_000,
     createdDateKey: "2026-04-28" as DateKey,
+    folderId: "folder_1",
+    folderName: "Shopping",
     ...overrides,
   };
 }
@@ -51,6 +53,10 @@ function makeState(todos: TodoItem[], todoFilter: AppState["ui"]["todoFilter"] =
       notesDrawerOpen: false,
     },
     todos,
+    todoFolders: [
+      { id: "folder_1", name: "Shopping", createdAt: 1, updatedAt: 1 },
+      { id: "folder_2", name: "Books", createdAt: 2, updatedAt: 2 },
+    ],
     checklistItems: [],
     notes: [],
     deletedNotes: [],
@@ -79,6 +85,7 @@ describe("TodosScreen completion animation", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-04-29T08:00:00Z"));
+    window.localStorage.clear();
     Element.prototype.scrollIntoView = vi.fn();
     mockDispatch.mockReset();
     mockState.current = makeState([makeTodo()]);
@@ -515,5 +522,40 @@ describe("TodosScreen completion animation", () => {
       "todo_april",
       "todo_march",
     ]);
+  });
+
+  it("shows todos from the selected folder", () => {
+    mockState.current = makeState([
+      makeTodo({ id: "todo_1", title: "Buy oats", folderId: "folder_1", folderName: "Shopping" }),
+      makeTodo({ id: "todo_2", title: "Read Dune", folderId: "folder_2", folderName: "Books" }),
+    ]);
+
+    renderTodosScreen();
+
+    expect(screen.getByText("Buy oats")).toBeInTheDocument();
+    expect(screen.queryByText("Read Dune")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Books/ }));
+
+    expect(screen.getByText("Read Dune")).toBeInTheDocument();
+    expect(screen.queryByText("Buy oats")).not.toBeInTheDocument();
+  });
+
+  it("applies state filters inside the selected folder", () => {
+    mockState.current = makeState([
+      makeTodo({ id: "todo_1", title: "Buy oats", folderId: "folder_1", folderName: "Shopping", dueDateKey: "2026-04-28" as DateKey }),
+      makeTodo({ id: "todo_2", title: "Buy rice later", folderId: "folder_1", folderName: "Shopping", dueDateKey: "2026-05-01" as DateKey }),
+      makeTodo({ id: "todo_3", title: "Read Dune", folderId: "folder_2", folderName: "Books", dueDateKey: "2026-04-28" as DateKey }),
+    ]);
+
+    renderTodosScreen();
+
+    expect(screen.getByText("Buy oats")).toBeInTheDocument();
+    expect(screen.queryByText("Buy rice later")).not.toBeInTheDocument();
+    expect(screen.queryByText("Read Dune")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole("button", { name: /Later/ })[0]);
+
+    expect(mockDispatch).toHaveBeenCalledWith({ type: "ui/set-todo-filter", filter: "upcoming" });
   });
 });

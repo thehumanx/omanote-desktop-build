@@ -32,6 +32,16 @@ export interface TodoItem {
   createdDateKey: DateKey;
   sourceNoteId?: string;
   reminderFiredAt?: number;
+  folderId?: string;
+  folderName?: string;
+}
+
+export interface TodoFolder {
+  id: string;
+  name: string;
+  icon?: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface TodoChecklistItem {

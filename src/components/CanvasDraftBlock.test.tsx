@@ -12,6 +12,10 @@ vi.mock("../app/AppProvider", () => ({
   useApp: () => ({
     state: {
       noteFolders: [],
+      todoFolders: [
+        { id: "folder_1", name: "Shopping", createdAt: 1, updatedAt: 1 },
+        { id: "folder_2", name: "Books", createdAt: 2, updatedAt: 2 },
+      ],
       bookmarkCategories: [{ id: "cat_1", name: "Work" }],
       ui: {
         selectedDateKey: "2026-04-24",
@@ -215,7 +219,7 @@ describe("CanvasDraftBlock keyboard shortcuts", () => {
     fireEvent.change(todoInput, { target: { value: "Buy milk" } });
 
     fireEvent.keyDown(todoInput, { key: "Enter", shiftKey: true });
-    expect(screen.getAllByRole("textbox")).toHaveLength(2);
+    expect(screen.getAllByRole("textbox").filter((input) => input.getAttribute("placeholder") !== "Folder")).toHaveLength(2);
   });
 
   it("saves a todo on enter and returns to the focused note composer", () => {
@@ -237,6 +241,27 @@ describe("CanvasDraftBlock keyboard shortcuts", () => {
     const noteInput = screen.getByPlaceholderText("Type here or hit / for commands");
     noteInput.focus();
     expect(document.activeElement).toBe(noteInput);
+  });
+
+  it("saves a todo with the selected folder", () => {
+    renderCanvasDraftBlock(DEFAULT_USER_SETTINGS);
+
+    const commandInput = screen.getByPlaceholderText("Type here or hit / for commands");
+    fireEvent.change(commandInput, { target: { value: "/todo" } });
+    fireEvent.keyDown(commandInput, { key: "Enter" });
+
+    fireEvent.change(screen.getByPlaceholderText("Folder"), { target: { value: "Shop" } });
+    fireEvent.click(screen.getByRole("button", { name: "Shopping" }));
+    const todoInput = screen.getByPlaceholderText("Write your checklist");
+    fireEvent.change(todoInput, { target: { value: "Buy milk" } });
+    fireEvent.keyDown(todoInput, { key: "Enter" });
+
+    expect(mockDispatch).toHaveBeenCalledWith(expect.objectContaining({
+      type: "todo/create",
+      title: "Buy milk",
+      folderId: "folder_1",
+      folderName: "Shopping",
+    }));
   });
 
   it("does not save the same todo twice when enter causes a follow-up blur", () => {

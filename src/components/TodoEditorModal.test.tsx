@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { DateKey, TodoItem } from "@omanote/shared";
+import type { DateKey, TodoFolder, TodoItem } from "@omanote/shared";
 import { TodoEditorModal } from "./TodoEditorModal";
 
 vi.mock("../contexts/UserSettingsContext", () => ({
@@ -38,6 +38,11 @@ function makeTodo(overrides: Partial<TodoItem> = {}): TodoItem {
     ...overrides,
   };
 }
+
+const folders: TodoFolder[] = [
+  { id: "folder_1", name: "Shopping", createdAt: 1, updatedAt: 1 },
+  { id: "folder_2", name: "Books", createdAt: 2, updatedAt: 2 },
+];
 
 describe("TodoEditorModal", () => {
   beforeEach(() => {
@@ -156,5 +161,70 @@ describe("TodoEditorModal", () => {
       dueDateKey: "2026-06-21",
       dueTime: "14:30",
     });
+  });
+
+  it("shows the current todo folder", () => {
+    render(
+      <TodoEditorModal
+        todo={makeTodo({ folderId: "folder_2", folderName: "Books" })}
+        folders={folders}
+        selectedDateKey="2026-06-20"
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("Todo folder")).toHaveValue("Books");
+  });
+
+  it("saves an existing folder selection", () => {
+    const onSave = vi.fn();
+    render(
+      <TodoEditorModal
+        folders={folders}
+        selectedDateKey="2026-06-20"
+        onClose={vi.fn()}
+        onSave={onSave}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Todo title"), {
+      target: { value: "Buy oats" },
+    });
+    fireEvent.change(screen.getByLabelText("Todo folder"), {
+      target: { value: "Shop" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Shopping" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      folderId: "folder_1",
+      folderName: "Shopping",
+    }));
+  });
+
+  it("saves a typed new folder name", () => {
+    const onSave = vi.fn();
+    render(
+      <TodoEditorModal
+        folders={folders}
+        selectedDateKey="2026-06-20"
+        onClose={vi.fn()}
+        onSave={onSave}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Todo title"), {
+      target: { value: "Queue essays" },
+    });
+    fireEvent.change(screen.getByLabelText("Todo folder"), {
+      target: { value: "Reading" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      folderId: undefined,
+      folderName: "Reading",
+    }));
   });
 });

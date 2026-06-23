@@ -84,6 +84,7 @@ function makeState(): AppState {
       notesDrawerOpen: false,
     },
     todos: [],
+    todoFolders: [],
     checklistItems: [],
     notes: [],
     deletedNotes: [],

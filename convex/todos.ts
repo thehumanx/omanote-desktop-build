@@ -23,6 +23,7 @@ const MAX_TODO_LIST_LIMIT = 2000;
 const DEFAULT_TODO_LIST_LIMIT = 2000;
 const MAX_TODO_CHECKLIST_LIMIT = 2000;
 const DEFAULT_TODO_CHECKLIST_LIMIT = 500;
+const DEFAULT_TODO_FOLDER_NAME = "Others";
 
 function normalizeTodoDueInput(args: { dueDateKey?: string; dueTime?: string }) {
   return {
@@ -46,6 +47,92 @@ function sortTodosByDueDateThenCreatedAt<T extends { dueDateKey?: string; create
     const rightKey = toSortableDate(right.dueDateKey);
     if (leftKey !== rightKey) return leftKey - rightKey;
     return right.createdAt - left.createdAt;
+  });
+}
+
+function normalizeTodoFolderName(name: string) {
+  return name.trim();
+}
+
+function todoFolderNameLower(name: string) {
+  return normalizeTodoFolderName(name).toLowerCase();
+}
+
+async function getTodoFolderByName(ctx: MutationCtx, userId: string, name: string) {
+  const nameLower = todoFolderNameLower(name);
+  if (!nameLower) return null;
+  return ctx.db
+    .query("todoFolders")
+    .withIndex("by_user_nameLower", (q) => q.eq("userId", userId).eq("nameLower", nameLower))
+    .unique();
+}
+
+async function ensureTodoFolder(ctx: MutationCtx, userId: string, folderName?: string): Promise<Doc<"todoFolders">> {
+  const name = normalizeTodoFolderName(folderName || DEFAULT_TODO_FOLDER_NAME) || DEFAULT_TODO_FOLDER_NAME;
+  const existing = await getTodoFolderByName(ctx, userId, name);
+  const timestamp = Date.now();
+  if (existing) {
+    if ((existing.updatedAt ?? existing.createdAt) < timestamp) {
+      await ctx.db.patch(existing._id, { updatedAt: timestamp });
+    }
+    return { ...existing, updatedAt: timestamp };
+  }
+
+  const folderId = await ctx.db.insert("todoFolders", {
+    userId,
+    name,
+    nameLower: todoFolderNameLower(name),
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+  return (await ctx.db.get(folderId))!;
+}
+
+async function resolveTodoFolder(
+  ctx: MutationCtx,
+  userId: string,
+  args: { folderId?: Id<"todoFolders">; folderName?: string },
+): Promise<Doc<"todoFolders">> {
+  if (args.folderId) {
+    const folder = await ctx.db.get(args.folderId);
+    if (!folder || folder.userId !== userId) {
+      throw new Error("Folder not found");
+    }
+    return folder;
+  }
+  return ensureTodoFolder(ctx, userId, args.folderName);
+}
+
+async function softDeleteTodo(ctx: MutationCtx, userId: string, todo: Doc<"todos">, timestamp: number) {
+  await cancelReminderPush(ctx, todo.pushJobId);
+  await ctx.db.patch(todo._id, {
+    deletedAt: timestamp,
+    updatedAt: timestamp,
+    pushJobId: undefined,
+  });
+  await removeCanvasArtifacts(ctx, { userId, artifactType: "todo", artifactId: String(todo._id) });
+  await removeCanvasPlacements(ctx, { userId, artifactType: "todo", artifactId: String(todo._id) });
+  await removeArtifactHashtags(ctx, { userId, artifactType: "todo", artifactId: String(todo._id) });
+
+  if (todo.status === "done" && todo.completedAt) {
+    await syncDerivedEventEntryForTodo(ctx, {
+      userId,
+      todoId: todo._id,
+      title: todo.title,
+      notes: todo.notes,
+      completedAt: todo.completedAt,
+      deleted: true,
+    });
+  }
+
+  await recordActivity(ctx, {
+    userId,
+    module: "todo",
+    action: "deleted",
+    itemId: String(todo._id),
+    itemTitle: todo.title,
+    restorable: timestamp - todo.createdAt <= RESTORABLE_WINDOW_MS,
+    timestamp,
   });
 }
 
@@ -207,6 +294,8 @@ export const createTodo = mutation({
     hashtags: v.optional(v.array(v.string())),
     priority: v.optional(v.union(v.literal("normal"), v.literal("high"))),
     sourceNoteId: v.optional(v.id("notes")),
+    folderId: v.optional(v.id("todoFolders")),
+    folderName: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -215,6 +304,10 @@ export const createTodo = mutation({
     const normalizedDue = normalizeTodoDueInput({
       dueDateKey: args.dueDateKey,
       dueTime: args.dueTime,
+    });
+    const folder = await resolveTodoFolder(ctx, userId, {
+      folderId: args.folderId,
+      folderName: args.folderName,
     });
     const hashtags = args.hashtags ?? extractHashtags(args.title + (args.notes ? " " + args.notes : ""));
     const todoId = await ctx.db.insert("todos", {
@@ -232,6 +325,8 @@ export const createTodo = mutation({
       createdAt: timestamp,
       updatedAt: timestamp,
       sourceNoteId: args.sourceNoteId,
+      folderId: folder._id,
+      folderName: folder.name,
     });
 
     const pushJobId = await scheduleReminderPush(ctx, {
@@ -330,6 +425,172 @@ export const backfillTodoDueDates = mutation({
   },
 });
 
+export const listTodoFolders = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    const userId = requireUserId(identity);
+    const limit = clampLimit(args.limit, 500, 2000);
+    return ctx.db
+      .query("todoFolders")
+      .withIndex("by_user_createdAt", (q) => q.eq("userId", userId))
+      .order("desc")
+      .take(limit);
+  },
+});
+
+export const createTodoFolder = mutation({
+  args: {
+    name: v.string(),
+    icon: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    const userId = requireUserId(identity);
+    const name = normalizeTodoFolderName(args.name);
+    if (!name) {
+      throw new Error("Folder name is required");
+    }
+    const existingFolder = await getTodoFolderByName(ctx, userId, name);
+    if (existingFolder) {
+      throw new Error("Folder already exists");
+    }
+    const timestamp = Date.now();
+    return ctx.db.insert("todoFolders", {
+      userId,
+      name,
+      nameLower: todoFolderNameLower(name),
+      icon: args.icon,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+  },
+});
+
+export const updateTodoFolder = mutation({
+  args: {
+    folderId: v.id("todoFolders"),
+    name: v.string(),
+    icon: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    const userId = requireUserId(identity);
+    const folder = await ctx.db.get(args.folderId);
+    if (!folder || folder.userId !== userId) {
+      throw new Error("Folder not found");
+    }
+    const name = normalizeTodoFolderName(args.name);
+    if (!name) {
+      throw new Error("Folder name is required");
+    }
+    const existingFolder = await getTodoFolderByName(ctx, userId, name);
+    if (existingFolder && existingFolder._id !== args.folderId) {
+      throw new Error("Folder already exists");
+    }
+    const timestamp = Date.now();
+    await ctx.db.patch(args.folderId, {
+      name,
+      nameLower: todoFolderNameLower(name),
+      icon: args.icon,
+      updatedAt: timestamp,
+    });
+    for await (const todo of ctx.db
+      .query("todos")
+      .withIndex("by_user_folderId", (q) => q.eq("userId", userId).eq("folderId", args.folderId))) {
+      await ctx.db.patch(todo._id, {
+        folderName: name,
+        updatedAt: Math.max(todo.updatedAt, timestamp),
+      });
+    }
+  },
+});
+
+export const deleteTodoFolder = mutation({
+  args: {
+    folderId: v.id("todoFolders"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    const userId = requireUserId(identity);
+    const folder = await ctx.db.get(args.folderId);
+    if (!folder) {
+      return null;
+    }
+    if (folder.userId !== userId) {
+      throw new Error("Folder not found");
+    }
+    const fallbackFolder =
+      todoFolderNameLower(folder.name) === todoFolderNameLower(DEFAULT_TODO_FOLDER_NAME)
+        ? folder
+        : await ensureTodoFolder(ctx, userId, DEFAULT_TODO_FOLDER_NAME);
+    const timestamp = Date.now();
+    if (fallbackFolder._id !== args.folderId) {
+      for await (const todo of ctx.db
+        .query("todos")
+        .withIndex("by_user_folderId", (q) => q.eq("userId", userId).eq("folderId", args.folderId))) {
+        await ctx.db.patch(todo._id, {
+          folderId: fallbackFolder._id,
+          folderName: fallbackFolder.name,
+          updatedAt: Math.max(todo.updatedAt, timestamp),
+        });
+      }
+      await ctx.db.delete(args.folderId);
+    }
+    return null;
+  },
+});
+
+export const deleteTodoFolderWithTodos = mutation({
+  args: {
+    folderId: v.id("todoFolders"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    const userId = requireUserId(identity);
+    const folder = await ctx.db.get(args.folderId);
+    if (!folder) {
+      return null;
+    }
+    if (folder.userId !== userId) {
+      throw new Error("Folder not found");
+    }
+    const timestamp = Date.now();
+    for await (const todo of ctx.db
+      .query("todos")
+      .withIndex("by_user_folderId", (q) => q.eq("userId", userId).eq("folderId", args.folderId))) {
+      if (todo.deletedAt) continue;
+      await softDeleteTodo(ctx, userId, todo, timestamp);
+    }
+    await ctx.db.delete(args.folderId);
+    return null;
+  },
+});
+
+export const backfillTodoFolderIds = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    const userId = requireUserId(identity);
+    let updatedCount = 0;
+    for await (const todo of ctx.db
+      .query("todos")
+      .withIndex("by_user_folderId", (q) => q.eq("userId", userId).eq("folderId", undefined))) {
+      const folder = await ensureTodoFolder(ctx, userId, todo.folderName);
+      const timestamp = Date.now();
+      await ctx.db.patch(todo._id, {
+        folderId: folder._id,
+        folderName: folder.name,
+        updatedAt: Math.max(todo.updatedAt, timestamp),
+      });
+      updatedCount += 1;
+    }
+    return { updatedCount };
+  },
+});
+
 export const listTodoChecklistItems = query({
   args: {
     todoId: v.id("todos"),
@@ -390,6 +651,8 @@ export const updateTodo = mutation({
     notes: v.optional(v.string()),
     hashtags: v.optional(v.array(v.string())),
     priority: v.optional(v.union(v.literal("normal"), v.literal("high"))),
+    folderId: v.optional(v.id("todoFolders")),
+    folderName: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -403,6 +666,10 @@ export const updateTodo = mutation({
     const normalizedDue = normalizeTodoDueInput({
       dueDateKey: args.dueDateKey,
       dueTime: args.dueTime,
+    });
+    const folder = await resolveTodoFolder(ctx, userId, {
+      folderId: args.folderId,
+      folderName: args.folderName ?? todo.folderName,
     });
     const hashtags = args.hashtags ?? extractHashtags(args.title + (args.notes ? " " + args.notes : ""));
     await cancelReminderPush(ctx, todo.pushJobId);
@@ -420,6 +687,8 @@ export const updateTodo = mutation({
       notes: args.notes,
       hashtags,
       priority: args.priority ?? todo.priority,
+      folderId: folder._id,
+      folderName: folder.name,
       updatedAt,
       reminderFiredAt: undefined,
       pushJobId,
@@ -751,35 +1020,7 @@ export const deleteTodo = mutation({
       throw new Error("Todo not found");
     }
 
-    const timestamp = Date.now();
-    await cancelReminderPush(ctx, todo.pushJobId);
-    await ctx.db.patch(args.todoId, {
-      deletedAt: timestamp,
-      updatedAt: timestamp,
-      pushJobId: undefined,
-    });
-    await removeArtifactHashtags(ctx, { userId, artifactType: "todo", artifactId: String(args.todoId) });
-
-    if (todo.status === "done" && todo.completedAt) {
-      await syncDerivedEventEntryForTodo(ctx, {
-        userId,
-        todoId: args.todoId,
-        title: todo.title,
-        notes: todo.notes,
-        completedAt: todo.completedAt,
-        deleted: true,
-      });
-    }
-
-    await recordActivity(ctx, {
-      userId,
-      module: "todo",
-      action: "deleted",
-      itemId: String(args.todoId),
-      itemTitle: todo.title,
-      restorable: timestamp - todo.createdAt <= RESTORABLE_WINDOW_MS,
-      timestamp,
-    });
+    await softDeleteTodo(ctx, userId, todo, Date.now());
   },
 });
 
@@ -1052,6 +1293,20 @@ export const listTodosUpdatedAfter = query({
     const userId = requireUserId(identity);
     return ctx.db
       .query("todos")
+      .withIndex("by_user_updatedAt", (q) => q.eq("userId", userId).gt("updatedAt", args.after))
+      .order("asc")
+      .take(args.limit ?? SYNC_BATCH_SIZE);
+  },
+});
+
+// Incremental sync query — returns todo folders updated after the given timestamp.
+export const listTodoFoldersUpdatedAfter = query({
+  args: { after: v.number(), limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    const userId = requireUserId(identity);
+    return ctx.db
+      .query("todoFolders")
       .withIndex("by_user_updatedAt", (q) => q.eq("userId", userId).gt("updatedAt", args.after))
       .order("asc")
       .take(args.limit ?? SYNC_BATCH_SIZE);

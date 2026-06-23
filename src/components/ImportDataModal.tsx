@@ -18,6 +18,7 @@ const CAT_LABELS: Record<ImportCat, string> = {
 type ExportedTodo = {
   title: string;
   notes: string | null;
+  folderName?: string | null;
   dueDateKey: string | null;
   dueTime: string | null;
   priority: "normal" | "high";
@@ -158,6 +159,7 @@ export function ImportDataPanel() {
             dateKey: t.createdDateKey as DateKey,
             dueDateKey: t.dueDateKey ? (t.dueDateKey as DateKey) : undefined,
             dueTime: t.dueTime ?? undefined,
+            folderName: t.folderName ?? undefined,
           });
           count++;
         }

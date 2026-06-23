@@ -1104,6 +1104,8 @@ export function EventScreen() {
       {editingTodo ? (
         <TodoEditorModal
           todo={editingTodo}
+          folders={state.todoFolders}
+          selectedFolderId={editingTodo.folderId}
           selectedDateKey={editingTodo.dueDateKey ?? editingTodo.createdDateKey}
           onClose={() => setEditingTodoId(null)}
           onToggle={(todoId) => {
@@ -1120,6 +1122,8 @@ export function EventScreen() {
               dueDateKey: payload.dueDateKey as DateKey,
               dueTime: payload.dueTime,
               hashtags: payload.hashtags,
+              folderId: payload.folderId,
+              folderName: payload.folderName,
             });
             setEditingTodoId(null);
           }}

@@ -6,6 +6,7 @@ vi.mock("../app/AppProvider", () => ({
   useApp: () => ({
     state: {
       todos: [{ id: "todo_1", title: "Todo", status: "open", priority: "medium", createdDateKey: "2026-05-12", createdAt: 1 }],
+      todoFolders: [],
       notes: [{ id: "note_1", body: "Note", tags: [], createdDateKey: "2026-05-12", createdAt: 1 }],
       bookmarks: [{ id: "bookmark_1", url: "https://example.com", title: "Bookmark", categoryId: "cat_1", createdDateKey: "2026-05-12", createdAt: 1 }],
       events: [{ id: "event_1", label: "Event", loggedAt: 1, createdDateKey: "2026-05-12", createdAt: 1 }],

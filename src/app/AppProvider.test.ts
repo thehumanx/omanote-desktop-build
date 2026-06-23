@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { DateKey, TodoItem } from "@omanote/shared";
+import type { DateKey, TodoFolder, TodoItem } from "@omanote/shared";
 import { getAppProviderQueryScope, mergeTodosForState, shouldScheduleRemoteSync, shouldSyncRss } from "./AppProvider";
 import { appReducer } from "./reducer";
 import type { AppState } from "./types";
@@ -30,6 +30,7 @@ function makeState(todos: TodoItem[]): AppState {
       notesDrawerOpen: false,
     },
     todos,
+    todoFolders: [],
     checklistItems: [],
     notes: [],
     deletedNotes: [],
@@ -71,7 +72,55 @@ describe("mergeTodosForState", () => {
   });
 });
 
+describe("todo folder state", () => {
+  it("keeps todo folders as first-class app state", () => {
+    const folder: TodoFolder = {
+      id: "folder_1",
+      name: "Shopping",
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    const state = {
+      ...makeState([]),
+      todoFolders: [folder],
+    };
+
+    expect(state.todoFolders).toEqual([folder]);
+  });
+});
+
 describe("todo toggle reducer", () => {
+  it("stores folder fields when creating a todo optimistically", () => {
+    const next = appReducer(makeState([]), {
+      type: "todo/create",
+      title: "Buy rice",
+      dateKey: "2026-04-29" as DateKey,
+      folderId: "folder_1",
+      folderName: "Shopping",
+    });
+
+    expect(next.todos[0]).toMatchObject({
+      folderId: "folder_1",
+      folderName: "Shopping",
+    });
+  });
+
+  it("updates folder fields when moving a todo", () => {
+    const next = appReducer(makeState([makeTodo({ folderId: "folder_1", folderName: "Shopping" })]), {
+      type: "todo/update",
+      todoId: "todo_1",
+      title: "Read Dune",
+      dueDateKey: "2026-04-29" as DateKey,
+      folderId: "folder_2",
+      folderName: "Books",
+    });
+
+    expect(next.todos[0]).toMatchObject({
+      folderId: "folder_2",
+      folderName: "Books",
+    });
+  });
+
   it("uses a provided completion timestamp when marking a todo done", () => {
     const completedAt = new Date("2026-04-28T14:30:00").getTime();
     const next = appReducer(makeState([makeTodo()]), {
