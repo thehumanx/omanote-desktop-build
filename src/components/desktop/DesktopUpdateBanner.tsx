@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowDownToLine, X } from "lucide-react";
 import { Button } from "../ui";
 import { isTauri } from "../../lib/desktop";
+
+const CHECK_INTERVAL_MS = 30 * 60 * 1000;
 
 type UpdateState =
   | { phase: "hidden" }
@@ -10,36 +12,36 @@ type UpdateState =
   | { phase: "error" };
 
 /**
- * Checks for a new desktop release on launch (tauri-plugin-updater reading
- * latest.json from the omanote-releases repo) and offers a one-click
- * install-and-restart. Dismissing waits until the next launch.
+ * Checks for a new desktop release on launch and periodically
+ * (tauri-plugin-updater reading latest.json from the omanote-releases repo)
+ * and offers a one-click install-and-restart. Dismissing waits until
+ * the next launch or check interval.
  */
 export function DesktopUpdateBanner() {
   const [state, setState] = useState<UpdateState>({ phase: "hidden" });
   const updateRef = useRef<import("@tauri-apps/plugin-updater").Update | null>(null);
 
-  useEffect(() => {
-    // Dev builds run against the Vite server with a dev version number —
-    // checking would just offer a bogus "update" to the released build.
-    if (!isTauri() || import.meta.env.DEV) return;
-    let cancelled = false;
-
-    void (async () => {
-      try {
-        const { check } = await import("@tauri-apps/plugin-updater");
-        const update = await check();
-        if (cancelled || !update) return;
-        updateRef.current = update;
-        setState({ phase: "available", version: update.version });
-      } catch {
-        // Offline or the releases endpoint is unreachable — try next launch.
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+  const checkForUpdate = useCallback(async () => {
+    if (!isTauri() || import.meta.env.DEV || updateRef.current) return;
+    try {
+      const { check } = await import("@tauri-apps/plugin-updater");
+      const update = await check();
+      if (!update) return;
+      updateRef.current = update;
+      setState({ phase: "available", version: update.version });
+    } catch (err) {
+      console.error("[DesktopUpdateBanner] check failed:", err);
+    }
   }, []);
+
+  useEffect(() => {
+    if (!isTauri() || import.meta.env.DEV) return;
+
+    void checkForUpdate();
+
+    const interval = setInterval(checkForUpdate, CHECK_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [checkForUpdate]);
 
   if (state.phase === "hidden") return null;
 
@@ -62,7 +64,8 @@ export function DesktopUpdateBanner() {
       });
       const { relaunch } = await import("@tauri-apps/plugin-process");
       await relaunch();
-    } catch {
+    } catch (err) {
+      console.error("[DesktopUpdateBanner] download/install failed:", err);
       setState({ phase: "error" });
     }
   }
