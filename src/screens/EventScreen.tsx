@@ -23,6 +23,7 @@ type EventView = "week" | "timeline";
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 const HOUR_ROW_HEIGHT = 72;
+const EMPTY_HOUR_ROW_HEIGHT = 44;
 const EVENT_BLOCK_HEIGHT = 56;
 const EVENT_BLOCK_DURATION_MINUTES = 50;
 const CALENDAR_TOP_PADDING = 92;
@@ -39,6 +40,12 @@ type EventCluster = {
   dateKey: string;
   top: number;
   entries: CalendarEntry[];
+};
+
+type CalendarHourLayout = {
+  rowHeights: number[];
+  hourTops: number[];
+  totalHeight: number;
 };
 
 function formatHourLabel(hour: number) {
@@ -127,6 +134,34 @@ function formatDateLabel(dateKey: string, todayKey: string): string {
   const weekday = date.toLocaleDateString("en-US", { weekday: "short" });
   const monthDay = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   return `${weekday}, ${monthDay}`;
+}
+
+function getCalendarHourLayout(entries: CalendarEntry[], weekDateKeys: string[]): CalendarHourLayout {
+  const occupiedHours = new Set<number>();
+  for (const entry of entries) {
+    if (!weekDateKeys.includes(entry.dateKey)) continue;
+    occupiedHours.add(Math.floor(entry.startMinutes / 60));
+  }
+
+  const rowHeights = HOURS.map((hour) => (occupiedHours.has(hour) ? HOUR_ROW_HEIGHT : EMPTY_HOUR_ROW_HEIGHT));
+  const hourTops: number[] = [];
+  let nextTop = 0;
+  for (const rowHeight of rowHeights) {
+    hourTops.push(nextTop);
+    nextTop += rowHeight;
+  }
+
+  return {
+    rowHeights,
+    hourTops,
+    totalHeight: nextTop + CALENDAR_TOP_PADDING,
+  };
+}
+
+function getMinuteTop(startMinutes: number, hourLayout: CalendarHourLayout) {
+  const hour = Math.floor(startMinutes / 60);
+  const minute = startMinutes % 60;
+  return hourLayout.hourTops[hour] + (minute / 60) * hourLayout.rowHeights[hour];
 }
 
 function TimelineView({
@@ -335,7 +370,7 @@ function TimelineView({
   );
 }
 
-function getWeekEntryClusters(entries: CalendarEntry[], weekDateKeys: string[]): Record<string, EventCluster[]> {
+function getWeekEntryClusters(entries: CalendarEntry[], weekDateKeys: string[], hourLayout: CalendarHourLayout): Record<string, EventCluster[]> {
   const grouped = new Map<string, CalendarEntry[]>();
   for (const entry of entries) {
     if (!weekDateKeys.includes(entry.dateKey)) continue;
@@ -359,7 +394,7 @@ function getWeekEntryClusters(entries: CalendarEntry[], weekDateKeys: string[]):
         currentCluster = {
           id: `${dateKey}:${entry.id}`,
           dateKey,
-          top: (startMinutes / 60) * HOUR_ROW_HEIGHT,
+          top: getMinuteTop(startMinutes, hourLayout),
           entries: [entry],
         };
         clusters.push(currentCluster);
@@ -647,7 +682,18 @@ export function EventScreen() {
     () => visibleEvents.filter((event) => weekDateKeys.includes(event.createdDateKey)),
     [visibleEvents, weekDateKeys],
   );
-  const weekClusters = useMemo(() => getWeekEntryClusters(timedCalendarEntries, weekDateKeys), [timedCalendarEntries, weekDateKeys]);
+  const weekTodoCount = useMemo(
+    () => activeScheduledTodos.filter((todo) => todo.dueDateKey && weekDateKeys.includes(todo.dueDateKey)).length,
+    [activeScheduledTodos, weekDateKeys],
+  );
+  const calendarHourLayout = useMemo(
+    () => getCalendarHourLayout(timedCalendarEntries, weekDateKeys),
+    [timedCalendarEntries, weekDateKeys],
+  );
+  const weekClusters = useMemo(
+    () => getWeekEntryClusters(timedCalendarEntries, weekDateKeys, calendarHourLayout),
+    [calendarHourLayout, timedCalendarEntries, weekDateKeys],
+  );
   const editingEvent = state.events.find((event) => event.id === editingEventId) ?? null;
   const editingTodo = state.todos.find((todo) => todo.id === editingTodoId) ?? null;
 
@@ -669,7 +715,7 @@ export function EventScreen() {
           </p>
           <p className="mt-1 text-sm text-app-ink-muted">
             {eventView === "week"
-              ? `${weekRangeLabel} · ${weekEntries.length} logged`
+              ? `${weekRangeLabel} · ${weekEntries.length} logged · ${weekTodoCount} todos`
               : `${activeEvents.length} total events`}
           </p>
         </div>
@@ -779,9 +825,10 @@ export function EventScreen() {
 
             <div
               className="relative grid"
+              data-testid="week-calendar-grid"
               style={{
                 gridTemplateColumns: "72px repeat(7, minmax(0, 1fr))",
-                height: HOURS.length * HOUR_ROW_HEIGHT + CALENDAR_TOP_PADDING,
+                height: calendarHourLayout.totalHeight,
               }}
             >
               <div className="relative border-r border-app-line bg-app-surface-muted/70">
@@ -790,7 +837,10 @@ export function EventScreen() {
                   <div
                     key={hour}
                     className="absolute inset-x-0 border-b border-app-line pr-3 text-right"
-                    style={{ top: CALENDAR_TOP_PADDING + hour * HOUR_ROW_HEIGHT, height: HOUR_ROW_HEIGHT }}
+                    style={{
+                      top: CALENDAR_TOP_PADDING + calendarHourLayout.hourTops[hour],
+                      height: calendarHourLayout.rowHeights[hour],
+                    }}
                   >
                     <span className="absolute -top-2 right-3 bg-app-surface-muted px-1 text-[10px] font-bold uppercase tracking-[0.18em] text-app-ink-faint">
                       {formatHourLabel(hour)}
@@ -874,7 +924,10 @@ export function EventScreen() {
                       <div
                         key={hour}
                         className="absolute inset-x-0 border-b border-app-line"
-                        style={{ top: CALENDAR_TOP_PADDING + hour * HOUR_ROW_HEIGHT, height: HOUR_ROW_HEIGHT }}
+                        style={{
+                          top: CALENDAR_TOP_PADDING + calendarHourLayout.hourTops[hour],
+                          height: calendarHourLayout.rowHeights[hour],
+                        }}
                       />
                     ))}
 

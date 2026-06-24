@@ -268,6 +268,43 @@ describe("EventScreen", () => {
     expect(todoBlock).toHaveTextContent("Call dentist");
   });
 
+  it("includes scheduled todos in the week summary beside logged events", () => {
+    mockState.current = {
+      ...makeState(),
+      todos: [
+        makeTodo({ id: "todo_1", title: "Date-only todo", dueDateKey: "2026-06-20" as DateKey, dueTime: undefined }),
+        makeTodo({ id: "todo_2", title: "Timed todo", dueDateKey: "2026-06-21" as DateKey, dueTime: "14:30" }),
+        makeTodo({ id: "todo_3", title: "Outside week", dueDateKey: "2026-07-01" as DateKey, dueTime: "09:00" }),
+      ],
+      events: [makeCompletedTodoEvent()],
+    };
+
+    render(
+      <MemoryRouter>
+        <EventScreen />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Jun 19 - 25 · 1 logged · 2 todos")).toBeInTheDocument();
+  });
+
+  it("uses compact calendar rows for empty hours", () => {
+    mockState.current = {
+      ...makeState(),
+      todos: [makeTodo({ title: "Call dentist", dueTime: "14:30" })],
+    };
+
+    render(
+      <MemoryRouter>
+        <EventScreen />
+      </MemoryRouter>,
+    );
+
+    const grid = screen.getByTestId("week-calendar-grid");
+
+    expect(grid).toHaveStyle({ height: "1176px" });
+  });
+
   it("opens the source todo completed state when clicking a completed todo calendar event", () => {
     mockState.current = {
       ...makeState(),
