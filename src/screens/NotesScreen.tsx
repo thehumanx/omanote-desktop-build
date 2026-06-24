@@ -3,8 +3,9 @@ import { useDrawerDrag } from "../lib/useDrawerDrag";
 import { ArrowDown, ArrowUp, ArrowUpDown, GripHorizontal, LayoutGrid, LayoutList, Plus } from "lucide-react";
 import type { NoteItem } from "@omanote/shared";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import { useApp } from "../app/AppProvider";
 import { EmptyState } from "../components/EmptyState";
 import { FolderActionMenu, FolderCard, FolderRow } from "../components/NoteFolderNav";
@@ -157,7 +158,7 @@ export function NotesScreen() {
   const [drawerFolderMenuOpen, setDrawerFolderMenuOpen] = useState(false);
   const [drawerRenaming, setDrawerRenaming] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; count: number } | null>(null);
-  const [shareTarget, setShareTarget] = useState<{ id: string; name: string } | null>(null);
+  const [shareTarget, setShareTarget] = useState<{ id: string; name: string; icon?: string } | null>(null);
   const [folderSort, setFolderSort] = useState<{ key: FolderSortKey; direction: FolderSortDirection }>(() => readSavedFolderSort());
   const [folderViewMode, setFolderViewMode] = useState<FolderViewMode>(() => readSavedFolderViewMode());
   const effectiveFolderViewMode: FolderViewMode =
@@ -193,6 +194,43 @@ export function NotesScreen() {
 
   const activeSharedFolderIds = useQuery(api.sharedNoteFolders.listMyActiveFolderIds);
   const sharedFolderIdSet = useMemo(() => new Set(activeSharedFolderIds ?? []), [activeSharedFolderIds]);
+
+  const updateShareSnapshot = useMutation(api.sharedNoteFolders.updateShareSnapshot);
+  const noteSnapshotDebounceRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!activeSharedFolderIds?.length) return;
+    if (noteSnapshotDebounceRef.current !== null) {
+      window.clearTimeout(noteSnapshotDebounceRef.current);
+    }
+    noteSnapshotDebounceRef.current = window.setTimeout(() => {
+      noteSnapshotDebounceRef.current = null;
+      for (const folderId of activeSharedFolderIds) {
+        const folder = state.noteFolders.find((f) => f.id === folderId);
+        if (!folder) continue;
+        const notes = state.notes
+          .filter((n) => n.folderId === folderId && !n.deletedAt)
+          .sort((a, b) => a.createdAt - b.createdAt)
+          .map((n) => ({
+            id: n.id,
+            title: n.title,
+            body: n.body,
+            tags: n.tags,
+          }));
+        void updateShareSnapshot({
+          folderId: folderId as Id<"noteFolders">,
+          folderName: folder.name,
+          folderIcon: folder.icon,
+          notes,
+        });
+      }
+    }, 2000);
+    return () => {
+      if (noteSnapshotDebounceRef.current !== null) {
+        window.clearTimeout(noteSnapshotDebounceRef.current);
+      }
+    };
+  }, [state.notes, state.noteFolders, activeSharedFolderIds, updateShareSnapshot]);
 
   const activeNotes = state.notes;
   const sourceNotes = activeNotes;
@@ -617,7 +655,7 @@ export function NotesScreen() {
                     setDrawerRenaming(true);
                   }}
                   onShare={() => {
-                    setShareTarget({ id: row.id ?? "", name: row.name });
+                    setShareTarget({ id: row.id ?? "", name: row.name, icon: row.icon });
                     setDrawerFolderMenuOpen(false);
                   }}
                   onDelete={() => {
@@ -926,7 +964,7 @@ export function NotesScreen() {
                                 setFolderMenuOpenId(null);
                               }}
                               onShare={() => {
-                                setShareTarget({ id: folder.id ?? "", name: folder.name });
+                                setShareTarget({ id: folder.id ?? "", name: folder.name, icon: folder.icon });
                                 setFolderMenuOpenId(null);
                               }}
                               onDelete={() => {
@@ -1035,7 +1073,7 @@ export function NotesScreen() {
                                 setFolderMenuOpenId(null);
                               }}
                               onShare={() => {
-                                setShareTarget({ id: folder.id ?? "", name: folder.name });
+                                setShareTarget({ id: folder.id ?? "", name: folder.name, icon: folder.icon });
                                 setFolderMenuOpenId(null);
                               }}
                               onDelete={() => {
@@ -1125,6 +1163,7 @@ export function NotesScreen() {
         <ShareNoteFolderModal
           folderId={shareTarget.id}
           folderName={shareTarget.name}
+          folderIcon={shareTarget.icon}
           onClose={() => setShareTarget(null)}
         />
       ) : null}

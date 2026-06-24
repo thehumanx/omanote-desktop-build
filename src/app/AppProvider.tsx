@@ -832,6 +832,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Mutations
   const createTodo = useMutation(api.todos.createTodo);
   const createTodoFolder = useMutation(api.todos.createTodoFolder);
+  const updateTodoFolder = useMutation(api.todos.updateTodoFolder);
   const backfillTodoDueDates = useMutation(api.todos.backfillTodoDueDates);
   const backfillBookmarkUpdatedAt = useMutation(api.bookmarks.backfillBookmarkUpdatedAt);
   const backfillBookmarkCategoryUpdatedAt = useMutation(api.bookmarks.backfillBookmarkCategoryUpdatedAt);
@@ -852,6 +853,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const createNoteFolder = useMutation(api.notes.createNoteFolder);
   const deleteNoteFolder = useMutation(api.notes.deleteNoteFolder);
   const deleteNoteFolderWithNotes = useMutation(api.notes.deleteNoteFolderWithNotes);
+  const deleteTodoFolder = useMutation(api.todos.deleteTodoFolder);
+  const deleteTodoFolderWithTodos = useMutation(api.todos.deleteTodoFolderWithTodos);
   const updateNoteFolder = useMutation(api.notes.updateNoteFolder);
   const updateNote = useMutation(api.notes.updateNote);
   const deleteNote = useMutation(api.notes.deleteNote);
@@ -1252,6 +1255,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   decryptedBookmarkCategoriesRef.current = decryptedBookmarkCategories;
 
   const decryptedTodoFoldersRef = useRef(decryptedTodoFolders);
+  const inflightFolderCreationsRef = useRef(new Map<string, Promise<{ folderId: string; folderName: string }>>());
   decryptedTodoFoldersRef.current = decryptedTodoFolders;
 
   const resolveTodoFolderInput = useCallback(
@@ -1261,8 +1265,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const trimmed = folderName?.trim() || "Others";
       const existing = folders.find((folder) => folder.name.toLowerCase() === trimmed.toLowerCase());
       if (existing) return { folderId: existing.id, folderName: existing.name };
-      const createdFolderId = (await createTodoFolder({ name: await encrypt(trimmed) })) as string;
-      return { folderId: createdFolderId, folderName: trimmed };
+      const cacheKey = trimmed.toLowerCase();
+      const inflight = inflightFolderCreationsRef.current.get(cacheKey);
+      if (inflight) return inflight;
+      const promise = (async () => {
+        try {
+          const createdFolderId = (await createTodoFolder({ name: await encrypt(trimmed) })) as string;
+          return { folderId: createdFolderId, folderName: trimmed };
+        } finally {
+          inflightFolderCreationsRef.current.delete(cacheKey);
+        }
+      })();
+      inflightFolderCreationsRef.current.set(cacheKey, promise);
+      return promise;
     },
     [createTodoFolder, encrypt],
   );
@@ -1850,10 +1865,76 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
         })();
         return true;
+      case "todo-folder/create":
+        void (async () => {
+          const encryptedName = await encrypt(action.name);
+          const now = Date.now();
+          const folderId = (await createTodoFolder({ name: encryptedName, icon: action.icon })) as string;
+          await db.todoFolders.put({
+            _id: folderId as any,
+            _creationTime: now,
+            userId: authUser?.id ?? "local",
+            name: encryptedName,
+            nameLower: encryptedName.toLowerCase(),
+            icon: action.icon,
+            createdAt: now,
+            updatedAt: now,
+          });
+          setDecryptedTodoFolders((prev) => {
+            if (prev.some((f) => f.id === folderId)) return prev;
+            return [...prev, { id: folderId, name: action.name, icon: action.icon, createdAt: now, updatedAt: now }];
+          });
+          await db.syncCursors.delete("todoFolders");
+          scheduleSync();
+        })();
+        return true;
+      case "todo-folder/update":
+        void (async () => {
+          const encryptedName = await encrypt(action.name);
+          const now = Date.now();
+          const localFolder = await db.todoFolders.get(action.folderId);
+          await db.todoFolders.put({
+            _id: action.folderId as any,
+            _creationTime: now,
+            userId: localFolder?.userId ?? authUser?.id ?? "local",
+            name: encryptedName,
+            nameLower: encryptedName.toLowerCase(),
+            icon: action.icon,
+            createdAt: localFolder?.createdAt ?? now,
+            updatedAt: now,
+          });
+          setDecryptedTodoFolders((prev) =>
+            prev.map((f) =>
+              f.id === action.folderId ? { ...f, name: action.name, icon: action.icon, updatedAt: now } : f,
+            ),
+          );
+          await updateTodoFolder({ folderId: action.folderId as any, name: encryptedName, icon: action.icon });
+          await db.syncCursors.delete("todoFolders");
+          scheduleSync();
+        })();
+        return true;
+      case "todo-folder/delete":
+        setDecryptedTodoFolders((prev) => prev.filter((f) => f.id !== action.folderId));
+        void deleteRemoteNoteFolderAndLocalCache({
+          folderId: action.folderId,
+          deleteRemote: (folderId) => deleteTodoFolder({ folderId: folderId as any }),
+          deleteLocal: (folderId) => db.todoFolders.delete(folderId),
+          scheduleSync,
+        }).catch((error) => console.error("[omanote] failed to delete todo folder:", error));
+        return true;
+      case "todo-folder/delete-with-todos":
+        setDecryptedTodoFolders((prev) => prev.filter((f) => f.id !== action.folderId));
+        void deleteRemoteNoteFolderAndLocalCache({
+          folderId: action.folderId,
+          deleteRemote: (folderId) => deleteTodoFolderWithTodos({ folderId: folderId as any }),
+          deleteLocal: (folderId) => db.todoFolders.delete(folderId),
+          scheduleSync,
+        }).catch((error) => console.error("[omanote] failed to delete todo folder with todos:", error));
+        return true;
       default:
         return false;
     }
-  }, [createTodo, updateTodo, toggleTodo, deleteTodo, restoreTodo, snoozeTodo, markFired, pushHistory, showDeleteToast, localDispatch, encrypt, resolveTodoFolderInput, scheduleSync]);
+  }, [createTodo, updateTodo, toggleTodo, deleteTodo, restoreTodo, snoozeTodo, markFired, createTodoFolder, updateTodoFolder, deleteTodoFolder, deleteTodoFolderWithTodos, pushHistory, showDeleteToast, localDispatch, encrypt, authUser, db, resolveTodoFolderInput, scheduleSync, setDecryptedTodoFolders]);
 
   const handleNoteAction = useCallback((action: AppAction): boolean => {
     switch (action.type) {
@@ -1972,6 +2053,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             createdAt: now,
             updatedAt: now,
           });
+          setDecryptedNoteFolders((prev) => {
+            if (prev.some((f) => f.id === folderId)) return prev;
+            return [...prev, { id: folderId, name: action.name, icon: action.icon, createdAt: now, updatedAt: now }];
+          });
           await db.syncCursors.delete("noteFolders");
           scheduleSync();
         })();
@@ -1991,12 +2076,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             createdAt: localFolder?.createdAt ?? now,
             updatedAt: now,
           });
+          setDecryptedNoteFolders((prev) =>
+            prev.map((f) =>
+              f.id === action.folderId ? { ...f, name: action.name, icon: action.icon, updatedAt: now } : f,
+            ),
+          );
           await updateNoteFolder({ folderId: action.folderId as any, name: encryptedName, icon: action.icon });
           await db.syncCursors.delete("noteFolders");
           scheduleSync();
         })();
         return true;
       case "note-folder/delete":
+        setDecryptedNoteFolders((prev) => prev.filter((f) => f.id !== action.folderId));
         void deleteRemoteNoteFolderAndLocalCache({
           folderId: action.folderId,
           deleteRemote: (folderId) => deleteNoteFolder({ folderId: folderId as any }),
@@ -2005,6 +2096,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }).catch((error) => console.error("[omanote] failed to delete note folder:", error));
         return true;
       case "note-folder/delete-with-notes":
+        setDecryptedNoteFolders((prev) => prev.filter((f) => f.id !== action.folderId));
         void deleteRemoteNoteFolderAndLocalCache({
           folderId: action.folderId,
           deleteRemote: (folderId) => deleteNoteFolderWithNotes({ folderId: folderId as any }),
@@ -2015,7 +2107,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       default:
         return false;
     }
-  }, [authUser?.id, createNote, updateNote, deleteNote, restoreNote, createNoteFolder, updateNoteFolder, deleteNoteFolder, deleteNoteFolderWithNotes, pushHistory, showDeleteToast, encrypt, encryptArray, scheduleSync]);
+  }, [authUser?.id, createNote, updateNote, deleteNote, restoreNote, createNoteFolder, updateNoteFolder, deleteNoteFolder, deleteNoteFolderWithNotes, pushHistory, showDeleteToast, encrypt, encryptArray, scheduleSync, setDecryptedNoteFolders]);
 
   const handleBookmarkAction = useCallback((action: AppAction): boolean => {
     switch (action.type) {
@@ -2082,18 +2174,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return true;
       case "bookmark-category/create":
         void (async () => {
-          await createBookmarkCategory({ name: await encrypt(action.name), icon: action.icon });
+          const encryptedName = await encrypt(action.name);
+          const now = Date.now();
+          const categoryId = (await createBookmarkCategory({ name: encryptedName, icon: action.icon })) as string;
+          await db.bookmarkCategories.put({
+            _id: categoryId as any,
+            _creationTime: now,
+            userId: authUser?.id ?? "local",
+            name: encryptedName,
+            icon: action.icon,
+            createdAt: now,
+            updatedAt: now,
+          });
+          setDecryptedBookmarkCategories((prev) => {
+            if (prev.some((c) => c.id === categoryId)) return prev;
+            return [...prev, { id: categoryId, name: action.name, icon: action.icon, createdAt: now }];
+          });
           scheduleSync();
         })();
         return true;
       case "bookmark-category/update":
         void db.bookmarkCategories.update(action.categoryId, { icon: action.icon, updatedAt: Date.now() });
+        setDecryptedBookmarkCategories((prev) =>
+          prev.map((c) => (c.id === action.categoryId ? { ...c, name: action.name, icon: action.icon } : c)),
+        );
         void (async () => {
           await updateBookmarkCategory({ categoryId: action.categoryId as any, name: await encrypt(action.name), icon: action.icon });
           scheduleSync();
         })();
         return true;
       case "bookmark-category/delete":
+        setDecryptedBookmarkCategories((prev) => prev.filter((c) => c.id !== action.categoryId));
         void deleteRemoteBookmarkCategoryAndLocalCache({
           categoryId: action.categoryId,
           deleteRemote: (categoryId) => deleteBookmarkCategory({ categoryId: categoryId as any }),
@@ -2102,6 +2213,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }).catch((error) => console.error("[omanote] failed to delete bookmark category:", error));
         return true;
       case "bookmark-category/delete-with-bookmarks":
+        setDecryptedBookmarkCategories((prev) => prev.filter((c) => c.id !== action.categoryId));
         void deleteRemoteBookmarkCategoryAndLocalCache({
           categoryId: action.categoryId,
           deleteRemote: (categoryId) => deleteBookmarkCategoryWithBookmarks({ categoryId: categoryId as any }),
@@ -2112,7 +2224,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       default:
         return false;
     }
-  }, [saveBookmarkCreate, saveBookmarkUpdate, deleteBookmark, restoreBookmark, createBookmarkCategory, updateBookmarkCategory, deleteBookmarkCategory, deleteBookmarkCategoryWithBookmarks, pushHistory, showDeleteToast, encrypt, scheduleSync]);
+  }, [saveBookmarkCreate, saveBookmarkUpdate, deleteBookmark, restoreBookmark, createBookmarkCategory, updateBookmarkCategory, deleteBookmarkCategory, deleteBookmarkCategoryWithBookmarks, pushHistory, showDeleteToast, encrypt, scheduleSync, authUser?.id, setDecryptedBookmarkCategories]);
 
   const handleEventAction = useCallback((action: AppAction): boolean => {
     switch (action.type) {
@@ -2354,6 +2466,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       decryptedBookmarks,
       decryptedDeletedBookmarks,
       decryptedChecklistItems,
+      decryptedTodoFolders,
       decryptedNotes,
       decryptedDeletedNotes,
       decryptedNoteFolders,
@@ -2386,4 +2499,9 @@ export function useApp() {
   const value = useContext(AppContext);
   if (!value) throw new Error("useApp must be used inside AppProvider");
   return value;
+}
+
+/** Like useApp but returns null instead of throwing when no AppProvider is present. */
+export function useOptionalApp() {
+  return useContext(AppContext);
 }

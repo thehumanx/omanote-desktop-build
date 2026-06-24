@@ -1,5 +1,15 @@
 ## Desktop Versions
 
+### v0.24.0 [June 23, 2026]
+
+> Todo folders are here. Organize, iconify, and share your task lists — all bundled into the desktop app.
+
+- [Add] Todo folders: group your todos into organized folders with custom icons and emojis.
+- [Add] Share todo folders publicly, just like notes and bookmarks.
+- [Add] Canvas todos now respect your selected folder — "Shift + Enter" saves to the same folder.
+- [Update] Todos page redesigned with folder management, including sort and reorder.
+- [Update] All previous todos migrated to a default "Others" folder.
+
 ### v0.23.1 [June 22, 2026]
 
 > Feed fixes and cleaner controls.

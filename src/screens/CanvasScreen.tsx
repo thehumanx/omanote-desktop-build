@@ -5,6 +5,7 @@ import { addDays, buildDateStripWindow, toDateKey } from "@omanote/shared";
 import type { DateKey } from "@omanote/shared";
 import type { BookmarkItem, NoteItem, EventEntry, TodoItem } from "@omanote/shared";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import { useApp } from "../app/AppProvider";
 import { loadCanvasOrderCache, saveCanvasOrderCache, type CanvasOrderItem } from "../app/canvas-order-cache";
 import { getVisibleCanvasTodos } from "../app/reducer";
@@ -337,13 +338,15 @@ export function CanvasScreen() {
   }, []);
 
   const handleSaveTodoEdit = useCallback(
-    (todoId: string, payload: { title: string; dueDateKey?: string; dueTime?: string }) => {
+    (todoId: string, payload: { title: string; dueDateKey?: string; dueTime?: string; folderId?: string; folderName?: string }) => {
       dispatch({
         type: "todo/update",
         todoId,
         title: payload.title,
         dueDateKey: payload.dueDateKey as DateKey,
         dueTime: payload.dueTime,
+        folderId: payload.folderId,
+        folderName: payload.folderName,
       });
       setEditingTodoId(null);
     },
@@ -436,6 +439,46 @@ export function CanvasScreen() {
     setDraggingKey(null);
   };
 
+  const activeSharedFolderIds = useQuery(api.sharedTodoFolders.listMyActiveSharedFolderIds);
+  const updateShareSnapshot = useMutation(api.sharedTodoFolders.updateShareSnapshot);
+  const todoSnapshotDebounceRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!activeSharedFolderIds?.length) return;
+    if (todoSnapshotDebounceRef.current !== null) {
+      window.clearTimeout(todoSnapshotDebounceRef.current);
+    }
+    todoSnapshotDebounceRef.current = window.setTimeout(() => {
+      todoSnapshotDebounceRef.current = null;
+      for (const folderId of activeSharedFolderIds) {
+        const folder = state.todoFolders.find((f) => f.id === folderId);
+        if (!folder) continue;
+        const todos = state.todos
+          .filter((t) => t.folderId === folderId && !t.deletedAt)
+          .map((t) => ({
+            id: t.id,
+            title: t.title,
+            status: t.status,
+            dueDateKey: t.dueDateKey,
+            dueTime: t.dueTime,
+            createdAt: t.createdAt,
+            completedAt: t.completedAt,
+          }));
+        void updateShareSnapshot({
+          todoFolderId: folderId as Id<"todoFolders">,
+          folderName: folder.name,
+          folderIcon: folder.icon,
+          todos,
+        });
+      }
+    }, 2000);
+    return () => {
+      if (todoSnapshotDebounceRef.current !== null) {
+        window.clearTimeout(todoSnapshotDebounceRef.current);
+      }
+    };
+  }, [state.todos, state.todoFolders, activeSharedFolderIds, updateShareSnapshot]);
+
   return (
     <div
       className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-10 pb-24"
@@ -471,6 +514,7 @@ export function CanvasScreen() {
                   canvasDateKey={state.ui.selectedDateKey}
                   pendingSync={!!item.data.pendingSync}
                   isEditing={editingTodoId === item.data.id}
+                  folders={state.todoFolders}
                   onStartEdit={handleStartTodoEdit}
                   onSaveEdit={handleSaveTodoEdit}
                   onCancelEdit={handleCancelTodoEdit}

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { ArrowDownUp, Check, Copy, Eye, Link, X } from "lucide-react";
+import { Check, Copy, Eye, Link, X } from "lucide-react";
 import { BaseModal } from "./BaseModal";
 import { cn } from "./ui";
 import { useApp } from "../app/AppProvider";
@@ -38,10 +38,14 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 export function ShareFolderModal({
   categoryId,
   categoryName,
+  categoryIcon,
+  type = "bookmark",
   onClose,
 }: {
   categoryId: string;
   categoryName: string;
+  categoryIcon?: string;
+  type?: "bookmark" | "todo";
   onClose: () => void;
 }) {
   const { state } = useApp();
@@ -50,38 +54,73 @@ export function ShareFolderModal({
   const [snapshotPushed, setSnapshotPushed] = useState(false);
   const copyResetRef = useRef<number | null>(null);
 
-  const share = useQuery(api.sharedFolders.getCategoryShare, {
-    categoryId: categoryId as Id<"bookmarkCategories">,
-  });
-  const setShareActive = useMutation(api.sharedFolders.setShareActive);
-  const updateShareSnapshot = useMutation(api.sharedFolders.updateShareSnapshot);
-  const setSortOrder = useMutation(api.sharedFolders.setSortOrder);
+  const isTodo = type === "todo";
+
+  const share = useQuery(
+    isTodo ? api.sharedTodoFolders.getFolderShare : api.sharedFolders.getCategoryShare,
+    isTodo
+      ? { todoFolderId: categoryId as Id<"todoFolders"> }
+      : { categoryId: categoryId as Id<"bookmarkCategories"> },
+  );
+  const setShareActive = useMutation(
+    isTodo ? api.sharedTodoFolders.setShareActive : api.sharedFolders.setShareActive,
+  );
+  const updateShareSnapshot = useMutation(
+    isTodo ? api.sharedTodoFolders.updateShareSnapshot : api.sharedFolders.updateShareSnapshot,
+  );
+
 
   const isActive = share?.isActive ?? false;
   const shareUrl = share ? buildShareUrl(share.shareCode) : null;
 
-  // Collect current decrypted bookmarks for this category (already decrypted by AppProvider)
-  const categoryBookmarks = state.bookmarks
-    .filter((b) => b.categoryId === categoryId && !b.deletedAt)
-    .map((b) => ({
-      id: b.id,
-      url: b.url,
-      title: b.title,
-      siteName: b.siteName,
-      description: b.description,
-      thumbnailUrl: b.thumbnailUrl,
-      faviconUrl: b.faviconUrl,
-    }));
+  // Collect current items for this folder/category
+  const categoryBookmarks = isTodo
+    ? undefined
+    : state.bookmarks
+        .filter((b) => b.categoryId === categoryId && !b.deletedAt)
+        .map((b) => ({
+          id: b.id,
+          url: b.url,
+          title: b.title,
+          siteName: b.siteName,
+          description: b.description,
+          thumbnailUrl: b.thumbnailUrl,
+          faviconUrl: b.faviconUrl,
+        }));
+
+  const folderTodos = isTodo
+    ? state.todos
+        .filter((t) => t.folderId === categoryId && !t.deletedAt)
+        .map((t) => ({
+          id: t.id,
+          title: t.title,
+          status: t.status,
+          dueDateKey: t.dueDateKey,
+          dueTime: t.dueTime,
+          createdAt: t.createdAt,
+          completedAt: t.completedAt,
+        }))
+    : undefined;
 
   const pushSnapshot = useCallback(async () => {
-    await updateShareSnapshot({
-      categoryId: categoryId as Id<"bookmarkCategories">,
-      categoryName,
-      bookmarks: categoryBookmarks,
-    });
-  // categoryBookmarks is rebuilt each render; stable deps are the primitives
+    if (isTodo) {
+      await updateShareSnapshot({
+        todoFolderId: categoryId as Id<"todoFolders">,
+        folderName: categoryName,
+        folderIcon: categoryIcon,
+        todos: folderTodos!,
+      });
+    } else {
+      await updateShareSnapshot({
+        categoryId: categoryId as Id<"bookmarkCategories">,
+        categoryName,
+        categoryIcon,
+        bookmarks: categoryBookmarks!,
+      });
+    }
+  // categoryBookmarks/folderTodos are rebuilt each render; stable deps are the primitives
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [updateShareSnapshot, categoryId, categoryName, state.bookmarks]);
+  }, [updateShareSnapshot, categoryId, categoryName, categoryIcon, state.bookmarks, state.todos, isTodo]);
 
   // When the modal opens on an already-active share, push a fresh snapshot once
   useEffect(() => {
@@ -100,10 +139,17 @@ export function ShareFolderModal({
     if (isTogglingShare) return;
     setIsTogglingShare(true);
     try {
-      await setShareActive({
-        categoryId: categoryId as Id<"bookmarkCategories">,
-        isActive: nextActive,
-      });
+      if (isTodo) {
+        await setShareActive({
+          todoFolderId: categoryId as Id<"todoFolders">,
+          isActive: nextActive,
+        });
+      } else {
+        await setShareActive({
+          categoryId: categoryId as Id<"bookmarkCategories">,
+          isActive: nextActive,
+        });
+      }
       if (nextActive) {
         setSnapshotPushed(true); // prevent useEffect from double-pushing
         void pushSnapshot();
@@ -197,35 +243,6 @@ export function ShareFolderModal({
 
               {isActive && share && (
                 <div className="flex flex-col gap-3">
-                  <div className="flex items-center justify-between gap-3 rounded-xl border border-app-line bg-app-surface-muted px-4 py-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <ArrowDownUp className="h-4 w-4 flex-shrink-0 text-app-ink-faint" />
-                      <span className="text-sm text-app-ink-muted font-medium">Sort order</span>
-                    </div>
-                    <div className="flex items-center gap-1 rounded-lg border border-app-line bg-app-surface p-0.5">
-                      {(["oldest_first", "newest_first"] as const).map((order) => (
-                        <button
-                          key={order}
-                          type="button"
-                          onClick={() =>
-                            void setSortOrder({
-                              categoryId: categoryId as Id<"bookmarkCategories">,
-                              sortOrder: order,
-                            })
-                          }
-                          className={cn(
-                            "rounded-md px-2.5 py-1 text-xs font-medium transition",
-                            (share.sortOrder ?? "oldest_first") === order
-                              ? "bg-action-primary text-white"
-                              : "text-app-ink-faint hover:text-app-ink",
-                          )}
-                        >
-                          {order === "oldest_first" ? "Oldest first" : "Newest first"}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
                   <div className="flex items-center gap-1.5 text-xs text-app-ink-faint">
                     <Eye className="h-3.5 w-3.5" />
                     <span>

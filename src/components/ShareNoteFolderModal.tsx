@@ -38,10 +38,12 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 export function ShareNoteFolderModal({
   folderId,
   folderName,
+  folderIcon,
   onClose,
 }: {
   folderId: string;
   folderName: string;
+  folderIcon?: string;
   onClose: () => void;
 }) {
   const { state } = useApp();
@@ -73,10 +75,11 @@ export function ShareNoteFolderModal({
     await updateShareSnapshot({
       folderId: folderId as Id<"noteFolders">,
       folderName,
+      folderIcon,
       notes: folderNotes,
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [updateShareSnapshot, folderId, folderName, state.notes]);
+  }, [updateShareSnapshot, folderId, folderName, folderIcon, state.notes]);
 
   useEffect(() => {
     if (snapshotPushed || share === undefined || !share?.isActive) return;

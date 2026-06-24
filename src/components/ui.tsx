@@ -387,6 +387,7 @@ export type SegmentedPillItem = {
   key: string;
   label?: string;
   icon?: React.ReactNode;
+  count?: number;
   ariaLabel?: string;
   disabled?: boolean;
 };
@@ -450,6 +451,14 @@ export function SegmentedPill({
           >
             {item.icon ? <span aria-hidden="true" className="relative z-10 flex items-center justify-center">{item.icon}</span> : null}
             {item.label ? <span className="relative z-10">{item.label}</span> : null}
+            {item.count !== undefined ? (
+              <span className={cn(
+                "relative z-10 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none",
+                active ? "bg-nav-active-ink/20 text-nav-active-ink" : "bg-app-ink-faint/20 text-app-ink-faint"
+              )}>
+                {item.count}
+              </span>
+            ) : null}
           </SegmentedItem>
         );
       })}

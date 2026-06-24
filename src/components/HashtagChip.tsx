@@ -2,7 +2,7 @@ import { createPortal } from "react-dom";
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { hashtagColor } from "../lib/hashtags";
-import { useApp } from "../app/AppProvider";
+import { useOptionalApp } from "../app/AppProvider";
 
 /** Set to true in contexts where the "View mindmap" tooltip should be hidden (e.g. already on Explore). */
 export const SuppressHashtagTooltipCtx = createContext(false);
@@ -18,7 +18,8 @@ interface HashtagChipProps {
 export function HashtagChip({ name, onClick, withTooltip = false, className }: HashtagChipProps) {
   const color = hashtagColor(name);
   const navigate = useNavigate();
-  const { dispatch } = useApp();
+  const app = useOptionalApp();
+  const dispatch = app?.dispatch;
   const suppressTooltip = useContext(SuppressHashtagTooltipCtx);
   const [showTooltip, setShowTooltip] = useState(false);
   const [tooltipPos, setTooltipPos] = useState<{ top: number; left: number; placement: "above" | "below" } | null>(null);
@@ -120,7 +121,7 @@ export function HashtagChip({ name, onClick, withTooltip = false, className }: H
     );
   }
 
-  if (withTooltip && !suppressTooltip) {
+  if (withTooltip && dispatch && !suppressTooltip) {
     const openMindMapForHashtag = () => {
       const nameLower = name.toLowerCase();
       dispatch({ type: "ui/set-search-query", query: "" });

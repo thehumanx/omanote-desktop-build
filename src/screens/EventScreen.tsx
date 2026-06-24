@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { addDays, buildDateStripWindow, formatMonthDayRange, parseEventDraftInputForDate, toDateKey } from "@omanote/shared";
-import type { DateKey, TodoItem } from "@omanote/shared";
+import type { DateKey, TodoFolder, TodoItem } from "@omanote/shared";
 import { CalendarDays, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, Clock3, List, Plus, Trash2, X } from "lucide-react";
 import { useApp } from "../app/AppProvider";
 import { BaseModal } from "../components/BaseModal";
@@ -385,14 +385,16 @@ function EventClusterModal({
   onUpdateTodo,
   onDeleteTodo,
   onDeleteTodoEvent,
+  todoFolders,
 }: {
   entries: CalendarEntry[];
   onClose: () => void;
   onEdit: (eventId: string) => void;
   onToggleTodo: (todoId: string) => void;
-  onUpdateTodo: (todoId: string, payload: { title: string; dueDateKey?: string; dueTime?: string }) => void;
+  onUpdateTodo: (todoId: string, payload: { title: string; dueDateKey?: string; dueTime?: string; folderId?: string; folderName?: string }) => void;
   onDeleteTodo: (todoId: string) => void;
   onDeleteTodoEvent: (todoId: string) => void;
+  todoFolders: TodoFolder[];
 }) {
   const [editingStackTodoId, setEditingStackTodoId] = useState<string | null>(null);
   const sortedEntries = [...entries].sort((left, right) => left.startMinutes - right.startMinutes);
@@ -439,6 +441,7 @@ function EventClusterModal({
                       todo={todo}
                       canvasDateKey={entry.dateKey}
                       isEditing={editingStackTodoId === todo.id}
+                      folders={todoFolders}
                       onToggle={onToggleTodo}
                       onDelete={onDeleteTodo}
                       onStartEdit={(nextTodo) => setEditingStackTodoId(nextTodo.id)}
@@ -1024,6 +1027,8 @@ export function EventScreen() {
               title: payload.title,
               dueDateKey: payload.dueDateKey as DateKey,
               dueTime: payload.dueTime,
+              folderId: payload.folderId,
+              folderName: payload.folderName,
             });
             setActiveCluster((current) => current?.map((entry) => {
               if (entry.kind !== "todo" || entry.todo.id !== todoId) return entry;
@@ -1053,6 +1058,7 @@ export function EventScreen() {
               return next.length ? next : null;
             });
           }}
+          todoFolders={state.todoFolders}
         />
       ) : null}
 

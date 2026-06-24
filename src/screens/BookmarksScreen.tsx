@@ -178,7 +178,7 @@ export function BookmarksScreen() {
   const [drawerCategoryMenuOpen, setDrawerCategoryMenuOpen] = useState(false);
   const [drawerRenaming, setDrawerRenaming] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; count: number } | null>(null);
-  const [shareFolderModal, setShareFolderModal] = useState<{ categoryId: string; categoryName: string } | null>(null);
+  const [shareFolderModal, setShareFolderModal] = useState<{ categoryId: string; categoryName: string; categoryIcon?: string } | null>(null);
   const [categorySort, setCategorySort] = useState<{ key: CategorySortKey; direction: BookmarkSortDirection }>(() => readSavedCategorySort());
   const [bookmarkSortDirection, setBookmarkSortDirection] = useState<BookmarkSortDirection>(() => readSavedBookmarkSortDirection());
   const [categoryViewMode, setCategoryViewMode] = useState<CategoryViewMode>(() => readSavedCategoryViewMode());
@@ -228,6 +228,7 @@ export function BookmarksScreen() {
         void updateShareSnapshot({
           categoryId: categoryId as Id<"bookmarkCategories">,
           categoryName: category.name,
+          categoryIcon: category.icon,
           bookmarks,
         });
       }
@@ -654,7 +655,7 @@ export function BookmarksScreen() {
                   setDrawerRenaming(true);
                 }}
                 onShare={() => {
-                  setShareFolderModal({ categoryId: selectedCategory.id, categoryName: selectedCategory.name });
+                  setShareFolderModal({ categoryId: selectedCategory.id, categoryName: selectedCategory.name, categoryIcon: selectedCategory.icon });
                   setDrawerCategoryMenuOpen(false);
                 }}
                 onDelete={() => {
@@ -930,7 +931,7 @@ export function BookmarksScreen() {
                                   setCategoryMenuOpenId(null);
                                 }}
                                 onShare={() => {
-                                  setShareFolderModal({ categoryId: category.id, categoryName: category.name });
+                                  setShareFolderModal({ categoryId: category.id, categoryName: category.name, categoryIcon: category.icon });
                                   setCategoryMenuOpenId(null);
                                 }}
                                 onDelete={() => {
@@ -1041,7 +1042,7 @@ export function BookmarksScreen() {
                                   setCategoryMenuOpenId(null);
                                 }}
                                 onShare={() => {
-                                  setShareFolderModal({ categoryId: category.id, categoryName: category.name });
+                                  setShareFolderModal({ categoryId: category.id, categoryName: category.name, categoryIcon: category.icon });
                                   setCategoryMenuOpenId(null);
                                 }}
                                 onDelete={() => {
@@ -1134,6 +1135,7 @@ export function BookmarksScreen() {
         <ShareFolderModal
           categoryId={shareFolderModal.categoryId}
           categoryName={shareFolderModal.categoryName}
+          categoryIcon={shareFolderModal.categoryIcon}
           onClose={() => setShareFolderModal(null)}
         />
       ) : null}

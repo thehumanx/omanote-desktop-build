@@ -33,6 +33,7 @@ import type * as rss from "../rss.js";
 import type * as shareViews from "../shareViews.js";
 import type * as sharedFolders from "../sharedFolders.js";
 import type * as sharedNoteFolders from "../sharedNoteFolders.js";
+import type * as sharedTodoFolders from "../sharedTodoFolders.js";
 import type * as todos from "../todos.js";
 import type * as userSettings from "../userSettings.js";
 import type * as utils from "../utils.js";
@@ -69,6 +70,7 @@ declare const fullApi: ApiFromModules<{
   shareViews: typeof shareViews;
   sharedFolders: typeof sharedFolders;
   sharedNoteFolders: typeof sharedNoteFolders;
+  sharedTodoFolders: typeof sharedTodoFolders;
   todos: typeof todos;
   userSettings: typeof userSettings;
   utils: typeof utils;

@@ -168,7 +168,10 @@ export function SharedNoteFolderPage() {
 
       <main className="mx-auto max-w-5xl px-4 py-10">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-app-ink">{data.folderName}</h1>
+          <h1 className="text-2xl font-bold text-app-ink">
+            {data.folderIcon && <span className="mr-2">{data.folderIcon}</span>}
+            {data.folderName}
+          </h1>
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
               <OwnerAvatar name={data.ownerName} imageUrl={data.ownerImageUrl} />
