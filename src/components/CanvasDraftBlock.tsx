@@ -5,7 +5,7 @@ import { useApp } from "../app/AppProvider";
 import { parseEventDraftInput, parseTodoDraftInput, randomId } from "@omanote/shared";
 import { handlePasteAsLink } from "../lib/link-utils";
 import { useOutsideClick } from "../lib/useOutsideClick";
-import { Input, SegmentedHighlight, SegmentedItem, SegmentedShell, TodoCheckmark } from "./ui";
+import { SegmentedHighlight, SegmentedItem, SegmentedShell, TodoCheckmark } from "./ui";
 import { hasMeaningfulNoteInput, isUncategorizedFolderName, readLastNoteFolder, resolveNoteFolderByName, writeLastNoteFolder } from "../lib/note-folder-utils";
 import { MobileSaveButton } from "./MobileSaveButton";
 import { hashtagColor, hashtagHighlightSegments, parseHashtags } from "../lib/hashtags";
@@ -183,6 +183,9 @@ export function CanvasDraftBlock() {
   const [activeTodoLineId, setActiveTodoLineId] = useState<string>(todoLines[0]?.id ?? "");
   const [todoFolderValue, setTodoFolderValue] = useState("Others");
   const [todoFolderOpen, setTodoFolderOpen] = useState(false);
+  const [todoFolderActiveIndex, setTodoFolderActiveIndex] = useState(0);
+  const todoFolderContainerRef = useRef<HTMLDivElement | null>(null);
+  const todoFolderInputRef = useRef<HTMLInputElement | null>(null);
   const todoFocusPendingRef = useRef(false);
   const [bookmarkUrl, setBookmarkUrl] = useState("");
   const [bookmarkCategoryValue, setBookmarkCategoryValue] = useState(() => readLastBookmarkCategory());
@@ -285,6 +288,26 @@ export function CanvasDraftBlock() {
     () => state.todoFolders.find((folder) => folder.name.toLowerCase() === todoFolderFilter) ?? null,
     [state.todoFolders, todoFolderFilter],
   );
+  const todoFolderMenuItems = useMemo(() => {
+    const items: Array<{ kind: "existing" | "create"; key: string; label: string; value: string }> = todoFolderOptions.map((folder) => ({
+      kind: "existing" as const,
+      key: folder.id,
+      label: folder.name,
+      value: folder.name,
+    }));
+
+    if (todoFolderTrimmed && !todoFolderExactMatch) {
+      items.push({
+        kind: "create" as const,
+        key: `create:${todoFolderTrimmed.toLowerCase()}`,
+        label: `Create folder "${todoFolderTrimmed}"`,
+        value: todoFolderTrimmed,
+      });
+    }
+
+    return items;
+  }, [todoFolderExactMatch, todoFolderOptions, todoFolderTrimmed]);
+  const showTodoFolderMenu = mode === "todo" && todoFolderOpen;
   const bookmarkCategoryFilter = bookmarkCategoryValue.trim().toLowerCase();
   const bookmarkCategoryTrimmed = bookmarkCategoryValue.trim();
   const bookmarkCategoryOptions = useMemo(() => {
@@ -392,6 +415,17 @@ export function CanvasDraftBlock() {
       Math.min(current, Math.max(0, bookmarkCategoryMenuItems.length - 1)),
     );
   }, [bookmarkCategoryMenuItems.length, showBookmarkCategoryMenu]);
+
+  useEffect(() => {
+    if (!showTodoFolderMenu) {
+      setTodoFolderActiveIndex(0);
+      return;
+    }
+
+    setTodoFolderActiveIndex((current) =>
+      Math.min(current, Math.max(0, todoFolderMenuItems.length - 1)),
+    );
+  }, [todoFolderMenuItems.length, showTodoFolderMenu]);
 
   useLayoutEffect(() => {
     if (!eventFocusPendingRef.current || mode !== "event") return;
@@ -603,6 +637,9 @@ export function CanvasDraftBlock() {
       return;
     }
 
+    const resolvedFolderId = todoFolderExactMatch?.id;
+    const resolvedFolderName = todoFolderTrimmed || "Others";
+
     for (const line of parsedLines) {
       dispatch({
         type: "todo/create",
@@ -610,8 +647,8 @@ export function CanvasDraftBlock() {
         dateKey: state.ui.selectedDateKey,
         dueDateKey: line.dueDateKey,
         dueTime: line.dueTime,
-        folderId: todoFolderExactMatch?.id,
-        folderName: todoFolderTrimmed || "Others",
+        folderId: resolvedFolderId,
+        folderName: resolvedFolderName,
       });
     }
 
@@ -633,6 +670,9 @@ export function CanvasDraftBlock() {
     const nextLine = createTodoDraftLine();
     setTodoLines([nextLine]);
     setActiveTodoLineId(nextLine.id);
+    setTodoFolderValue("Others");
+    setTodoFolderOpen(false);
+    setTodoFolderActiveIndex(0);
     allowTodoBlurRef.current = false;
   };
 
@@ -1077,6 +1117,9 @@ export function CanvasDraftBlock() {
                           if (relatedTarget instanceof HTMLElement && Object.values(todoLineRefs.current).some((ref) => ref === relatedTarget)) {
                             return;
                           }
+                          if (relatedTarget === todoFolderInputRef.current) {
+                            return;
+                          }
 
                           hideMobileSwitcherIfFocusLeavesDraft();
                           if (allowTodoBlurRef.current) {
@@ -1206,33 +1249,110 @@ export function CanvasDraftBlock() {
                     />
                   </div>
                   {mode === "todo" && index === 0 ? (
-                    <div className="relative hidden w-[180px] flex-none md:block">
-                      <Input
+                    <div ref={todoFolderContainerRef} className="relative hidden w-[220px] flex-none md:block">
+                      <input
+                        ref={todoFolderInputRef}
                         value={todoFolderValue}
                         onChange={(event) => {
                           setTodoFolderValue(event.target.value);
                           setTodoFolderOpen(true);
+                          setTodoFolderActiveIndex(0);
                         }}
-                        onFocus={() => setTodoFolderOpen(true)}
+                        onFocus={() => {
+                          setTodoFolderOpen(true);
+                          setMobileSwitcherVisible(true);
+                          queueEnsureEditorVisible();
+                        }}
+                        onBlur={() => {
+                          hideMobileSwitcherIfFocusLeavesDraft();
+                          window.requestAnimationFrame(() => {
+                            setTodoFolderOpen(false);
+                          });
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Escape") {
+                            event.preventDefault();
+                            setTodoFolderOpen(false);
+                            focusTodoInput();
+                            return;
+                          }
+                          if (isSaveShortcutEvent(event, settings.saveShortcut)) {
+                            event.preventDefault();
+                            allowTodoBlurRef.current = true;
+                            commitTodoDraft();
+                            return;
+                          }
+                          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                            if (!todoFolderMenuItems.length) return;
+                            event.preventDefault();
+                            setTodoFolderOpen(true);
+                            setTodoFolderActiveIndex((current) => {
+                              if (event.key === "ArrowDown") {
+                                return (current + 1) % todoFolderMenuItems.length;
+                              }
+                              return (current - 1 + todoFolderMenuItems.length) % todoFolderMenuItems.length;
+                            });
+                            return;
+                          }
+                          if ((event.key === "Enter" || event.key === "Tab") && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+                            if (!todoFolderMenuItems.length) return;
+                            event.preventDefault();
+                            const nextItem = todoFolderMenuItems[todoFolderActiveIndex] ?? todoFolderMenuItems[0];
+                            if (!nextItem) return;
+                            setTodoFolderValue(nextItem.value);
+                            setTodoFolderOpen(false);
+                            allowTodoBlurRef.current = true;
+                            window.requestAnimationFrame(() => {
+                              focusTodoInput();
+                            });
+                            return;
+                          }
+                        }}
                         placeholder="Folder"
-                        className="h-9 rounded-xl border-app-line bg-app-surface text-sm"
+                        className="w-full border-b border-app-line bg-transparent px-0 pr-7 py-0.5 text-[15px] text-app-ink-faint outline-none placeholder:text-app-line-strong focus:border-app-line-strong"
                       />
-                      {todoFolderOpen && todoFolderOptions.length ? (
+                      {todoFolderValue.trim() ? (
+                        <button
+                          type="button"
+                          aria-label="Clear folder"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => {
+                            setTodoFolderValue("");
+                            setTodoFolderOpen(true);
+                            setTodoFolderActiveIndex(0);
+                            todoFolderInputRef.current?.focus();
+                          }}
+                          className="absolute right-0 top-1/2 -translate-y-1/2 rounded-full p-1 text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      ) : null}
+                      {showTodoFolderMenu && todoFolderMenuItems.length ? (
                         <div
-                          className="absolute left-0 right-0 top-full z-20 mt-2 rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
+                          className="absolute left-0 right-0 top-full z-20 mt-2 overflow-y-auto rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
                           onMouseDown={(event) => event.preventDefault()}
                         >
-                          {todoFolderOptions.map((folder) => (
+                          {todoFolderMenuItems.map((item, index) => (
                             <button
-                              key={folder.id}
+                              key={item.key}
                               type="button"
-                              className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink"
-                              onClick={() => {
-                                setTodoFolderValue(folder.name);
+                              className={[
+                                "flex w-full items-center rounded-lg px-3 py-2 text-left text-sm transition",
+                                index === todoFolderActiveIndex ? "bg-app-surface-muted text-app-ink" : "text-app-ink-muted hover:bg-app-surface-hover",
+                              ].join(" ")}
+                              onMouseEnter={() => setTodoFolderActiveIndex(index)}
+                              onMouseDown={(event) => {
+                                event.preventDefault();
+                                setTodoFolderValue(item.value);
                                 setTodoFolderOpen(false);
+                                setTodoFolderActiveIndex(0);
+                                allowTodoBlurRef.current = true;
+                                window.requestAnimationFrame(() => {
+                                  focusTodoInput();
+                                });
                               }}
                             >
-                              {folder.name}
+                              {item.label}
                             </button>
                           ))}
                         </div>

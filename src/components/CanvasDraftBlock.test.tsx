@@ -251,7 +251,7 @@ describe("CanvasDraftBlock keyboard shortcuts", () => {
     fireEvent.keyDown(commandInput, { key: "Enter" });
 
     fireEvent.change(screen.getByPlaceholderText("Folder"), { target: { value: "Shop" } });
-    fireEvent.click(screen.getByRole("button", { name: "Shopping" }));
+    fireEvent.mouseDown(screen.getByRole("button", { name: "Shopping" }));
     const todoInput = screen.getByPlaceholderText("Write your checklist");
     fireEvent.change(todoInput, { target: { value: "Buy milk" } });
     fireEvent.keyDown(todoInput, { key: "Enter" });

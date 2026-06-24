@@ -1,6 +1,6 @@
 import type { MutationCtx } from "./_generated/server";
 
-type ShareKind = "bookmark_folder" | "note_folder";
+type ShareKind = "bookmark_folder" | "note_folder" | "todo_folder";
 
 const SHARE_VIEW_RATE_LIMIT_MS = 6 * 60 * 60 * 1000;
 const FALLBACK_VIEWER_TOKEN = "anonymous";

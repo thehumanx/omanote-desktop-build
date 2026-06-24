@@ -1,6 +1,6 @@
-import { memo, useEffect, useRef, useState } from "react";
-import { CircleCheckBig, Trash2 } from "lucide-react";
-import type { TodoItem } from "@omanote/shared";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { CircleCheckBig, Trash2, X } from "lucide-react";
+import type { TodoFolder, TodoItem } from "@omanote/shared";
 import { Badge, Button, cn, TodoCheckmark } from "./ui";
 import { formatCompletedLabel, formatDueChip, formatNaturalLanguageDueInput, parseNaturalLanguageDueInput } from "@omanote/shared";
 import { useOutsideClick } from "../lib/useOutsideClick";
@@ -15,6 +15,7 @@ export const TodoListRow = memo(function TodoListRow({
   isCompleting = false,
   isUncompleting = false,
   exitingCompletedLabel,
+  folders = [],
   onToggle,
   onDelete,
   onStartEdit,
@@ -27,14 +28,21 @@ export const TodoListRow = memo(function TodoListRow({
   isCompleting?: boolean;
   isUncompleting?: boolean;
   exitingCompletedLabel?: string;
+  folders?: TodoFolder[];
   onToggle: (todoId: string) => void;
   onDelete: (todoId: string) => void;
   onStartEdit: (todo: TodoItem) => void;
-  onSaveEdit: (todoId: string, payload: { title: string; dueDateKey?: string; dueTime?: string }) => void;
+  onSaveEdit: (todoId: string, payload: { title: string; dueDateKey?: string; dueTime?: string; folderId?: string; folderName?: string }) => void;
   onCancelEdit: () => void;
 }) {
   const [draftTitle, setDraftTitle] = useState(todo.title);
   const [draftWhen, setDraftWhen] = useState(formatNaturalLanguageDueInput(todo.dueDateKey, todo.dueTime));
+  const [draftFolder, setDraftFolder] = useState(
+    todo.folderName ??
+    (todo.folderId ? folders.find((f) => f.id === todo.folderId)?.name : undefined) ??
+    "Others"
+  );
+  const [folderMenuOpen, setFolderMenuOpen] = useState(false);
   const [draftError, setDraftError] = useState("");
   const rootRef = useRef<HTMLDivElement | null>(null);
   const titleRef = useRef<HTMLInputElement | null>(null);
@@ -55,8 +63,13 @@ export const TodoListRow = memo(function TodoListRow({
     if (!isEditing) return;
     setDraftTitle(todo.title);
     setDraftWhen(formatNaturalLanguageDueInput(todo.dueDateKey, todo.dueTime));
+    setDraftFolder(
+      todo.folderName ??
+      (todo.folderId ? folders.find((f) => f.id === todo.folderId)?.name : undefined) ??
+      "Others"
+    );
     setDraftError("");
-  }, [isEditing, todo.dueDateKey, todo.dueTime, todo.title]);
+  }, [isEditing, todo.dueDateKey, todo.dueTime, todo.title, todo.folderId, todo.folderName, folders]);
 
   useEffect(() => {
     if (isEditing) return;
@@ -73,6 +86,17 @@ export const TodoListRow = memo(function TodoListRow({
 
   useOutsideClick(rootRef, isEditing, onCancelEdit);
 
+  const trimmedFolder = draftFolder.trim();
+  const folderFilter = trimmedFolder.toLowerCase();
+  const visibleFolders = useMemo(() => {
+    if (!folderFilter) return folders;
+    return folders.filter((folder) => folder.name.toLowerCase().includes(folderFilter));
+  }, [folderFilter, folders]);
+  const exactFolderMatch = useMemo(
+    () => folders.find((folder) => folder.name.toLowerCase() === folderFilter) ?? null,
+    [folderFilter, folders],
+  );
+
   const commit = (next: { title?: string; dueWhen?: string }) => {
     const title = (next.title ?? draftTitle).trim();
     const dueWhen = next.dueWhen ?? draftWhen;
@@ -88,6 +112,8 @@ export const TodoListRow = memo(function TodoListRow({
       title,
       dueDateKey: parsed?.dateKey,
       dueTime: parsed?.time,
+      folderId: exactFolderMatch?.id,
+      folderName: trimmedFolder || "Others",
     });
   };
 
@@ -130,7 +156,7 @@ export const TodoListRow = memo(function TodoListRow({
                 }
               }}
               placeholder="Todo title"
-              className="min-w-[220px] flex-1 border-0 border-b border-app-line bg-transparent px-0 py-1 text-base leading-6 text-app-ink outline-none placeholder:text-app-line-strong focus:border-app-line-strong"
+              className="min-w-0 flex-[2] border-0 border-b border-app-line bg-transparent px-0 text-base leading-6 text-app-ink outline-none placeholder:text-app-line-strong focus:border-app-line-strong"
             />
             <input
               value={draftWhen}
@@ -158,8 +184,76 @@ export const TodoListRow = memo(function TodoListRow({
                 }
               }}
               placeholder="Tomorrow 9:30pm, 1 hour later, 5 days later"
-              className="min-w-[220px] flex-1 rounded-none border-0 border-b border-app-line bg-transparent px-0 py-1 text-[15px] text-app-ink-faint outline-none placeholder:text-app-line-strong focus:border-app-line-strong"
+              className="min-w-0 flex-1 rounded-none border-0 border-b border-app-line bg-transparent px-0 text-[15px] text-app-ink-faint outline-none placeholder:text-app-line-strong focus:border-app-line-strong"
             />
+            {folders.length ? (
+              <div className="relative min-w-[140px] flex-1">
+                <input
+                  value={draftFolder}
+                  onChange={(event) => {
+                    setDraftFolder(event.target.value);
+                    setFolderMenuOpen(true);
+                  }}
+                  onFocus={() => setFolderMenuOpen(true)}
+                  onBlur={() => {
+                    window.requestAnimationFrame(() => setFolderMenuOpen(false));
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      onCancelEdit();
+                      return;
+                    }
+                    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                      event.preventDefault();
+                      saveShortcut();
+                      return;
+                    }
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      saveShortcut();
+                    }
+                  }}
+                  placeholder="Folder"
+                  className="w-full border-0 border-b border-app-line bg-transparent px-0 text-[15px] text-app-ink-faint outline-none placeholder:text-app-line-strong focus:border-app-line-strong"
+                />
+                {draftFolder.trim() ? (
+                  <button
+                    type="button"
+                    aria-label="Clear folder"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      setDraftFolder("Others");
+                      setFolderMenuOpen(true);
+                    }}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 rounded-full p-1 text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                ) : null}
+                {folderMenuOpen && visibleFolders.length ? (
+                  <div
+                    className="absolute left-0 right-0 top-full z-20 mt-2 rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
+                    onMouseDown={(event) => event.preventDefault()}
+                  >
+                    {visibleFolders.map((folder) => (
+                      <button
+                        key={folder.id}
+                        type="button"
+                        className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink"
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          setDraftFolder(folder.name);
+                          setFolderMenuOpen(false);
+                        }}
+                      >
+                        {folder.name}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           {draftError ? <p className="text-xs text-danger-ink">{draftError}</p> : null}

@@ -675,7 +675,11 @@ export const fetchLinkPreview = action({
 
     const parsed = new URL(args.url);
     validateUrl(parsed);
-    await assertPublicUrl(parsed);
+    try {
+      await assertPublicUrl(parsed);
+    } catch {
+      return fallbackPreview(args.url);
+    }
 
     const normalizedUrl = parsed.toString();
 

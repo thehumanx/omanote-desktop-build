@@ -298,7 +298,7 @@ export default defineSchema({
     .index("by_user_hashtagName_artifactType", ["userId", "hashtagName", "artifactType"])
     .index("by_user_artifact", ["userId", "artifactType", "artifactId"]),
   sharedFolders: defineTable({
-    categoryId: v.id("bookmarkCategories"),
+    categoryId: v.optional(v.id("bookmarkCategories")),
     userId: v.string(),
     shareCode: v.string(),
     isActive: v.boolean(),
@@ -309,6 +309,7 @@ export default defineSchema({
     createdAt: v.number(),
     // Plaintext snapshot pushed by the owner's client on share enable/refresh
     snapshotCategoryName: v.optional(v.string()),
+    snapshotFolderIcon: v.optional(v.string()),
     snapshotBookmarks: v.optional(v.array(v.object({
       id: v.string(),
       url: v.string(),
@@ -320,10 +321,22 @@ export default defineSchema({
     }))),
     snapshotUpdatedAt: v.optional(v.number()),
     sortOrder: v.optional(v.union(v.literal("oldest_first"), v.literal("newest_first"))),
+    type: v.optional(v.union(v.literal("bookmark"), v.literal("todo"))),
+    todoFolderId: v.optional(v.id("todoFolders")),
+    snapshotTodos: v.optional(v.array(v.object({
+      id: v.string(),
+      title: v.string(),
+      status: v.union(v.literal("open"), v.literal("done")),
+      dueDateKey: v.optional(v.string()),
+      dueTime: v.optional(v.string()),
+      createdAt: v.number(),
+      completedAt: v.optional(v.number()),
+    }))),
   })
     .index("by_shareCode", ["shareCode"])
     .index("by_categoryId", ["categoryId"])
-    .index("by_userId_isActive", ["userId", "isActive"]),
+    .index("by_userId_isActive", ["userId", "isActive"])
+    .index("by_todoFolderId", ["todoFolderId"]),
   sharedNoteFolders: defineTable({
     folderId: v.id("noteFolders"),
     userId: v.string(),
@@ -335,6 +348,7 @@ export default defineSchema({
     ownerImageUrl: v.optional(v.string()),
     createdAt: v.number(),
     snapshotFolderName: v.optional(v.string()),
+    snapshotFolderIcon: v.optional(v.string()),
     snapshotNotes: v.optional(v.array(v.object({
       id: v.string(),
       title: v.optional(v.string()),
@@ -348,7 +362,7 @@ export default defineSchema({
     .index("by_userId_isActive", ["userId", "isActive"]),
   shareViewBuckets: defineTable({
     ownerUserId: v.string(),
-    shareKind: v.union(v.literal("bookmark_folder"), v.literal("note_folder")),
+    shareKind: v.union(v.literal("bookmark_folder"), v.literal("note_folder"), v.literal("todo_folder")),
     shareCode: v.string(),
     viewerToken: v.string(),
     lastCountedAt: v.number(),

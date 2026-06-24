@@ -66,6 +66,7 @@ export const updateShareSnapshot = mutation({
   args: {
     categoryId: v.id("bookmarkCategories"),
     categoryName: v.string(),
+    categoryIcon: v.optional(v.string()),
     bookmarks: v.array(snapshotBookmarkValidator),
   },
   handler: async (ctx, args) => {
@@ -81,6 +82,7 @@ export const updateShareSnapshot = mutation({
 
     await ctx.db.patch(share._id, {
       snapshotCategoryName: args.categoryName,
+      snapshotFolderIcon: args.categoryIcon,
       snapshotBookmarks: args.bookmarks,
       snapshotUpdatedAt: Date.now(),
     });
@@ -118,27 +120,9 @@ export const listMyActiveSharedCategoryIds = query({
       .withIndex("by_userId_isActive", (q) => q.eq("userId", userId).eq("isActive", true))
       .take(500);
 
-    return shares.map((s) => s.categoryId as string);
-  },
-});
-
-export const setSortOrder = mutation({
-  args: {
-    categoryId: v.id("bookmarkCategories"),
-    sortOrder: v.union(v.literal("oldest_first"), v.literal("newest_first")),
-  },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    const userId = requireUserId(identity);
-
-    const share = await ctx.db
-      .query("sharedFolders")
-      .withIndex("by_categoryId", (q) => q.eq("categoryId", args.categoryId))
-      .unique();
-
-    if (!share || share.userId !== userId) return;
-
-    await ctx.db.patch(share._id, { sortOrder: args.sortOrder });
+    return shares
+      .filter((s) => s.type === "bookmark" && s.categoryId)
+      .map((s) => s.categoryId as string);
   },
 });
 
@@ -157,22 +141,18 @@ export const getPublicShare = query({
     const identity = await ctx.auth.getUserIdentity();
     const isOwner = identity?.tokenIdentifier === share.userId;
 
-    const sortOrder = share.sortOrder ?? "oldest_first";
     const bookmarks = share.snapshotBookmarks ?? [];
-    const sortedBookmarks = sortOrder === "newest_first" ? [...bookmarks].reverse() : bookmarks;
 
     return {
       shareCode: share.shareCode,
-      // Use the owner-pushed plaintext snapshot — bookmarks are E2E encrypted
-      // and the server cannot decrypt them on behalf of public viewers.
       categoryName: share.snapshotCategoryName ?? "",
-      bookmarks: sortedBookmarks,
+      categoryIcon: share.snapshotFolderIcon ?? null,
+      bookmarks,
       ownerName: share.ownerName,
       ownerImageUrl: share.ownerImageUrl,
       viewCount: share.viewCount,
       createdAt: share.createdAt,
       snapshotUpdatedAt: share.snapshotUpdatedAt ?? null,
-      sortOrder,
       isOwner,
     };
   },

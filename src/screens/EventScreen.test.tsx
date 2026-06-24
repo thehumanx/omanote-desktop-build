@@ -226,6 +226,8 @@ describe("EventScreen", () => {
       title: "Renamed date todo",
       dueDateKey: "2026-06-20",
       dueTime: undefined,
+      folderId: undefined,
+      folderName: "Others",
     });
   });
 

@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
@@ -574,6 +574,27 @@ export const backfillTodoFolderIds = mutation({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     const userId = requireUserId(identity);
+    let updatedCount = 0;
+    for await (const todo of ctx.db
+      .query("todos")
+      .withIndex("by_user_folderId", (q) => q.eq("userId", userId).eq("folderId", undefined))) {
+      const folder = await ensureTodoFolder(ctx, userId, todo.folderName);
+      const timestamp = Date.now();
+      await ctx.db.patch(todo._id, {
+        folderId: folder._id,
+        folderName: folder.name,
+        updatedAt: Math.max(todo.updatedAt, timestamp),
+      });
+      updatedCount += 1;
+    }
+    return { updatedCount };
+  },
+});
+
+export const backfillAllUsersTodoFolders = internalMutation({
+  args: { userId: v.string() },
+  handler: async (ctx, args) => {
+    const userId = args.userId;
     let updatedCount = 0;
     for await (const todo of ctx.db
       .query("todos")

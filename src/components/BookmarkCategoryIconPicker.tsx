@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import {
@@ -71,6 +71,17 @@ export function BookmarkCategoryIconPicker({
     setPosition({ top, left, right });
     setPositioned(true);
   }, [anchorRef, mobile]);
+
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      const picker = pickerRef.current;
+      if (!(target instanceof Node) || !picker || picker.contains(target)) return;
+      onClose();
+    };
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    return () => document.removeEventListener("pointerdown", handlePointerDown, true);
+  }, [onClose]);
 
   function handleEmojiInputChange(value: string) {
     setEmojiInput(value);

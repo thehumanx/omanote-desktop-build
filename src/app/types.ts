@@ -79,6 +79,10 @@ export type AppAction =
   | { type: "note/update"; noteId: string; title?: string; body: string; tags: string[]; hashtags?: string[]; folderName?: string; folderId?: string }
   | { type: "note/delete"; noteId: string }
   | { type: "note/restore"; noteId: string }
+  | { type: "todo-folder/create"; name: string; icon?: string }
+  | { type: "todo-folder/update"; folderId: string; name: string; icon?: string }
+  | { type: "todo-folder/delete"; folderId: string }
+  | { type: "todo-folder/delete-with-todos"; folderId: string }
   | { type: "note-folder/create"; name: string; icon?: string }
   | { type: "note-folder/update"; folderId: string; name: string; icon?: string }
   | { type: "note-folder/delete"; folderId: string }

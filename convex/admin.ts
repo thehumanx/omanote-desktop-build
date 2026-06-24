@@ -1,4 +1,5 @@
-import { query } from "./_generated/server";
+import { v } from "convex/values";
+import { query, mutation } from "./_generated/server";
 
 export const getUsageStats = query({
   args: {},
@@ -44,5 +45,66 @@ export const getUsageStats = query({
       feedsRead: rssCounts[userId]?.reads ?? 0,
       feedsSaved: rssCounts[userId]?.saves ?? 0,
     }));
+  },
+});
+
+const DEFAULT_TODO_FOLDER_NAME = "Others";
+
+function todoFolderNameLower(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+function normalizeTodoFolderName(name: string): string {
+  return name.trim();
+}
+
+export const backfillAllTodoFolders = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const results: Array<{ userId: string; updatedCount: number; folderName: string }> = [];
+
+    const todos = await ctx.db.query("todos").collect();
+    const userIds = new Set(todos.map((t) => t.userId));
+
+    for (const userId of userIds) {
+      let updatedCount = 0;
+      for await (const todo of ctx.db
+        .query("todos")
+        .withIndex("by_user_folderId", (q) => q.eq("userId", userId).eq("folderId", undefined))) {
+        const name = normalizeTodoFolderName(todo.folderName || DEFAULT_TODO_FOLDER_NAME) || DEFAULT_TODO_FOLDER_NAME;
+        const nameLower = todoFolderNameLower(name);
+
+        let folder = await ctx.db
+          .query("todoFolders")
+          .withIndex("by_user_nameLower", (q) => q.eq("userId", userId).eq("nameLower", nameLower))
+          .unique();
+
+        if (!folder) {
+          const timestamp = Date.now();
+          const folderId = await ctx.db.insert("todoFolders", {
+            userId,
+            name,
+            nameLower,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          });
+          folder = (await ctx.db.get(folderId))!;
+        }
+
+        const timestamp = Date.now();
+        await ctx.db.patch(todo._id, {
+          folderId: folder._id,
+          folderName: folder.name,
+          updatedAt: Math.max(todo.updatedAt, timestamp),
+        });
+        updatedCount += 1;
+      }
+
+      if (updatedCount > 0) {
+        results.push({ userId, updatedCount, folderName: DEFAULT_TODO_FOLDER_NAME });
+      }
+    }
+
+    return { totalUsers: userIds.size, migrated: results.length, details: results };
   },
 });

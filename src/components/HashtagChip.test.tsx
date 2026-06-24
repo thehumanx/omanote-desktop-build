@@ -7,6 +7,9 @@ vi.mock("../app/AppProvider", () => ({
   useApp: () => ({
     dispatch: vi.fn(),
   }),
+  useOptionalApp: () => ({
+    dispatch: vi.fn(),
+  }),
 }));
 
 describe("HashtagChip", () => {

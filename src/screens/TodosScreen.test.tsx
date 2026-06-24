@@ -89,6 +89,20 @@ describe("TodosScreen completion animation", () => {
     Element.prototype.scrollIntoView = vi.fn();
     mockDispatch.mockReset();
     mockState.current = makeState([makeTodo()]);
+
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: (query: string) => ({
+        matches: query === "(min-width: 1024px)" ? true : false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }),
+    });
   });
 
   afterEach(() => {
@@ -535,7 +549,7 @@ describe("TodosScreen completion animation", () => {
     expect(screen.getByText("Buy oats")).toBeInTheDocument();
     expect(screen.queryByText("Read Dune")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /Books/ }));
+    fireEvent.click(screen.getAllByRole("button", { name: /Books/ })[0]);
 
     expect(screen.getByText("Read Dune")).toBeInTheDocument();
     expect(screen.queryByText("Buy oats")).not.toBeInTheDocument();
@@ -557,5 +571,106 @@ describe("TodosScreen completion animation", () => {
     fireEvent.click(screen.getAllByRole("button", { name: /Later/ })[0]);
 
     expect(mockDispatch).toHaveBeenCalledWith({ type: "ui/set-todo-filter", filter: "upcoming" });
+  });
+
+  it("shows folder selector when editing a todo", () => {
+    mockState.current = makeState([
+      makeTodo({ id: "todo_1", title: "Buy milk", folderId: "folder_1", folderName: "Shopping" }),
+    ]);
+
+    renderTodosScreen();
+
+    fireEvent.doubleClick(screen.getByText("Buy milk"));
+
+    const folderInput = screen.getByPlaceholderText("Folder");
+    expect(folderInput).toBeInTheDocument();
+    expect(folderInput).toHaveValue("Shopping");
+  });
+
+  it("shows 3-dot menu on hover for non-default folders", () => {
+    mockState.current = makeState([
+      makeTodo({ id: "todo_1", title: "Buy milk", folderId: "folder_1", folderName: "Shopping" }),
+    ]);
+
+    renderTodosScreen();
+
+    const menuButton = screen.getByRole("button", { name: "Folder actions for Shopping" });
+    expect(menuButton).toBeInTheDocument();
+    expect(menuButton).toHaveAttribute("aria-expanded", "false");
+    expect(menuButton).toHaveClass("opacity-0");
+
+    const folderRow = menuButton.closest('[role="button"]') as HTMLElement;
+    fireEvent.mouseEnter(folderRow);
+
+    expect(menuButton).toHaveClass("group-hover:opacity-100");
+  });
+
+  it("does not show 3-dot menu for the default Others folder", () => {
+    mockState.current = makeState(
+      [makeTodo({ id: "todo_1", title: "Unfiled task" })],
+      "overdue",
+    );
+    mockState.current.todoFolders = [
+      { id: "__others__", name: "Others", createdAt: 0, updatedAt: 0 },
+    ];
+
+    renderTodosScreen();
+
+    expect(screen.queryByRole("button", { name: "Folder actions for Others" })).not.toBeInTheDocument();
+  });
+
+  it("opens delete modal with correct options when folder has todos", () => {
+    mockState.current = makeState([
+      makeTodo({ id: "todo_1", title: "Buy milk", folderId: "folder_1", folderName: "Shopping" }),
+      makeTodo({ id: "todo_2", title: "Buy bread", folderId: "folder_1", folderName: "Shopping" }),
+    ]);
+
+    renderTodosScreen();
+
+    const menuButton = screen.getByRole("button", { name: "Folder actions for Shopping" });
+    fireEvent.click(menuButton);
+
+    fireEvent.click(screen.getByRole("menuitem", { name: /Delete/ }));
+
+    expect(screen.getByText(/Delete "Shopping"\?/)).toBeInTheDocument();
+    expect(screen.getByText(/This folder contains 2 todos/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete folder and todos" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete folder only" })).toBeInTheDocument();
+  });
+
+  it("opens delete modal without dual options when folder is empty", () => {
+    mockState.current = makeState([], "overdue");
+    mockState.current.todoFolders = [
+      { id: "folder_empty", name: "Empty", createdAt: 1, updatedAt: 1 },
+    ];
+
+    renderTodosScreen();
+
+    const menuButton = screen.getByRole("button", { name: "Folder actions for Empty" });
+    fireEvent.click(menuButton);
+
+    fireEvent.click(screen.getByRole("menuitem", { name: /Delete/ }));
+
+    expect(screen.getByText(/Delete "Empty"\?/)).toBeInTheDocument();
+    expect(screen.getByText(/This folder is empty/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete folder and todos" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete folder" })).toBeInTheDocument();
+  });
+
+  it("sorts folders by selected criteria", () => {
+    mockState.current = makeState([
+      makeTodo({ id: "todo_1", title: "Buy milk", folderId: "folder_2", folderName: "Books" }),
+      makeTodo({ id: "todo_2", title: "Read Dune", folderId: "folder_1", folderName: "Shopping" }),
+    ]);
+
+    renderTodosScreen();
+
+    const sortButton = screen.getByRole("button", { name: /Last updated/ });
+    fireEvent.click(sortButton);
+
+    fireEvent.click(screen.getByRole("button", { name: "A-Z" }));
+
+    expect(screen.queryByRole("button", { name: "Most todos" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /A-Z/ })).toBeInTheDocument();
   });
 });
