@@ -7,7 +7,7 @@ import { BaseModal } from "./BaseModal";
 import { cn } from "./ui";
 import { useApp } from "../app/AppProvider";
 
-const DOMAIN = "omanote.iambishistha.com";
+const DOMAIN = "omanote.com";
 
 function buildShareUrl(shareCode: string) {
   return `https://${DOMAIN}/s/${shareCode}`;

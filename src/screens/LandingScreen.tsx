@@ -2,26 +2,19 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { SignInButton } from "@clerk/react";
 import { CookieNotice } from "../components/CookieNotice";
-import { Bookmark, CheckSquare, Compass, FileText, CalendarDays, SquarePen, Folder, Link2, Settings, Zap, MousePointerClick, Lock, Puzzle, LayoutDashboard, Hash, Share2, Moon, Monitor, Bell, RefreshCw, Download, Rss, BookOpen, ChevronDown, X } from "lucide-react";
+import { Bookmark, CheckCheck, CheckSquare, Clock3, Compass, FileText, CalendarDays, SquarePen, Folder, Link2, List, Settings, Zap, MousePointerClick, Lock, Puzzle, LayoutDashboard, Hash, Share2, Moon, Monitor, Bell, RefreshCw, Download, Rss, BookOpen, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import changelogMarkdown from "../../CHANGELOG.md?raw";
 import { color } from "../design-system/tokens";
 import { parseLatestVersion } from "../lib/update-checker";
 import { useOutsideClick } from "../lib/useOutsideClick";
+import { SegmentedPill, TodoCheckmark } from "../components/ui";
 import {
-  BENTO_PHRASES,
   BOOKMARKS,
-  CANVAS,
   EVENT,
   EXPLORE_TAGS,
   FAQ_ITEMS,
-  NOTES_FOLDERS,
-  ROADMAP,
-  TODOS,
-  TYPING_PHRASES,
   getModeFromText,
-  modeChip,
   tagColor,
-  type TypingPhrase,
 } from "./landing-data";
 
 const CTA_BG = color.brandCta;
@@ -60,12 +53,12 @@ function DownloadNavDropdown() {
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((c) => !c)}
-        className="inline-flex items-center gap-1.5 text-sm text-app-ink-muted hover:text-app-ink transition-colors font-medium"
+        className="inline-flex items-center gap-1.5 text-sm text-app-ink-muted hover:text-app-ink transition-colors duration-app-fast ease-app-out font-medium"
       >
         Download
         <ChevronDown
           className={[
-            "h-3.5 w-3.5 transition-transform duration-200 ease-out",
+            "h-3.5 w-3.5 transition-transform duration-app-base ease-app-out",
             open ? "rotate-180" : "rotate-0",
           ].join(" ")}
         />
@@ -74,7 +67,7 @@ function DownloadNavDropdown() {
         aria-hidden={!open}
         className={[
           "absolute right-0 top-full z-30 mt-3 w-48 overflow-hidden rounded-2xl border border-app-line bg-app-surface p-2 shadow-soft",
-          "origin-top-right transition-[opacity,transform] duration-200 ease-out",
+          "origin-top-right transition-[opacity,transform] duration-app-base ease-app-out",
           open ? "pointer-events-auto opacity-100 translate-y-0 scale-100" : "pointer-events-none opacity-0 translate-y-1 scale-[0.98]",
         ].join(" ")}
       >
@@ -99,256 +92,922 @@ function DownloadNavDropdown() {
   );
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function useTyping(phrases: TypingPhrase[]) {
-  const [text, setText] = useState("");
-  const [idx, setIdx] = useState(0);
-  const [del, setDel] = useState(false);
+// ─── App mockup views ─────────────────────────────────────────────────────────
+const CANVAS_DAYS = [
+  { key: "wed-jun-24", label: "Today · Jun 24", subtitle: "CANVAS" },
+  { key: "tue-jun-23", label: "Tue · Jun 23", subtitle: "CANVAS" },
+  { key: "thu-jun-25", label: "Thu · Jun 25", subtitle: "CANVAS" },
+] as const;
+
+function formatHeroTodayLabel() {
+  const today = new Date();
+  const month = today.toLocaleDateString("en-US", { month: "short" });
+  const day = today.toLocaleDateString("en-US", { day: "numeric" });
+  return `Today · ${month} ${day}`;
+}
+
+type ReaderFeedGroupPreview = {
+  category: string;
+  feeds: Array<{ title: string; unread: number; accent?: string }>;
+};
+
+type ReaderArticlePreview = {
+  feed: string;
+  age: string;
+  title: string;
+  summary: string;
+  unread?: boolean;
+  thumb: string;
+};
+
+const READER_FEED_GROUPS: ReaderFeedGroupPreview[] = [
+  {
+    category: "Design",
+    feeds: [
+      { title: "UX Collective - Medium", unread: 11 },
+      { title: "DOC", unread: 35, accent: "bg-success-ink" },
+    ],
+  },
+  {
+    category: "Design Engineering",
+    feeds: [{ title: "AddyOsmani.com", unread: 10 }],
+  },
+  {
+    category: "Tech Vids",
+    feeds: [{ title: "The PrimeTime", unread: 20, accent: "bg-danger-ink" }],
+  },
+] as const;
+
+const READER_ARTICLES: ReaderArticlePreview[] = [
+  {
+    feed: "UX Collective - Medium",
+    age: "1d",
+    title: "The organizational cost of low taste",
+    summary: "When taste is weak, organizations don't fail in strategy. They fail in decisions. This is what happens when an organization loses a shared sense of quality.",
+    unread: true,
+    thumb: "bg-[linear-gradient(135deg,#111827,#312e81)]",
+  },
+  {
+    feed: "UX Collective - Medium",
+    age: "1d",
+    title: "Better search, worse web",
+    summary: "Every number says Google AI Search is better. None of them can see the cost. Continue reading on UX Collective.",
+    unread: true,
+    thumb: "bg-[linear-gradient(135deg,#f5f5f4,#d6d3d1)]",
+  },
+  {
+    feed: "UX Collective - Medium",
+    age: "2d",
+    title: "Access is not mastery, the polymath UX architect, A2UI under the hood",
+    summary: "Weekly curated resources for designers, thinkers and makers. I've seen PMs and sales teams build working prototypes with AI tools that genuinely work.",
+    thumb: "bg-[linear-gradient(135deg,#111827,#9ca3af)]",
+  },
+  {
+    feed: "UX Collective - Medium",
+    age: "2d",
+    title: "What sits on the engawa",
+    summary: "On designing for wishes we cannot yet wish alone. Continue reading on UX Collective.",
+    thumb: "bg-[linear-gradient(135deg,#f8fafc,#bbf7d0)]",
+  },
+  {
+    feed: "UX Collective - Medium",
+    age: "2d",
+    title: "The Magic 8-Ball vs. Gen AI: a surprisingly interesting comparison",
+    summary: "Two products. Both fortune-tellers. Wildly different operating costs.",
+    thumb: "bg-[linear-gradient(135deg,#020617,#f59e0b)]",
+  },
+  {
+    feed: "UX Collective - Medium",
+    age: "2d",
+    title: "Why the best part of the flow isn't the end",
+    summary: "Strip out the transaction and what's left still works, which should tell us something about the product.",
+    unread: true,
+    thumb: "bg-[linear-gradient(135deg,#fff7ed,#bef264)]",
+  },
+] as const;
+
+type MockTab = (typeof NAV_TABS)[number]["key"];
+type MockMode = "write" | "read";
+type SlashArtifact = "todo" | "event" | "bookmark";
+type SlashComposerPhase = "slash" | "picker" | "editor";
+
+const SLASH_ARTIFACTS: Array<{ key: SlashArtifact; label: string }> = [
+  { key: "todo", label: "todo" },
+  { key: "event", label: "event" },
+  { key: "bookmark", label: "bookmark" },
+];
+
+const SLASH_SEQUENCE: Array<{ phase: SlashComposerPhase; artifact: SlashArtifact; duration: number }> = [
+  { phase: "slash", artifact: "todo", duration: 800 },
+  { phase: "picker", artifact: "todo", duration: 1100 },
+  { phase: "editor", artifact: "todo", duration: 2300 },
+  { phase: "slash", artifact: "event", duration: 650 },
+  { phase: "picker", artifact: "event", duration: 1000 },
+  { phase: "editor", artifact: "event", duration: 2200 },
+  { phase: "slash", artifact: "bookmark", duration: 650 },
+  { phase: "picker", artifact: "bookmark", duration: 1050 },
+  { phase: "editor", artifact: "bookmark", duration: 2500 },
+];
+
+const ARTIFACT_TYPED_TEXT: Record<SlashArtifact, string> = {
+  todo: "Review launch checklist in 10 min",
+  event: "Morning run 6:45 AM",
+  bookmark: "https://readwise.io",
+};
+
+function useSlashCommandAnimation() {
+  const [step, setStep] = useState(0);
 
   useEffect(() => {
-    const full = phrases[idx].text;
-    if (!del) {
-      if (text.length < full.length) {
-        const t = setTimeout(() => setText(full.slice(0, text.length + 1)), 60);
-        return () => clearTimeout(t);
-      } else {
-        const t = setTimeout(() => setDel(true), 2000);
-        return () => clearTimeout(t);
-      }
-    } else {
-      if (text.length > 0) {
-        const t = setTimeout(() => setText(full.slice(0, text.length - 1)), 28);
-        return () => clearTimeout(t);
-      } else {
-        setDel(false);
-        setIdx((i) => (i + 1) % phrases.length);
-      }
-    }
-  }, [text, del, idx, phrases]);
+    const current = SLASH_SEQUENCE[step];
+    const timeout = window.setTimeout(() => {
+      setStep((next) => (next + 1) % SLASH_SEQUENCE.length);
+    }, current.duration);
+    return () => window.clearTimeout(timeout);
+  }, [step]);
 
-  return { text, mode: getModeFromText(text) };
+  return SLASH_SEQUENCE[step];
 }
 
-function Checkmark() {
-  return (
-    <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-      <path
-        d="M1 4l3 3 5-6"
-        stroke="white"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+function useArtifactTyping(artifact: SlashArtifact, active: boolean) {
+  const [text, setText] = useState("");
+
+  useEffect(() => {
+    setText("");
+  }, [artifact, active]);
+
+  useEffect(() => {
+    if (!active) return;
+    const target = ARTIFACT_TYPED_TEXT[artifact];
+    if (text.length >= target.length) return;
+
+    const timeout = window.setTimeout(() => {
+      setText(target.slice(0, text.length + 1));
+    }, 42);
+    return () => window.clearTimeout(timeout);
+  }, [active, artifact, text]);
+
+  return text;
 }
 
-// ─── App mockup views ─────────────────────────────────────────────────────────
-function CanvasView({ typedText, mode }: { typedText: string; mode: string }) {
+function SlashCommandMenu({ active }: { active: SlashArtifact }) {
   return (
-    <div className="px-4 py-3 max-w-2xl mx-auto space-y-0.5">
-      {/* Animated draft input */}
-      <div className="rounded-xl border border-app-line bg-app-surface px-3 py-2.5 flex items-start gap-2.5 shadow-sm mb-1">
-        <span className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${modeChip[mode]}`}>
-          {mode}
-        </span>
-        <span className="text-sm text-app-ink flex-1 min-h-[20px]">
-          {typedText}
-          <span className="inline-block w-[2px] h-[13px] bg-app-ink ml-[1px] align-text-bottom animate-pulse" />
-        </span>
-      </div>
-
-      {/* Existing canvas items — matching real canvas surface rendering */}
-      {CANVAS.map((item) => (
+    <div className="absolute left-0 top-10 z-20 w-48 overflow-hidden rounded-lg border border-app-line bg-app-surface shadow-soft">
+      {SLASH_ARTIFACTS.map((artifact) => (
         <div
-          key={item.id}
-          className="group relative rounded-xl px-2 py-1 pl-3 hover:bg-app-canvas transition-colors before:pointer-events-none before:absolute before:inset-y-2 before:left-0 before:w-px before:rounded-full before:bg-transparent"
+          key={artifact.key}
+          className={`px-4 py-2 text-base leading-6 ${
+            active === artifact.key ? "bg-app-surface-muted text-app-ink" : "text-app-ink-faint"
+          }`}
         >
-          {item.kind === "note" && (
-            <p className="text-[15px] leading-6 text-app-ink">
-              {item.text}{" "}
-              <span className="text-success-ink">{item.tag}</span>
-            </p>
-          )}
-          {item.kind === "todo" && (
-            <div className="px-1 py-0.5 flex items-start gap-3">
-              <div
-                className={`mt-1 flex h-4 w-4 items-center justify-center rounded-sm border shrink-0 ${
-                  item.done
-                    ? "border-app-ink bg-app-ink text-white"
-                    : "border-app-line-strong bg-app-surface text-transparent"
-                }`}
-              >
-                <svg width="10" height="8" viewBox="0 0 10 8" fill="none" className="w-2.5 h-2.5">
-                  <path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-              <p className={`text-base leading-6 ${item.done ? "line-through text-app-ink-faint" : "text-app-ink"}`}>
-                {item.text}{!item.done && <span className="text-success-ink"> {item.tag}</span>}
-              </p>
-            </div>
-          )}
-          {item.kind === "event" && (
-            <div className="flex items-start gap-3">
-              <span className="inline-flex items-center h-6 w-[72px] flex-none rounded-md border border-app-line bg-app-surface-muted px-2 py-0.5 text-xs font-medium text-app-ink-muted shrink-0">
-                {item.time}
-              </span>
-              <p className="text-base leading-6 text-app-ink">
-                {item.text}{" "}
-                <span className="text-success-ink">{item.tag}</span>
-              </p>
-            </div>
-          )}
-          {item.kind === "bookmark" && (
-            <div className="relative overflow-hidden rounded-2xl border border-app-line bg-app-surface p-3">
-              <div className="flex items-start gap-3">
-                {/* Thumbnail placeholder */}
-                <div className="flex-none overflow-hidden rounded-lg border border-app-line bg-app-canvas text-app-ink-faint flex h-24 w-24 items-center justify-center shrink-0">
-                  <Bookmark className="h-8 w-8" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  {/* Favicon + site name */}
-                  <div className="flex items-center gap-2 pb-2">
-                    <div className="relative flex h-4 w-4 flex-none items-center justify-center overflow-hidden rounded-sm bg-app-surface-muted text-app-ink-muted">
-                      <Bookmark className="h-3.5 w-3.5" />
-                    </div>
-                    <p className="min-w-0 truncate text-xs font-medium text-app-ink-muted">{item.domain}</p>
-                  </div>
-                  <p className="line-clamp-2 text-base font-bold leading-6 text-app-ink">{item.title}</p>
-                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-app-ink-muted">Your read-later library in one place</p>
-                  <div className="mt-2 flex flex-wrap items-center">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-app-surface-muted px-2 py-0.5 text-[11px] text-app-ink-muted">
-                      {item.tag.replace("#", "")}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {artifact.label}
         </div>
       ))}
     </div>
+  );
+}
+
+function ArtifactEditorPreview({ artifact, typedText }: { artifact: SlashArtifact; typedText: string }) {
+  if (artifact === "todo") {
+    return (
+      <div className="grid w-full grid-cols-[minmax(0,1fr)_160px_auto] items-start gap-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="h-5 w-5 rounded-full border border-app-line-strong bg-app-surface shadow-sm" />
+          <span className={`text-base leading-6 ${typedText ? "text-app-ink" : "text-app-line-strong"}`}>
+            {typedText || "Write your checklist"}
+            <span className="ml-px inline-block h-4 w-px animate-pulse bg-app-ink align-text-bottom" />
+          </span>
+        </div>
+        <button type="button" className="justify-self-end border-b border-app-line text-sm leading-6 text-app-ink-faint">
+          Others
+        </button>
+      </div>
+    );
+  }
+
+  if (artifact === "event") {
+    return (
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex h-5 w-5 items-center justify-center rounded-md border border-app-line-strong bg-app-surface text-app-ink-faint shadow-sm">
+          <Clock3 className="h-3.5 w-3.5" />
+        </span>
+        <span className={`text-base leading-6 ${typedText ? "text-app-ink" : "text-app-line-strong"}`}>
+          {typedText || "Write your event"}
+          <span className="ml-px inline-block h-4 w-px animate-pulse bg-app-ink align-text-bottom" />
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid w-full grid-cols-[minmax(0,1fr)_200px] items-start gap-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex h-5 w-5 items-center justify-center rounded-md border border-success-ink bg-app-surface text-success-ink shadow-sm">
+          <Bookmark className="h-3.5 w-3.5" />
+        </span>
+        <span className={`text-base leading-6 ${typedText ? "text-app-ink" : "text-app-line-strong"}`}>
+          {typedText || "Paste or type a URL"}
+          <span className="ml-px inline-block h-4 w-px animate-pulse bg-app-ink align-text-bottom" />
+        </span>
+      </div>
+      <div className="relative justify-self-end">
+        <button type="button" className="w-full border-b border-app-line pb-1 text-left text-sm leading-6 text-app-ink-faint">
+          Uncategorized
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SlashCommandComposer({
+  phase,
+  artifact,
+}: {
+  phase: SlashComposerPhase;
+  artifact: SlashArtifact;
+}) {
+  const typedText = useArtifactTyping(artifact, phase === "editor");
+
+  if (phase === "editor") {
+    return (
+      <div className="relative -ml-3 -mr-2 -my-1 rounded-xl px-3 py-1">
+        <ArtifactEditorPreview artifact={artifact} typedText={typedText} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative z-20 -ml-3 -mr-2 -my-1 min-h-8 rounded-xl px-3 py-1">
+      <p className="min-h-7 text-lg leading-7 text-app-ink">
+        /
+        <span className="ml-px inline-block h-5 w-px animate-pulse bg-app-ink align-text-bottom" />
+      </p>
+      {phase === "picker" ? <SlashCommandMenu active={artifact} /> : null}
+    </div>
+  );
+}
+
+function CanvasView({
+  activeDayIndex,
+  onPrevDay,
+  onNextDay,
+  onToggleTodo,
+  completedTodos,
+  composerPhase,
+  composerArtifact,
+}: {
+  activeDayIndex: number;
+  onPrevDay: () => void;
+  onNextDay: () => void;
+  onToggleTodo: (id: string) => void;
+  completedTodos: Set<string>;
+  composerPhase: SlashComposerPhase;
+  composerArtifact: SlashArtifact;
+}) {
+  const activeDay = CANVAS_DAYS[activeDayIndex] ?? CANVAS_DAYS[0];
+
+  return (
+    <div className="mx-auto flex w-full max-w-[880px] flex-1 flex-col gap-9 px-5 py-5 pb-24" aria-label={`${activeDay.subtitle} ${activeDay.label}`}>
+      <SlashCommandComposer phase={composerPhase} artifact={composerArtifact} />
+
+      <div className="space-y-3">
+        <div className="grid grid-cols-[minmax(0,1fr)_180px] items-start gap-4">
+          <div className="group relative -ml-3 -mr-2 -my-1 w-full rounded-xl px-2 py-1 pl-3 transition hover:bg-app-surface-hover">
+            <div className="flex items-start gap-2">
+              <TodoCheckmark as="span" aria-hidden="true" checked size="md" align="text" />
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                <p className="text-base leading-6 text-app-ink-faint line-through">Update landing page copy</p>
+                <span className="rounded-md bg-app-surface-muted px-2 py-0.5 text-[11px] text-app-ink-faint">10AM, Today</span>
+              </div>
+            </div>
+          </div>
+          <p className="hidden pt-1 text-xs text-app-ink-faint md:block">✓ 11:08AM, Wed, Jun 24</p>
+        </div>
+
+        <button
+          type="button"
+          className="ml-0 flex w-full max-w-[720px] items-start gap-3 rounded-xl border border-app-line bg-app-surface px-3 py-3 text-left transition hover:bg-app-surface-hover md:ml-1"
+        >
+          <div className="h-[58px] w-[92px] shrink-0 overflow-hidden rounded-md border border-app-line bg-app-surface-muted">
+            <div className="h-full w-full bg-[linear-gradient(135deg,#111827_0%,#111827_38%,#f97316_39%,#f97316_74%,#d6d3d1_75%)]" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <Bookmark className="h-3.5 w-3.5 text-app-ink-faint" />
+              <p className="truncate text-xs font-medium text-app-ink-muted">aresluna.org</p>
+            </div>
+            <p className="mt-1 line-clamp-2 text-base font-bold leading-6 text-app-ink">
+              Show your hands honor for the strange power they bring you
+            </p>
+            <p className="mt-1 line-clamp-1 text-sm leading-5 text-app-ink-muted">On designing finger-friendly interactions</p>
+            <span className="mt-2 inline-flex rounded-md bg-app-surface-muted px-2 py-0.5 text-[11px] text-app-ink-muted">Design Eng.</span>
+          </div>
+        </button>
+
+        <div className="group relative -ml-3 -mr-2 -my-1 w-full rounded-xl px-2 py-1 pl-3 transition hover:bg-app-surface-hover">
+          <button type="button" className="flex w-full items-start gap-2 text-left">
+            <span className="h-6 rounded-md border border-app-line bg-app-surface-muted px-2 py-0.5 text-xs font-medium text-app-ink-faint shadow-none">
+              11:08AM
+            </span>
+            <span className="min-w-0 flex-1 text-base leading-6 text-app-ink">Updated landing page copy</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-[minmax(0,1fr)_180px] items-start gap-4">
+          <div className="group relative -ml-3 -mr-2 -my-1 w-full rounded-xl px-2 py-1 pl-3 transition hover:bg-app-surface-hover">
+            <div className="flex items-start gap-2">
+              <TodoCheckmark
+                type="button"
+                aria-label="toggle completed preview todo"
+                checked={completedTodos.has("todo-2")}
+                onClick={() => onToggleTodo("todo-2")}
+                align="text"
+              />
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                <p className={`text-base leading-6 ${completedTodos.has("todo-2") ? "text-app-ink-faint line-through" : "text-app-ink"}`}>
+                Published feature roadmap
+                </p>
+                <span className="rounded-md bg-app-surface-muted px-2 py-0.5 text-[11px] text-app-ink-faint">12:15PM, Today</span>
+              </div>
+            </div>
+          </div>
+          <p className="hidden pt-1 text-xs text-app-ink-faint md:block">✓ 12:32PM, Wed, Jun 24</p>
+        </div>
+
+        <div className="group relative -ml-3 -mr-2 -my-1 w-full rounded-xl px-2 py-1 pl-3 transition hover:bg-app-surface-hover">
+          <button type="button" className="flex w-full items-start gap-2 text-left">
+            <span className="h-6 rounded-md border border-app-line bg-app-surface-muted px-2 py-0.5 text-xs font-medium text-app-ink-faint shadow-none">
+              12:32PM
+            </span>
+            <span className="min-w-0 flex-1 text-base leading-6 text-app-ink">Publish feature roadmap</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-[minmax(0,1fr)_180px] items-start gap-4">
+          <div className="group relative -ml-3 -mr-2 -my-1 w-full rounded-xl px-2 py-1 pl-3 transition hover:bg-app-surface-hover">
+            <div className="flex items-start gap-2">
+              <TodoCheckmark as="span" aria-hidden="true" checked size="md" align="text" />
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                <p className="text-base leading-6 text-app-ink-faint line-through">Folder organization for todo</p>
+                <span className="rounded-md bg-app-surface-muted px-2 py-0.5 text-[11px] text-app-ink-faint">Mon, Jun 22</span>
+              </div>
+            </div>
+          </div>
+          <p className="hidden pt-1 text-xs text-app-ink-faint md:block">✓ 1:28PM, Wed, Jun 24</p>
+        </div>
+
+        <div className="group relative -ml-3 -mr-2 -my-1 w-full rounded-xl px-2 py-1 pl-3 transition hover:bg-app-surface-hover">
+          <button type="button" className="flex w-full items-start gap-2 text-left">
+            <span className="h-6 rounded-md border border-app-line bg-app-surface-muted px-2 py-0.5 text-xs font-medium text-app-ink-faint shadow-none">
+              1:28PM
+            </span>
+            <span className="min-w-0 flex-1 text-base leading-6 text-app-ink">Folder organization for todo</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-[minmax(0,1fr)_180px] items-start gap-4">
+          <div className="group relative -ml-3 -mr-2 -my-1 w-full rounded-xl px-2 py-1 pl-3 transition hover:bg-app-surface-hover">
+            <div className="flex items-start gap-2">
+              <TodoCheckmark as="span" aria-hidden="true" checked size="md" align="text" />
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                <p className="text-base leading-6 text-app-ink-faint line-through">RSS reader</p>
+                <span className="rounded-md bg-app-surface-muted px-2 py-0.5 text-[11px] text-app-ink-faint">Wed, Jun 17</span>
+              </div>
+            </div>
+          </div>
+          <p className="hidden pt-1 text-xs text-app-ink-faint md:block">✓ 1:29PM, Wed, Jun 24</p>
+        </div>
+
+        <div className="group relative -ml-3 -mr-2 -my-1 w-full rounded-xl px-2 py-1 pl-3 transition hover:bg-app-surface-hover">
+          <button type="button" className="flex w-full items-start gap-2 text-left">
+            <span className="h-6 rounded-md border border-app-line bg-app-surface-muted px-2 py-0.5 text-xs font-medium text-app-ink-faint shadow-none">
+              1:29PM
+            </span>
+            <span className="min-w-0 flex-1 text-base leading-6 text-app-ink">RSS reader</span>
+          </button>
+        </div>
+
+        {[
+          ["Todo for Wed, Jul 1", "Recurring todos"],
+        ].map(([date, text]) => (
+          <div key={date} className="group relative -ml-3 -mr-2 -my-1 w-full rounded-xl px-2 py-1 pl-3 transition hover:bg-app-surface-hover">
+            <button type="button" className="flex w-full items-start gap-2 text-left">
+              <span className="rounded-md bg-info-surface px-2 py-0.5 text-[15px] font-medium leading-6 text-info-ink">
+                {date}
+              </span>
+              <span className="min-w-0 flex-1 text-base leading-6 text-app-ink-faint">{text}</span>
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const TODO_MOCKUP_FOLDER_COUNTS = [
+  {
+    name: "omanote Feature Ro...",
+    icon: "🚀",
+    count: 12,
+    selected: true,
+  },
+  {
+    name: "Others",
+    icon: "📁",
+    count: 193,
+    selected: false,
+  },
+] as const;
+
+const TODO_MOCKUP_TABS = [
+  { key: "today", label: "Today", count: 2 },
+  { key: "overdue", label: "Overdue", count: 1 },
+  { key: "later", label: "Later", count: 10 },
+  { key: "completed", label: "Completed", count: 2 },
+] as const;
+
+const TODO_MOCKUP_SECTIONS = [
+  { title: "Launch mobile apps", due: "10AM, Today" },
+  { title: "Add recurring todos", due: "Tue, Jun 30" },
+  { title: "Read Atomic Habits ch.5", tag: "#books", due: "Fri, Jul 3" },
+  { title: "Launch RSS reader", completedLabel: "✓ 12:32PM, Wed, Jun 24" },
+  { title: "Add todo folders", completedLabel: "✓ 1:29PM, Wed, Jun 24" },
+] as const;
+
+function MockTodoRow({
+  title,
+  tag,
+  due,
+  completedLabel,
+  done = false,
+}: {
+  title: string;
+  tag: string;
+  due?: string;
+  completedLabel?: string;
+  done?: boolean;
+}) {
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)_110px] items-center gap-4">
+      <div className="group flex min-w-0 items-start gap-3 rounded-xl px-2 py-2 transition hover:bg-app-surface-hover/70">
+        <TodoCheckmark as="span" checked={done} size="sm" align="text" className="mt-0.5 shrink-0" />
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <p className={`min-w-0 text-[15px] leading-6 ${done ? "line-through text-app-ink-faint" : "text-app-ink"}`}>
+              {title}
+            </p>
+            {due ? (
+              <span className="rounded-md bg-app-surface-muted px-2 py-0.5 text-[11px] leading-5 text-app-ink-faint">
+                {due}
+              </span>
+            ) : null}
+          </div>
+          {tag ? <p className="mt-1 text-[13px] leading-5 text-success-ink">{tag}</p> : null}
+        </div>
+      </div>
+      <div className="flex items-center justify-end">
+        {completedLabel ? (
+          <span className="text-[12px] leading-5 text-app-ink-faint">{completedLabel}</span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function MockFolderRail({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <aside className="w-[292px] shrink-0 overflow-y-auto border-r border-app-line bg-app-surface px-6 py-4">
+      {children}
+    </aside>
+  );
+}
+
+function MockFolderRailToolbar({
+  addLabel,
+  sortLabel = "Last updated",
+  showSortIcon = false,
+}: {
+  addLabel: string;
+  sortLabel?: string;
+  showSortIcon?: boolean;
+}) {
+  return (
+    <div className="mb-4 flex items-center justify-between gap-3">
+      <button
+        type="button"
+        aria-label={addLabel}
+        className="flex h-10 w-10 items-center justify-center rounded-md border border-app-line bg-app-surface text-xl leading-none text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
+      >
+        +
+      </button>
+      <button
+        type="button"
+        className="inline-flex h-10 items-center gap-1.5 rounded-app-field border border-app-line bg-app-surface px-3 text-sm text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink"
+      >
+        {showSortIcon ? <span aria-hidden="true">↕</span> : null}
+        {sortLabel}
+        <ChevronDown className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+function MockFolderRow({
+  name,
+  icon,
+  count,
+  selected,
+  onClick,
+}: {
+  name: string;
+  icon: React.ReactNode;
+  count: number;
+  selected?: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition ${
+        selected ? "bg-app-surface-hover text-app-ink shadow-[0_1px_0_rgba(15,23,42,0.02)]" : "hover:bg-app-surface-hover/70"
+      }`}
+    >
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-app-surface-muted text-base text-app-ink-faint">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1 truncate text-[14px] font-semibold leading-6 text-app-ink">
+        {name}
+      </span>
+      <span className="rounded-full bg-app-surface-muted px-2 py-0.5 text-[11px] font-medium text-app-ink-muted">
+        {count}
+      </span>
+    </button>
   );
 }
 
 function TodosView() {
   return (
-    <div className="px-4 py-3 max-w-2xl mx-auto space-y-5">
-      {TODOS.map((group) => (
-        <div key={group.group}>
-          <p className={`text-[10px] font-bold uppercase tracking-widest mb-2 ${group.color}`}>
-            {group.group}
-          </p>
-          <div className="space-y-1">
-            {group.items.map((item, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-app-canvas transition-colors"
-              >
-                <div
-                  className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
-                    item.done ? "bg-app-ink border-app-ink" : "border-app-line-strong"
-                  }`}
-                >
-                  {item.done && <Checkmark />}
-                </div>
-                <p className={`text-sm flex-1 ${item.done ? "line-through text-app-ink-faint" : "text-app-ink"}`}>
-                  {item.text}
-                </p>
-                <span className="text-[11px] text-success-ink shrink-0">{item.tag}</span>
-              </div>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-app-surface">
+      <div className="mx-auto flex h-full w-full max-w-[1180px] min-h-0 overflow-hidden">
+        <MockFolderRail>
+          <MockFolderRailToolbar addLabel="Add folder" />
+          <div className="space-y-2">
+            {TODO_MOCKUP_FOLDER_COUNTS.map((folder) => (
+              <MockFolderRow
+                key={folder.name}
+                name={folder.name}
+                icon={folder.icon}
+                count={folder.count}
+                selected={folder.selected}
+              />
             ))}
           </div>
+        </MockFolderRail>
+
+        <section className="flex min-h-0 flex-1 flex-col px-6 py-4">
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <button
+              type="button"
+              aria-label="Add todo"
+              className="flex h-10 w-10 items-center justify-center rounded-md border border-app-line bg-app-surface text-2xl leading-none text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
+            >
+              +
+            </button>
+            <div className="flex flex-1 justify-center">
+              <SegmentedPill
+                ariaLabel="Todo view filters"
+                activeKey="later"
+                onChange={() => {}}
+                items={TODO_MOCKUP_TABS.map((tab) => ({
+                  key: tab.key,
+                  label: tab.label,
+                  count: tab.count,
+                }))}
+                className="bg-app-surface-muted/60 shadow-none border-none"
+              />
+            </div>
+            <div className="w-10" aria-hidden="true" />
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1 pb-4">
+            <div className="space-y-2">
+              {TODO_MOCKUP_SECTIONS.map((item) => (
+                <MockTodoRow
+                  key={item.title}
+                  title={item.title}
+                  tag={item.tag}
+                  due={item.due}
+                  completedLabel={item.completedLabel}
+                  done={Boolean(item.completedLabel)}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+const NOTES_MOCKUP_FOLDERS = [
+  { name: "random", icon: "📁", count: 8 },
+  { name: "Blog", icon: "📁", count: 1 },
+  { name: "Happy Customer", icon: "✨", count: 4 },
+  { name: "Omanote", icon: "💘", count: 14 },
+  { name: "Articles", icon: "📖", count: 7, selected: true },
+  { name: "AI", icon: "⚙️", count: 1 },
+  { name: "Uncategorized", icon: "📁", count: 4 },
+  { name: "Thoughts", icon: "🧠", count: 6 },
+  { name: "Work", icon: "🗂️", count: 4 },
+  { name: "Design", icon: "✨", count: 5 },
+  { name: "THG", icon: "📁", count: 2 },
+] as const;
+
+const NOTES_MOCKUP_ARTICLES = [
+  {
+    meta: "Created May 8, 2026 · Updated Jun 4, 2026 · 0 hashtags · 6 links",
+    title: "When life gives you a Mac Mini, make Lemon",
+    sourceLabel: "Source",
+    sourceDomain: "sarahandkate.substack.com",
+    sourceTitle: "A Non-Engineer Built Our Institutional AI Agent",
+    sourceSummary: "Meet Lemon, built without a dev team. What it does, and the first of the Lemon Lessons.",
+    body: "Week 9: Growth Mechanics — Viral and Referral Flows",
+    bodySummary:
+      "Compare growth strategies in Dropbox, Cash App, and Wordle. Calculate customer acquisition cost and viral coefficient for each approach.",
+  },
+  {
+    meta: "Created Apr 18, 2026 · Updated May 2, 2026 · 2 hashtags · 3 links",
+    title: "Inside the Decision to Rebrand",
+    sourceLabel: "Source",
+    sourceDomain: "thebrandingjournal.com",
+    sourceTitle: "Inside the Decision to Rebrand Grammarly as Superhuman",
+    sourceSummary: "Marion Andrivet",
+    body: "For about a week, I couldn’t sleep past 4am. Because I couldn’t stop thinking about what I can do with Claude Cowork for work and personal projects.",
+  },
+] as const;
+
+function NotesSourceCard({
+  domain,
+  title,
+  summary,
+}: {
+  domain: string;
+  title: string;
+  summary: string;
+}) {
+  return (
+    <div className="flex items-start gap-3 rounded-xl border border-app-line bg-app-surface px-3 py-2.5 shadow-sm">
+      <div className="h-16 w-16 shrink-0 rounded-lg bg-app-surface-muted bg-[linear-gradient(135deg,#d7d7d7_0%,#f7f7f7_38%,#bdbdbd_38%,#bdbdbd_50%,#f2f2f2_50%,#f2f2f2_100%)]" />
+      <div className="min-w-0 flex-1">
+        <div className="mb-1 flex items-center gap-2 text-[13px] leading-5 text-app-ink-muted">
+          <span className="h-4 w-4 rounded-full bg-app-ink text-[9px] leading-4 text-app-surface text-center">◌</span>
+          <span className="truncate">{domain}</span>
         </div>
-      ))}
+        <p className="text-[13px] font-semibold leading-5 text-app-ink">{title}</p>
+        <p className="mt-1 text-[13px] leading-5 text-app-ink-muted">{summary}</p>
+      </div>
     </div>
   );
 }
 
 function NotesView() {
-  const [openFolder, setOpenFolder] = useState("Work");
+  const [openFolder, setOpenFolder] = useState("Articles");
   return (
-    <div className="flex h-full">
-      <div className="w-36 border-r border-app-line py-2 shrink-0 bg-app-canvas/50">
-        {NOTES_FOLDERS.map((f) => (
-          <button
-            key={f.folder}
-            onClick={() => setOpenFolder(f.folder)}
-            className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors ${
-              openFolder === f.folder
-                ? "bg-app-surface font-bold text-app-ink border-r-2 border-app-ink"
-                : "text-app-ink-muted hover:text-app-ink-muted"
-            }`}
-          >
-            <span className="text-sm leading-none shrink-0">{f.icon}</span> {f.folder}
-          </button>
-        ))}
-      </div>
-      <div className="flex-1 overflow-auto py-3 px-3 space-y-2">
-        {NOTES_FOLDERS.find((f) => f.folder === openFolder)?.items.map((note, i) => (
-          <div
-            key={i}
-            className="rounded-xl border border-app-line bg-app-surface px-3 py-2.5 hover:border-app-line cursor-pointer transition-colors"
-          >
-            <p className="text-sm font-bold text-app-ink">{note.title}</p>
-            <p className="text-xs text-app-ink-faint mt-0.5 truncate">{note.preview}</p>
+    <div className="flex h-full min-h-0 bg-app-surface">
+      <MockFolderRail>
+        <MockFolderRailToolbar addLabel="Add note" />
+        <div className="space-y-2">
+          {NOTES_MOCKUP_FOLDERS.map((folder) => (
+            <MockFolderRow
+              key={folder.name}
+              name={folder.name}
+              icon={folder.icon}
+              count={folder.count}
+              selected={folder.selected || openFolder === folder.name}
+              onClick={() => setOpenFolder(folder.name)}
+            />
+          ))}
+        </div>
+      </MockFolderRail>
+
+      <div className="min-w-0 flex-1 overflow-hidden px-6 py-4">
+        <div className="min-h-0 h-full overflow-y-auto pr-2">
+          <div className="space-y-6">
+            {NOTES_MOCKUP_ARTICLES.map((article) => (
+              <article key={article.title} className="space-y-3">
+                <p className="text-[13px] leading-5 text-app-ink-muted">{article.meta}</p>
+                <h3 className="text-[13px] font-semibold leading-5 text-app-ink">{article.title}</h3>
+                <div className="space-y-2">
+                  <p className="text-[13px] font-semibold leading-5 text-app-ink">{article.sourceLabel}</p>
+                  <NotesSourceCard
+                    domain={article.sourceDomain}
+                    title={article.sourceTitle}
+                    summary={article.sourceSummary}
+                  />
+                </div>
+                {article.body ? <h4 className="text-[13px] font-medium leading-5 text-app-ink">{article.body}</h4> : null}
+                {article.bodySummary ? (
+                  <p className="max-w-[760px] text-[13px] leading-6 text-app-ink-muted">{article.bodySummary}</p>
+                ) : null}
+              </article>
+            ))}
           </div>
-        ))}
+        </div>
       </div>
     </div>
   );
 }
 
+const BOOKMARK_MOCKUP_FOLDERS = [
+  { name: "Design Eng.", icon: <Folder className="h-4 w-4" />, count: 4, selected: true },
+  { name: "Saved", icon: <Folder className="h-4 w-4" />, count: 34 },
+  { name: "UX", icon: <Folder className="h-4 w-4" />, count: 7 },
+  { name: "AI", icon: <Folder className="h-4 w-4" />, count: 9 },
+  { name: "Craft", icon: <Folder className="h-4 w-4" />, count: 5 },
+  { name: "Design", icon: "🎨", count: 18 },
+  { name: "Articles", icon: "🧾", count: 14 },
+  { name: "Uncategorized", icon: <Folder className="h-4 w-4" />, count: 5 },
+  { name: "Eng. + Tech", icon: <Folder className="h-4 w-4" />, count: 5 },
+  { name: "Useful Tools", icon: <Folder className="h-4 w-4" />, count: 4 },
+  { name: "Product Mgmt", icon: <Folder className="h-4 w-4" />, count: 5 },
+  { name: "UI", icon: <Folder className="h-4 w-4" />, count: 1 },
+] as const;
+
+const BOOKMARK_MOCKUP_CARDS = [
+  {
+    title: "Show your hands honor for the strange power they bring you",
+    summary: "On designing finger-friendly interactions",
+    domain: "aresluna.org",
+    favicon: <Bookmark className="h-4 w-4" />,
+    imageClass: "bg-[linear-gradient(135deg,#d8d8d8_0%,#949494_48%,#ff6b12_48%,#ff6b12_70%,#1f2937_70%)]",
+  },
+  {
+    title: "Addy Osmani",
+    summary: "I co-wrote a Google whitepaper...",
+    domain: "addyosmani.com",
+    favicon: "👨",
+    imageClass: "bg-[radial-gradient(circle_at_50%_28%,#6b3f2c_0_15%,transparent_16%),linear-gradient(135deg,#b8e7df,#a6dcd3)]",
+  },
+  {
+    title: "The Rosetta Stone of Design Engineering",
+    summary: "A deeper look at how design an...",
+    domain: "yannglt.com",
+    favicon: "╬",
+    imageClass: "bg-[linear-gradient(135deg,#0d1117_0%,#0d1117_54%,#444_55%,#151515_72%,#020617_72%)]",
+  },
+  {
+    title: "Why UI designers should understand Flexbox and CSS...",
+    summary: "CSS for UI Designer Why UI...",
+    domain: "Medium",
+    favicon: "M",
+    imageClass: "bg-[linear-gradient(90deg,#262626,#262626),linear-gradient(135deg,#ff8a65,#ff8a65)]",
+  },
+] as const;
+
 function BookmarksView() {
   return (
-    <div className="px-4 py-3 max-w-2xl mx-auto space-y-2">
-      {BOOKMARKS.map((bm, i) => (
-        <div
-          key={i}
-          className="flex items-center gap-3 rounded-xl border border-app-line bg-app-surface px-3 py-2.5 hover:border-app-line transition-colors cursor-pointer"
-        >
-          <div className="w-8 h-8 rounded-lg bg-app-surface-muted flex items-center justify-center shrink-0">
-            <Link2 className="h-4 w-4 text-app-ink-muted" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-app-ink truncate">{bm.title}</p>
-            <p className="text-xs text-app-ink-faint">{bm.domain}</p>
-          </div>
-          <span className="shrink-0 rounded-full bg-app-surface-muted px-2 py-0.5 text-[10px] font-medium text-app-ink-muted flex items-center gap-1">
-            <span className="text-xs leading-none">{bm.categoryIcon}</span>
-            {bm.category}
-          </span>
+    <div className="flex h-full min-h-0 bg-app-surface">
+      <MockFolderRail>
+        <MockFolderRailToolbar addLabel="Add bookmark folder" showSortIcon />
+        <div className="space-y-2">
+          {BOOKMARK_MOCKUP_FOLDERS.map((folder) => (
+            <MockFolderRow
+              key={folder.name}
+              name={folder.name}
+              icon={folder.icon}
+              count={folder.count}
+              selected={folder.selected}
+            />
+          ))}
         </div>
-      ))}
+      </MockFolderRail>
+
+      <div className="min-w-0 flex-1 overflow-hidden px-6 py-4">
+        <div className="mb-4 flex items-center justify-between">
+          <button
+            type="button"
+            aria-label="Add bookmark"
+            className="flex h-10 w-10 items-center justify-center rounded-md border border-app-line bg-app-surface text-xl leading-none text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 rounded-app-field border border-app-line bg-app-surface px-3 py-2 text-sm text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink"
+          >
+            Latest
+            <ChevronDown className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="grid max-w-[880px] grid-cols-3 gap-4">
+          {BOOKMARK_MOCKUP_CARDS.map((card) => (
+            <article
+              key={card.title}
+              className="min-w-0 rounded-2xl border border-app-line bg-app-surface p-3 shadow-sm transition hover:bg-app-surface-hover/40"
+            >
+              <div className={`mb-3 h-24 rounded-lg ${card.imageClass}`} />
+              <h3 className="line-clamp-2 text-[14px] font-semibold leading-5 text-app-ink">{card.title}</h3>
+              <p className="mt-2 line-clamp-2 text-[13px] leading-5 text-app-ink-muted">{card.summary}</p>
+              <div className="mt-4 flex min-w-0 items-center gap-2 text-[12px] leading-5 text-app-ink-faint">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-app-surface-muted text-[12px] text-app-ink-muted">
+                  {card.favicon}
+                </span>
+                <span className="truncate">{card.domain}</span>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
 
 function EventView() {
   return (
-    <div className="px-4 py-4 max-w-2xl mx-auto">
-      <div className="relative pl-8">
-        <div className="absolute left-[7px] top-2 bottom-2 w-px bg-app-surface-muted" />
-        <div className="space-y-4">
-          {EVENT.map((entry, i) => (
-            <div key={i} className="relative flex items-start gap-3">
-              <div
-                className={`absolute -left-8 top-1 w-[14px] h-[14px] rounded-full border-2 ${
-                  entry.auto ? "bg-app-ink border-app-ink" : "bg-app-surface border-app-line-strong"
-                }`}
-              />
-              <span className="text-xs text-app-ink-faint w-14 shrink-0 pt-0.5">{entry.time}</span>
-              <div className="flex-1">
-                <p className="text-sm text-app-ink">{entry.text}</p>
-                <span className="text-[11px] text-success-ink font-medium">{entry.tag}</span>
-              </div>
-              {entry.auto && (
-                <span className="text-[10px] rounded-full bg-info-surface text-info-ink px-1.5 py-0.5 shrink-0 border border-info-line">
-                  auto
-                </span>
-              )}
+    <div className="h-full min-h-0 overflow-hidden bg-app-surface px-6 py-4">
+      <div className="flex h-full min-h-0">
+        <div className="w-full max-w-[980px] min-w-0 overflow-y-auto pr-4">
+          <div className="mb-6 flex items-start justify-between gap-4">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-app-ink-muted">Timeline</p>
+              <p className="mt-1 text-sm text-app-ink-muted">{EVENT.length} total events</p>
             </div>
-          ))}
+            <div className="inline-flex items-center rounded-full border border-app-line bg-app-surface-muted/70 p-1 shadow-sm">
+              <button
+                type="button"
+                aria-label="Calendar view"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-app-ink-faint transition hover:bg-app-surface hover:text-app-ink"
+              >
+                <CalendarDays className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                aria-label="Timeline view"
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-app-ink text-app-surface shadow-app-nav-active"
+              >
+                <List className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="relative">
+            <div className="absolute bottom-0 left-[11px] top-[22px] w-px bg-app-line" />
+            <div className="relative flex items-center gap-1.5 py-2.5">
+              <div className="relative z-10 flex h-[14px] w-[22px] shrink-0 items-center justify-center">
+                <div className="h-[10px] w-[10px] rounded-full border-2 border-app-ink-faint bg-app-surface" />
+              </div>
+              <span className="text-sm font-bold text-app-ink">Today</span>
+              <span className="rounded-full bg-app-surface-muted px-2 py-0.5 text-[11px] font-bold text-app-ink-muted">
+                {EVENT.length}
+              </span>
+            </div>
+
+            <div className="relative ml-6 pb-3">
+              {EVENT.map((entry, eventIndex) => {
+                const isFirstEvent = eventIndex === 0;
+                const isLastEvent = eventIndex === EVENT.length - 1;
+
+                return (
+                  <div key={entry.time + entry.text} className="relative flex items-start gap-3 rounded-lg py-1.5">
+                    {!isFirstEvent ? <div className="absolute left-[10px] top-0 h-[6px] w-px bg-app-line" /> : null}
+                    {!isLastEvent ? <div className="absolute bottom-0 left-[10px] top-[26px] w-px bg-app-line" /> : null}
+                    <div className="relative z-10 flex w-[21px] shrink-0 items-center justify-center">
+                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-app-surface-muted">
+                        {entry.auto ? (
+                          <CheckCheck className="h-3 w-3 text-app-ink-faint" />
+                        ) : (
+                          <Clock3 className="h-3 w-3 text-app-ink-faint" />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="group/event relative min-w-0 flex-1 rounded-lg px-2 -mx-2 transition hover:bg-app-surface-hover">
+                      <div className="flex items-start gap-1.5 pr-6">
+                        <span className="w-[68px] shrink-0 tabular-nums text-xs text-app-ink-faint">
+                          {entry.time}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm leading-5 text-app-ink-muted">{entry.text}</p>
+                          <p className="mt-0.5 text-xs leading-4 text-success-ink">{entry.tag}</p>
+                        </div>
+                        {entry.auto ? (
+                          <span className="shrink-0 rounded-full bg-info-surface px-1.5 py-0.5 text-[10px] font-medium text-info-ink">
+                            auto
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -358,6 +1017,10 @@ function EventView() {
 function ExploreView() {
   return (
     <div className="flex flex-col items-center justify-center h-full px-6 py-4">
+      <div className="mb-4 rounded-xl border border-app-line bg-app-surface px-3 py-2.5 w-full max-w-xs">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">Explore</p>
+        <p className="text-sm font-bold text-app-ink">Hashtag threads across notes, todos, and events</p>
+      </div>
       <div className="relative w-full max-w-xs" style={{ height: 200 }}>
         <svg className="absolute inset-0 w-full h-full" viewBox="0 0 300 200" fill="none">
           <line x1="150" y1="84" x2="66" y2="130" stroke={color.zinc200} strokeWidth="1" />
@@ -387,315 +1050,272 @@ function ExploreView() {
 
 // ─── Interactive app mockup ───────────────────────────────────────────────────
 function AppMockup() {
-  const [active, setActive] = useState<string>("canvas");
-  const { text: typedText, mode } = useTyping(TYPING_PHRASES);
+  const [mode, setMode] = useState<MockMode>("write");
+  const [writeTab, setWriteTab] = useState<MockTab>("canvas");
+  const [readTab, setReadTab] = useState<"reader" | "saved">("reader");
+  const [completedTodos, setCompletedTodos] = useState<Set<string>>(() => new Set(["todo-2"]));
+  const [isMobile, setIsMobile] = useState(false);
+  const slashComposer = useSlashCommandAnimation();
+  const todayLabel = formatHeroTodayLabel();
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  const toggleTodo = (id: string) => {
+    setCompletedTodos((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const showCanvas = mode === "write" && writeTab === "canvas";
+  const mockupHeaderStat =
+    mode === "read"
+      ? "76 unread"
+      : writeTab === "todos"
+        ? "✅ 5 completed  →"
+        : writeTab === "notes"
+          ? "📝 8 notes  →"
+          : writeTab === "bookmarks"
+            ? "🔖 7 added  →"
+          : writeTab === "event"
+            ? "🗓️ 6 events  →"
+          : "";
 
   return (
-    <div className="relative rounded-2xl border border-app-line bg-app-surface shadow-app-dialog overflow-hidden text-left">
-      {/* Top chrome / date strip */}
-      <div className="border-b border-app-line h-11 bg-app-surface flex items-center justify-between px-5 shrink-0">
-        <div className="flex gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-full bg-app-line" />
-          <div className="w-2.5 h-2.5 rounded-full bg-app-line" />
-          <div className="w-2.5 h-2.5 rounded-full bg-app-line" />
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            className="text-app-ink-faint hover:text-app-ink-muted text-sm px-1 transition-colors leading-none"
-            aria-label="Preview previous day"
-          >
-            ‹
-          </button>
-          <span className="text-xs font-bold text-app-ink-muted">Thursday, Apr 24</span>
-          <button
-            className="text-app-ink-faint hover:text-app-ink-muted text-sm px-1 transition-colors leading-none"
-            aria-label="Preview next day"
-          >
-            ›
-          </button>
-        </div>
-        <img src={DUMMY_AVATAR} className="w-6 h-6 rounded-full opacity-60" alt="" />
-      </div>
-
-      {/* Content area */}
-      <div className="relative" style={{ height: 400 }}>
-        <div className="h-full overflow-y-auto">
-          {active === "canvas" && <CanvasView typedText={typedText} mode={mode} />}
-          {active === "todos" && <TodosView />}
-          {active === "notes" && <NotesView />}
-          {active === "bookmarks" && <BookmarksView />}
-          {active === "event" && <EventView />}
-          {active === "explore" && <ExploreView />}
-        </div>
-        {/* Content fade at bottom */}
-        <div className="pointer-events-none absolute bottom-0 inset-x-0 h-12 bg-gradient-to-t from-white to-transparent" />
-      </div>
-
-      {/* Bottom nav — three-part: compass | tabs pill | profile (matches real app) */}
-      <div className="border-t border-app-line bg-app-surface h-16 flex items-center px-4 gap-3 shrink-0">
-        {/* Compass circle */}
-        <button
-          onClick={() => setActive("explore")}
-          aria-label="Preview Explore"
-          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border shadow-app-nav transition-all duration-200 cursor-pointer ${
-            active === "explore"
-              ? "border-app-ink bg-app-ink text-white"
-              : "border-app-line bg-app-surface text-app-ink-muted hover:bg-app-canvas"
-          }`}
-        >
-          <Compass size={15} />
-        </button>
-
-        {/* Tab pills — centered, labels only (matches real md+ desktop behavior) */}
-        <div className="flex-1 flex justify-center min-w-0">
-          <div className="relative inline-flex items-center gap-1 rounded-app-chip border border-app-line/60 bg-app-surface/80 shadow-app-nav backdrop-blur-md px-1.5 py-1.5 overflow-hidden">
-            {NAV_TABS.map((tab) => {
-              const isActive = active === tab.key;
-              return (
-                <button
-                  key={tab.key}
-                  onClick={() => setActive(tab.key)}
-                  aria-label={`Preview ${tab.label}`}
-                  className={`relative flex items-center rounded-app-chip px-3 py-1.5 text-[13px] font-medium leading-none transition-all duration-200 cursor-pointer ${
-                    isActive ? "text-white" : "text-app-ink-muted hover:text-app-ink"
-                  }`}
-                >
-                  {isActive && (
-                    <span className="absolute inset-0 rounded-app-chip bg-app-ink shadow-app-nav-active" aria-hidden="true">
-                      <span className="absolute inset-0 rounded-app-chip shadow-app-nav-active-inset" />
-                    </span>
-                  )}
-                  <span className="relative z-10">{tab.label}</span>
-                </button>
-              );
-            })}
+    <div className="relative overflow-hidden rounded-2xl border border-app-line bg-app-surface text-left shadow-app-dialog">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.92),transparent_62%)]" />
+      <div className="relative">
+        <div className="border-b border-app-line bg-app-surface">
+          <div className="flex items-center justify-between px-5 py-2.5">
+            <div className="flex gap-1.5">
+              <div className="h-2.5 w-2.5 rounded-full bg-app-line" />
+              <div className="h-2.5 w-2.5 rounded-full bg-app-line" />
+              <div className="h-2.5 w-2.5 rounded-full bg-app-line" />
+            </div>
+            <SegmentedPill
+              activeKey={mode}
+              ariaLabel="Write or read mode"
+              onChange={(next) => {
+                const nextMode = next as MockMode;
+                setMode(nextMode);
+                if (nextMode === "write") {
+                  setReadTab("reader");
+                }
+              }}
+              className="bg-app-surface-muted/60 shadow-none"
+              items={[
+                { key: "write", label: "Write", icon: <SquarePen className="h-3.5 w-3.5" /> },
+                { key: "read", label: "Read", icon: <BookOpen className="h-3.5 w-3.5" /> },
+              ]}
+            />
+            <img src={DUMMY_AVATAR} className="h-7 w-7 rounded-full opacity-60" alt="" />
           </div>
-        </div>
-
-        {/* Profile circle */}
-        <img
-          src={DUMMY_AVATAR}
-          className="h-11 w-11 rounded-full shrink-0 border border-app-line shadow-app-nav opacity-60 cursor-not-allowed"
-          title="Profile not available in preview"
-          alt=""
-        />
-      </div>
-    </div>
-  );
-}
-
-// ─── Bento card mini-previews ─────────────────────────────────────────────────
-function BentoCanvas() {
-  const { text } = useTyping(BENTO_PHRASES);
-  return (
-    <div className="sm:col-span-2 rounded-2xl border border-app-line bg-app-surface p-5 flex flex-col gap-4 overflow-hidden">
-      <div>
-        <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">Canvas</p>
-        <h3 className="font-serif-heading font-serif-heading-smooth mt-1.5 text-lg font-black text-app-ink tracking-tight">Your daily home base</h3>
-        <p className="mt-1 text-sm text-app-ink-muted leading-snug">
-          Brain dumps, link saves, todo blurts, shower thoughts — all in one stream, all tied to today.
-        </p>
-      </div>
-      <div className="rounded-xl border border-app-line bg-app-canvas p-3 space-y-2 flex-1">
-        {/* Typing draft — plain text, no mode pill (matches actual app) */}
-        <div className="rounded-lg bg-app-surface border border-app-line px-3 py-2 shadow-sm">
-          <span className="text-xs text-app-ink-muted min-h-[16px]">
-            {text}
-            <span className="animate-pulse">|</span>
-          </span>
-        </div>
-        {/* Static canvas items below the draft */}
-        <div className="space-y-1.5 opacity-70">
-          {[
-            { kind: "note",    text: "Morning felt calm today ✨" },
-            { kind: "todo",    text: "Call dentist", done: true },
-            { kind: "event", text: "7:00 AM · Morning run" },
-          ].map((item, i) => (
-            <div key={i} className="flex items-center gap-2 text-xs text-app-ink-muted px-1">
-              {item.kind === "note" && <div className="w-1 h-1 rounded-full bg-app-line-strong shrink-0" />}
-              {item.kind === "todo" && (
-                <div className="w-3 h-3 rounded border shrink-0 flex items-center justify-center bg-app-ink border-app-ink">
-                  <svg width="8" height="6" viewBox="0 0 10 8" fill="none">
-                    <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
+          <div className="flex h-12 items-center justify-between border-t border-app-line px-5">
+            {showCanvas ? (
+              <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-3">
+                <p className="min-w-0 truncate text-sm text-app-ink-muted">Candlelight productivity, BBK</p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="flex h-7 w-7 items-center justify-center rounded-full text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
+                    aria-label="Previous day preview"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-full px-2 py-1 text-sm font-bold text-app-ink transition hover:bg-app-surface-hover"
+                  >
+                    {todayLabel}
+                  </button>
+                  <button
+                    type="button"
+                    className="flex h-7 w-7 items-center justify-center rounded-full text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
+                    aria-label="Next day preview"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
                 </div>
-              )}
-              {item.kind === "event" && (
-                <div className="w-1.5 h-1.5 rounded-full border border-app-line-strong shrink-0" />
-              )}
-              <span className={item.kind === "todo" ? "line-through text-app-ink-faint" : ""}>{item.text}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function BentoTodos() {
-  const items = [
-    { text: "Ship landing redesign", tag: "#work",    due: "by 5pm today" },
-    { text: "Call mom",              tag: "#family",  due: "at 8pm" },
-    { text: "Buy coffee beans",      tag: "#errands", due: "overdue" },
-  ];
-  return (
-    <div className="rounded-2xl border border-app-line bg-app-surface p-5 flex flex-col gap-4">
-      <div>
-        <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">Todos</p>
-        <h3 className="font-serif-heading font-serif-heading-smooth mt-1.5 text-lg font-black text-app-ink tracking-tight">A task list, not a PM tool</h3>
-        <p className="mt-1 text-sm text-app-ink-muted leading-snug">Today, overdue, upcoming, done. No sprints. No velocity. That's genuinely it.</p>
-      </div>
-      <div className="rounded-xl border border-app-line bg-app-canvas p-3 space-y-2 flex-1">
-        {items.map((item, i) => (
-          <div key={i} className="flex items-start gap-2 rounded-lg bg-app-surface border border-app-line px-2.5 py-2">
-            <div className="w-3.5 h-3.5 rounded border border-app-line-strong shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-app-ink">{item.text} <span className="text-[10px] text-success-ink">{item.tag}</span></p>
-              <p className={`text-[10px] mt-0.5 ${item.due === "overdue" ? "text-danger-ink" : "text-app-ink-faint"}`}>{item.due}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function BentoNotes() {
-  const folders = [
-    { name: "Work",     icon: "💼", notes: 4 },
-    { name: "Personal", icon: "🏠", notes: 7 },
-    { name: "Ideas",    icon: "💡", notes: 2 },
-  ];
-  return (
-    <div className="rounded-2xl border border-app-line bg-app-surface p-5 flex flex-col gap-4">
-      <div>
-        <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">Notes</p>
-        <h3 className="font-serif-heading font-serif-heading-smooth mt-1.5 text-lg font-black text-app-ink tracking-tight">Everything in its place.</h3>
-        <p className="mt-1 text-sm text-app-ink-muted leading-snug">
-          Folders you'll actually use. Not a filing system you'll abandon by Thursday.
-        </p>
-      </div>
-      <div className="rounded-xl border border-app-line bg-app-canvas p-3 flex-1 space-y-1.5">
-        {folders.map((folder) => (
-          <div
-            key={folder.name}
-            className="flex items-center gap-2 rounded-lg bg-app-surface border border-app-line px-2.5 py-2"
-          >
-            <span className="text-sm leading-none shrink-0">{folder.icon}</span>
-            <span className="text-xs font-medium text-app-ink-muted flex-1">{folder.name}</span>
-            <span className="text-[10px] text-app-ink-faint">{folder.notes} notes</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function BentoBookmarks() {
-  return (
-    <div className="sm:col-span-2 rounded-2xl border border-app-line bg-app-surface p-5 flex flex-col gap-4">
-      <div>
-        <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">Bookmarks</p>
-        <h3 className="font-serif-heading font-serif-heading-smooth mt-1.5 text-lg font-black text-app-ink tracking-tight">Paste a URL. Done.</h3>
-        <p className="mt-1 text-sm text-app-ink-muted leading-snug">
-          Title, description, thumbnail — fetched automatically. You paste and keep going. Share any folder as a public link when you're ready to show it off.
-        </p>
-      </div>
-      <div className="rounded-xl border border-app-line bg-app-canvas p-3 flex-1 space-y-2">
-        <div className="flex items-center gap-1.5 px-0.5 pb-1.5 border-b border-app-line">
-          <span className="text-xs leading-none">📚</span>
-          <span className="text-[10px] font-bold text-app-ink-muted flex-1">Reading</span>
-          <Share2 className="h-3 w-3 text-app-ink-faint" />
-        </div>
-        {BOOKMARKS.slice(0, 3).map((bm, i) => (
-          <div
-            key={i}
-            className="flex items-center gap-2.5 rounded-lg bg-app-surface border border-app-line px-2.5 py-2"
-          >
-            <div className="w-6 h-6 rounded bg-app-surface-muted flex items-center justify-center shrink-0">
-              <Link2 className="h-3 w-3 text-app-ink-muted" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-app-ink truncate">{bm.title}</p>
-              <p className="text-[10px] text-app-ink-faint">{bm.domain}</p>
-            </div>
-            <span className="text-[10px] rounded-full bg-app-surface-muted px-2 py-0.5 text-app-ink-muted shrink-0 flex items-center gap-0.5">
-              <span className="text-xs leading-none">{bm.categoryIcon}</span>
-              {bm.category}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function BentoEvent() {
-  return (
-    <div className="rounded-2xl border border-app-line bg-app-surface p-5 flex flex-col gap-4">
-      <div>
-        <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">Event</p>
-        <h3 className="font-serif-heading font-serif-heading-smooth mt-1.5 text-lg font-black text-app-ink tracking-tight">Time-stamped and done.</h3>
-        <p className="mt-1 text-sm text-app-ink-muted leading-snug">
-          Completed todos auto-appear on the timeline. Log the rest yourself. It ends up feeling weirdly satisfying.
-        </p>
-      </div>
-      <div className="rounded-xl border border-app-line bg-app-canvas p-3 flex-1">
-        <div className="relative pl-5">
-          <div className="absolute left-1.5 top-1 bottom-1 w-px bg-app-line" />
-          <div className="space-y-2.5">
-            {EVENT.slice(0, 4).map((entry, i) => (
-              <div key={i} className="relative flex items-center gap-2">
-                <div
-                  className={`absolute -left-5 w-2.5 h-2.5 rounded-full border-2 ${
-                    entry.auto ? "bg-app-ink border-app-ink" : "bg-app-surface border-app-line-strong"
-                  }`}
-                />
-                <span className="text-[10px] text-app-ink-faint w-12 shrink-0">{entry.time}</span>
-                <span className="text-xs text-app-ink-muted">{entry.text}</span>
+                <button
+                  type="button"
+                  className="justify-self-end rounded-full px-2 py-1 text-sm text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink"
+                >
+                  🔥 5 days →
+                </button>
               </div>
-            ))}
+            ) : (
+              <div className="flex w-full items-center justify-between gap-3">
+                <p className="min-w-0 truncate text-sm text-app-ink-muted">Candlelight productivity, BBK</p>
+                {mockupHeaderStat ? (
+                  <p className="shrink-0 text-sm text-app-ink-faint">{mockupHeaderStat}</p>
+                ) : null}
+              </div>
+            )}
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
 
-function BentoExplore() {
-  const nodes = [
-    { tag: "#work",    x: 50, y: 50 },
-    { tag: "#health",  x: 19, y: 75 },
-    { tag: "#books",   x: 81, y: 25 },
-    { tag: "#morning", x: 25, y: 25 },
-    { tag: "#tools",   x: 81, y: 75 },
-  ];
-  return (
-    <div className="rounded-2xl border border-app-line bg-app-surface p-5 flex flex-col gap-4">
-      <div>
-        <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">Explore</p>
-        <h3 className="font-serif-heading font-serif-heading-smooth mt-1.5 text-lg font-black text-app-ink tracking-tight">The big picture.</h3>
-        <p className="mt-1 text-sm text-app-ink-muted leading-snug">
-          Tap any hashtag and see everything you've ever written, saved, or done under it. Like pulling on a thread.
-        </p>
-      </div>
-      <div className="rounded-xl border border-app-line bg-app-canvas p-3 flex-1 flex items-center justify-center">
-        <div className="relative" style={{ width: 170, height: 110 }}>
-          <svg className="absolute inset-0" width="170" height="110" viewBox="0 0 170 110" fill="none">
-            <line x1="85" y1="55" x2="32" y2="82" stroke={color.zinc300} strokeWidth="1" />
-            <line x1="85" y1="55" x2="138" y2="28" stroke={color.zinc300} strokeWidth="1" />
-            <line x1="85" y1="55" x2="42" y2="28" stroke={color.zinc300} strokeWidth="1" />
-            <line x1="85" y1="55" x2="138" y2="82" stroke={color.zinc300} strokeWidth="1" />
-          </svg>
-          {nodes.map((n) => (
-            <div
-              key={n.tag}
-              className={`absolute transform -translate-x-1/2 -translate-y-1/2 rounded-full border px-2 py-0.5 text-[9px] font-bold shadow-sm select-none ${tagColor(n.tag)}`}
-              style={{ left: `${n.x}%`, top: `${n.y}%` }}
-            >
-              {n.tag}
+        <div className={`relative h-[440px] overflow-hidden ${showCanvas ? "omanote-canvas-grid bg-app-canvas" : "bg-app-canvas/35"}`}>
+          {mode === "write" && writeTab === "canvas" ? (
+            <div className="h-full overflow-y-auto">
+              <CanvasView
+                activeDayIndex={0}
+                onPrevDay={() => {}}
+                onNextDay={() => {}}
+                onToggleTodo={toggleTodo}
+                completedTodos={completedTodos}
+                composerPhase={slashComposer.phase}
+                composerArtifact={slashComposer.artifact}
+              />
             </div>
-          ))}
+          ) : null}
+          {mode === "write" && writeTab === "todos" ? <TodosView /> : null}
+          {mode === "write" && writeTab === "notes" ? <NotesView /> : null}
+          {mode === "write" && writeTab === "bookmarks" ? <BookmarksView /> : null}
+          {mode === "write" && writeTab === "event" ? <EventView /> : null}
+          {mode === "read" ? (
+            <div className="mx-auto grid h-[440px] w-full max-w-[1050px] grid-cols-1 md:grid-cols-[250px_minmax(0,1fr)] gap-4 overflow-hidden px-4 pt-4">
+              <aside className="hidden md:block min-h-0 overflow-hidden">
+                <div className="mb-3 flex items-center gap-3">
+                  <button
+                    type="button"
+                    aria-label="Add feed"
+                    className="flex h-8 w-8 items-center justify-center rounded-md border border-app-line bg-app-surface text-lg leading-none text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
+                  >
+                    +
+                  </button>
+                </div>
+                <div className="min-h-0 space-y-2 overflow-y-auto pb-16">
+                  <button
+                    type="button"
+                    onClick={() => setReadTab("reader")}
+                    className="flex w-full min-w-0 items-center gap-2 rounded-lg bg-app-surface-muted px-3 py-2 text-left text-sm font-medium text-app-ink"
+                  >
+                    <Rss className="h-4 w-4 shrink-0 text-app-ink-faint" />
+                    <span className="min-w-0 flex-1 truncate">All feeds</span>
+                  </button>
+
+                  {READER_FEED_GROUPS.map((group) => (
+                    <div key={group.category} className="space-y-1">
+                      <div className="group flex w-full items-center gap-1 rounded-lg">
+                        <button
+                          type="button"
+                          className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink"
+                        >
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-app-surface-muted text-app-ink-faint">
+                            <Folder className="h-4 w-4" />
+                          </span>
+                          <span className="min-w-0 flex-1 truncate">{group.category}</span>
+                          <span className="text-app-ink-faint">...</span>
+                        </button>
+                      </div>
+                      <div className="ml-8 space-y-1">
+                        {group.feeds.map((feed) => (
+                          <button
+                            type="button"
+                            key={feed.title}
+                            className="flex w-full min-w-0 items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink"
+                          >
+                            <span className={`h-2 w-2 shrink-0 rounded-full ${feed.accent ?? "bg-app-line-strong"}`} />
+                            <span className="min-w-0 flex-1 truncate">{feed.title}</span>
+                            <span className="shrink-0 rounded-full bg-app-surface-muted px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-app-ink-faint">
+                              {feed.unread}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </aside>
+
+              <section className="min-h-0 border-l border-app-line pl-4">
+                <div className="h-full min-h-0 overflow-y-auto pb-24">
+                  <div className="divide-y divide-app-line">
+                    {READER_ARTICLES.map((article) => (
+                      <button
+                        type="button"
+                        key={article.title}
+                        className="flex w-full items-start gap-4 px-4 py-3.5 text-left transition-colors hover:bg-app-surface-hover"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="flex items-center gap-2 text-xs text-app-ink-faint">
+                            {article.unread ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-app-ink" aria-label="Unread" /> : null}
+                            <span className="truncate">{article.feed}</span>
+                            <span className="shrink-0">· {article.age}</span>
+                          </p>
+                          <p className={`mt-1 text-[15px] leading-snug ${article.unread ? "font-medium text-app-ink" : "text-app-ink-muted"}`}>
+                            {article.title}
+                          </p>
+                          <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-app-ink-faint">{article.summary}</p>
+                        </div>
+                        <div className={`mt-1 h-16 w-24 shrink-0 rounded-lg border border-app-line ${article.thumb}`} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            </div>
+          ) : null}
+
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-white to-transparent" />
+        </div>
+
+        <div className="flex h-16 items-center gap-3 border-t border-app-line px-4">
+          <button
+            type="button"
+            aria-label="Preview explore"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-app-line bg-app-surface text-app-ink-muted shadow-app-nav transition hover:bg-app-canvas"
+          >
+            <Compass size={15} />
+          </button>
+
+          <div className="flex-1 min-w-0 flex justify-center">
+            <SegmentedPill
+              activeKey={mode === "read" ? readTab : writeTab}
+              ariaLabel="Preview app tabs"
+              className="gap-2 bg-app-surface-muted/40 px-2 shadow-soft"
+              onChange={(key) => {
+                if (mode === "read") {
+                  setReadTab(key === "saved" ? "saved" : "reader");
+                } else if (mode === "write") {
+                  if (isMobile && (key as MockTab) !== "canvas") return;
+                  setWriteTab(key as MockTab);
+                  if ((key as MockTab) === "canvas") {
+                    setMode("write");
+                  }
+                }
+              }}
+              items={
+                mode === "read"
+                  ? [
+                      { key: "reader", label: readTab === "reader" ? "Feeds" : undefined, icon: <Rss className="h-3.5 w-3.5" />, ariaLabel: "Feeds" },
+                      { key: "saved", label: readTab === "saved" ? "Saved" : undefined, icon: <Bookmark className="h-3.5 w-3.5" />, ariaLabel: "Saved" },
+                    ]
+                  : NAV_TABS.map((tab) => ({
+                      key: tab.key,
+                      label: writeTab === tab.key ? tab.label : undefined,
+                      icon: <tab.icon className="h-3.5 w-3.5" />,
+                      ariaLabel: tab.label,
+                    }))
+              }
+            />
+          </div>
+
+          <button
+            type="button"
+            aria-label="Profile"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-app-line bg-app-surface shadow-app-nav"
+          >
+            <img src={DUMMY_AVATAR} className="h-10 w-10 rounded-full opacity-60" alt="" />
+          </button>
         </div>
       </div>
     </div>
@@ -777,66 +1397,47 @@ function ExtensionPopupMockup() {
   );
 }
 
-function BentoRss() {
-  const feeds = [
-    { name: "The Verge", unread: 5, active: false },
-    { name: "Hacker News", unread: 12, active: true },
-    { name: "Design Notes", unread: 2, active: false },
-  ];
-  const articles = [
-    { title: "The future of AI-native interfaces is already here", time: "2h ago", read: false },
-    { title: "Why local-first software matters more than ever", time: "4h ago", read: false },
-    { title: "Figma's new auto-layout engine, explained", time: "Yesterday", read: true },
-  ];
-  return (
-    <div className="rounded-2xl border border-app-line bg-app-surface p-5 flex flex-col gap-4">
-      <div>
-        <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">RSS Reader</p>
-        <h3 className="font-serif-heading font-serif-heading-smooth mt-1.5 text-lg font-black text-app-ink tracking-tight">Read without the noise.</h3>
-        <p className="mt-1 text-sm text-app-ink-muted leading-snug">
-          Subscribe to any feed, read in-app, and save what matters straight to your bookmarks.
-        </p>
-      </div>
-      <div className="rounded-xl border border-app-line bg-app-canvas flex flex-1 overflow-hidden" style={{ minHeight: 110 }}>
-        {/* Feed sidebar */}
-        <div className="w-[88px] shrink-0 border-r border-app-line py-1.5 space-y-0.5">
-          {feeds.map((f) => (
-            <div
-              key={f.name}
-              className={`flex items-center gap-1.5 px-2 py-1 rounded-md mx-1 ${f.active ? "bg-app-surface" : ""}`}
-            >
-              <span className={`flex-1 truncate text-[9px] font-medium ${f.active ? "text-app-ink" : "text-app-ink-muted"}`}>{f.name}</span>
-              <span className="shrink-0 rounded-full bg-info-surface text-info-ink px-1 text-[8px] font-bold leading-4">{f.unread}</span>
-            </div>
-          ))}
-        </div>
-        {/* Article list */}
-        <div className="flex-1 py-1.5 space-y-0.5 overflow-hidden">
-          {articles.map((a, i) => (
-            <div key={i} className={`px-2.5 py-1 ${i === 0 ? "bg-app-surface rounded-lg mx-1" : "mx-1"}`}>
-              <div className="flex items-start gap-1.5">
-                {!a.read && <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-info-ink" />}
-                <p className={`text-[9px] leading-snug flex-1 ${a.read ? "text-app-ink-faint pl-3" : "font-semibold text-app-ink"}`}>{a.title}</p>
-              </div>
-              <p className="text-[8px] text-app-ink-faint mt-0.5 pl-3">{a.time}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── RSS announcement banner ──────────────────────────────────────────────────
+const RSS_BANNER_KEY = "omanote_rss_banner_dismissed";
+
 function RssBanner() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem(RSS_BANNER_KEY)) setVisible(true);
+    } catch {
+      // localStorage unavailable — don't show the banner
+    }
+  }, []);
+
+  function dismiss() {
+    try {
+      localStorage.setItem(RSS_BANNER_KEY, "1");
+    } catch {
+      // ignore
+    }
+    setVisible(false);
+  }
+
+  if (!visible) return null;
+
   return (
-    <div className="px-4 py-2" style={{ backgroundColor: CTA_BG }}>
+    <div className="relative px-4 py-2" style={{ backgroundColor: CTA_BG }}>
       <p className="text-center text-sm font-medium text-white">
         Feature announcement: omanote reader is here. Read your favorite authors right from the app.{" "}
         <a href="#reader" className="font-bold underline underline-offset-2 hover:no-underline">
           Learn more →
         </a>
       </p>
+      <button
+        type="button"
+        aria-label="Dismiss announcement"
+        onClick={dismiss}
+        className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-white/70 transition-colors duration-app-fast ease-app-out hover:text-white cursor-pointer"
+      >
+        <X className="h-4 w-4" />
+      </button>
     </div>
   );
 }
@@ -926,84 +1527,26 @@ function RssReaderMockup() {
   );
 }
 
-function RssSection() {
-  return (
-    <section id="reader" className="border-t border-app-line">
-      <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-16 sm:py-20 lg:py-24">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-          {/* Left: copy */}
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">
-              RSS Reader
-            </p>
-            <h2 className="font-serif-heading font-serif-heading-smooth mt-4 text-3xl sm:text-4xl font-black tracking-[-0.025em] leading-tight">
-              Your reading list,<br className="hidden sm:block" /> inside your workspace.
-            </h2>
-            <p className="mt-5 text-app-ink-muted leading-relaxed text-[15px]">
-              Paste any RSS or Atom feed URL and subscribe. Articles arrive automatically, organized
-              into categories you set up — and everything you save lands straight in your bookmarks.
-            </p>
-
-            <ul className="mt-7 space-y-4">
-              {[
-                {
-                  icon: Rss,
-                  title: "Subscribe by pasting a URL",
-                  body: "Direct feed URLs, or just paste the site — omanote finds the feed for you.",
-                },
-                {
-                  icon: BookOpen,
-                  title: "Read without leaving the app",
-                  body: "Full-height reader slides in alongside your feed list. No context switch, no new tab.",
-                },
-                {
-                  icon: Bookmark,
-                  title: "Save what matters",
-                  body: "Heart an article to save it, or push it straight to Bookmarks with one tap.",
-                },
-              ].map((f) => (
-                <li key={f.title} className="flex items-start gap-3">
-                  <f.icon className="h-5 w-5 shrink-0 mt-0.5 text-app-ink-muted" />
-                  <p className="text-[15px] leading-snug text-app-ink-muted">
-                    <strong className="text-app-ink font-bold">{f.title}</strong>
-                    {" — "}
-                    {f.body}
-                  </p>
-                </li>
-              ))}
-            </ul>
-
-            <div className="mt-8">
-              <p className="text-xs text-app-ink-faint">
-                Opt-in from Settings → Features. Off by default — no change to your workspace until you turn it on.
-              </p>
-            </div>
-          </div>
-
-          {/* Right: reader mockup */}
-          <div className="flex justify-center lg:justify-end">
-            <div className="relative w-full max-w-[520px]">
-              <div
-                className="absolute inset-0 rounded-3xl blur-3xl opacity-15 -z-10"
-                style={{ background: `radial-gradient(ellipse at center, ${CTA_BG} 0%, transparent 70%)` }}
-              />
-              <RssReaderMockup />
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 // ─── Extension section ────────────────────────────────────────────────────────
 function ExtensionSection() {
   return (
     <section id="extension" className="border-t border-app-line">
       <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-16 sm:py-20 lg:py-24">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-          {/* Left: copy + download buttons */}
-          <div>
+          {/* Left: popup mockup */}
+          <div className="flex justify-center lg:justify-start order-2 lg:order-1">
+            <div className="relative">
+              {/* Subtle glow behind the popup */}
+              <div
+                className="absolute inset-0 rounded-3xl blur-3xl opacity-20 -z-10"
+                style={{ background: `radial-gradient(ellipse at center, ${CTA_BG} 0%, transparent 70%)` }}
+              />
+              <ExtensionPopupMockup />
+            </div>
+          </div>
+
+          {/* Right: copy + download buttons */}
+          <div className="order-1 lg:order-2">
             <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">
               Browser extension
             </p>
@@ -1050,7 +1593,7 @@ function ExtensionSection() {
                 href="https://chromewebstore.google.com/detail/omanote/foafmfgfdbdiiggmmfdoalgpfhkejbjn"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-xl border border-app-line bg-app-surface px-4 py-2.5 text-sm font-bold text-app-ink hover:border-app-line-strong hover:bg-app-canvas transition-colors shadow-sm"
+                className="inline-flex items-center gap-2 rounded-xl border border-app-line bg-app-surface px-4 py-2.5 text-sm font-bold text-app-ink hover:border-app-line-strong hover:bg-app-canvas transition-colors duration-app-fast ease-app-out shadow-sm"
               >
                 <span className="text-base leading-none">🌐</span>
                 Add to Chrome / Chromium
@@ -1059,7 +1602,7 @@ function ExtensionSection() {
                 href="https://addons.mozilla.org/en-US/firefox/addon/omanote/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-xl border border-app-line bg-app-surface px-4 py-2.5 text-sm font-bold text-app-ink hover:border-app-line-strong hover:bg-app-canvas transition-colors shadow-sm"
+                className="inline-flex items-center gap-2 rounded-xl border border-app-line bg-app-surface px-4 py-2.5 text-sm font-bold text-app-ink hover:border-app-line-strong hover:bg-app-canvas transition-colors duration-app-fast ease-app-out shadow-sm"
               >
                 <span className="text-base leading-none">🦊</span>
                 Add to Firefox
@@ -1069,122 +1612,6 @@ function ExtensionSection() {
               Free. No account needed to install — sign in to sync with your workspace.
             </p>
           </div>
-
-          {/* Right: popup mockup */}
-          <div className="flex justify-center lg:justify-end">
-            <div className="relative">
-              {/* Subtle glow behind the popup */}
-              <div
-                className="absolute inset-0 rounded-3xl blur-3xl opacity-20 -z-10"
-                style={{ background: `radial-gradient(ellipse at center, ${CTA_BG} 0%, transparent 70%)` }}
-              />
-              <ExtensionPopupMockup />
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ─── Desktop section ──────────────────────────────────────────────────────────
-function DesktopSection() {
-  return (
-    <section id="desktop" className="border-t border-app-line">
-      <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-16 sm:py-20 lg:py-24">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-          {/* Left: window mockup */}
-          <div className="order-2 lg:order-1 flex justify-center lg:justify-start">
-            <div className="relative w-full max-w-[440px]">
-              <div
-                className="absolute inset-0 rounded-3xl blur-3xl opacity-20 -z-10"
-                style={{ background: `radial-gradient(ellipse at center, ${CTA_BG} 0%, transparent 70%)` }}
-              />
-              <div className="rounded-2xl border border-app-line bg-app-surface shadow-soft overflow-hidden">
-                {/* Title bar */}
-                <div className="flex items-center gap-2 border-b border-app-line bg-app-canvas px-4 py-2.5">
-                  <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />
-                  <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
-                  <span className="h-3 w-3 rounded-full bg-[#28c840]" />
-                  <span className="ml-3 text-xs font-bold text-app-ink-muted">omanote</span>
-                </div>
-                {/* Window body */}
-                <div className="px-5 py-6 space-y-3">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">Today</p>
-                  <p className="text-sm text-app-ink">Had the best matcha this morning <span className="text-app-ink-faint">#morning</span></p>
-                  <p className="text-sm text-app-ink">Call mom tonight <span className="text-app-ink-faint">#family</span></p>
-                  {/* Native notification toast */}
-                  <div className="mt-4 ml-auto w-[85%] rounded-xl border border-app-line bg-app-canvas px-3.5 py-2.5 shadow-soft">
-                    <div className="flex items-start gap-2.5">
-                      <Bell className="h-4 w-4 shrink-0 mt-0.5 text-app-ink-muted" />
-                      <div>
-                        <p className="text-xs font-bold text-app-ink">Reminder</p>
-                        <p className="text-xs text-app-ink-muted">Call mom tonight</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Right: copy + download button */}
-          <div className="order-1 lg:order-2">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">
-              Desktop app
-            </p>
-            <h2 className="font-serif-heading font-serif-heading-smooth mt-4 text-3xl sm:text-4xl font-black tracking-[-0.025em] leading-tight">
-              Your daily workspace,<br className="hidden sm:block" /> in its own window.
-            </h2>
-            <p className="mt-5 text-app-ink-muted leading-relaxed text-[15px]">
-              omanote as a real app on Windows, Mac, and Linux. Same workspace, same encryption —
-              with its own place in your dock and reminders that reach you through your system.
-            </p>
-
-            <ul className="mt-7 space-y-4">
-              {[
-                {
-                  icon: Bell,
-                  title: "Native notifications",
-                  body: "Todo reminders arrive as real system notifications, even when omanote is in the background.",
-                },
-                {
-                  icon: Monitor,
-                  title: "Its own window",
-                  body: "Lives in your dock or taskbar instead of getting lost in a sea of browser tabs.",
-                },
-                {
-                  icon: RefreshCw,
-                  title: "Always current",
-                  body: "The app picks up every omanote update on launch — nothing to reinstall.",
-                },
-              ].map((f) => (
-                <li key={f.title} className="flex items-start gap-3">
-                  <f.icon className="h-5 w-5 shrink-0 mt-0.5 text-app-ink-muted" />
-                  <p className="text-[15px] leading-snug text-app-ink-muted">
-                    <strong className="text-app-ink font-bold">{f.title}</strong>
-                    {" — "}
-                    {f.body}
-                  </p>
-                </li>
-              ))}
-            </ul>
-
-            <div className="mt-8 flex flex-wrap gap-3">
-              <a
-                href={desktopAppReleaseUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-xl border border-app-line bg-app-surface px-4 py-2.5 text-sm font-bold text-app-ink hover:border-app-line-strong hover:bg-app-canvas transition-colors shadow-sm"
-              >
-                <Download className="h-4 w-4" />
-                Download from GitHub
-              </a>
-            </div>
-            <p className="mt-3 text-xs text-app-ink-faint">
-              Free. Windows (.msi / .exe) · macOS (.dmg) · Linux (.deb / .rpm / .AppImage)
-            </p>
-          </div>
         </div>
       </div>
     </section>
@@ -1192,21 +1619,27 @@ function DesktopSection() {
 }
 
 // ─── CTA button ───────────────────────────────────────────────────────────────
-function JournalCta({ label = "Start your daily workspace" }: { label?: string }) {
+function JournalCta({ label = "Start your daily workspace", inverted }: { label?: string; inverted?: boolean }) {
   return (
     <SignInButton mode="modal" fallbackRedirectUrl="/canvas">
       <button
-        className="relative inline-flex items-center overflow-hidden rounded-xl px-5 py-2.5 text-sm font-bold text-white cursor-pointer transition-[transform,filter] duration-150 ease-out hover:brightness-110 active:translate-y-px active:scale-[0.98]"
-        style={{
+        className="relative inline-flex items-center overflow-hidden rounded-xl px-5 py-2.5 text-sm font-bold cursor-pointer transition-[transform,filter] duration-app-fast ease-app-out hover:brightness-110 active:translate-y-px active:scale-[0.98]"
+        style={inverted ? {
+          backgroundColor: "#fff",
+          border: "1px solid rgba(0,0,0,0.08)",
+          boxShadow: "0px 1px 4px 0px rgba(0,0,0,0.35)",
+          color: CTA_BG,
+        } : {
           backgroundColor: CTA_BG,
           border: `1px solid ${CTA_BORDER}`,
           boxShadow: "0px 1px 4px 0px rgba(0,0,0,0.35)",
+          color: "#fff",
         }}
       >
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 rounded-xl"
-          style={{ boxShadow: "inset 0px 3px 4px 0px rgba(255,255,255,0.22)" }}
+          style={inverted ? { boxShadow: "inset 0px 2px 2px 0px rgba(0,0,0,0.04)" } : { boxShadow: "inset 0px 3px 4px 0px rgba(255,255,255,0.22)" }}
         />
         <span className="relative z-10">{label}</span>
       </button>
@@ -1228,7 +1661,7 @@ export function LandingScreen() {
           <div className="flex items-center gap-4 sm:gap-6">
             <DownloadNavDropdown />
             <SignInButton mode="modal" fallbackRedirectUrl="/canvas">
-              <button className="text-sm text-app-ink-muted hover:text-app-ink transition-colors cursor-pointer font-medium">
+              <button className="text-sm text-app-ink-muted hover:text-app-ink transition-colors duration-app-fast ease-app-out cursor-pointer font-medium">
                 Sign in
               </button>
             </SignInButton>
@@ -1241,7 +1674,7 @@ export function LandingScreen() {
 
       <main className="flex-1">
         {/* Hero */}
-        <section className="max-w-[1136px] mx-auto px-4 sm:px-6 pt-16 sm:pt-20 lg:pt-28 pb-0 text-center">
+        <section className="relative z-0 mx-auto max-w-[1136px] overflow-hidden px-4 pb-14 pt-16 text-center sm:px-6 sm:pt-20 lg:pt-28">
           <p className="inline-flex items-center rounded-full border border-app-line bg-app-canvas px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-app-ink-muted">
             Opinionated daily workspace
           </p>
@@ -1249,42 +1682,34 @@ export function LandingScreen() {
             Capture the day
             <br className="hidden sm:block" /> before it disappears.
           </h1>
-          <p className="mt-5 text-lg sm:text-xl text-app-ink-muted max-w-[560px] mx-auto leading-relaxed">
-            Notes, todos, bookmarks, events, and a built-in reader for everything you follow.
-            omanote catches all of it before it slips away.
+          <p className="mt-5 text-md text-app-ink-muted max-w-[560px] mx-auto leading-relaxed">
+            Notes, todos, bookmarks, events, RSS.
+            <br />
+            One workspace for everything that fits in a day.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <JournalCta label="Start your daily workspace" />
             <a
-              href="#why"
-              className="inline-flex items-center rounded-xl border border-app-line bg-app-surface px-4 py-2.5 text-sm font-medium text-app-ink-muted hover:border-app-line-strong hover:text-app-ink transition-colors"
+              href="https://omanote.com/s/FeUM44Rd"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-xl border border-app-line bg-app-surface px-4 py-2.5 text-sm font-medium text-app-ink-muted hover:border-app-line-strong hover:text-app-ink transition-colors duration-app-fast ease-app-out"
             >
-              See how it works
+              <CheckSquare className="h-4 w-4" />
+              View roadmap
             </a>
           </div>
-          <a
-            href="#desktop"
-            className="mt-4 inline-flex items-center gap-1.5 text-[13px] text-app-ink-faint hover:text-app-ink-muted transition-colors"
-          >
-            <Monitor size={14} />
-            <span>Desktop apps now available for any OS</span>
-            <span className="text-app-ink-faint">→</span>
-          </a>
 
           {/* App mockup — half-peeking below the fold */}
-          <div className="mt-12 sm:mt-14 max-w-4xl mx-auto relative">
+          <div className="relative z-0 mx-auto mt-3 max-w-4xl translate-y-14 sm:mt-4">
             <AppMockup />
             {/* Page-level bottom fade hints the page continues */}
             <div className="pointer-events-none absolute -bottom-1 inset-x-0 h-20 bg-gradient-to-t from-white to-transparent" />
           </div>
-          {/* Disclaimer */}
-          <p className="mt-6 text-xs text-app-ink-faint max-w-md mx-auto leading-relaxed">
-            That's a preview up there. Sign in and it's yours for real — same shape, actual data.
-          </p>
         </section>
 
         {/* Why omanote */}
-        <section id="why" className="border-t border-app-line mt-0">
+        <section id="why" className="border-t border-app-line">
           <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-16 sm:py-20 lg:py-24">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-20 items-start">
               <div>
@@ -1302,8 +1727,8 @@ export function LandingScreen() {
                 </p>
                 <p className="mt-4 text-app-ink-muted leading-relaxed text-[15px]">
                   omanote does the same thing for your day. The structure is already there waiting —
-                  canvas to start, then notes, todos, bookmarks, events, and Explore when you want
-                  to pull the thread.
+                  canvas to start, then notes, todos, bookmarks, events, RSS, Insights, and Explore
+                  when you want to pull the thread.
                 </p>
                 <p className="mt-4 text-app-ink-muted leading-relaxed text-[15px]">
                   It's for people who want to just open a thing and start typing — not spend a
@@ -1337,12 +1762,12 @@ export function LandingScreen() {
                   {
                     icon: Hash,
                     title: "Hashtags connect everything",
-                    body: "Tag a note, a todo, and an event with #health. Now they're connected. Explore shows you the whole thread.",
+                    body: "Tag a note, a todo, and an event with #health. Now they're connected. Explore and Insights make the pattern easier to revisit.",
                   },
                   {
                     icon: CalendarDays,
                     title: "Day-first capture",
-                    body: "Every capture is rooted in today. Because 'I think I wrote that down last Tuesday' is how things get lost.",
+                    body: "Every capture is rooted in today, with calendar jumps and scheduled todos so things stay anchored to the right day.",
                   },
                   {
                     icon: Moon,
@@ -1366,80 +1791,78 @@ export function LandingScreen() {
           </div>
         </section>
 
-        {/* Bento grid */}
-        <section id="features" className="border-t border-app-line">
+        {/* Write & Read mode */}
+        <section id="how-it-works" className="border-t border-app-line">
           <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-16 sm:py-20 lg:py-24">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">
-              What's inside
-            </p>
-            <h2 className="font-serif-heading font-serif-heading-smooth mt-4 text-2xl sm:text-3xl font-black tracking-[-0.025em] leading-tight">
-              Notes, todos, bookmarks, events, and a reader — all in one daily home base.
-            </h2>
-            <p className="mt-3 text-app-ink-muted text-[15px]">
-              Type it once on the canvas. When you're ready to find it, the focused views are there —
-              task list, note library, link vault, timeline, reader, hashtag map, all of it.
-            </p>
-            <div className="mt-10 space-y-4">
-              {/* Row 1: Canvas (wide) + Todos */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <BentoCanvas />
-                <BentoTodos />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">
+                  Write & Read
+                </p>
+                <h2 className="font-serif-heading font-serif-heading-smooth mt-4 text-3xl sm:text-4xl font-black tracking-[-0.025em] leading-tight">
+                  Write. Read.
+                  <br className="hidden sm:block" /> Same workspace.
+                </h2>
+                <p className="mt-5 text-app-ink-muted leading-relaxed text-[15px]">
+                  <strong className="text-app-ink">Write mode</strong> — the canvas is where
+                  everything starts. Notes, todos, bookmarks, events, all in one stream tied to
+                  today. Type, paste, or use /slash commands. Sort it out later in the focused
+                  views.
+                </p>
+                <ul className="mt-5 space-y-3">
+                  {[
+                    { icon: SquarePen, text: "Canvas is your daily dumping ground" },
+                    { icon: FileText, text: "Notes is your organized thoughts" },
+                    { icon: CheckSquare, text: "Todos parses natural language for date and time" },
+                    { icon: Bookmark, text: "Bookmarks organizes your links" },
+                    { icon: Clock3, text: "Events shows your upcoming todos, events and timelines" },
+                  ].map((item) => (
+                    <li key={item.text} className="flex items-center gap-3 text-sm text-app-ink-muted">
+                      <item.icon className="h-4 w-4 shrink-0 text-app-ink-faint" />
+                      <span>{item.text}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-5 text-app-ink-muted leading-relaxed text-[15px]">
+                  <strong className="text-app-ink">Read mode</strong> — subscribe to feeds, read
+                  articles, and save what matters. Full reader sits alongside your workspace — no
+                  context switch needed.
+                </p>
               </div>
-              {/* Row 2: Notes + Bookmarks (wide) */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <BentoNotes />
-                <BentoBookmarks />
-              </div>
-              {/* Row 3: Event + Explore + RSS Reader */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <BentoEvent />
-                <BentoExplore />
-                <BentoRss />
+
+              <div className="flex justify-center lg:justify-end">
+                <div className="relative w-full max-w-[520px]">
+                  <div
+                    className="absolute inset-0 rounded-3xl blur-3xl opacity-15 -z-10"
+                    style={{ background: `radial-gradient(ellipse at center, ${CTA_BG} 0%, transparent 70%)` }}
+                  />
+                  <RssReaderMockup />
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* RSS Reader */}
-        <RssSection />
-
         {/* Extension */}
         <ExtensionSection />
 
-        {/* Desktop app */}
-        <DesktopSection />
-
-        {/* Capture and trust */}
+        {/* Privacy */}
         <section className="border-t border-app-line">
-          <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-16 sm:py-20">
-            <div className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-20">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">
-                  Capture flow
-                </p>
-                <h2 className="font-serif-heading font-serif-heading-smooth mt-4 text-2xl sm:text-3xl font-black tracking-[-0.025em] leading-tight">
-                  Capture first. Sort later.
-                </h2>
-                <p className="mt-4 text-[15px] leading-relaxed text-app-ink-muted">
-                  Type a thought, paste a link, or use a slash command if you already know it's a
-                  todo or event. omanote keeps capture frictionless — then gives things a proper
-                  home once you're ready to deal with them.
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">
-                  Privacy and reliability
-                </p>
-                <h2 className="font-serif-heading font-serif-heading-smooth mt-4 text-2xl sm:text-3xl font-black tracking-[-0.025em] leading-tight">
-                  Your stuff. Yours.
-                </h2>
-                <p className="mt-4 text-[15px] leading-relaxed text-app-ink-muted">
-                  Daily notes are personal. Like, really personal. omanote supports offline capture,
-                  client-side encryption, passphrase unlock, and recovery keys — so your stuff stays
-                  yours, and stays available, even when the network's being dramatic.
-                </p>
-              </div>
-            </div>
+          <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-16 sm:py-20 text-center">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">Privacy</p>
+            <h2 className="font-serif-heading font-serif-heading-smooth mt-4 text-2xl sm:text-3xl font-black tracking-[-0.025em] leading-tight">
+              Your stuff. Yours.
+            </h2>
+            <p className="mt-4 text-[15px] leading-relaxed text-app-ink-muted max-w-[560px] mx-auto">
+              Client-side encryption, passphrase unlock, offline capture, and recovery keys.
+              Your data stays yours — always.
+            </p>
+            <Link
+              to="/privacy"
+              className="mt-5 inline-flex text-sm text-app-ink underline underline-offset-2 hover:no-underline transition-colors duration-app-fast ease-app-out"
+            >
+              Read the privacy policy →
+            </Link>
           </div>
         </section>
 
@@ -1466,11 +1889,13 @@ export function LandingScreen() {
 
         {/* Closing CTA */}
         <section className="border-t border-app-line">
-          <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-20 sm:py-24 lg:py-32 text-center">
-            <h2 className="font-serif-heading font-serif-heading-smooth text-3xl sm:text-4xl font-black tracking-[-0.025em] max-w-[480px] mx-auto leading-tight">
-              Ready to just start typing?
+          <div
+            className="max-w-[1136px] mx-auto px-4 sm:px-6 py-12 sm:py-16 lg:py-20 text-center rounded-3xl my-8 sm:my-12" style={{ backgroundColor: "#F7FCF1" }}
+          >
+            <h2 className="font-serif-heading font-serif-heading-smooth text-3xl sm:text-4xl font-black tracking-[-0.025em] max-w-[480px] mx-auto leading-tight text-app-ink">
+              Ready to start dumping?
             </h2>
-            <p className="mt-4 text-app-ink-muted max-w-[380px] mx-auto leading-relaxed text-[15px]">
+            <p className="mt-4 max-w-[380px] mx-auto leading-relaxed text-[15px] text-app-ink-muted">
               Your canvas is already waiting. No setup. No onboarding. No tour.
             </p>
             <div className="mt-8 flex justify-center">
@@ -1478,6 +1903,7 @@ export function LandingScreen() {
             </div>
           </div>
         </section>
+
       </main>
 
       {/* Footer */}
@@ -1489,7 +1915,7 @@ export function LandingScreen() {
                 <img src="/logo.svg" alt="omanote home" className="h-5 w-auto" />
                 <Link
                   to="/updates"
-                  className="rounded-full border border-app-line bg-app-canvas px-2 py-0.5 text-[10px] font-bold text-app-ink-muted hover:border-app-line-strong hover:text-app-ink-muted transition-colors cursor-pointer"
+                  className="rounded-full border border-app-line bg-app-canvas px-2 py-0.5 text-[10px] font-bold text-app-ink-muted hover:border-app-line-strong hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out cursor-pointer"
                 >
                   {currentVersion}
                 </Link>
@@ -1500,19 +1926,37 @@ export function LandingScreen() {
                   href="https://iambishistha.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors"
+                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
                 >
                   iambishistha.com
                 </a>
                 .
                 <span className="block">Built for personal use, shared publicly.</span>
               </p>
-              <a
-                href="mailto:omanote@iambishistha.com"
-                className="mt-1.5 text-xs text-app-ink-faint underline underline-offset-2 hover:text-app-ink-muted transition-colors"
-              >
-                omanote@iambishistha.com
-              </a>
+              <div className="mt-3 flex gap-4 text-xs text-app-ink-faint">
+                <a
+                  href="https://omanote.com/s/FeUM44Rd"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
+                >
+                  Roadmap
+                </a>
+                <Link
+                  to="/updates"
+                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
+                >
+                  Changelog
+                </Link>
+                <a
+                  href={desktopAppReleaseUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
+                >
+                  Desktop app
+                </a>
+              </div>
             </div>
             <div className="flex flex-col gap-1.5 text-xs text-app-ink-faint sm:text-right">
               <span>© {year} omanote. All rights reserved.</span>
@@ -1523,15 +1967,15 @@ export function LandingScreen() {
               <div className="flex gap-4 w-fit sm:ml-auto">
                 <Link
                   to="/privacy"
-                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors"
+                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
                 >
-                  Privacy Policy
+                  Privacy
                 </Link>
                 <Link
                   to="/terms"
-                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors"
+                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
                 >
-                  Terms of Use
+                  Terms
                 </Link>
               </div>
             </div>

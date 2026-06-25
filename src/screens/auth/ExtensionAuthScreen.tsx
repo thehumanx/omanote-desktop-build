@@ -161,7 +161,7 @@ export function ExtensionAuthScreen() {
               <div className="mb-5 rounded-lg border border-warning-line bg-warning-surface p-3 text-left text-xs leading-snug text-warning-ink">
                 <strong className="block mb-1">Firefox: enable host access</strong>
                 Open <code>about:addons</code> → omanote → <em>Permissions</em>, then turn on
-                <em> "Access your data for sites in the omanote.iambishistha.com domain"</em>.
+                <em> "Access your data for sites in the omanote.com domain"</em>.
                 Reload this page afterwards.
               </div>
             )}

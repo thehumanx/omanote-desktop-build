@@ -1,23 +1,3 @@
-export type TypingPhrase = {
-  text: string;
-};
-
-export const TYPING_PHRASES: TypingPhrase[] = [
-  { text: "had the best matcha this morning #morning" },
-  { text: "/todo call mom tonight #family" },
-  { text: "/event morning run 6:45 AM #health" },
-  { text: "/bookmark https://readwise.io" },
-  { text: "idea: keep launch notes in one place #work" },
-  { text: "/todo ship the landing redesign by friday #work" },
-];
-
-export const BENTO_PHRASES: TypingPhrase[] = [
-  { text: "made the best matcha today #morning" },
-  { text: "/todo call dentist next week #health" },
-  { text: "/bookmark https://readwise.io" },
-  { text: "/event evening walk 8pm #health" },
-];
-
 export type CanvasItem =
   | { id: number; kind: "note"; text: string; tag: string }
   | { id: number; kind: "todo"; text: string; tag: string; done: boolean }
@@ -25,12 +5,12 @@ export type CanvasItem =
   | { id: number; kind: "bookmark"; domain: string; title: string; tag: string };
 
 export const CANVAS: CanvasItem[] = [
-  { id: 1, kind: "note", text: "Had the best matcha this morning", tag: "#morning" },
-  { id: 2, kind: "todo", text: "Call mom tonight", tag: "#family", done: false },
+  { id: 1, kind: "note", text: "Launch notes: keep the homepage current", tag: "#work" },
+  { id: 2, kind: "todo", text: "Review todo folders before launch", tag: "#work", done: false },
   { id: 3, kind: "todo", text: "Buy coffee beans", tag: "#errands", done: true },
   { id: 4, kind: "event", time: "7:00 AM", text: "Morning run", tag: "#health" },
-  { id: 5, kind: "bookmark", domain: "readwise.io", title: "Readwise Reader", tag: "#tools" },
-  { id: 6, kind: "note", text: "Idea: keep launch notes in one place", tag: "#work" },
+  { id: 5, kind: "bookmark", domain: "rss.app", title: "Design feed roundup", tag: "#tools" },
+  { id: 6, kind: "note", text: "Ideas: landing mockup should match real app chrome", tag: "#ideas" },
 ];
 
 export const TODOS = [
@@ -38,7 +18,7 @@ export const TODOS = [
     group: "Today",
     color: "text-app-ink",
     items: [
-      { text: "Ship landing page redesign", tag: "#work", done: false, due: "by 5pm today" },
+      { text: "Review todo folders before launch", tag: "#work", done: false, due: "by 5pm today" },
       { text: "Call mom tonight", tag: "#family", done: false, due: "at 8pm" },
     ],
   },
@@ -51,8 +31,8 @@ export const TODOS = [
     group: "Upcoming",
     color: "text-app-ink-muted",
     items: [
+      { text: "Todo folder sharing review", tag: "#work", done: false, due: "tomorrow" },
       { text: "Read Atomic Habits ch.5", tag: "#books", done: false, due: "this weekend" },
-      { text: "Renew gym membership", tag: "#health", done: false, due: "Apr 30" },
     ],
   },
   {
@@ -70,8 +50,8 @@ export const NOTES_FOLDERS = [
     folder: "Work",
     icon: "💼",
     items: [
-      { title: "Q2 goals", preview: "Ship v1 landing page, improve onboarding..." },
-      { title: "Meeting notes – Apr 22", preview: "Discussed roadmap priorities for Q2..." },
+      { title: "Launch notes", preview: "Shipping RSS, insights, todo folders..." },
+      { title: "Shared folder copy", preview: "Public links should still feel personal and calm..." },
     ],
   },
   {
@@ -85,24 +65,24 @@ export const NOTES_FOLDERS = [
   {
     folder: "Ideas",
     icon: "💡",
-    items: [{ title: "App feature ideas", preview: "Landing page with interactive demo..." }],
+    items: [{ title: "App feature ideas", preview: "Show the real app chrome in the hero mockup..." }],
   },
 ];
 
 export const BOOKMARKS = [
   { domain: "readwise.io", title: "Readwise Reader", category: "Reading", categoryIcon: "📚" },
-  { domain: "omarchy.org", title: "Omarchy by DHH", category: "Inspiration", categoryIcon: "✨" },
+  { domain: "rss.app", title: "Morning feed digest", category: "News", categoryIcon: "🗞️" },
   { domain: "linear.app", title: "Linear – Issue Tracking", category: "Tools", categoryIcon: "⚙️" },
-  { domain: "obsidian.md", title: "Obsidian – Note-taking", category: "Reference", categoryIcon: "🔗" },
+  { domain: "insights.omanote", title: "Workspace insights", category: "Metrics", categoryIcon: "📈" },
   { domain: "vercel.com", title: "Vercel – Deploy Instantly", category: "Dev", categoryIcon: "💻" },
 ];
 
 export const EVENT = [
   { time: "6:45 AM", text: "Morning run", tag: "#health", auto: false },
   { time: "8:00 AM", text: "Made matcha ☕", tag: "#morning", auto: false },
-  { time: "9:30 AM", text: "Team standup", tag: "#work", auto: true },
+  { time: "9:30 AM", text: "Team standup", tag: "#work", auto: false },
   { time: "12:30 PM", text: "Lunch walk", tag: "#health", auto: false },
-  { time: "3:00 PM", text: "Submit expense report", tag: "#work", auto: true },
+  { time: "3:00 PM", text: "Review scheduled todo", tag: "#work", auto: false },
 ];
 
 export const EXPLORE_TAGS = [
@@ -118,29 +98,14 @@ export const EXPLORE_TAGS = [
 
 export const FAQ_ITEMS = [
   {
-    question: "What is omanote?",
+    question: "Can I organize todos into folders?",
     answer:
-      "omanote (always smallcase, yes on purpose) is an opinionated daily workspace for capturing notes, todos, bookmarks, events, and all the small stuff that makes up a day — in one place.",
+      "Yes. Todos now have folders, can be shared, and can keep a selected folder when you capture from the canvas so you don't have to sort everything twice.",
   },
   {
-    question: "Is omanote an AI note-taking app?",
+    question: "Can scheduled todos show up in the calendar?",
     answer:
-      "Nope. No AI, no 'smart suggestions,' no chatbot waiting to summarize your thoughts at you. Just a clean, opinionated workspace built around fast capture, hashtags, and keeping your stuff private.",
-  },
-  {
-    question: "What is the canvas?",
-    answer:
-      "The canvas is your daily dumping ground — in the best possible way. Anything you capture today lands there first, then it can also live in Notes, Todos, Bookmarks, or Event. It's the starting point, not the destination.",
-  },
-  {
-    question: "Do I need slash commands?",
-    answer:
-      "Not at all. Type plain text, paste a link, and omanote will figure it out. Slash commands are just a shortcut for when you already know what you're making.",
-  },
-  {
-    question: "How are notes, todos, bookmarks, and events connected?",
-    answer:
-      "They're all specialist views of the same daily workspace. The canvas is where things land; the other views are where you manage them when you're actually ready to.",
+      "Yes. Date-only todos stack at the top of the day, timed todos land in the right slot, and completed ones still keep their scheduled context.",
   },
   {
     question: "How does Explore work?",
@@ -153,6 +118,11 @@ export const FAQ_ITEMS = [
       "Yes. Bookmark folders and note folders can each be turned into a public link — just toggle it on in the folder settings. Visitors get a clean, read-only page. Your encrypted workspace stays private.",
   },
   {
+    question: "Can I share todo folders too?",
+    answer:
+      "Yes. Todo folders can be shared just like note folders and bookmark categories, so the same organized workspace can be shown publicly when you want it to.",
+  },
+  {
     question: "Does omanote have a dark mode?",
     answer:
       "Yes. Light, dark, or system — pick in settings, and it syncs across all your devices. Public pages (landing, shared folders) stay light so links look right when you share them.",
@@ -161,11 +131,6 @@ export const FAQ_ITEMS = [
     question: "Does omanote work offline?",
     answer:
       "Yes. Lose the wifi, keep capturing. Changes save locally and sync when your connection comes back. No dramatic data loss, just a quiet queue.",
-  },
-  {
-    question: "Is my data private?",
-    answer:
-      "Your content is encrypted on the client before it ever leaves your device. Only you — with your passphrase — can unlock it. The app is built for personal use, and that means actually private.",
   },
   {
     question: "What if I forget my passphrase?",
@@ -200,36 +165,6 @@ const TAG_COLORS: Record<string, string> = {
 export function tagColor(tag: string) {
   return TAG_COLORS[tag] ?? "bg-app-surface-muted text-app-ink-muted border-app-line";
 }
-
-export const ROADMAP = [
-  {
-    phase: "Now",
-    focus: "Core polish & reliability",
-    outcomes: [
-      "Improve hashtag discovery and mind map interactions.",
-      "Keep day-first capture fast, stable, and trustworthy.",
-      "Refine update visibility directly inside the app.",
-    ],
-  },
-  {
-    phase: "Next",
-    focus: "Planned features",
-    outcomes: [
-      "Build mobile applications.",
-      "Improve hashtag features.",
-      "Expand extension capabilities and cross-surface capture.",
-    ],
-  },
-  {
-    phase: "Later",
-    focus: "Connected omanote ecosystem",
-    outcomes: [
-      "Make cross-surface capture and recall seamless.",
-      "Expand connected-memory retrieval beyond basic hashtag linking.",
-      "Keep simple defaults while supporting deeper power workflows.",
-    ],
-  },
-];
 
 export function getModeFromText(text: string): string {
   if (text.startsWith("/todo")) return "todo";
