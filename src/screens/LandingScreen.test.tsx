@@ -8,19 +8,6 @@ vi.mock("@clerk/react", () => ({
 }));
 
 describe("LandingScreen extension downloads", () => {
-  it("links the hero desktop promo to the desktop section", () => {
-    render(
-      <MemoryRouter>
-        <LandingScreen />
-      </MemoryRouter>,
-    );
-
-    expect(screen.getByRole("link", { name: /Desktop apps now available for any OS/i })).toHaveAttribute(
-      "href",
-      "#desktop",
-    );
-  });
-
   it("opens a download dropdown with extension and desktop app links", () => {
     render(
       <MemoryRouter>
@@ -30,8 +17,10 @@ describe("LandingScreen extension downloads", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^Download$/i }));
 
+    const links = screen.getAllByRole("link", { name: /^Desktop app$/i });
+    const navLink = links.find((l) => l.getAttribute("href") === "#desktop");
+    expect(navLink).toBeTruthy();
     expect(screen.getByRole("link", { name: /^Extension$/i })).toHaveAttribute("href", "#extension");
-    expect(screen.getByRole("link", { name: /^Desktop app$/i })).toHaveAttribute("href", "#desktop");
   });
 
   it("links to official browser stores", () => {

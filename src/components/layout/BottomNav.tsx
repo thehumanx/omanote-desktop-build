@@ -42,7 +42,7 @@ const defaultAvatarSrc =
       <path d="M8 32c2.8-5.2 7-7.8 12-7.8S29.2 26.8 32 32" fill="rgb(var(--color-ink-faint))"/>
     </svg>
   `);
-const accountProfileUrl = "https://accounts.omanote.iambishistha.com/user";
+const accountProfileUrl = "https://accounts.omanote.com/user";
 const desktopAppReleaseUrl = "https://github.com/thehumanx/omanote-releases/releases/latest";
 
 export function BottomNav({ hidden = false, forceHidden = false, onOpenAbout = () => {} }: { hidden?: boolean; forceHidden?: boolean; onOpenAbout?: () => void }) {

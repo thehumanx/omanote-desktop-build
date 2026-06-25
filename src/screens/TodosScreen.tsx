@@ -1092,7 +1092,7 @@ export function TodosScreen() {
                   ))}
                 </div>
               ) : (
-                <div className="space-y-2 pr-1">
+                  <div className="space-y-2 pr-1">
                   {creatingFolder ? (
                     <TodoFolderRow
                       folder={{ id: "__new__", name: newFolderName || "", createdAt: 0, updatedAt: 0 }}

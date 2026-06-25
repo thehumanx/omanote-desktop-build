@@ -482,14 +482,73 @@ export function PrivacyPolicyScreen() {
 
       {/* Footer */}
       <footer className="border-t border-app-line">
-        <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-8">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <Link to="/">
-              <img src="/logo.svg" alt="omanote home" className="h-5 w-auto" />
-            </Link>
-            <p className="text-xs text-app-ink-faint">
-              © {new Date().getFullYear()} omanote. All rights reserved.
-            </p>
+        <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-8 sm:py-10">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+            <div>
+              <div className="flex items-center gap-2">
+                <Link to="/">
+                  <img src="/logo.svg" alt="omanote home" className="h-5 w-auto" />
+                </Link>
+              </div>
+              <p className="mt-2.5 text-xs text-app-ink-faint leading-relaxed max-w-[280px]">
+                Personal notetaking app of{" "}
+                <a
+                  href="https://iambishistha.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
+                >
+                  iambishistha.com
+                </a>
+                .
+                <span className="block">Built for personal use, shared publicly.</span>
+              </p>
+              <div className="mt-3 flex gap-4 text-xs text-app-ink-faint">
+                <a
+                  href="https://omanote.com/s/FeUM44Rd"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
+                >
+                  Roadmap
+                </a>
+                <Link
+                  to="/updates"
+                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
+                >
+                  Changelog
+                </Link>
+                <a
+                  href="https://github.com/thehumanx/omanote-releases/releases/latest"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
+                >
+                  Desktop app
+                </a>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5 text-xs text-app-ink-faint sm:text-right">
+              <span>© {new Date().getFullYear()} omanote. All rights reserved.</span>
+              <span className="max-w-[300px] sm:max-w-none leading-snug">
+                Your data is encrypted client-side and stored securely.
+                <br className="hidden sm:block" /> We don't sell, share, or read your data. Ever.
+              </span>
+              <div className="flex gap-4 w-fit sm:ml-auto">
+                <Link
+                  to="/privacy"
+                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
+                >
+                  Privacy
+                </Link>
+                <Link
+                  to="/terms"
+                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
+                >
+                  Terms
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </footer>

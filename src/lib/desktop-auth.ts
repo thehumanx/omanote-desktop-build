@@ -10,7 +10,7 @@
 
 import { openInSystemBrowser } from "./desktop";
 
-export const PROD_WEB_URL = "https://omanote.iambishistha.com";
+export const PROD_WEB_URL = "https://omanote.com";
 
 const STATE_KEY = "omanote:desktop-auth-state";
 

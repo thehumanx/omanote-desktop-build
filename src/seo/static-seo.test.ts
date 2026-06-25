@@ -7,10 +7,10 @@ describe("static SEO assets", () => {
   it("defines crawlable homepage metadata and structured data", () => {
     expect(indexHtml).toContain("<title>omanote | Capture the day before it disappears</title>");
     expect(indexHtml).toContain('name="robots" content="index, follow"');
-    expect(indexHtml).toContain('rel="canonical" href="https://omanote.iambishistha.com/"');
-    expect(indexHtml).toContain('property="og:url" content="https://omanote.iambishistha.com/"');
+    expect(indexHtml).toContain('rel="canonical" href="https://omanote.com/"');
+    expect(indexHtml).toContain('property="og:url" content="https://omanote.com/"');
     expect(indexHtml).toContain('name="twitter:card" content="summary_large_image"');
-    expect(indexHtml).toContain("https://omanote.iambishistha.com/og.png");
+    expect(indexHtml).toContain("https://omanote.com/og.png");
 
     const jsonLd = indexHtml.match(
       /<script type="application\/ld\+json">([\s\S]*?)<\/script>/,
@@ -38,14 +38,14 @@ describe("static SEO assets", () => {
         "User-agent: *",
         "Allow: /",
         "",
-        "Sitemap: https://omanote.iambishistha.com/sitemap.xml",
+        "Sitemap: https://omanote.com/sitemap.xml",
         "",
       ].join("\n"),
     );
 
-    expect(sitemapXml).toContain("<loc>https://omanote.iambishistha.com/</loc>");
-    expect(sitemapXml).toContain("<loc>https://omanote.iambishistha.com/privacy</loc>");
-    expect(sitemapXml).toContain("<loc>https://omanote.iambishistha.com/terms</loc>");
+    expect(sitemapXml).toContain("<loc>https://omanote.com/</loc>");
+    expect(sitemapXml).toContain("<loc>https://omanote.com/privacy</loc>");
+    expect(sitemapXml).toContain("<loc>https://omanote.com/terms</loc>");
     expect(sitemapXml).toMatch(/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/);
   });
 });
