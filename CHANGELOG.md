@@ -4,7 +4,7 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
-### v0.24.2 [June 26, 2026]
+### v0.24.3 [June 26, 2026]
 
 > Desktop bug fixes
 
