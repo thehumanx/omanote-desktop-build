@@ -100,5 +100,5 @@ export function installExternalLinkHandler(): void {
     void import("@tauri-apps/api/core").then(({ invoke }) =>
       invoke("plugin:opener|open_url", { url }),
     );
-  });
+  }, true);
 }
