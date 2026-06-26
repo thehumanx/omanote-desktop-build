@@ -10,6 +10,7 @@ All notable changes to omanote are documented here, organized by product.
 
 - [Fix] What's new modal not opening in desktop app — CHANGELOG.md was missing from desktop build
 - [Fix] URL preview cards not opening in browser on desktop — capture-phase link handler intercepts before stopPropagation
+- [Fix] Desktop build failure — missing convex/lib/ in sync (rssFetcher import)
 
 ### v0.24 [June 23, 2026]
 
