@@ -1,6 +1,17 @@
 import { useEffect } from "react";
 import { useApp } from "../app/AppProvider";
 import { setFaviconBadge } from "../lib/favicon-badge";
+import { isTauri } from "../lib/desktop";
+
+async function setDesktopBadge(count: number) {
+  if (!isTauri()) return;
+  try {
+    const { getCurrentWindow } = await import("@tauri-apps/api/window");
+    await getCurrentWindow().setBadgeCount(count > 0 ? count : undefined);
+  } catch {
+    // Native badge API not available
+  }
+}
 
 export function FaviconBadgeSync() {
   const { state } = useApp();
@@ -9,11 +20,15 @@ export function FaviconBadgeSync() {
 
   useEffect(() => {
     setFaviconBadge(reminderCount);
+    setDesktopBadge(reminderCount);
   }, [reminderCount]);
 
-  // Clear badge on unmount (e.g. sign out)
+  // Clear badges on unmount (e.g. sign out)
   useEffect(() => {
-    return () => setFaviconBadge(0);
+    return () => {
+      setFaviconBadge(0);
+      setDesktopBadge(0);
+    };
   }, []);
 
   return null;

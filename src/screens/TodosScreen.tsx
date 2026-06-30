@@ -1009,6 +1009,7 @@ export function TodosScreen() {
                         editingName={newFolderName}
                         editingIcon={editingIcon}
                         iconPickerActive={false}
+                        isShared={false}
                         isDesktop={isDesktop}
                         duplicateError={newFolderError}
                         inputRef={newFolderInputRef}
@@ -1044,6 +1045,7 @@ export function TodosScreen() {
                           editingName={newFolderName}
                           editingIcon={editingIcon}
                           iconPickerActive={directIconFolderId === folder.id}
+                          isShared={activeSharedFolderIds?.includes(folder.id) ?? false}
                           onToggleMenu={() => setFolderMenuOpenId((c) => (c === folder.id ? null : folder.id))}
                           onStartEdit={() => {}}
                           onCommitEdit={commitFolder}
@@ -1104,6 +1106,7 @@ export function TodosScreen() {
                       editingName={newFolderName}
                       editingIcon={editingIcon}
                       iconPickerActive={false}
+                      isShared={false}
                       isDesktop={isDesktop}
                       duplicateError={newFolderError}
                       inputRef={newFolderInputRef}
@@ -1137,6 +1140,7 @@ export function TodosScreen() {
                       editingName={newFolderName}
                       editingIcon={editingIcon}
                       iconPickerActive={directIconFolderId === folder.id}
+                      isShared={activeSharedFolderIds?.includes(folder.id) ?? false}
                       onToggleMenu={() => setFolderMenuOpenId((c) => (c === folder.id ? null : folder.id))}
                       onStartEdit={() => {
                         setRenamingFolderId(folder.id);

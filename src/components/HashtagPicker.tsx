@@ -184,6 +184,7 @@ export function HashtagPickerDropdown({
   return createPortal(
     <div
       ref={listRef}
+      data-omanote-ignore-outside-click="true"
       className="fixed z-app-popover w-52 overflow-hidden rounded-2xl border border-app-line bg-app-surface shadow-app-menu"
       style={pos}
     >

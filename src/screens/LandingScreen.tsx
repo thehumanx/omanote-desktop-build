@@ -4,6 +4,7 @@ import { SignInButton } from "@clerk/react";
 import { CookieNotice } from "../components/CookieNotice";
 import { Bookmark, CheckCheck, CheckSquare, Clock3, Compass, FileText, CalendarDays, SquarePen, Folder, Link2, List, Settings, Zap, MousePointerClick, Lock, Puzzle, LayoutDashboard, Hash, Share2, Moon, Monitor, Bell, RefreshCw, Download, Rss, BookOpen, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import changelogMarkdown from "../../CHANGELOG.md?raw";
+import { SeoHead } from "../seo/SeoHead";
 import { color } from "../design-system/tokens";
 import { parseLatestVersion } from "../lib/update-checker";
 import { useOutsideClick } from "../lib/useOutsideClick";
@@ -1653,7 +1654,12 @@ export function LandingScreen() {
   const currentVersion = parseLatestVersion(changelogMarkdown)?.version ?? "v0.9";
 
   return (
-    <div className="public-page min-h-screen flex flex-col bg-app-surface text-app-ink">
+    <>
+      <SeoHead
+        title="omanote | Opinionated daily workspace"
+        description="omanote is a personal daily workspace for capturing notes, todos, bookmarks, events, and small moments before the day disappears."
+      />
+      <div className="public-page min-h-screen flex flex-col bg-app-surface text-app-ink">
       {/* Nav */}
       <nav className="border-b border-app-line sticky top-0 bg-app-surface/95 backdrop-blur-sm z-20">
         <div className="max-w-[1136px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
@@ -1986,5 +1992,6 @@ export function LandingScreen() {
       {/* Cookie notice */}
       <CookieNotice />
     </div>
+    </>
   );
 }

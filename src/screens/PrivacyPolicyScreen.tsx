@@ -1,11 +1,18 @@
 import { Link } from "react-router-dom";
+import { SeoHead } from "../seo/SeoHead";
 
 const LAST_UPDATED = "May 2, 2025";
 const CONTACT_EMAIL = "omanote@iambishistha.com";
 
 export function PrivacyPolicyScreen() {
   return (
-    <div className="public-page min-h-screen flex flex-col bg-app-surface text-app-ink">
+    <>
+      <SeoHead
+        title="Privacy Policy | omanote"
+        description="omanote privacy policy — how we handle your data in this personal daily workspace."
+        canonical="https://omanote.com/privacy"
+      />
+      <div className="public-page min-h-screen flex flex-col bg-app-surface text-app-ink">
       {/* Nav */}
       <nav className="border-b border-app-line sticky top-0 bg-app-surface/95 backdrop-blur-sm z-20">
         <div className="max-w-[1136px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
@@ -553,5 +560,6 @@ export function PrivacyPolicyScreen() {
         </div>
       </footer>
     </div>
+    </>
   );
 }

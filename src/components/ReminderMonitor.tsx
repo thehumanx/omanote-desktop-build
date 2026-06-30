@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useApp } from "../app/AppProvider";
+import { useLocation } from "react-router-dom";
 import { combineDateKeyAndTime, randomId } from "@omanote/shared";
 import { useUserSettings } from "../contexts/UserSettingsContext";
 import { computeReminderTriggerAt } from "../lib/reminder-schedule";
@@ -8,8 +9,10 @@ import { desktopNotificationsEnabled } from "../lib/desktop-notifications";
 
 export function ReminderMonitor() {
   const { state, dispatch } = useApp();
+  const location = useLocation();
   const { settings } = useUserSettings();
   const firedRef = useRef(new Set<string>());
+  const handledActionRef = useRef<string | null>(null);
   const todosRef = useRef(state.todos);
   todosRef.current = state.todos;
   const channelRef = useRef<BroadcastChannel | null>(null);
@@ -30,6 +33,38 @@ export function ReminderMonitor() {
       channelRef.current = null;
     };
   }, []);
+
+  // Listen for "todo/toggle" messages from the service worker
+  // (e.g. user clicked "Mark as complete" on a notification action)
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type === "todo/toggle" && typeof event.data.todoId === "string") {
+        dispatch({ type: "todo/toggle", todoId: event.data.todoId });
+      }
+    };
+    navigator.serviceWorker.addEventListener("message", handler);
+    return () => navigator.serviceWorker.removeEventListener("message", handler);
+  }, [dispatch]);
+
+  // Handle notification actions when the service worker had to open the app
+  // in a fresh window instead of messaging an already-running client.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const todoAction = params.get("todoAction");
+    const todoId = params.get("todoId");
+    const actionKey = todoAction && todoId ? `${todoAction}:${todoId}` : null;
+    if (todoAction !== "complete" || !todoId || handledActionRef.current === actionKey) return;
+
+    handledActionRef.current = actionKey;
+    dispatch({ type: "todo/toggle", todoId });
+
+    params.delete("todoAction");
+    params.delete("todoId");
+    const nextSearch = params.toString();
+    const nextUrl = `${location.pathname}${nextSearch ? `?${nextSearch}` : ""}${location.hash}`;
+    window.history.replaceState({}, "", nextUrl);
+  }, [dispatch, location.hash, location.pathname, location.search]);
 
   useEffect(() => {
     function checkReminders() {
@@ -79,22 +114,31 @@ export function ReminderMonitor() {
               sendDesktopNotification({ title: "Reminder", body: todo.title }).catch(() => {});
             } else if ("serviceWorker" in navigator) {
               navigator.serviceWorker.ready
-                .then((reg) =>
-                  reg.showNotification("Reminder", {
+                .then((reg) => {
+                  const options = {
                     body: todo.title,
                     icon: "/android-chrome-192x192.png",
                     tag: `omanote-reminder-${todo.id}`,
                     data: { todoId: todo.id },
-                  }),
-                )
+                    actions: [{ action: "complete", title: "✓ Mark as complete" }],
+                  } as NotificationOptions & {
+                    actions: { action: string; title: string }[];
+                  };
+                  return reg.showNotification("Reminder", options);
+                })
                 .catch(() => {});
             } else {
               try {
-                const n = new Notification("Reminder", {
+                const options = {
                   body: todo.title,
                   icon: "/android-chrome-192x192.png",
                   tag: `omanote-reminder-${todo.id}`,
-                });
+                  data: { todoId: todo.id },
+                  actions: [{ action: "complete", title: "✓ Mark as complete" }],
+                } as NotificationOptions & {
+                  actions: { action: string; title: string }[];
+                };
+                const n = new Notification("Reminder", options);
                 n.onclick = () => { window.focus(); n.close(); };
               } catch {
                 // Notification API may be unavailable in some contexts

@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { SeoHead } from "../seo/SeoHead";
 import { useMutation, useQuery } from "convex/react";
 import { useParams, Link } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
@@ -117,36 +118,39 @@ export function SharedNoteFolderPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shareCode, data !== null && data !== undefined]);
 
-  useEffect(() => {
-    if (!data) return;
-    const firstName = data.ownerName.split(" ")[0];
-    document.title = `omanote | ${data.folderName} by ${firstName}`;
-    return () => {
-      document.title = "omanote";
-    };
-  }, [data]);
-
   if (data === undefined) {
     return (
-      <div className="public-page flex min-h-screen items-center justify-center bg-app-canvas">
-        <div className="h-8 w-8 animate-pulse rounded-full bg-app-line" />
-      </div>
+      <>
+        <SeoHead title="omanote | Shared notes" noIndex />
+        <div className="public-page flex min-h-screen items-center justify-center bg-app-canvas">
+          <div className="h-8 w-8 animate-pulse rounded-full bg-app-line" />
+        </div>
+      </>
     );
   }
 
   if (data === null) {
     return (
-      <div className="public-page flex min-h-screen flex-col items-center justify-center gap-4 bg-app-canvas px-4">
+      <>
+        <SeoHead title="omanote | Shared notes" noIndex />
+        <div className="public-page flex min-h-screen flex-col items-center justify-center gap-4 bg-app-canvas px-4">
         <Link to="/" className="flex items-center gap-2 text-app-ink">
           <img src="/logo.svg" alt="Omanote" className="h-7 w-auto" />
         </Link>
         <p className="text-sm text-app-ink-muted">This link is no longer available.</p>
       </div>
+    </>
     );
   }
 
   return (
-    <div className="public-page min-h-screen bg-app-canvas">
+    <>
+      <SeoHead
+        title={`omanote | ${data.folderName} by ${data.ownerName.split(" ")[0]}`}
+        description={`${data.folderName} — a shared note folder by ${data.ownerName} on omanote.`}
+        noIndex
+      />
+      <div className="public-page min-h-screen bg-app-canvas">
       <header className="sticky top-0 z-10 border-b border-app-line bg-app-surface/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <Link to="/" className="flex items-center transition hover:opacity-70">
@@ -208,5 +212,6 @@ export function SharedNoteFolderPage() {
         )}
       </main>
     </div>
+    </>
   );
 }

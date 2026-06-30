@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { SeoHead } from "../seo/SeoHead";
 import { useMutation, useQuery } from "convex/react";
 import { useParams, Link } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
@@ -6,6 +7,7 @@ import { getShareViewerToken } from "../lib/share-viewer-token";
 import { cn, TodoCheckmark } from "../components/ui";
 import { formatCompletedLabel, formatDueChip } from "@omanote/shared";
 import { Bookmark, CircleCheckBig, ExternalLink } from "lucide-react";
+import { CategoryIconView } from "../lib/bookmark-category-icon";
 
 type PublicBookmark = {
   id: string;
@@ -80,12 +82,12 @@ function PublicBookmarkCard({ bookmark }: { bookmark: PublicBookmark }) {
       rel="noopener noreferrer"
       className="group flex flex-col overflow-hidden rounded-2xl border border-app-line bg-app-surface transition hover:border-app-line hover:shadow-sm"
     >
-      {thumbnailUrl && (
-        <div className="aspect-[2/1] w-full overflow-hidden bg-app-surface-muted">
-          <div className="relative h-full w-full">
-            <div className="absolute inset-0 flex items-center justify-center text-app-ink-faint">
-              <Bookmark className="h-8 w-8" />
-            </div>
+      <div className="aspect-[2/1] w-full overflow-hidden bg-app-surface-muted">
+        <div className="relative h-full w-full">
+          <div className="absolute inset-0 flex items-center justify-center text-app-ink-faint">
+            <Bookmark className="h-8 w-8" />
+          </div>
+          {thumbnailUrl && (
             <img
               src={thumbnailUrl}
               alt=""
@@ -95,9 +97,9 @@ function PublicBookmarkCard({ bookmark }: { bookmark: PublicBookmark }) {
                 (e.currentTarget as HTMLImageElement).style.display = "none";
               }}
             />
-          </div>
+          )}
         </div>
-      )}
+      </div>
       <div className="flex flex-col gap-1.5 p-4">
         <p className="line-clamp-2 text-[15px] font-bold leading-snug text-app-ink">
           {displayTitle}
@@ -181,39 +183,41 @@ export function SharedFolderPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shareCode, data !== null && data !== undefined]);
 
-  useEffect(() => {
-    if (!data) return;
-    const firstName = data.ownerName.split(" ")[0];
-    const label = isTodo ? (todoData as NonNullable<typeof todoData>).folderName : (bookmarkData as NonNullable<typeof bookmarkData>).categoryName;
-    document.title = `omanote | ${label} by ${firstName}`;
-    return () => {
-      document.title = "omanote";
-    };
-  }, [data, isTodo, todoData, bookmarkData]);
-
   if (data === undefined) {
     return (
-      <div className="public-page flex min-h-screen items-center justify-center bg-app-canvas">
-        <div className="h-8 w-8 animate-pulse rounded-full bg-app-line" />
-      </div>
+      <>
+        <SeoHead title="omanote | Shared folder" noIndex />
+        <div className="public-page flex min-h-screen items-center justify-center bg-app-canvas">
+          <div className="h-8 w-8 animate-pulse rounded-full bg-app-line" />
+        </div>
+      </>
     );
   }
 
   if (data === null) {
     return (
-      <div className="public-page flex min-h-screen flex-col items-center justify-center gap-4 bg-app-canvas px-4">
+      <>
+        <SeoHead title="omanote | Shared folder" noIndex />
+        <div className="public-page flex min-h-screen flex-col items-center justify-center gap-4 bg-app-canvas px-4">
         <Link to="/" className="flex items-center gap-2 text-app-ink">
           <img src="/logo.svg" alt="Omanote" className="h-7 w-auto" />
         </Link>
         <p className="text-sm text-app-ink-muted">This link is no longer available.</p>
       </div>
+    </>
     );
   }
 
   if (isTodo) {
     const td = data as unknown as PublicTodoFolder;
     return (
-      <div className="public-page min-h-screen bg-app-canvas">
+      <>
+        <SeoHead
+          title={`omanote | ${td.folderName} by ${td.ownerName.split(" ")[0]}`}
+          description={`${td.folderName} — a shared folder by ${td.ownerName} on omanote.`}
+          noIndex
+        />
+        <div className="public-page min-h-screen bg-app-canvas">
         <header className="sticky top-0 z-10 border-b border-app-line bg-app-surface/80 backdrop-blur-sm">
           <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
             <Link to="/" className="flex items-center transition hover:opacity-70">
@@ -235,9 +239,13 @@ export function SharedFolderPage() {
 
         <main className="mx-auto max-w-5xl px-4 py-10">
           <div className="mb-8">
-            <h1 className="text-2xl font-bold text-app-ink">
-              {td.folderIcon && <span className="mr-2">{td.folderIcon}</span>}
-              {td.folderName}
+            <h1 className="flex items-center gap-2 text-2xl font-bold text-app-ink">
+              {td.folderIcon ? (
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-app-surface-muted text-app-ink-faint">
+                  <CategoryIconView icon={td.folderIcon} size="sm" />
+                </span>
+              ) : null}
+              <span>{td.folderName}</span>
             </h1>
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2">
@@ -324,12 +332,19 @@ export function SharedFolderPage() {
           )}
         </main>
       </div>
+      </>
     );
   }
 
   const bd = data as unknown as PublicBookmarkFolder;
   return (
-    <div className="public-page min-h-screen bg-app-canvas">
+    <>
+      <SeoHead
+        title={`omanote | ${bookmarkData!.categoryName} by ${data.ownerName.split(" ")[0]}`}
+        description={`${bookmarkData!.categoryName} — a shared bookmark folder by ${data.ownerName} on omanote.`}
+        noIndex
+      />
+      <div className="public-page min-h-screen bg-app-canvas">
       <header className="sticky top-0 z-10 border-b border-app-line bg-app-surface/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <Link to="/" className="flex items-center transition hover:opacity-70">
@@ -409,5 +424,6 @@ export function SharedFolderPage() {
         )}
       </main>
     </div>
+    </>
   );
 }
