@@ -4,13 +4,25 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
-### v0.24.3 [June 26, 2026]
+### v0.25.0 [June 30, 2026]
+
+> Desktop bug fixes
+
+- [Update] Now you can mark your todo as complete right from your notification
+- [Fix] Mobile view now has todo folder to save to specific folder
+- [Fix] Your added RSS feed now shows fallback icon if fetching didn't work
+- [Add] Desktop app now shows up badge when there's new notification
+- [Fix] Shared todo folder has an indicator like on notes and bookmark
+- [Fix] Selecting the hashtag from the dropdown works flawless -- it used to autosaved with the incomplete hashtag before
+- [Fix] Bookmark url where the details can not be fetched shows placeholder thumbnail
+
+
+### v0.24.1 [June 26, 2026]
 
 > Desktop bug fixes
 
 - [Fix] What's new modal not opening in desktop app — CHANGELOG.md was missing from desktop build
 - [Fix] URL preview cards not opening in browser on desktop — capture-phase link handler intercepts before stopPropagation
-- [Fix] Desktop build failure — missing convex/lib/ in sync (rssFetcher import)
 
 ### v0.24 [June 23, 2026]
 
@@ -368,7 +380,7 @@ All notable changes to omanote are documented here, organized by product.
 - [Fix] Few fixes under the hood.
 
 
-### v0.10.4 [April 30, 2026]
+### v0.10 [April 30, 2026]
 
 > Explore got a new upgrade, Routines are now Events and some underthehood changes.
 
@@ -379,7 +391,7 @@ All notable changes to omanote are documented here, organized by product.
 - [Update] Swipe gesture for todos are now wrapped in mobile view.
 - [Update] Landing page update on content.
 
-### v0.10.3 [April 29, 2026]
+### v0.9 [April 29, 2026]
 
 > omanote is now SEO-optimized. The public landing page now explains omanote as a personal daily workspace, with search metadata and crawl paths in place. Plus few improvements under the hood.
 
@@ -389,14 +401,14 @@ All notable changes to omanote are documented here, organized by product.
 - [Fix] Keyboard doesnot open by default when opening /explore page on mobile.
 - [Fix] If you have enter set as your save keybinding, the enter on mobile still works to insert a new line.
 
-### v0.10.2 [April 28, 2026]
+### v0.8 [April 28, 2026]
 
 > Performance improvements and mobile optimzations for swipe gesture
 
 - [Fix] Fixed performance issue due to redundant interval restarts and unnecessary offline queue flushes on every background sync
 - [Add] Navbar on mobile are now swipeable to change the page.
 
-### v0.10.1 [April 28, 2026]
+### v0.7 [April 28, 2026]
 
 > omanote now works even when your internet doesn't. Keep capturing, keep editing, and everything catches up when you're back online.
 
@@ -404,7 +416,7 @@ All notable changes to omanote are documented here, organized by product.
 - [Add] Clear offline feedback in canvas with unsynced indicators and a persistent offline status banner.
 - [Add] Automatic reconnect sync so pending changes upload in the background.
 
-### v0.9.5 [April 28, 2026]
+### v0.6 [April 28, 2026]
 
 > Much needed enhancement for bookmarks. Your saved links now show previews and are kept in your bookmarks too. And a little housekeeping for todos and updates.
 
@@ -416,7 +428,7 @@ All notable changes to omanote are documented here, organized by product.
 - [Fix] All the pages now take full height. Previously it was clipped to the navbar.
 
 
-### v0.9.4 [April 24, 2026]
+### v0.5 [April 24, 2026]
 
 > Your very own Settings page has arrived, and a refreshed landing page! Tweak notifications, customize keyboard shortcuts, lock things down with a new passphrase, and yes — you can now delete your account if you dare. Full control, finally in one spot.
 
@@ -431,7 +443,7 @@ All notable changes to omanote are documented here, organized by product.
 - [Update] Refreshed landing page -- signout to experience
 
 
-### v0.9.3 [April 23, 2026]
+### v0.4 [April 23, 2026]
 
 > Bug-squashing bonanza! Editing todos is smoother, drawers can now be dragged closed like a pro, and bookmark categories are yours to manage. Plus a handful of small fixes that make the whole thing feel tighter.
 
@@ -448,7 +460,7 @@ All notable changes to omanote are documented here, organized by product.
 
 
 
-### v0.9.2 [April 21, 2026]
+### v0.3 [April 21, 2026]
 
 > Swipe everything! Move between canvas days with a flick, browse notes and bookmarks in gallery view, and pull your data in or out any time. A big visual and capability upgrade across the board.
 
@@ -462,7 +474,7 @@ All notable changes to omanote are documented here, organized by product.
 
 
 
-### v0.9.1 [April 18, 2026]
+### v0.2 [April 18, 2026]
 
 > Tiny fixes, big consistency. Dates and hashtags now play nicely everywhere — including the mind map. Nothing dramatic, just a whole lot more reliable.
 
@@ -470,7 +482,7 @@ All notable changes to omanote are documented here, organized by product.
 - [Fix] Hashtags added in todos and event now appears on /explore mindmap as well
 - [Update] Date/time hidden from same date's canvas and "today" view of /todos
 
-### v0.9 [April 17, 2026]
+### v0.1 [April 17, 2026]
 
 > The updates page is born! Now you can see what's new right inside the app — no digging around. Changelog and roadmap, right from the profile menu.
 
@@ -488,6 +500,29 @@ All notable changes to omanote are documented here, organized by product.
 - More customizations
 
 ## Desktop Versions
+
+### v0.25.0 [June 30, 2026]
+
+> Desktop bug fixes
+
+- [Update] Now you can mark your todo as complete right from your notification
+- [Fix] Mobile view now has todo folder to save to specific folder
+- [Fix] Your added RSS feed now shows fallback icon if fetching didn't work
+- [Add] Desktop app now shows up badge when there's new notification
+- [Fix] Shared todo folder has an indicator like on notes and bookmark
+- [Fix] Selecting the hashtag from the dropdown works flawless -- it used to autosaved with the incomplete hashtag before
+- [Fix] Bookmark url where the details can not be fetched shows placeholder thumbnail
+
+
+### v0.24.3 [June 26, 2026]
+
+> Desktop bug fixes
+
+- [Fix] What's new modal not opening in desktop app — CHANGELOG.md was missing from desktop build
+- [Fix] URL preview cards not opening in browser on desktop — capture-phase link handler intercepts before stopPropagation
+
+
+### v0.23.2 [June 22, 2026]
 
 > Todo folders are here. Organize, iconify, and share your task lists — all bundled into the desktop app.
 
@@ -547,6 +582,14 @@ All notable changes to omanote are documented here, organized by product.
 - [Add] Desktop apps are now live. Whether you are on Windows, MacOS or Linux, omanote installs standalone on your device. Download them for seamless experience.
 
 ## Extension Versions
+
+### v2.3.3 [Jun 27, 2026]
+
+> New website migration.
+
+- [Update] Codebase updated to use new url; omanote.iambishistha.com -> omanote.com
+
+
 
 ### v2.3.2 [Jun 2, 2026]
 

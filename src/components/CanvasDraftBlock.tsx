@@ -1034,7 +1034,7 @@ export function CanvasDraftBlock() {
           ) : (
             <div className="w-full space-y-1.5">
               {(mode === "todo" ? todoLines : eventLines).map((line, index) => (
-                <div key={line.id} className="flex w-full items-center gap-3">
+                <div key={line.id} className="flex w-full items-start gap-3">
                   {mode === "todo" ? (
                     <TodoCheckmark
                       type="button"
@@ -1050,315 +1050,317 @@ export function CanvasDraftBlock() {
                       </span>
                     </div>
                   )}
-                  <div className="relative min-w-0 w-full flex-1">
-                    <div
-                      aria-hidden="true"
-                      className="pointer-events-none absolute left-0 top-0 w-full select-none whitespace-pre-wrap break-words px-0 py-0.5 text-[15px] leading-6 text-transparent"
-                    >
-                      {hashtagHighlightSegments(line.text).map(({ text, isHashtag, name }, i) => {
-                        if (isHashtag && name) {
-                          const color = hashtagColor(name);
-                          const leading = text.length > name.length + 1 ? text[0] : "";
-                          return (
-                            <span key={i}>
-                              {leading}
-                              <mark className={`${color.bg} ${color.darkBg} rounded-full`} style={{ color: "transparent" }}>
-                                #{name}
-                              </mark>
-                            </span>
-                          );
-                        }
-                        return <span key={i}>{text}</span>;
-                      })}
-                      {line.text === "" && "\u200b"}
-                    </div>
-                    <input
-                      ref={(node) => {
-                        if (mode === "todo") {
-                          todoLineRefs.current[line.id] = node;
-                          if (line.id === activeTodoLineId) activeTodoInputRef.current = node;
-                        } else {
-                          eventLineRefs.current[line.id] = node;
-                          if (line.id === activeEventLineId) activeEventInputRef.current = node;
-                        }
-                      }}
-                      value={line.text}
-                      onChange={(event) => {
-                        const nextText = event.target.value;
-                        if (mode === "todo") {
-                          setTodoLines((current) => current.map((currentLine) => (currentLine.id === line.id ? { ...currentLine, text: nextText } : currentLine)));
-                        } else {
-                          setEventLines((current) => current.map((currentLine) => (currentLine.id === line.id ? { ...currentLine, text: nextText } : currentLine)));
-                        }
-                      }}
-                      onPaste={(event) => {
-                        if (mode === "todo") {
-                          handlePasteAsLink(event, line.text, (nextValue) => {
-                            setTodoLines((current) => current.map((currentLine) => (currentLine.id === line.id ? { ...currentLine, text: nextValue } : currentLine)));
-                          });
-                        } else {
-                          handlePasteAsLink(event, line.text, (nextValue) => {
-                            setEventLines((current) => current.map((currentLine) => (currentLine.id === line.id ? { ...currentLine, text: nextValue } : currentLine)));
-                          });
-                        }
-                      }}
-                      onFocus={() => {
-                        setMobileSwitcherVisible(true);
-                        if (mode === "todo") {
-                          setActiveTodoLineId(line.id);
-                        } else {
-                          setActiveEventLineId(line.id);
-                        }
-                        queueEnsureEditorVisible();
-                      }}
-                      onBlur={(event) => {
-                        if (mode === "todo") {
-                          const relatedTarget = event.relatedTarget;
-                          if (relatedTarget instanceof HTMLElement && Object.values(todoLineRefs.current).some((ref) => ref === relatedTarget)) {
-                            return;
+                  <div className="min-w-0 w-full flex-1">
+                    <div className="relative">
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute left-0 top-0 w-full select-none whitespace-pre-wrap break-words px-0 py-0.5 text-[15px] leading-6 text-transparent"
+                      >
+                        {hashtagHighlightSegments(line.text).map(({ text, isHashtag, name }, i) => {
+                          if (isHashtag && name) {
+                            const color = hashtagColor(name);
+                            const leading = text.length > name.length + 1 ? text[0] : "";
+                            return (
+                              <span key={i}>
+                                {leading}
+                                <mark className={`${color.bg} ${color.darkBg} rounded-full`} style={{ color: "transparent" }}>
+                                  #{name}
+                                </mark>
+                              </span>
+                            );
                           }
-                          if (relatedTarget === todoFolderInputRef.current) {
-                            return;
-                          }
-
-                          hideMobileSwitcherIfFocusLeavesDraft();
-                          if (allowTodoBlurRef.current) {
-                            allowTodoBlurRef.current = false;
-                            return;
-                          }
-
-                          commitTodoDraft();
-                          return;
-                        }
-
-                        const relatedTarget = event.relatedTarget;
-                        if (relatedTarget instanceof HTMLElement && Object.values(eventLineRefs.current).some((ref) => ref === relatedTarget)) {
-                          return;
-                        }
-
-                        hideMobileSwitcherIfFocusLeavesDraft();
-                        if (allowEventBlurRef.current) {
-                          allowEventBlurRef.current = false;
-                          return;
-                        }
-
-                        commitEventDraft();
-                      }}
-                      onKeyDown={(event) => {
-                        if (mode === "todo" && todoPicker.handleKeyDown(event)) {
-                          return;
-                        }
-                        if (mode === "event" && eventPicker.handleKeyDown(event)) {
-                          return;
-                        }
-
-                        if (event.key === "Escape") {
-                          event.preventDefault();
-                          setPickerOpen(false);
-                          setCommandValue("");
-                          setCommandFilter("");
-                          if (mode === "todo") {
-                            resetTodoDraft();
-                          } else {
-                            resetEventDraft();
-                          }
-                          setMode("note");
-                          allowTodoBlurRef.current = true;
-                          allowEventBlurRef.current = true;
-                          window.requestAnimationFrame(() => {
-                            focusNoteComposer();
-                          });
-                          return;
-                        }
-
-                        if (isSaveShortcutEvent(event, settings.saveShortcut)) {
-                          event.preventDefault();
-                          if (mode === "todo") {
-                            commitTodoDraft();
-                          } else {
-                            commitEventDraft();
-                          }
-                          return;
-                        }
-
-                        if (event.key === "Enter" && !event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey) {
-                          event.preventDefault();
-                          if (mode === "todo") {
-                            commitTodoDraft();
-                          } else {
-                            commitEventDraft();
-                          }
-                          return;
-                        }
-
-                        if (event.key === "Enter" && event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey) {
-                          event.preventDefault();
-                          const nextLine = createTodoDraftLine();
-                          if (mode === "todo") {
-                            setTodoLines((current) => {
-                              const next = [...current];
-                              next.splice(index + 1, 0, nextLine);
-                              return next;
-                            });
-                            setActiveTodoLineId(nextLine.id);
-                          } else {
-                            allowEventBlurRef.current = true;
-                            setEventLines((current) => {
-                              const next = [...current];
-                              next.splice(index + 1, 0, nextLine);
-                              return next;
-                            });
-                            setActiveEventLineId(nextLine.id);
-                          }
-                          window.requestAnimationFrame(() => {
-                            if (mode === "todo") {
-                              todoLineRefs.current[nextLine.id]?.focus();
-                            } else {
-                              focusEventLine(nextLine.id);
-                            }
-                          });
-                          return;
-                        }
-
-                        if (isNewlineShortcutEvent(event, settings.newlineShortcut)) {
-                          event.preventDefault();
-                          return;
-                        }
-
-                        if (event.key === "Backspace" && line.text.length === 0 && index > 0) {
-                          event.preventDefault();
-                          if (mode === "todo") {
-                            const previousLine = todoLines[index - 1];
-                            setTodoLines((current) => current.filter((currentLine) => currentLine.id !== line.id));
-                            setActiveTodoLineId(previousLine.id);
-                            window.requestAnimationFrame(() => {
-                              todoLineRefs.current[previousLine.id]?.focus();
-                            });
-                          } else {
-                            const previousLine = eventLines[index - 1];
-                            setEventLines((current) => current.filter((currentLine) => currentLine.id !== line.id));
-                            setActiveEventLineId(previousLine.id);
-                            window.requestAnimationFrame(() => {
-                              eventLineRefs.current[previousLine.id]?.focus();
-                            });
-                          }
-                        }
-                      }}
-                      placeholder={index === 0 ? (mode === "todo" ? "Write your checklist" : "Write your event") : ""}
-                      className="relative min-w-0 w-full flex-1 border-0 bg-transparent px-0 py-0.5 text-[15px] leading-6 text-app-ink caret-app-ink outline-none placeholder:text-app-line-strong selection:bg-app-surface-muted selection:text-app-ink"
-                    />
-                  </div>
-                  {mode === "todo" && index === 0 ? (
-                    <div ref={todoFolderContainerRef} className="relative hidden w-[220px] flex-none md:block">
+                          return <span key={i}>{text}</span>;
+                        })}
+                        {line.text === "" && "\u200b"}
+                      </div>
                       <input
-                        ref={todoFolderInputRef}
-                        value={todoFolderValue}
+                        ref={(node) => {
+                          if (mode === "todo") {
+                            todoLineRefs.current[line.id] = node;
+                            if (line.id === activeTodoLineId) activeTodoInputRef.current = node;
+                          } else {
+                            eventLineRefs.current[line.id] = node;
+                            if (line.id === activeEventLineId) activeEventInputRef.current = node;
+                          }
+                        }}
+                        value={line.text}
                         onChange={(event) => {
-                          setTodoFolderValue(event.target.value);
-                          setTodoFolderOpen(true);
-                          setTodoFolderActiveIndex(0);
+                          const nextText = event.target.value;
+                          if (mode === "todo") {
+                            setTodoLines((current) => current.map((currentLine) => (currentLine.id === line.id ? { ...currentLine, text: nextText } : currentLine)));
+                          } else {
+                            setEventLines((current) => current.map((currentLine) => (currentLine.id === line.id ? { ...currentLine, text: nextText } : currentLine)));
+                          }
+                        }}
+                        onPaste={(event) => {
+                          if (mode === "todo") {
+                            handlePasteAsLink(event, line.text, (nextValue) => {
+                              setTodoLines((current) => current.map((currentLine) => (currentLine.id === line.id ? { ...currentLine, text: nextValue } : currentLine)));
+                            });
+                          } else {
+                            handlePasteAsLink(event, line.text, (nextValue) => {
+                              setEventLines((current) => current.map((currentLine) => (currentLine.id === line.id ? { ...currentLine, text: nextValue } : currentLine)));
+                            });
+                          }
                         }}
                         onFocus={() => {
-                          setTodoFolderOpen(true);
                           setMobileSwitcherVisible(true);
+                          if (mode === "todo") {
+                            setActiveTodoLineId(line.id);
+                          } else {
+                            setActiveEventLineId(line.id);
+                          }
                           queueEnsureEditorVisible();
                         }}
-                        onBlur={() => {
-                          hideMobileSwitcherIfFocusLeavesDraft();
-                          window.requestAnimationFrame(() => {
-                            setTodoFolderOpen(false);
-                          });
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === "Escape") {
-                            event.preventDefault();
-                            setTodoFolderOpen(false);
-                            focusTodoInput();
-                            return;
-                          }
-                          if (isSaveShortcutEvent(event, settings.saveShortcut)) {
-                            event.preventDefault();
-                            allowTodoBlurRef.current = true;
+                        onBlur={(event) => {
+                          if (mode === "todo") {
+                            const relatedTarget = event.relatedTarget;
+                            if (relatedTarget instanceof HTMLElement && Object.values(todoLineRefs.current).some((ref) => ref === relatedTarget)) {
+                              return;
+                            }
+                            if (relatedTarget === todoFolderInputRef.current) {
+                              return;
+                            }
+
+                            hideMobileSwitcherIfFocusLeavesDraft();
+                            if (allowTodoBlurRef.current) {
+                              allowTodoBlurRef.current = false;
+                              return;
+                            }
+
                             commitTodoDraft();
                             return;
                           }
-                          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-                            if (!todoFolderMenuItems.length) return;
+
+                          const relatedTarget = event.relatedTarget;
+                          if (relatedTarget instanceof HTMLElement && Object.values(eventLineRefs.current).some((ref) => ref === relatedTarget)) {
+                            return;
+                          }
+
+                          hideMobileSwitcherIfFocusLeavesDraft();
+                          if (allowEventBlurRef.current) {
+                            allowEventBlurRef.current = false;
+                            return;
+                          }
+
+                          commitEventDraft();
+                        }}
+                        onKeyDown={(event) => {
+                          if (mode === "todo" && todoPicker.handleKeyDown(event)) {
+                            return;
+                          }
+                          if (mode === "event" && eventPicker.handleKeyDown(event)) {
+                            return;
+                          }
+
+                          if (event.key === "Escape") {
                             event.preventDefault();
-                            setTodoFolderOpen(true);
-                            setTodoFolderActiveIndex((current) => {
-                              if (event.key === "ArrowDown") {
-                                return (current + 1) % todoFolderMenuItems.length;
-                              }
-                              return (current - 1 + todoFolderMenuItems.length) % todoFolderMenuItems.length;
+                            setPickerOpen(false);
+                            setCommandValue("");
+                            setCommandFilter("");
+                            if (mode === "todo") {
+                              resetTodoDraft();
+                            } else {
+                              resetEventDraft();
+                            }
+                            setMode("note");
+                            allowTodoBlurRef.current = true;
+                            allowEventBlurRef.current = true;
+                            window.requestAnimationFrame(() => {
+                              focusNoteComposer();
                             });
                             return;
                           }
-                          if ((event.key === "Enter" || event.key === "Tab") && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
-                            if (!todoFolderMenuItems.length) return;
+
+                          if (isSaveShortcutEvent(event, settings.saveShortcut)) {
                             event.preventDefault();
-                            const nextItem = todoFolderMenuItems[todoFolderActiveIndex] ?? todoFolderMenuItems[0];
-                            if (!nextItem) return;
-                            setTodoFolderValue(nextItem.value);
-                            setTodoFolderOpen(false);
-                            allowTodoBlurRef.current = true;
+                            if (mode === "todo") {
+                              commitTodoDraft();
+                            } else {
+                              commitEventDraft();
+                            }
+                            return;
+                          }
+
+                          if (event.key === "Enter" && !event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey) {
+                            event.preventDefault();
+                            if (mode === "todo") {
+                              commitTodoDraft();
+                            } else {
+                              commitEventDraft();
+                            }
+                            return;
+                          }
+
+                          if (event.key === "Enter" && event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey) {
+                            event.preventDefault();
+                            const nextLine = createTodoDraftLine();
+                            if (mode === "todo") {
+                              setTodoLines((current) => {
+                                const next = [...current];
+                                next.splice(index + 1, 0, nextLine);
+                                return next;
+                              });
+                              setActiveTodoLineId(nextLine.id);
+                            } else {
+                              allowEventBlurRef.current = true;
+                              setEventLines((current) => {
+                                const next = [...current];
+                                next.splice(index + 1, 0, nextLine);
+                                return next;
+                              });
+                              setActiveEventLineId(nextLine.id);
+                            }
                             window.requestAnimationFrame(() => {
-                              focusTodoInput();
+                              if (mode === "todo") {
+                                todoLineRefs.current[nextLine.id]?.focus();
+                              } else {
+                                focusEventLine(nextLine.id);
+                              }
                             });
                             return;
+                          }
+
+                          if (isNewlineShortcutEvent(event, settings.newlineShortcut)) {
+                            event.preventDefault();
+                            return;
+                          }
+
+                          if (event.key === "Backspace" && line.text.length === 0 && index > 0) {
+                            event.preventDefault();
+                            if (mode === "todo") {
+                              const previousLine = todoLines[index - 1];
+                              setTodoLines((current) => current.filter((currentLine) => currentLine.id !== line.id));
+                              setActiveTodoLineId(previousLine.id);
+                              window.requestAnimationFrame(() => {
+                                todoLineRefs.current[previousLine.id]?.focus();
+                              });
+                            } else {
+                              const previousLine = eventLines[index - 1];
+                              setEventLines((current) => current.filter((currentLine) => currentLine.id !== line.id));
+                              setActiveEventLineId(previousLine.id);
+                              window.requestAnimationFrame(() => {
+                                eventLineRefs.current[previousLine.id]?.focus();
+                              });
+                            }
                           }
                         }}
-                        placeholder="Folder"
-                        className="w-full border-b border-app-line bg-transparent px-0 pr-7 py-0.5 text-[15px] text-app-ink-faint outline-none placeholder:text-app-line-strong focus:border-app-line-strong"
+                        placeholder={index === 0 ? (mode === "todo" ? "Write your checklist" : "Write your event") : ""}
+                        className="relative min-w-0 w-full flex-1 border-0 bg-transparent px-0 py-0.5 text-[15px] leading-6 text-app-ink caret-app-ink outline-none placeholder:text-app-line-strong selection:bg-app-surface-muted selection:text-app-ink"
                       />
-                      {todoFolderValue.trim() ? (
-                        <button
-                          type="button"
-                          aria-label="Clear folder"
-                          onMouseDown={(event) => event.preventDefault()}
-                          onClick={() => {
-                            setTodoFolderValue("");
+                    </div>
+                    {mode === "todo" && index === 0 ? (
+                      <div ref={todoFolderContainerRef} className="relative mt-2 w-full md:w-[220px]">
+                        <input
+                          ref={todoFolderInputRef}
+                          value={todoFolderValue}
+                          onChange={(event) => {
+                            setTodoFolderValue(event.target.value);
                             setTodoFolderOpen(true);
                             setTodoFolderActiveIndex(0);
-                            todoFolderInputRef.current?.focus();
                           }}
-                          className="absolute right-0 top-1/2 -translate-y-1/2 rounded-full p-1 text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      ) : null}
-                      {showTodoFolderMenu && todoFolderMenuItems.length ? (
-                        <div
-                          className="absolute left-0 right-0 top-full z-20 mt-2 overflow-y-auto rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
-                          onMouseDown={(event) => event.preventDefault()}
-                        >
-                          {todoFolderMenuItems.map((item, index) => (
-                            <button
-                              key={item.key}
-                              type="button"
-                              className={[
-                                "flex w-full items-center rounded-lg px-3 py-2 text-left text-sm transition",
-                                index === todoFolderActiveIndex ? "bg-app-surface-muted text-app-ink" : "text-app-ink-muted hover:bg-app-surface-hover",
-                              ].join(" ")}
-                              onMouseEnter={() => setTodoFolderActiveIndex(index)}
-                              onMouseDown={(event) => {
-                                event.preventDefault();
-                                setTodoFolderValue(item.value);
-                                setTodoFolderOpen(false);
-                                setTodoFolderActiveIndex(0);
-                                allowTodoBlurRef.current = true;
-                                window.requestAnimationFrame(() => {
-                                  focusTodoInput();
-                                });
-                              }}
-                            >
-                              {item.label}
-                            </button>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
+                          onFocus={() => {
+                            setTodoFolderOpen(true);
+                            setMobileSwitcherVisible(true);
+                            queueEnsureEditorVisible();
+                          }}
+                          onBlur={() => {
+                            hideMobileSwitcherIfFocusLeavesDraft();
+                            window.requestAnimationFrame(() => {
+                              setTodoFolderOpen(false);
+                            });
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key === "Escape") {
+                              event.preventDefault();
+                              setTodoFolderOpen(false);
+                              focusTodoInput();
+                              return;
+                            }
+                            if (isSaveShortcutEvent(event, settings.saveShortcut)) {
+                              event.preventDefault();
+                              allowTodoBlurRef.current = true;
+                              commitTodoDraft();
+                              return;
+                            }
+                            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                              if (!todoFolderMenuItems.length) return;
+                              event.preventDefault();
+                              setTodoFolderOpen(true);
+                              setTodoFolderActiveIndex((current) => {
+                                if (event.key === "ArrowDown") {
+                                  return (current + 1) % todoFolderMenuItems.length;
+                                }
+                                return (current - 1 + todoFolderMenuItems.length) % todoFolderMenuItems.length;
+                              });
+                              return;
+                            }
+                            if ((event.key === "Enter" || event.key === "Tab") && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+                              if (!todoFolderMenuItems.length) return;
+                              event.preventDefault();
+                              const nextItem = todoFolderMenuItems[todoFolderActiveIndex] ?? todoFolderMenuItems[0];
+                              if (!nextItem) return;
+                              setTodoFolderValue(nextItem.value);
+                              setTodoFolderOpen(false);
+                              allowTodoBlurRef.current = true;
+                              window.requestAnimationFrame(() => {
+                                focusTodoInput();
+                              });
+                              return;
+                            }
+                          }}
+                          placeholder="Folder"
+                          className="w-full border-b border-app-line bg-transparent px-0 pr-7 py-0.5 text-[15px] text-app-ink-faint outline-none placeholder:text-app-line-strong focus:border-app-line-strong"
+                        />
+                        {todoFolderValue.trim() ? (
+                          <button
+                            type="button"
+                            aria-label="Clear folder"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => {
+                              setTodoFolderValue("");
+                              setTodoFolderOpen(true);
+                              setTodoFolderActiveIndex(0);
+                              todoFolderInputRef.current?.focus();
+                            }}
+                            className="absolute right-0 top-1/2 -translate-y-1/2 rounded-full p-1 text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        ) : null}
+                        {showTodoFolderMenu && todoFolderMenuItems.length ? (
+                          <div
+                            className="absolute left-0 right-0 top-full z-20 mt-2 overflow-y-auto rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
+                            onMouseDown={(event) => event.preventDefault()}
+                          >
+                            {todoFolderMenuItems.map((item, index) => (
+                              <button
+                                key={item.key}
+                                type="button"
+                                className={[
+                                  "flex w-full items-center rounded-lg px-3 py-2 text-left text-sm transition",
+                                  index === todoFolderActiveIndex ? "bg-app-surface-muted text-app-ink" : "text-app-ink-muted hover:bg-app-surface-hover",
+                                ].join(" ")}
+                                onMouseEnter={() => setTodoFolderActiveIndex(index)}
+                                onMouseDown={(event) => {
+                                  event.preventDefault();
+                                  setTodoFolderValue(item.value);
+                                  setTodoFolderOpen(false);
+                                  setTodoFolderActiveIndex(0);
+                                  allowTodoBlurRef.current = true;
+                                  window.requestAnimationFrame(() => {
+                                    focusTodoInput();
+                                  });
+                                }}
+                              >
+                                {item.label}
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               ))}
               {mode === "todo" ? (

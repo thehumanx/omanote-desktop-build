@@ -1,6 +1,6 @@
 import { memo, useLayoutEffect, useRef, useState, type RefObject, type Ref } from "react";
 import { createPortal } from "react-dom";
-import { Ellipsis, Pencil, Share2, Trash2 } from "lucide-react";
+import { Ellipsis, Globe, Pencil, Share2, Trash2 } from "lucide-react";
 import type { TodoFolder } from "@omanote/shared";
 import { CategoryIconView } from "../lib/bookmark-category-icon";
 import { cn } from "./ui";
@@ -139,6 +139,7 @@ export const TodoFolderRow = memo(function TodoFolderRow({
   editingName,
   editingIcon,
   iconPickerActive,
+  isShared = false,
   isDesktop,
   duplicateError,
   inputRef,
@@ -164,6 +165,7 @@ export const TodoFolderRow = memo(function TodoFolderRow({
   editingName: string;
   editingIcon?: string;
   iconPickerActive: boolean;
+  isShared?: boolean;
   isDesktop?: boolean;
   duplicateError?: string | null;
   inputRef?: Ref<HTMLInputElement>;
@@ -261,6 +263,17 @@ export const TodoFolderRow = memo(function TodoFolderRow({
       )}
       <span className="flex items-center gap-1.5 min-w-0">
         <span className="truncate text-[15px] font-bold">{folder.name}</span>
+        {isShared ? (
+          <span
+            className={cn(
+              "flex-shrink-0 rounded-full p-1",
+              selected ? "bg-app-surface text-app-ink-faint" : "bg-app-surface-muted text-app-ink-faint",
+            )}
+            aria-label="Public"
+          >
+            <Globe className="h-3 w-3" />
+          </span>
+        ) : null}
         <span
           className={cn(
             "flex-none rounded-full px-2 py-0.5 text-[11px] font-medium",

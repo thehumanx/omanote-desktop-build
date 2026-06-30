@@ -48,7 +48,11 @@ export function SearchResultsList({
   );
 
   if (!state.ui.searchQuery.trim()) {
-    return <div className="min-h-0 flex-1" />;
+    return (
+      <p className="px-1 py-6 text-sm text-app-ink-muted">
+        Start typing to search across your todos, notes, bookmarks, and events.
+      </p>
+    );
   }
 
   if (!groupedResults.length) {

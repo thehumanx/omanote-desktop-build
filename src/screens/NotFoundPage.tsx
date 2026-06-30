@@ -1,8 +1,15 @@
 import { Link } from "react-router-dom";
+import { SeoHead } from "../seo/SeoHead";
 
 export function NotFoundPage() {
   return (
-    <div className="public-page flex min-h-screen flex-col items-center justify-center gap-6 bg-app-canvas px-4">
+    <>
+      <SeoHead
+        title="Page Not Found | omanote"
+        description="The page you're looking for doesn't exist or has been moved."
+        canonical="https://omanote.com/"
+      />
+      <div className="public-page flex min-h-screen flex-col items-center justify-center gap-6 bg-app-canvas px-4">
       <Link to="/" className="flex items-center transition hover:opacity-70">
         <img src="/logo.svg" alt="Omanote" className="h-7 w-auto" />
       </Link>
@@ -20,5 +27,6 @@ export function NotFoundPage() {
         Go home
       </Link>
     </div>
+    </>
   );
 }

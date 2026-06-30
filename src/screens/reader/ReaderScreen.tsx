@@ -68,6 +68,36 @@ function timeAgo(timestamp: number): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+function normalizeBaseUrl(rawUrl?: string): string | null {
+  if (!rawUrl?.trim()) return null;
+  try {
+    return new URL(rawUrl.trim()).origin;
+  } catch {
+    return null;
+  }
+}
+
+function getFeedIconCandidates(faviconUrl?: string, siteUrl?: string, feedUrl?: string): string[] {
+  const candidates = new Set<string>();
+  const add = (value?: string) => {
+    const trimmed = value?.trim();
+    if (trimmed) candidates.add(trimmed);
+  };
+
+  add(faviconUrl);
+
+  const origin = normalizeBaseUrl(siteUrl) ?? normalizeBaseUrl(feedUrl);
+  if (origin) {
+    add(`${origin}/favicon.ico`);
+    add(`${origin}/apple-touch-icon.png`);
+    add(`${origin}/apple-touch-icon-precomposed.png`);
+    add(`${origin}/logo.png`);
+    add(`${origin}/logo.svg`);
+  }
+
+  return [...candidates];
+}
+
 // Enriched item type — raw rssItem (client-only) + joined feed/read-state fields.
 type ReaderItem = {
   _id: string;
@@ -124,6 +154,45 @@ type DiscoverResult = {
   itemCount: number;
   latestItemTitle?: string;
 };
+
+function FeedIcon({
+  faviconUrl,
+  siteUrl,
+  feedUrl,
+  className,
+}: {
+  faviconUrl?: string;
+  siteUrl?: string;
+  feedUrl?: string;
+  className?: string;
+}) {
+  const candidates = useMemo(() => getFeedIconCandidates(faviconUrl, siteUrl, feedUrl), [faviconUrl, siteUrl, feedUrl]);
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    setIndex(0);
+  }, [faviconUrl, siteUrl, feedUrl]);
+
+  if (!candidates.length) {
+    return <Rss className={cn("shrink-0 text-app-ink-faint", className)} />;
+  }
+
+  const src = candidates[Math.min(index, candidates.length - 1)];
+  const showPlaceholder = index >= candidates.length;
+
+  if (showPlaceholder) {
+    return <Rss className={cn("shrink-0 text-app-ink-faint", className)} />;
+  }
+
+  return (
+    <img
+      src={src}
+      alt=""
+      className={cn("shrink-0 rounded-sm", className)}
+      onError={() => setIndex((current) => Math.min(current + 1, candidates.length))}
+    />
+  );
+}
 
 type Subscription = {
   _id: Id<"rssSubscriptions">;
@@ -565,16 +634,12 @@ export function ReaderScreen({ savedView = false }: { savedView?: boolean }) {
           <div className="mb-3 flex items-center gap-2 border-b border-app-line px-4 pb-3">
             {selectedSubscription ? (
               <>
-                {selectedSubscription.faviconUrl ? (
-                  <img
-                    src={selectedSubscription.faviconUrl}
-                    alt=""
-                    className="h-5 w-5 shrink-0 rounded"
-                    onError={(e) => (e.currentTarget.style.display = "none")}
-                  />
-                ) : (
-                  <Rss className="h-4 w-4 shrink-0 text-app-ink-faint" />
-                )}
+                <FeedIcon
+                  faviconUrl={selectedSubscription.faviconUrl}
+                  siteUrl={selectedSubscription.siteUrl}
+                  feedUrl={selectedSubscription.feedUrl}
+                  className="h-5 w-5"
+                />
                 <div className="flex min-w-0 flex-1 items-center gap-1.5">
                   <p className="min-w-0 truncate text-sm font-bold text-app-ink">{selectedSubscription.title}</p>
                   {(unreadCounts?.[String(selectedSubscription.feedId)] ?? 0) > 0 ? (
@@ -850,6 +915,8 @@ export function ReaderScreen({ savedView = false }: { savedView?: boolean }) {
                         key={sub._id}
                         label={sub.title}
                         faviconUrl={sub.faviconUrl}
+                        siteUrl={sub.siteUrl}
+                        feedUrl={sub.feedUrl}
                         selected={selectedFeedId === sub.feedId}
                         hasError={sub.lastFetchStatus === "error"}
                         unreadCount={unreadCounts?.[sub.feedId]}
@@ -1072,6 +1139,8 @@ function FeedNavRow({
   label,
   icon,
   faviconUrl,
+  siteUrl,
+  feedUrl,
   selected,
   hasError,
   unreadCount,
@@ -1083,6 +1152,8 @@ function FeedNavRow({
   label: string;
   icon?: ReactNode;
   faviconUrl?: string;
+  siteUrl?: string;
+  feedUrl?: string;
   selected: boolean;
   hasError?: boolean;
   unreadCount?: number;
@@ -1116,13 +1187,17 @@ function FeedNavRow({
               : "text-app-ink-muted hover:bg-app-surface-hover hover:text-app-ink",
         )}
       >
-        {faviconUrl ? (
-          <img src={faviconUrl} alt="" className="h-4 w-4 shrink-0 rounded-sm" onError={(e) => (e.currentTarget.style.display = "none")} />
-        ) : icon ? (
-          <span className="shrink-0 text-app-ink-faint">{icon}</span>
-        ) : (
-          <Rss className="h-4 w-4 shrink-0 text-app-ink-faint" />
-        )}
+        <div className="flex h-4 w-4 shrink-0 items-center justify-center">
+          {faviconUrl || icon ? (
+            faviconUrl ? (
+              <FeedIcon faviconUrl={faviconUrl} siteUrl={siteUrl} feedUrl={feedUrl} className="h-4 w-4" />
+            ) : (
+              <span className="text-app-ink-faint">{icon}</span>
+            )
+          ) : (
+            <Rss className="h-4 w-4 text-app-ink-faint" />
+          )}
+        </div>
         <span className="min-w-0 flex-1 truncate">{label}</span>
         {hasError ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" title="Feed could not be fetched" /> : null}
         {unreadCount ? (
@@ -1582,18 +1657,8 @@ function SavedArticleCard({ item, onOpen }: { item: ReaderItem; onOpen: () => vo
           ) : null}
         </div>
         {/* Feed name + time */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex h-4 w-4 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-app-surface-muted text-app-ink-faint">
-            <Rss className="h-3 w-3" />
-            {item.faviconUrl && (
-              <img
-                src={item.faviconUrl}
-                alt=""
-                className="absolute inset-0 h-full w-full object-cover"
-                onError={(e) => (e.currentTarget.style.display = "none")}
-              />
-            )}
-          </div>
+          <div className="flex items-center gap-2">
+          <FeedIcon faviconUrl={item.faviconUrl} className="h-4 w-4" />
           <p className="min-w-0 flex-1 truncate text-xs font-medium text-app-ink-faint">{item.feedTitle}</p>
           <span className="shrink-0 text-xs text-app-ink-faint">{timeAgo(item.publishedAt)}</span>
         </div>
@@ -2230,11 +2295,7 @@ function AddFeedModal({
         {result ? (
           <div className="mt-4 rounded-2xl border border-app-line bg-app-surface p-4">
             <div className="flex items-center gap-2">
-              {result.faviconUrl ? (
-                <img src={result.faviconUrl} alt="" className="h-4 w-4 rounded-sm" onError={(e) => (e.currentTarget.style.display = "none")} />
-              ) : (
-                <Rss className="h-4 w-4 text-app-ink-faint" />
-              )}
+              <FeedIcon faviconUrl={result.faviconUrl} siteUrl={result.siteUrl} feedUrl={result.feedUrl} className="h-4 w-4" />
               <p className="min-w-0 flex-1 truncate text-sm font-medium text-app-ink">{result.title}</p>
             </div>
             {result.description ? (

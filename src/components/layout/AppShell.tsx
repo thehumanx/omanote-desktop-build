@@ -1,6 +1,7 @@
 import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { useApp } from "../../app/AppProvider";
+import { ErrorBoundary } from "../ErrorBoundary";
 import { BottomNav } from "./BottomNav";
 import { ModeSwitch } from "./ModeSwitch";
 import { ToastHost } from "../ToastHost";
@@ -267,16 +268,18 @@ export function AppShell() {
                 }
           }>
           <Suspense fallback={<div className="min-h-0 flex h-full flex-1 flex-col" aria-hidden="true" />}>
-            <div
-              key={location.pathname}
-              className="min-h-0 flex h-full flex-1 flex-col transform-gpu"
-              style={{
-                animation: "omanote-page-fade 180ms ease-out both",
-                willChange: "opacity",
-              }}
-            >
-              <Outlet context={{ setTopChrome: setTopChromeContent }} />
-            </div>
+            <ErrorBoundary key={location.pathname}>
+              <div
+                key={location.pathname}
+                className="min-h-0 flex h-full flex-1 flex-col transform-gpu"
+                style={{
+                  animation: "omanote-page-fade 180ms ease-out both",
+                  willChange: "opacity",
+                }}
+              >
+                <Outlet context={{ setTopChrome: setTopChromeContent }} />
+              </div>
+            </ErrorBoundary>
           </Suspense>
         </main>
         <ToastHost />

@@ -5,7 +5,7 @@ import sitemapXml from "../../public/sitemap.xml?raw";
 
 describe("static SEO assets", () => {
   it("defines crawlable homepage metadata and structured data", () => {
-    expect(indexHtml).toContain("<title>omanote | Capture the day before it disappears</title>");
+    expect(indexHtml).toContain("<title>omanote | Opinionated daily workspace</title>");
     expect(indexHtml).toContain('name="robots" content="index, follow"');
     expect(indexHtml).toContain('rel="canonical" href="https://omanote.com/"');
     expect(indexHtml).toContain('property="og:url" content="https://omanote.com/"');
@@ -32,18 +32,21 @@ describe("static SEO assets", () => {
     expect(graph.find((entry) => entry["@type"] === "FAQPage")?.mainEntity).toHaveLength(10);
   });
 
-  it("publishes robots.txt and sitemap.xml for the canonical domain", () => {
-    expect(robotsTxt).toBe(
-      [
-        "User-agent: *",
-        "Allow: /",
-        "",
-        "Sitemap: https://omanote.com/sitemap.xml",
-        "",
-      ].join("\n"),
-    );
+  it("publishes robots.txt that disallows auth-required routes", () => {
+    expect(robotsTxt).toContain("User-agent: *");
+    expect(robotsTxt).toContain("Allow: /");
+    expect(robotsTxt).toContain("Disallow: /canvas");
+    expect(robotsTxt).toContain("Disallow: /notes");
+    expect(robotsTxt).toContain("Disallow: /todos");
+    expect(robotsTxt).toContain("Disallow: /search");
+    expect(robotsTxt).toContain("Disallow: /auth/");
+    expect(robotsTxt).toContain("Sitemap: https://omanote.com/sitemap.xml");
+  });
 
+  it("publishes sitemap.xml with all public pages", () => {
     expect(sitemapXml).toContain("<loc>https://omanote.com/</loc>");
+    expect(sitemapXml).toContain("<loc>https://omanote.com/login</loc>");
+    expect(sitemapXml).toContain("<loc>https://omanote.com/signup</loc>");
     expect(sitemapXml).toContain("<loc>https://omanote.com/privacy</loc>");
     expect(sitemapXml).toContain("<loc>https://omanote.com/terms</loc>");
     expect(sitemapXml).toMatch(/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/);

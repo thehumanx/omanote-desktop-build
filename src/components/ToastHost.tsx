@@ -134,6 +134,16 @@ function ToastStack({
                   {toast.todoId && (
                     <div className="mt-3 flex items-center gap-2 pl-9">
                       <Button
+                        tone="default"
+                        className="flex items-center gap-1 px-2.5 py-1.5 text-xs"
+                        onClick={() => {
+                          dispatch({ type: "todo/toggle", todoId: toast.todoId! });
+                          dispatch({ type: "toast/remove", toastId: toast.id });
+                        }}
+                      >
+                        ✓ Complete
+                      </Button>
+                      <Button
                         tone="soft"
                         className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs"
                         onClick={() => {

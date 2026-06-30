@@ -29,7 +29,10 @@ export class ErrorBoundary extends Component<Props, State> {
               Something went wrong
             </p>
             <p className="text-sm text-app-ink-muted">
-              An unexpected error occurred. Refreshing the page usually fixes it.
+              Try refreshing the page. If the problem persists,{" "}
+              <a href="mailto:support@omanote.com" className="underline text-app-accent hover:text-app-accent-hover">
+                contact support
+              </a>.
             </p>
             <Button
               onClick={() => window.location.reload()}

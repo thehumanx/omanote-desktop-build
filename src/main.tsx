@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
+import { HelmetProvider } from "react-helmet-async";
 import { ClerkProvider } from "@clerk/react";
 import { ConvexReactClient } from "convex/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
@@ -44,11 +45,13 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
         Authorization headers instead of cookies. */}
     <ClerkProvider publishableKey={clerkPublishableKey} standardBrowser={!isTauri()}>
       <ConvexProviderWithClerk client={convex} useAuth={useClerkAuth}>
-        <BrowserRouter>
-          <ErrorBoundary>
-            <App />
-          </ErrorBoundary>
-        </BrowserRouter>
+        <HelmetProvider>
+          <BrowserRouter>
+            <ErrorBoundary>
+              <App />
+            </ErrorBoundary>
+          </BrowserRouter>
+        </HelmetProvider>
       </ConvexProviderWithClerk>
     </ClerkProvider>
   </React.StrictMode>,

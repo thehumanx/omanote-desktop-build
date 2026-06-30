@@ -7,6 +7,7 @@ import { DeviceActivityReporter } from "../components/DeviceActivityReporter";
 import { UpdateProvider } from "../contexts/UpdateContext";
 import { AppShell } from "../components/layout/AppShell";
 import { ThemeProvider } from "../contexts/ThemeContext";
+import { SeoHead } from "../seo/SeoHead";
 
 function ThemedAuthenticatedApp() {
   const { settings, loading, updateSettings } = useUserSettings();
@@ -24,7 +25,9 @@ function ThemedAuthenticatedApp() {
 
 export function AuthenticatedAppLayout() {
   return (
-    <AuthProvider>
+    <>
+      <SeoHead noIndex />
+      <AuthProvider>
       <EncryptionProvider>
         <EncryptionGate>
           <DeviceActivityReporter />
@@ -34,5 +37,6 @@ export function AuthenticatedAppLayout() {
         </EncryptionGate>
       </EncryptionProvider>
     </AuthProvider>
+    </>
   );
 }
