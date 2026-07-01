@@ -1,10 +1,16 @@
-import { useAction } from "convex/react";
 import { Bookmark } from "lucide-react";
-import { useEffect, useState } from "react";
-import { api } from "../../convex/_generated/api";
+import { useCallback, useEffect, useState } from "react";
 import { extractFirstPreviewableUrl } from "../lib/attachment-link-preview";
 import { cn } from "./ui";
 import { db, isLinkPreviewFresh } from "../app/db";
+
+const WORKER_URL = "https://omanote-link-preview.iambishistha.workers.dev";
+
+async function fetchLinkPreviewFromWorker({ url }: { url: string }): Promise<unknown> {
+  const response = await fetch(`${WORKER_URL}/preview?url=${encodeURIComponent(url)}`);
+  if (!response.ok) throw new Error(`Preview worker returned ${response.status}`);
+  return response.json();
+}
 
 type LinkPreview = {
   url: string;
@@ -92,7 +98,7 @@ async function fetchPreviewWithCache(
 }
 
 function useLinkPreview(linkUrl: string | undefined) {
-  const fetchLinkPreview = useAction((api as any)["actions/linkPreview"].fetchLinkPreview);
+  const fetchLinkPreview = useCallback(fetchLinkPreviewFromWorker, []);
   const [preview, setPreview] = useState<LinkPreview | null>(null);
   const [loading, setLoading] = useState(false);
 

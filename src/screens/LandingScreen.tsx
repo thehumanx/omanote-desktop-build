@@ -81,7 +81,7 @@ function DownloadNavDropdown() {
           Extension
         </a>
         <a
-          href="#desktop"
+          href={desktopAppReleaseUrl}
           onClick={() => setOpen(false)}
           className="flex w-full items-center gap-app-compact rounded-app-panel px-app-field-x py-app-field-y text-left text-sm text-app-ink-muted transition duration-app-fast ease-app-out hover:bg-app-surface-hover hover:text-app-ink"
         >

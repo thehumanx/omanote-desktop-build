@@ -5,6 +5,7 @@ import { useParams, Link } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
 import { getShareViewerToken } from "../lib/share-viewer-token";
 import { cn, TodoCheckmark } from "../components/ui";
+import { RichTextPreview } from "../components/rich-text";
 import { formatCompletedLabel, formatDueChip } from "@omanote/shared";
 import { Bookmark, CircleCheckBig, ExternalLink } from "lucide-react";
 import { CategoryIconView } from "../lib/bookmark-category-icon";
@@ -309,9 +310,9 @@ export function SharedFolderPage() {
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <span className={cn("text-base leading-6", todo.status === "done" ? "text-app-ink-muted line-through" : "text-app-ink")}>
-                          {todo.title}
-                        </span>
+                        <div className={cn("text-base leading-6", todo.status === "done" ? "text-app-ink-muted line-through" : "text-app-ink")}>
+                          <RichTextPreview value={todo.title} />
+                        </div>
                         {dueChip ? (
                           <span className="rounded-md bg-app-surface-muted px-2 py-0.5 text-[11px] text-app-ink-faint whitespace-nowrap">
                             {dueChip}
