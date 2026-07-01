@@ -8,6 +8,7 @@ import { RichTextPreview } from "../components/rich-text";
 import { extractAllPreviewableUrls } from "../lib/attachment-link-preview";
 import { UrlLinkPreview } from "../components/AttachmentLinkPreview";
 import { normalizeLegacyNoteBodyForTiptap } from "../lib/note-body-migration";
+import { HashtagChip } from "../components/HashtagChip";
 
 type PublicNote = {
   id: string;
@@ -30,12 +31,7 @@ function PublicNoteEntry({ note }: { note: PublicNote }) {
       {note.tags.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1">
           {note.tags.map((tag) => (
-            <span
-              key={tag}
-              className="rounded-full bg-app-surface-muted px-2 py-0.5 text-xs text-app-ink-muted"
-            >
-              {tag}
-            </span>
+            <HashtagChip key={tag} name={tag} />
           ))}
         </div>
       )}
