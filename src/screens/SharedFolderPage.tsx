@@ -214,7 +214,7 @@ export function SharedFolderPage() {
     return (
       <>
         <SeoHead
-          title={`omanote | ${td.folderName} by ${td.ownerName.split(" ")[0]}`}
+          title={`${td.folderName} by ${td.ownerName.split(" ")[0]} | omanote`}
           description={`${td.folderName} — a shared folder by ${td.ownerName} on omanote.`}
           noIndex
         />
@@ -341,7 +341,7 @@ export function SharedFolderPage() {
   return (
     <>
       <SeoHead
-        title={`omanote | ${bookmarkData!.categoryName} by ${data.ownerName.split(" ")[0]}`}
+        title={`${bookmarkData!.categoryName} by ${data.ownerName.split(" ")[0]} | omanote`}
         description={`${bookmarkData!.categoryName} — a shared bookmark folder by ${data.ownerName} on omanote.`}
         noIndex
       />

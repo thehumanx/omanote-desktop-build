@@ -751,6 +751,7 @@ export function CanvasDraftBlock() {
   };
 
   useOutsideClick(shellRef, mode === "note" || mode === "todo" || mode === "bookmark" || mode === "event", () => {
+    if (mobileKeyboard.isMobileViewport) return;
     if (mode === "note") {
       if (body.trim()) commit({ focusAfter: false });
       return;
@@ -908,7 +909,6 @@ export function CanvasDraftBlock() {
                 }}
                 onFocus={() => {
                   setMobileSwitcherVisible(true);
-                  setBookmarkCategoryOpen(true);
                   queueEnsureEditorVisible();
                 }}
                 onBlur={(event) => {
@@ -963,7 +963,6 @@ export function CanvasDraftBlock() {
                 }}
                 onFocus={() => {
                   setMobileSwitcherVisible(true);
-                  setBookmarkCategoryOpen(true);
                   queueEnsureEditorVisible();
                 }}
                 onBlur={() => {
@@ -1034,7 +1033,7 @@ export function CanvasDraftBlock() {
           ) : (
             <div className="w-full space-y-1.5">
               {(mode === "todo" ? todoLines : eventLines).map((line, index) => (
-                <div key={line.id} className="flex w-full items-start gap-3">
+                <div key={line.id} className="flex w-full items-center gap-3">
                   {mode === "todo" ? (
                     <TodoCheckmark
                       type="button"
@@ -1050,7 +1049,8 @@ export function CanvasDraftBlock() {
                       </span>
                     </div>
                   )}
-                  <div className="min-w-0 w-full flex-1">
+                  <div className="min-w-0 w-full flex flex-1 flex-col md:flex-row md:gap-3">
+                    <div className="min-w-0 flex-1 md:flex-[7]">
                     <div className="relative">
                       <div
                         aria-hidden="true"
@@ -1113,6 +1113,7 @@ export function CanvasDraftBlock() {
                           queueEnsureEditorVisible();
                         }}
                         onBlur={(event) => {
+                          if (mobileKeyboard.isMobileViewport) return;
                           if (mode === "todo") {
                             const relatedTarget = event.relatedTarget;
                             if (relatedTarget instanceof HTMLElement && Object.values(todoLineRefs.current).some((ref) => ref === relatedTarget)) {
@@ -1249,8 +1250,9 @@ export function CanvasDraftBlock() {
                         className="relative min-w-0 w-full flex-1 border-0 bg-transparent px-0 py-0.5 text-[15px] leading-6 text-app-ink caret-app-ink outline-none placeholder:text-app-line-strong selection:bg-app-surface-muted selection:text-app-ink"
                       />
                     </div>
+                    </div>
                     {mode === "todo" && index === 0 ? (
-                      <div ref={todoFolderContainerRef} className="relative mt-2 w-full md:w-[220px]">
+                      <div ref={todoFolderContainerRef} className="relative mt-2 md:mt-0 w-full md:w-[30%]">
                         <input
                           ref={todoFolderInputRef}
                           value={todoFolderValue}
@@ -1491,7 +1493,7 @@ export function CanvasDraftBlock() {
         )}
       </div>
 
-      {(mode === "todo" || mode === "event" || mode === "bookmark") && (!mobileKeyboard.isMobileViewport || mobileKeyboard.keyboardOpen) ? (
+      {mode !== "note" || body.trim() ? (
         <div className="mt-3 flex items-center justify-end gap-3">
           <div className="flex items-center justify-end gap-2">
             <button
@@ -1501,10 +1503,20 @@ export function CanvasDraftBlock() {
               onClick={() => {
                 if (mode === "bookmark") {
                   cancelBookmarkDraft();
-                } else {
-                  if (mode === "todo") resetTodoDraft();
-                  else resetEventDraft();
+                } else if (mode === "todo") {
+                  resetTodoDraft();
+                  allowTodoBlurRef.current = true;
+                  allowEventBlurRef.current = true;
                   setMode("note");
+                  window.requestAnimationFrame(() => { focusNoteComposer(); });
+                } else if (mode === "event") {
+                  resetEventDraft();
+                  allowTodoBlurRef.current = true;
+                  allowEventBlurRef.current = true;
+                  setMode("note");
+                  window.requestAnimationFrame(() => { focusNoteComposer(); });
+                } else {
+                  setBody("");
                   allowTodoBlurRef.current = true;
                   allowEventBlurRef.current = true;
                   window.requestAnimationFrame(() => { focusNoteComposer(); });

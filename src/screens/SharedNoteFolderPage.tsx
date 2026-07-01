@@ -142,7 +142,7 @@ export function SharedNoteFolderPage() {
   return (
     <>
       <SeoHead
-        title={`omanote | ${data.folderName} by ${data.ownerName.split(" ")[0]}`}
+        title={`${data.folderName} by ${data.ownerName.split(" ")[0]} | omanote`}
         description={`${data.folderName} — a shared note folder by ${data.ownerName} on omanote.`}
         noIndex
       />

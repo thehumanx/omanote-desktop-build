@@ -4,6 +4,14 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.25.1 [July 1, 2026]
+
+- [Fix] Hashtags in public links are highlighted
+- [Fix] Used cloudflare workers to fetch the url details on public links
+- [Update] The title of public links now preceeds with the folder name and moved to the last
+- [Fix] Todo addition now shows folder selection on the right like bookmark
+- [Fix] Touch/scroll used to focus out your edit/input and autosave your input on mobile -- fixed it. Now we have dedicated control for save and exit
+
 ### v0.25.0 [June 30, 2026]
 
 > Desktop bug fixes
@@ -500,6 +508,12 @@ All notable changes to omanote are documented here, organized by product.
 - More customizations
 
 ## Desktop Versions
+
+### v0.25.1 [July 1, 2026]
+
+- [Fix] Hashtags in public links are highlighted
+- [Fix] Todo addition now shows folder selection on the right like bookmark
+- [Fix] Touch/scroll used to focus out your edit/input and autosave your input on mobile -- fixed it. Now we have dedicated control for save and exit
 
 ### v0.25.0 [June 30, 2026]
 
