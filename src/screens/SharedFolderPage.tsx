@@ -59,6 +59,7 @@ type PublicBookmarkFolder = {
   viewCount: number;
   createdAt: number;
   snapshotUpdatedAt: number | null;
+  linkViewMode: "card" | "list";
   isOwner: boolean;
 };
 
@@ -416,6 +417,25 @@ export function SharedFolderPage() {
             <div className="flex flex-col items-center justify-center rounded-2xl border border-app-line bg-app-surface py-16 text-center">
               <p className="text-sm font-medium text-app-ink-muted">No bookmarks in this folder yet.</p>
             </div>
+          ) : bd.linkViewMode === "list" ? (
+            <ol className="list-inside list-decimal space-y-3">
+              {bd.bookmarks.map((bookmark) => {
+                const displayTitle = bookmark.title?.trim() || bookmark.url;
+                return (
+                  <li key={bookmark.id}>
+                    <a
+                      href={bookmark.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group inline-flex items-center gap-1.5 text-sm font-bold text-app-ink underline decoration-2 decoration-zinc-300 underline-offset-2 transition hover:decoration-zinc-900"
+                    >
+                      {displayTitle}
+                      <ExternalLink className="h-3 w-3 flex-shrink-0 text-app-ink-faint opacity-0 transition group-hover:opacity-100" />
+                    </a>
+                  </li>
+                );
+              })}
+            </ol>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {bd.bookmarks.map((bookmark) => (

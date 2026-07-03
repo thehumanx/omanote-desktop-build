@@ -4,7 +4,17 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.25.2 [July 3, 2026]
+
+> Sharing got a view toggle, today's chip is gone, and direct-link text now looks like the link it is.
+
+- [Update] Hid "today" chip from canvas, only time shows up now
+- [Fix] The added direct links now appear underlined
+- [Add] You can now choose to show links as card or list when sharing your notes or bookmarks folder
+
 ### v0.25.1 [July 1, 2026]
+
+> A handful of small fixes across public links, mobile input, and the usual paper-cuts.
 
 - [Fix] Hashtags in public links are highlighted
 - [Fix] Used cloudflare workers to fetch the url details on public links
@@ -509,7 +519,17 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Desktop Versions
 
+### v0.25.2 [July 3, 2026]
+
+> Sharing has a view toggle for links, today's chip is gone from the canvas, and direct-link cards now underline the URL.
+
+- [Update] Hid "today" chip from canvas, only time shows up now
+- [Fix] The added direct links now appear underlined
+- [Add] You can now choose to show links as card or list when sharing your notes or bookmarks folder
+
 ### v0.25.1 [July 1, 2026]
+
+> Few fixes to go with the desktop release.
 
 - [Fix] Hashtags in public links are highlighted
 - [Fix] Todo addition now shows folder selection on the right like bookmark

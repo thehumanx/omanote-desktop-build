@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { Check, Copy, Eye, Link, X } from "lucide-react";
+import { Check, Copy, Eye, Link, X, LayoutList, LayoutGrid } from "lucide-react";
 import { BaseModal } from "./BaseModal";
 import { cn } from "./ui";
 import { useApp } from "../app/AppProvider";
@@ -57,6 +57,7 @@ export function ShareNoteFolderModal({
   });
   const setShareActive = useMutation(api.sharedNoteFolders.setShareActive);
   const updateShareSnapshot = useMutation(api.sharedNoteFolders.updateShareSnapshot);
+  const setLinkViewModeMutation = useMutation(api.sharedNoteFolders.setLinkViewMode);
 
   const isActive = share?.isActive ?? false;
   const shareUrl = share ? buildShareUrl(share.shareCode) : null;
@@ -193,16 +194,49 @@ export function ShareNoteFolderModal({
               </div>
 
               {isActive && share && (
-                <div className="flex items-center gap-1.5 text-xs text-app-ink-faint">
-                  <Eye className="h-3.5 w-3.5" />
-                  <span>
-                    {share.viewCount === 0
-                      ? "Not opened yet"
-                      : share.viewCount === 1
-                        ? "Opened 1 time"
-                        : `Opened ${share.viewCount} times`}
-                  </span>
-                </div>
+                <>
+                  <div className="flex items-center gap-1.5 text-xs text-app-ink-faint">
+                    <Eye className="h-3.5 w-3.5" />
+                    <span>
+                      {share.viewCount === 0
+                        ? "Not opened yet"
+                        : share.viewCount === 1
+                          ? "Opened 1 time"
+                          : `Opened ${share.viewCount} times`}
+                    </span>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-app-line bg-app-surface-muted px-4 py-3">
+                    <span className="text-sm text-app-ink-muted font-medium">Link view</span>
+                    <div className="flex overflow-hidden rounded-md border border-app-line">
+                      <button
+                        type="button"
+                        onClick={() => setLinkViewModeMutation({ folderId: folderId as Id<"noteFolders">, linkViewMode: "card" })}
+                        className={cn(
+                          "flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium transition",
+                          (share.linkViewMode ?? "card") === "card"
+                            ? "bg-app-surface text-app-ink"
+                            : "bg-app-surface-muted text-app-ink-faint hover:text-app-ink-muted",
+                        )}
+                      >
+                        <LayoutGrid className="h-3.5 w-3.5" />
+                        Card
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setLinkViewModeMutation({ folderId: folderId as Id<"noteFolders">, linkViewMode: "list" })}
+                        className={cn(
+                          "flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium transition",
+                          share.linkViewMode === "list"
+                            ? "bg-app-surface text-app-ink"
+                            : "bg-app-surface-muted text-app-ink-faint hover:text-app-ink-muted",
+                        )}
+                      >
+                        <LayoutList className="h-3.5 w-3.5" />
+                        List
+                      </button>
+                    </div>
+                  </div>
+                </>
               )}
 
               {!isActive && (

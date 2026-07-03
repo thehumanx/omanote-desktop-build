@@ -1,4 +1,4 @@
-import { Bookmark } from "lucide-react";
+import { Bookmark, ExternalLink } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { extractFirstPreviewableUrl } from "../lib/attachment-link-preview";
 import { cn } from "./ui";
@@ -133,6 +133,22 @@ function useLinkPreview(linkUrl: string | undefined) {
   return { preview, loading };
 }
 
+export function LinkListItem({ url }: { url: string }) {
+  const { preview } = useLinkPreview(url);
+  const displayTitle = preview?.title || url;
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group inline-flex items-center gap-1.5 text-sm font-bold text-app-ink underline decoration-2 decoration-zinc-300 underline-offset-2 transition hover:decoration-zinc-900"
+    >
+      {displayTitle}
+      <ExternalLink className="h-3 w-3 flex-shrink-0 text-app-ink-faint opacity-0 transition group-hover:opacity-100" />
+    </a>
+  );
+}
+
 export function UrlLinkPreview({ url, className }: { url: string; className?: string }) {
   const { preview, loading } = useLinkPreview(url);
   const resolvedPreview = preview ?? fallbackPreview(url);
@@ -182,7 +198,7 @@ export function UrlLinkPreview({ url, className }: { url: string; className?: st
                 />
               ) : null}
             </div>
-            <p className="min-w-0 truncate text-xs font-medium text-app-ink-faint">{siteLabel}</p>
+            <p className="min-w-0 truncate text-xs font-medium text-app-ink-faint underline decoration-2 decoration-zinc-300 underline-offset-2">{siteLabel}</p>
           </div>
           <p className="mt-1 line-clamp-2 text-sm font-bold leading-5 text-app-ink">{resolvedPreview.title}</p>
           {loading ? (
@@ -258,7 +274,7 @@ export function AttachmentLinkPreview({
                 />
               ) : null}
             </div>
-            <p className="min-w-0 truncate text-xs font-medium text-app-ink-faint">{siteLabel}</p>
+            <p className="min-w-0 truncate text-xs font-medium text-app-ink-faint underline decoration-2 decoration-zinc-300 underline-offset-2">{siteLabel}</p>
           </div>
           <p className="mt-1 line-clamp-2 text-sm font-bold leading-5 text-app-ink">{resolvedPreview.title}</p>
           {loading ? (
