@@ -4,7 +4,7 @@ import { formatLongDate, formatTimeLabel, fromDateKey, toDateKey } from "./dates
 
 export function formatDueChip(dueDateKey?: string, dueTime?: string, canvasDateKey?: string, createdDateKey?: string) {
   if (!dueDateKey) return "";
-  if (canvasDateKey === dueDateKey) return dueTime ? `${formatTimeLabel(dueTime)}, Today` : "Today";
+  if (canvasDateKey === dueDateKey) return dueTime ? formatTimeLabel(dueTime) : "";
   if (!dueTime) return formatShortDate(dueDateKey);
   if (createdDateKey === canvasDateKey) return `${formatTimeLabel(dueTime)}, ${formatShortDate(dueDateKey)}`;
   return `${formatTimeLabel(dueTime)}, ${formatShortDate(dueDateKey)}`;

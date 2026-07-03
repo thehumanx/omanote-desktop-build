@@ -6,9 +6,10 @@ import { api } from "../../convex/_generated/api";
 import { getShareViewerToken } from "../lib/share-viewer-token";
 import { RichTextPreview } from "../components/rich-text";
 import { extractAllPreviewableUrls } from "../lib/attachment-link-preview";
-import { UrlLinkPreview } from "../components/AttachmentLinkPreview";
+import { LinkListItem, UrlLinkPreview } from "../components/AttachmentLinkPreview";
 import { normalizeLegacyNoteBodyForTiptap } from "../lib/note-body-migration";
 import { HashtagChip } from "../components/HashtagChip";
+
 
 type PublicNote = {
   id: string;
@@ -39,7 +40,7 @@ function PublicNoteEntry({ note }: { note: PublicNote }) {
   );
 }
 
-function FolderAttachedLinks({ notes }: { notes: PublicNote[] }) {
+function FolderAttachedLinks({ notes, linkViewMode }: { notes: PublicNote[]; linkViewMode: "card" | "list" }) {
   const linkUrls = extractAllPreviewableUrls(...notes.flatMap((n) => [n.title, normalizeLegacyNoteBodyForTiptap(n.body)]));
   if (linkUrls.length === 0) return null;
 
@@ -48,11 +49,21 @@ function FolderAttachedLinks({ notes }: { notes: PublicNote[] }) {
       <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-app-ink-faint">
         Attached links
       </p>
-      <div className="flex flex-col gap-2">
-        {linkUrls.map((url) => (
-          <UrlLinkPreview key={url} url={url} />
-        ))}
-      </div>
+      {linkViewMode === "list" ? (
+        <ol className="list-inside list-decimal space-y-2">
+          {linkUrls.map((url) => (
+            <li key={url}>
+              <LinkListItem url={url} />
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {linkUrls.map((url) => (
+            <UrlLinkPreview key={url} url={url} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -203,7 +214,7 @@ export function SharedNoteFolderPage() {
                 <PublicNoteEntry key={note.id} note={note} />
               ))}
             </div>
-            <FolderAttachedLinks notes={data.notes} />
+            <FolderAttachedLinks notes={data.notes} linkViewMode={data.linkViewMode} />
           </>
         )}
       </main>
