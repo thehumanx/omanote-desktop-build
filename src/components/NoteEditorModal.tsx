@@ -5,6 +5,7 @@ import { RichTextToolbar, applyRichTextFormatToTextarea } from "./rich-text";
 import { handlePasteAsLink } from "../lib/link-utils";
 import { BaseModal } from "./BaseModal";
 import { useHashtagPicker, HashtagPickerDropdown } from "./HashtagPicker";
+import { useEmojiPicker, EmojiPickerDropdown } from "./EmojiPicker";
 import { parseHashtags } from "../lib/hashtags";
 
 const NOTE_LAST_FOLDER_KEY = "omanote.note-last-folder";
@@ -88,6 +89,11 @@ export function NoteEditorModal({
   const folderInputRef = useRef<HTMLInputElement | null>(null);
 
   const hashtagPicker = useHashtagPicker({
+    value: body,
+    textareaRef: bodyRef,
+    onChange: setBody,
+  });
+  const emojiPicker = useEmojiPicker({
     value: body,
     textareaRef: bodyRef,
     onChange: setBody,
@@ -236,6 +242,7 @@ export function NoteEditorModal({
                   }}
                   onKeyDown={(event) => {
                     if (hashtagPicker.handleKeyDown(event)) return;
+                    if (emojiPicker.handleKeyDown(event)) return;
                     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "b") {
                       event.preventDefault();
                       applyRichTextFormatToTextarea(bodyRef.current!, "bold", setBody);
@@ -254,6 +261,14 @@ export function NoteEditorModal({
                   activeIndex={hashtagPicker.activeIndex}
                   onSelect={hashtagPicker.selectSuggestion}
                   onHover={hashtagPicker.setActiveIndex}
+                  anchorRef={bodyRef}
+                />
+                <EmojiPickerDropdown
+                  isOpen={emojiPicker.isOpen}
+                  suggestions={emojiPicker.suggestions}
+                  activeIndex={emojiPicker.activeIndex}
+                  onSelect={emojiPicker.selectSuggestion}
+                  onHover={emojiPicker.setActiveIndex}
                   anchorRef={bodyRef}
                 />
               </div>

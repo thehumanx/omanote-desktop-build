@@ -8,11 +8,12 @@ import { NoteFolderPicker } from "./NoteFolderPicker";
 import { hasMeaningfulNoteInput, isUncategorizedFolderName, resolveNoteFolderByName, writeLastNoteFolder } from "../lib/note-folder-utils";
 import { MobileSaveButton } from "./MobileSaveButton";
 import { HashtagPickerDropdown } from "./HashtagPicker";
+import { EmojiPickerDropdown } from "./EmojiPicker";
 import { X } from "lucide-react";
 import { useUserSettings } from "../contexts/UserSettingsContext";
 import { SaveShortcutHint } from "./settings/SaveShortcutHint";
 import { useMobileKeyboardState } from "./layout/useMobileKeyboardState";
-import { BulletAfterBreakExtension, HashtagDecorationExtension, MarkdownNoIndentCodeExtension, buildListAwareMarkdown, useTiptapHashtagPicker } from "../lib/tiptap-note";
+import { BulletAfterBreakExtension, HashtagDecorationExtension, MarkdownNoIndentCodeExtension, buildListAwareMarkdown, useTiptapHashtagPicker, useTiptapEmojiPicker } from "../lib/tiptap-note";
 import { normalizeLegacyNoteBodyForTiptap } from "../lib/note-body-migration";
 import { TiptapLinkPopover } from "./TiptapLinkPopover";
 import { useEditor, EditorContent } from "@tiptap/react";
@@ -91,6 +92,7 @@ export function NoteCanvasEditor({
   const onCancelRef = useRef<(() => void) | undefined>(undefined);
   onCancelRef.current = onCancel;
   const hashtagHandlerRef = useRef<TiptapHashtagPickerState["handleKeyDown"]>(() => false);
+  const emojiHandlerRef = useRef<TiptapEmojiPickerState["handleKeyDown"]>(() => false);
 
   const commit = useCallback(() => {
     const trimmed = body.trim();
@@ -151,6 +153,7 @@ export function NoteCanvasEditor({
       },
       handleKeyDown: (_view, event) => {
         if (hashtagHandlerRef.current(event)) return true;
+        if (emojiHandlerRef.current(event)) return true;
 
         if (event.key === "Enter") {
           // Always support Cmd/Ctrl+Enter as an explicit save action.
@@ -223,6 +226,8 @@ export function NoteCanvasEditor({
 
   const hashtagPicker = useTiptapHashtagPicker(editor);
   hashtagHandlerRef.current = hashtagPicker.handleKeyDown;
+  const emojiPicker = useTiptapEmojiPicker(editor);
+  emojiHandlerRef.current = emojiPicker.handleKeyDown;
 
   const showToolbar = !suppressToolbar && !(suppressToolbarOnMobile && mobileKeyboard.isMobileViewport) && (bodyFocused || body.trim().length > 0);
 
@@ -345,6 +350,15 @@ export function NoteCanvasEditor({
           anchorRef={editorWrapperRef}
           anchorRect={hashtagPicker.anchorRect}
         />
+        <EmojiPickerDropdown
+          isOpen={emojiPicker.isOpen}
+          suggestions={emojiPicker.suggestions}
+          activeIndex={emojiPicker.activeIndex}
+          onSelect={emojiPicker.selectSuggestion}
+          onHover={emojiPicker.setActiveIndex}
+          anchorRef={editorWrapperRef}
+          anchorRect={emojiPicker.anchorRect}
+        />
       </div>
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
@@ -373,3 +387,4 @@ export function NoteCanvasEditor({
 }
 
 type TiptapHashtagPickerState = ReturnType<typeof useTiptapHashtagPicker>;
+type TiptapEmojiPickerState = ReturnType<typeof useTiptapEmojiPicker>;

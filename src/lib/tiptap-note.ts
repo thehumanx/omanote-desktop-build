@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { findActiveHashtag, hashtagColor } from "./hashtags";
+import { findActiveEmojiTrigger } from "./emoji-trigger";
+import { searchEmoji, quickPickEmojiSuggestions } from "./bookmark-category-icon";
 import { Extension, InputRule } from "@tiptap/core";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import { findWrapping } from "@tiptap/pm/transform";
@@ -306,4 +308,115 @@ export function useTiptapHashtagPicker(editor: Editor | null): TiptapHashtagPick
   );
 
   return { isOpen: activeHashtag !== null, suggestions, activeIndex, anchorRect, handleKeyDown, selectSuggestion, setActiveIndex };
+}
+
+// ---------------------------------------------------------------------------
+// Emoji picker hook for Tiptap editors — Slack-style ":shortcode" trigger
+// ---------------------------------------------------------------------------
+
+interface ActiveEmojiTrigger {
+  partial: string;
+  prosemirrorFrom: number;
+}
+
+export interface TiptapEmojiPickerState {
+  isOpen: boolean;
+  suggestions: Array<{ emoji: string; name: string }>;
+  activeIndex: number;
+  anchorRect: { left: number; right: number; top: number; bottom: number } | null;
+  handleKeyDown: (event: Pick<KeyboardEvent, "key" | "preventDefault">) => boolean;
+  selectSuggestion: (emoji: string) => void;
+  setActiveIndex: React.Dispatch<React.SetStateAction<number>>;
+}
+
+export function useTiptapEmojiPicker(editor: Editor | null): TiptapEmojiPickerState {
+  const [activeEmoji, setActiveEmoji] = useState<ActiveEmojiTrigger | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [anchorRect, setAnchorRect] = useState<{ left: number; right: number; top: number; bottom: number } | null>(null);
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const detect = () => {
+      const { from } = editor.state.selection;
+      const textBeforeCursor = editor.state.doc.textBetween(0, from, "\n");
+      const active = findActiveEmojiTrigger(textBeforeCursor, textBeforeCursor.length);
+      if (active) {
+        setActiveEmoji({
+          partial: active.partial,
+          prosemirrorFrom: from - (1 + active.partial.length),
+        });
+        const coords = editor.view.coordsAtPos(from);
+        setAnchorRect({
+          left: coords.left,
+          right: coords.right,
+          top: coords.top,
+          bottom: coords.bottom,
+        });
+      } else {
+        setActiveEmoji(null);
+        setAnchorRect(null);
+      }
+    };
+
+    editor.on("selectionUpdate", detect);
+    editor.on("update", detect);
+    return () => {
+      editor.off("selectionUpdate", detect);
+      editor.off("update", detect);
+    };
+  }, [editor]);
+
+  const prefix = activeEmoji?.partial ?? "";
+
+  const suggestions = useMemo(
+    () => (activeEmoji ? (prefix ? searchEmoji(prefix) : quickPickEmojiSuggestions()) : []),
+    [activeEmoji, prefix],
+  );
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [prefix]);
+
+  const selectSuggestion = useCallback(
+    (emoji: string) => {
+      if (!editor || !activeEmoji) return;
+      const { from } = editor.state.selection;
+      editor
+        .chain()
+        .focus()
+        .deleteRange({ from: activeEmoji.prosemirrorFrom, to: from })
+        .insertContent(`${emoji} `)
+        .run();
+    },
+    [editor, activeEmoji],
+  );
+
+  const handleKeyDown = useCallback(
+    (event: Pick<KeyboardEvent, "key" | "preventDefault">): boolean => {
+      if (!activeEmoji || suggestions.length === 0) return false;
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setActiveIndex((i) => Math.min(i + 1, suggestions.length - 1));
+        return true;
+      }
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setActiveIndex((i) => Math.max(i - 1, 0));
+        return true;
+      }
+      if (event.key === "Enter" || event.key === "Tab") {
+        const selected = suggestions[activeIndex];
+        if (selected) {
+          event.preventDefault();
+          selectSuggestion(selected.emoji);
+          return true;
+        }
+      }
+      return false;
+    },
+    [activeEmoji, suggestions, activeIndex, selectSuggestion],
+  );
+
+  return { isOpen: activeEmoji !== null, suggestions, activeIndex, anchorRect, handleKeyDown, selectSuggestion, setActiveIndex };
 }

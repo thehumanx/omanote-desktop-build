@@ -6,6 +6,7 @@ import { handlePasteAsLink } from "../lib/link-utils";
 import { BaseModal } from "./BaseModal";
 import { MobileSaveButton } from "./MobileSaveButton";
 import { useHashtagPicker, HashtagPickerDropdown } from "./HashtagPicker";
+import { useEmojiPicker, EmojiPickerDropdown } from "./EmojiPicker";
 import { parseHashtags, hashtagHighlightSegments, hashtagColor } from "../lib/hashtags";
 import { useUserSettings } from "../contexts/UserSettingsContext";
 import { isNewlineShortcutEvent, isSaveShortcutEvent } from "../lib/editor-shortcuts";
@@ -56,6 +57,16 @@ export function EventEditorModal({
     onChange: setLabel,
   });
   const notesPicker = useHashtagPicker({
+    value: notes,
+    textareaRef: notesRef,
+    onChange: setNotes,
+  });
+  const labelEmojiPicker = useEmojiPicker({
+    value: label,
+    textareaRef: labelRef,
+    onChange: setLabel,
+  });
+  const notesEmojiPicker = useEmojiPicker({
     value: notes,
     textareaRef: notesRef,
     onChange: setNotes,
@@ -173,6 +184,7 @@ export function EventEditorModal({
                   }}
                   onKeyDown={(event) => {
                     if (labelPicker.handleKeyDown(event)) return;
+                    if (labelEmojiPicker.handleKeyDown(event)) return;
                     handleKeyDown(event);
                   }}
                   rows={1}
@@ -185,6 +197,14 @@ export function EventEditorModal({
                   activeIndex={labelPicker.activeIndex}
                   onSelect={labelPicker.selectSuggestion}
                   onHover={labelPicker.setActiveIndex}
+                  anchorRef={labelRef}
+                />
+                <EmojiPickerDropdown
+                  isOpen={labelEmojiPicker.isOpen}
+                  suggestions={labelEmojiPicker.suggestions}
+                  activeIndex={labelEmojiPicker.activeIndex}
+                  onSelect={labelEmojiPicker.selectSuggestion}
+                  onHover={labelEmojiPicker.setActiveIndex}
                   anchorRef={labelRef}
                 />
               </div>
@@ -221,6 +241,7 @@ export function EventEditorModal({
                   }}
                   onKeyDown={(event) => {
                     if (notesPicker.handleKeyDown(event)) return;
+                    if (notesEmojiPicker.handleKeyDown(event)) return;
                     handleKeyDown(event);
                   }}
                   placeholder="Add notes"
@@ -233,6 +254,14 @@ export function EventEditorModal({
                   activeIndex={notesPicker.activeIndex}
                   onSelect={notesPicker.selectSuggestion}
                   onHover={notesPicker.setActiveIndex}
+                  anchorRef={notesRef}
+                />
+                <EmojiPickerDropdown
+                  isOpen={notesEmojiPicker.isOpen}
+                  suggestions={notesEmojiPicker.suggestions}
+                  activeIndex={notesEmojiPicker.activeIndex}
+                  onSelect={notesEmojiPicker.selectSuggestion}
+                  onHover={notesEmojiPicker.setActiveIndex}
                   anchorRef={notesRef}
                 />
               </div>
