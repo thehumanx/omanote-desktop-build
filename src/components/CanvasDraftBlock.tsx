@@ -15,6 +15,7 @@ import { useMeasuredHighlight } from "../hooks/useMeasuredHighlight";
 import { NoteCanvasEditor } from "./NoteCanvasEditor";
 import { useMobileKeyboardState } from "./layout/useMobileKeyboardState";
 import { HashtagPickerDropdown, useHashtagPicker } from "./HashtagPicker";
+import { EmojiPickerDropdown, useEmojiPicker } from "./EmojiPicker";
 
 type DraftMode = "note" | "todo" | "bookmark" | "event";
 
@@ -799,6 +800,30 @@ export function CanvasDraftBlock() {
       );
     },
   });
+  const todoEmojiPicker = useEmojiPicker({
+    value: activeTodoLine?.text ?? "",
+    textareaRef: activeTodoInputRef,
+    onChange: (next) => {
+      if (!activeTodoLine) return;
+      setTodoLines((current) =>
+        current.map((currentLine) =>
+          currentLine.id === activeTodoLine.id ? { ...currentLine, text: next } : currentLine,
+        ),
+      );
+    },
+  });
+  const eventEmojiPicker = useEmojiPicker({
+    value: activeEventLine?.text ?? "",
+    textareaRef: activeEventInputRef,
+    onChange: (next) => {
+      if (!activeEventLine) return;
+      setEventLines((current) =>
+        current.map((currentLine) =>
+          currentLine.id === activeEventLine.id ? { ...currentLine, text: next } : currentLine,
+        ),
+      );
+    },
+  });
 
   const handleMobileSave = () => {
     if (mode === "todo") {
@@ -1153,6 +1178,12 @@ export function CanvasDraftBlock() {
                           if (mode === "event" && eventPicker.handleKeyDown(event)) {
                             return;
                           }
+                          if (mode === "todo" && todoEmojiPicker.handleKeyDown(event)) {
+                            return;
+                          }
+                          if (mode === "event" && eventEmojiPicker.handleKeyDown(event)) {
+                            return;
+                          }
 
                           if (event.key === "Escape") {
                             event.preventDefault();
@@ -1382,6 +1413,26 @@ export function CanvasDraftBlock() {
                   activeIndex={eventPicker.activeIndex}
                   onSelect={eventPicker.selectSuggestion}
                   onHover={eventPicker.setActiveIndex}
+                  anchorRef={activeEventInputRef}
+                />
+              ) : null}
+              {mode === "todo" ? (
+                <EmojiPickerDropdown
+                  isOpen={todoEmojiPicker.isOpen}
+                  suggestions={todoEmojiPicker.suggestions}
+                  activeIndex={todoEmojiPicker.activeIndex}
+                  onSelect={todoEmojiPicker.selectSuggestion}
+                  onHover={todoEmojiPicker.setActiveIndex}
+                  anchorRef={activeTodoInputRef}
+                />
+              ) : null}
+              {mode === "event" ? (
+                <EmojiPickerDropdown
+                  isOpen={eventEmojiPicker.isOpen}
+                  suggestions={eventEmojiPicker.suggestions}
+                  activeIndex={eventEmojiPicker.activeIndex}
+                  onSelect={eventEmojiPicker.selectSuggestion}
+                  onHover={eventEmojiPicker.setActiveIndex}
                   anchorRef={activeEventInputRef}
                 />
               ) : null}
