@@ -4,6 +4,12 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.25.3 [July 13, 2026]
+
+> Type a colon, get an emoji. Slack-style shortcuts, right in your notes and events.
+
+- [Add] Typing `:` in notes and events now pops up an emoji picker — search by name or pick from quick suggestions, same dropdown feel as hashtags
+
 ### v0.25.2 [July 3, 2026]
 
 > Sharing got a view toggle, today's chip is gone, and direct-link text now looks like the link it is.
@@ -617,7 +623,14 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Extension Versions
 
-### v2.3.3 [Jun 27, 2026]
+### v2.4 [July 09, 2026]
+
+> Extension extended for RSS.
+
+- [Add] Subscribe to your favorite author from the extension or browser context menu.
+
+
+### v2.3.3 [June 27, 2026]
 
 > New website migration.
 
@@ -625,7 +638,7 @@ All notable changes to omanote are documented here, organized by product.
 
 
 
-### v2.3.2 [Jun 2, 2026]
+### v2.3.2 [June 2, 2026]
 
 > The extension got a site control layer and a little more backbone when folders are slow to load.
 

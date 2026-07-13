@@ -50,7 +50,7 @@ export function AppShell() {
   const mobileKeyboard = useMobileKeyboardState();
   const hideBottomNavForKeyboard = mobileKeyboard.isMobileViewport && mobileKeyboard.keyboardOpen;
   const workspaceHeight =
-    mobileKeyboard.isMobileViewport && mobileKeyboard.viewportHeight > 0
+    mobileKeyboard.isMobileViewport && mobileKeyboard.keyboardOpen && mobileKeyboard.viewportHeight > 0
       ? `calc(${mobileKeyboard.viewportHeight}px)`
       : "calc(100dvh)";
 

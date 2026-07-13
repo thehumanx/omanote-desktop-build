@@ -134,6 +134,13 @@ export function searchEmoji(query: string): Array<{ emoji: string; name: string 
   return [...exact, ...starts, ...contains].slice(0, 8).map(({ emoji, name }) => ({ emoji, name }));
 }
 
+/** Quick-pick emoji suggestions with their resolved names, for showing before the user types a search query. */
+export function quickPickEmojiSuggestions(): Array<{ emoji: string; name: string }> {
+  const index = getEmojiIndex();
+  const nameByEmoji = new Map(index.map(({ emoji, name }) => [emoji, name]));
+  return QUICK_PICK_EMOJIS.map((emoji) => ({ emoji, name: nameByEmoji.get(emoji) ?? "" }));
+}
+
 export function parseIconInput(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return "";

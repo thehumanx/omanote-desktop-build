@@ -34,6 +34,7 @@
     "@tiptap/extension-placeholder": "^3.23.6",
     "@tiptap/react": "^3.23.6",
     "@tiptap/starter-kit": "^3.23.6",
+    "@vercel/analytics": "^2.0.1",
     "chrono-node": "^2.7.7",
     "clsx": "^2.1.1",
     "convex": "^1.41.0",
