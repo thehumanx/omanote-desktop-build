@@ -6,9 +6,9 @@ All notable changes to omanote are documented here, organized by product.
 
 ### v0.25.3 [July 13, 2026]
 
-> Type a colon, get an emoji. Slack-style shortcuts, right in your notes and events.
+> Type a colon, get an emoji. Slack-style shortcuts, right in your notes, todos, and events.
 
-- [Add] Typing `:` in notes and events now pops up an emoji picker — search by name or pick from quick suggestions, same dropdown feel as hashtags
+- [Add] Typing `:` in notes, todos, and events now pops up an emoji picker — search by name or pick from quick suggestions, same dropdown feel as hashtags
 
 ### v0.25.2 [July 3, 2026]
 
@@ -524,6 +524,12 @@ All notable changes to omanote are documented here, organized by product.
 - More customizations
 
 ## Desktop Versions
+
+### v0.25.3 [July 13, 2026]
+
+> Type a colon, get an emoji. Slack-style shortcuts, right in your notes, todos, and events.
+
+- [Add] Typing `:` in notes, todos, and events now pops up an emoji picker — search by name or pick from quick suggestions, same dropdown feel as hashtags
 
 ### v0.25.2 [July 3, 2026]
 

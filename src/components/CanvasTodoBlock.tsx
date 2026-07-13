@@ -15,6 +15,7 @@ import { RichTextPreview } from "./rich-text";
 import { AttachmentLinkPreview } from "./AttachmentLinkPreview";
 import { focusWithoutScrolling } from "../lib/preserve-focus-scroll";
 import { HashtagPickerDropdown, useHashtagPicker } from "./HashtagPicker";
+import { EmojiPickerDropdown, useEmojiPicker } from "./EmojiPicker";
 
 export type CanvasTodoBlockProps = {
   todo: TodoItem;
@@ -78,6 +79,11 @@ function CanvasTodoBlockComponent({
   const futureCanvasLabel = formatFutureTodoCanvasLabel(todo.dueDateKey, todo.dueTime);
   const completedLabel = todo.status === "done" ? formatCompletedLabel(todo.completedAt ?? todo.updatedAt) : "";
   const titlePicker = useHashtagPicker({
+    value: draftTitle,
+    textareaRef: titleRef,
+    onChange: setDraftTitle,
+  });
+  const titleEmojiPicker = useEmojiPicker({
     value: draftTitle,
     textareaRef: titleRef,
     onChange: setDraftTitle,
@@ -180,6 +186,7 @@ function CanvasTodoBlockComponent({
                 onChange={(event) => setDraftTitle(event.target.value)}
                 onKeyDown={(event) => {
                   if (titlePicker.handleKeyDown(event)) return;
+                  if (titleEmojiPicker.handleKeyDown(event)) return;
                   if (event.key === "Escape") {
                     event.preventDefault();
                     onCancelEdit();
@@ -312,6 +319,14 @@ function CanvasTodoBlockComponent({
           activeIndex={titlePicker.activeIndex}
           onSelect={titlePicker.selectSuggestion}
           onHover={titlePicker.setActiveIndex}
+          anchorRef={titleRef}
+        />
+        <EmojiPickerDropdown
+          isOpen={titleEmojiPicker.isOpen}
+          suggestions={titleEmojiPicker.suggestions}
+          activeIndex={titleEmojiPicker.activeIndex}
+          onSelect={titleEmojiPicker.selectSuggestion}
+          onHover={titleEmojiPicker.setActiveIndex}
           anchorRef={titleRef}
         />
 

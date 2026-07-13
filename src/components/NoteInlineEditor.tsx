@@ -7,11 +7,12 @@ import { NoteFolderPicker } from "./NoteFolderPicker";
 import { NoteCanvasEditor } from "./NoteCanvasEditor";
 import { hasMeaningfulNoteInput, isUncategorizedFolderName, readLastNoteFolder, resolveNoteFolderByName, writeLastNoteFolder } from "../lib/note-folder-utils";
 import { HashtagPickerDropdown } from "./HashtagPicker";
+import { EmojiPickerDropdown } from "./EmojiPicker";
 import { parseHashtags } from "../lib/hashtags";
 import { useUserSettings } from "../contexts/UserSettingsContext";
 import { isSaveShortcutEvent } from "../lib/editor-shortcuts";
 import { SaveShortcutHint } from "./settings/SaveShortcutHint";
-import { BulletAfterBreakExtension, HashtagDecorationExtension, MarkdownNoIndentCodeExtension, buildListAwareMarkdown, useTiptapHashtagPicker } from "../lib/tiptap-note";
+import { BulletAfterBreakExtension, HashtagDecorationExtension, MarkdownNoIndentCodeExtension, buildListAwareMarkdown, useTiptapHashtagPicker, useTiptapEmojiPicker } from "../lib/tiptap-note";
 import { normalizeLegacyNoteBodyForTiptap } from "../lib/note-body-migration";
 import { TiptapLinkPopover } from "./TiptapLinkPopover";
 import { useEditor, EditorContent } from "@tiptap/react";
@@ -94,6 +95,7 @@ export function NoteInlineEditor({
   onCancelRef.current = onCancel;
 
   const hashtagHandlerRef = useRef<TiptapHashtagPickerState["handleKeyDown"]>(() => false);
+  const emojiHandlerRef = useRef<TiptapEmojiPickerState["handleKeyDown"]>(() => false);
 
   const editor = useEditor({
     extensions: [
@@ -136,6 +138,7 @@ export function NoteInlineEditor({
       },
       handleKeyDown: (_view, event) => {
         if (hashtagHandlerRef.current(event)) return true;
+        if (emojiHandlerRef.current(event)) return true;
 
         if (event.key === "Enter") {
           if ((event.metaKey || event.ctrlKey) && isSaveShortcutEvent(event, settingsRef.current.saveShortcut)) {
@@ -201,6 +204,8 @@ export function NoteInlineEditor({
 
   const hashtagPicker = useTiptapHashtagPicker(editor);
   hashtagHandlerRef.current = hashtagPicker.handleKeyDown;
+  const emojiPicker = useTiptapEmojiPicker(editor);
+  emojiHandlerRef.current = emojiPicker.handleKeyDown;
 
   const canSave = Boolean(body.trim());
   const showFolderPicker = hasMeaningfulNoteInput(body);
@@ -275,6 +280,15 @@ export function NoteInlineEditor({
             anchorRef={editorWrapperRef}
             anchorRect={hashtagPicker.anchorRect}
           />
+          <EmojiPickerDropdown
+            isOpen={emojiPicker.isOpen}
+            suggestions={emojiPicker.suggestions}
+            activeIndex={emojiPicker.activeIndex}
+            onSelect={emojiPicker.selectSuggestion}
+            onHover={emojiPicker.setActiveIndex}
+            anchorRef={editorWrapperRef}
+            anchorRect={emojiPicker.anchorRect}
+          />
         </div>
         <div className="flex flex-wrap items-center gap-2 border-t border-app-line px-3 py-2">
           {showTags ? (
@@ -310,3 +324,4 @@ export function NoteInlineEditor({
 
 // Type import for the ref
 type TiptapHashtagPickerState = ReturnType<typeof useTiptapHashtagPicker>;
+type TiptapEmojiPickerState = ReturnType<typeof useTiptapEmojiPicker>;

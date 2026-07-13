@@ -13,6 +13,7 @@ import { parseHashtags } from "../lib/hashtags";
 import { AttachmentLinkPreview } from "./AttachmentLinkPreview";
 import { focusWithoutScrolling } from "../lib/preserve-focus-scroll";
 import { HashtagPickerDropdown, useHashtagPicker } from "./HashtagPicker";
+import { EmojiPickerDropdown, useEmojiPicker } from "./EmojiPicker";
 
 function autoResize(textarea: HTMLTextAreaElement) {
   textarea.style.height = "auto";
@@ -58,6 +59,11 @@ function CanvasEventBlockComponent({ event, pendingSync, dispatch }: CanvasEvent
     return Boolean(target?.closest('[data-rich-text-popover="true"]'));
   };
   const activeHashtagPicker = useHashtagPicker({
+    value: activeField === "label" ? label : notes,
+    textareaRef: activeField === "label" ? labelRef : notesRef,
+    onChange: activeField === "label" ? setLabel : setNotes,
+  });
+  const activeEmojiPicker = useEmojiPicker({
     value: activeField === "label" ? label : notes,
     textareaRef: activeField === "label" ? labelRef : notesRef,
     onChange: activeField === "label" ? setLabel : setNotes,
@@ -229,6 +235,7 @@ function CanvasEventBlockComponent({ event, pendingSync, dispatch }: CanvasEvent
                 }}
                 onKeyDown={(event) => {
                   if (activeHashtagPicker.handleKeyDown(event)) return;
+                  if (activeEmojiPicker.handleKeyDown(event)) return;
                 }}
                 onBlur={() => {
                   if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
@@ -251,6 +258,7 @@ function CanvasEventBlockComponent({ event, pendingSync, dispatch }: CanvasEvent
                 }}
                 onKeyDown={(event) => {
                   if (activeHashtagPicker.handleKeyDown(event)) return;
+                  if (activeEmojiPicker.handleKeyDown(event)) return;
                 }}
                 onBlur={() => {
                   if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
@@ -269,6 +277,14 @@ function CanvasEventBlockComponent({ event, pendingSync, dispatch }: CanvasEvent
             activeIndex={activeHashtagPicker.activeIndex}
             onSelect={activeHashtagPicker.selectSuggestion}
             onHover={activeHashtagPicker.setActiveIndex}
+            anchorRef={activeField === "label" ? labelRef : notesRef}
+          />
+          <EmojiPickerDropdown
+            isOpen={activeEmojiPicker.isOpen}
+            suggestions={activeEmojiPicker.suggestions}
+            activeIndex={activeEmojiPicker.activeIndex}
+            onSelect={activeEmojiPicker.selectSuggestion}
+            onHover={activeEmojiPicker.setActiveIndex}
             anchorRef={activeField === "label" ? labelRef : notesRef}
           />
         </>
