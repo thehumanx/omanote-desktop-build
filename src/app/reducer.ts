@@ -1,4 +1,4 @@
-import { toDateKey } from "@omanote/shared";
+import { buildRecurringCompletionIndex, getVirtualOccurrenceForDate, toDateKey } from "@omanote/shared";
 import type { ActivityItem, DateKey, TodoItem } from "@omanote/shared";
 import { createInitialState } from "./demo-data";
 import type { AppAction, AppState, ToastItem } from "./types";
@@ -398,6 +398,10 @@ export function appReducer(state: AppState = createInitialState(), action: AppAc
           ...state.activity,
         ],
       };
+    case "todo/prompt-recurring-delete":
+      return { ...state, recurringDeletePrompt: action.prompt };
+    case "todo/close-recurring-delete":
+      return { ...state, recurringDeletePrompt: null };
     case "toast/add":
       return {
         ...state,
@@ -413,8 +417,33 @@ export function appReducer(state: AppState = createInitialState(), action: AppAc
   }
 }
 
-export function getVisibleCanvasTodos(state: AppState, dateKey: DateKey) {
-  return state.todos.filter((todo) => isTodoVisibleOnCanvas(todo, dateKey));
+export function getVisibleCanvasTodos(
+  state: AppState,
+  dateKey: DateKey,
+  // The completion index is date-independent; callers rendering many days can
+  // build it once (buildRecurringCompletionIndex) and pass it in to avoid
+  // rescanning all todos per day.
+  completionIndex: Map<string, Set<string>> = buildRecurringCompletionIndex(state.todos),
+) {
+  const todayKey = toDateKey(new Date());
+  const visible: TodoItem[] = [];
+  for (const todo of state.todos) {
+    // Series masters never render directly — each canvas day gets a virtual
+    // occurrence when the rule fires there (daily on every day, weekly on
+    // every 7th, …). Materialized completions render via the normal path.
+    if (todo.recurrence) {
+      const occurrence = getVirtualOccurrenceForDate(
+        todo,
+        completionIndex.get(todo.id),
+        dateKey,
+        todayKey,
+      );
+      if (occurrence) visible.push(occurrence);
+      continue;
+    }
+    if (isTodoVisibleOnCanvas(todo, dateKey)) visible.push(todo);
+  }
+  return visible;
 }
 
 export function hydrateState(raw: AppState | null) {

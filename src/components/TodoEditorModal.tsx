@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import type { TodoFolder, TodoItem } from "@omanote/shared";
-import { formatDueChip, formatNaturalLanguageDueInput, parseNaturalLanguageDueInput } from "@omanote/shared";
-import { CheckCircle2 } from "lucide-react";
+import type { RecurrenceRule, TodoFolder, TodoItem } from "@omanote/shared";
+import {
+  formatDueChip,
+  formatNaturalLanguageDueInput,
+  materializeReminderFields,
+  parseNaturalLanguageDueInput,
+  parseRecurrencePhrase,
+  ruleToEditablePhrase,
+  toDateKey,
+} from "@omanote/shared";
+import { CheckCircle2, Repeat } from "lucide-react";
 import { handlePasteAsLink } from "../lib/link-utils";
 import { BaseModal } from "./BaseModal";
 import { MobileSaveButton } from "./MobileSaveButton";
@@ -36,7 +44,17 @@ export function TodoEditorModal({
   selectedFolderId?: string | null;
   selectedDateKey: string;
   onClose: () => void;
-  onSave: (payload: { title: string; hashtags: string[]; dueDateKey?: string; dueTime?: string; folderId?: string; folderName?: string }) => void;
+  onSave: (payload: {
+    title: string;
+    hashtags: string[];
+    dueDateKey?: string;
+    dueTime?: string;
+    folderId?: string;
+    folderName?: string;
+    recurrence?: RecurrenceRule | null;
+    reminderEveryMinutes?: number | null;
+    reminderUntil?: number | null;
+  }) => void;
   onToggle?: (todoId: string) => void;
 }) {
   const initialTitle = todo?.title ?? "";
@@ -51,9 +69,17 @@ export function TodoEditorModal({
     todo?.dueDateKey ?? (selectedDateKey as TodoItem["dueDateKey"]),
     todo?.dueTime,
   );
+  // Editable natural-language repeat rule. Prefilled so an existing series'
+  // cadence, count, and end date can be edited as plain text.
+  const initialRepeat = todo?.recurrence
+    ? ruleToEditablePhrase(todo.recurrence)
+    : todo?.reminderEveryMinutes
+      ? `every ${todo.reminderEveryMinutes} minutes`
+      : "";
   const [draftTitle, setDraftTitle] = useState(initialTitle);
   const [draftWhen, setDraftWhen] = useState(initialDue);
   const [draftFolder, setDraftFolder] = useState(initialFolderName);
+  const [draftRepeat, setDraftRepeat] = useState(initialRepeat);
   const [folderMenuOpen, setFolderMenuOpen] = useState(false);
   const [error, setError] = useState("");
   const titleRef = useRef<HTMLInputElement | null>(null);
@@ -65,11 +91,22 @@ export function TodoEditorModal({
     : "";
   const completedLabel = formatCompletedAt(todo?.completedAt);
 
+  // Live parse of the Repeat field for the confirmation chip.
+  const parsedRepeat = useMemo(() => {
+    const trimmed = draftRepeat.trim();
+    if (!trimmed) return null;
+    return parseRecurrencePhrase(trimmed, toDateKey(new Date()));
+  }, [draftRepeat]);
+  const recurrenceChipLabel = parsedRepeat?.description ?? null;
+
   useEffect(() => {
     setDraftTitle(initialTitle);
     setDraftWhen(initialDue);
     setDraftFolder(initialFolderName);
+    setDraftRepeat(initialRepeat);
     setError("");
+    // initialRepeat is derived from the same todo as the other initial values.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialDue, initialFolderName, initialTitle]);
 
   const trimmedFolder = draftFolder.trim();
@@ -92,6 +129,8 @@ export function TodoEditorModal({
   }, []);
 
   const save = () => {
+    const todayKey = toDateKey(new Date());
+
     const title = draftTitle.trim();
     if (!title) {
       setError("Write something like team sync tomorrow 4pm.");
@@ -105,6 +144,43 @@ export function TodoEditorModal({
       return;
     }
 
+    const repeatText = draftRepeat.trim();
+    const parsedRepeatOnSave = repeatText ? parseRecurrencePhrase(repeatText, todayKey) : null;
+    if (repeatText && !parsedRepeatOnSave) {
+      setError("Try a repeat like every day, every mon and fri, or every week, 5 times.");
+      return;
+    }
+
+    let dueDateKey = parsedDue?.dateKey as string | undefined;
+    let dueTime = parsedDue?.time;
+    // undefined = leave unchanged; null = explicitly clear an existing rule.
+    let recurrence: RecurrenceRule | null | undefined;
+    let reminderEveryMinutes: number | null | undefined;
+    let reminderUntil: number | null | undefined;
+    if (parsedRepeatOnSave?.kind === "series") {
+      // Keep the original series start so editing the count/end doesn't shift
+      // the schedule; a fresh series anchors on today.
+      recurrence = todo?.recurrence
+        ? { ...parsedRepeatOnSave.rule, anchorDateKey: todo.recurrence.anchorDateKey }
+        : parsedRepeatOnSave.rule;
+      reminderEveryMinutes = null;
+      reminderUntil = null;
+    } else if (parsedRepeatOnSave?.kind === "reminder") {
+      const fields = materializeReminderFields(parsedRepeatOnSave);
+      recurrence = null;
+      reminderEveryMinutes = fields.reminderEveryMinutes;
+      reminderUntil = fields.reminderUntil;
+      if (!parsedDue) {
+        dueDateKey = fields.dueDateKey;
+        dueTime = fields.dueTime;
+      }
+    } else if (todo?.recurrence || todo?.reminderEveryMinutes) {
+      // Had a repeat rule, now the field is empty — clear it.
+      recurrence = null;
+      reminderEveryMinutes = null;
+      reminderUntil = null;
+    }
+
     const folderPayload =
       folders.length || todo?.folderId || todo?.folderName || selectedFolderId
         ? {
@@ -116,8 +192,11 @@ export function TodoEditorModal({
     onSave({
       title,
       hashtags: parseHashtags(draftTitle),
-      dueDateKey: parsedDue?.dateKey,
-      dueTime: parsedDue?.time,
+      dueDateKey,
+      dueTime,
+      recurrence,
+      reminderEveryMinutes,
+      reminderUntil,
       ...folderPayload,
     });
   };
@@ -271,7 +350,29 @@ export function TodoEditorModal({
               ) : null}
             </div>
 
+            <div className="flex items-center gap-2">
+              <Repeat className="h-4 w-4 flex-none text-app-ink-faint" />
+              <input
+                aria-label="Repeat"
+                value={draftRepeat}
+                onChange={(event) => {
+                  setDraftRepeat(event.target.value);
+                  setError("");
+                }}
+                onKeyDown={handleKeyDown}
+                placeholder="Repeat — e.g. every day, every mon and fri, every week 5 times"
+                className="min-w-0 flex-1 rounded-none border-0 border-b border-app-line bg-transparent px-0 py-1 text-[15px] text-app-ink-faint outline-none placeholder:text-app-line-strong focus:border-app-line-strong"
+              />
+            </div>
+
             {error ? <p className="text-xs text-danger-ink">{error}</p> : null}
+
+            {recurrenceChipLabel ? (
+              <div className="inline-flex items-center gap-1.5 rounded-md bg-app-surface-muted px-2 py-1 text-xs text-app-ink-muted">
+                <Repeat className="h-3 w-3" />
+                <span>{recurrenceChipLabel}</span>
+              </div>
+            ) : null}
 
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2">

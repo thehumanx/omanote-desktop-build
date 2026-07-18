@@ -42,6 +42,9 @@ const PrivacyPolicyScreen = lazy(() =>
 const TermsScreen = lazy(() =>
   import("./screens/TermsScreen").then((module) => ({ default: module.TermsScreen })),
 );
+const GuideScreen = lazy(() =>
+  import("./screens/GuideScreen").then((module) => ({ default: module.GuideScreen })),
+);
 const BookmarksScreen = lazy(() =>
   import("./screens/BookmarksScreen").then((module) => ({ default: module.BookmarksScreen })),
 );
@@ -100,8 +103,8 @@ function RootRoute() {
       return <DesktopOnboardingScreen />;
     }
 
-    if (location.pathname.startsWith("/updates")) {
-      return <PublicUpdatesLayout />;
+    if (location.pathname.startsWith("/updates") || location.pathname.startsWith("/guide")) {
+      return <PublicDocLayout />;
     }
 
     return <LandingScreen />;
@@ -117,7 +120,7 @@ function ReaderGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function PublicUpdatesLayout() {
+function PublicDocLayout() {
   return (
     <div className="public-page min-h-screen flex flex-col bg-app-surface text-app-ink">
       <nav className="border-b border-zinc-200 sticky top-0 bg-white/95 backdrop-blur-sm z-20">
@@ -167,6 +170,8 @@ export default function App() {
           <Route path="routine" element={<Navigate to="/event" replace />} />
           <Route path="settings" element={<SettingsScreen />} />
           <Route path="updates" element={<UpdatesScreen />} />
+          <Route path="guide" element={<GuideScreen />} />
+          <Route path="guide/:topic" element={<GuideScreen />} />
           <Route path="insights" element={<InsightsScreen />} />
           <Route path="reader" element={<ReaderGuard><ReaderScreen /></ReaderGuard>} />
           <Route path="reader/saved" element={<ReaderGuard><ReaderScreen savedView /></ReaderGuard>} />

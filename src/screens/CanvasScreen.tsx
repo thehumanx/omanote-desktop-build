@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { GripVertical } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
-import { addDays, buildDateStripWindow, toDateKey } from "@omanote/shared";
+import { addDays, buildDateStripWindow, buildRecurringCompletionIndex, toDateKey } from "@omanote/shared";
 import type { DateKey } from "@omanote/shared";
 import type { BookmarkItem, NoteItem, EventEntry, TodoItem } from "@omanote/shared";
 import { api } from "../../convex/_generated/api";
@@ -272,6 +272,12 @@ export function CanvasScreen() {
     saveCanvasOrderCache(nextCache);
   }, [canvasOrderCache, currentCanvasOrder, nextCanvasOrder, previousCanvasOrder, nextDateKey, previousDateKey, state.ui.selectedDateKey]);
 
+  // Date-independent, so build once per todos change rather than per day nav.
+  const recurringCompletionIndex = useMemo(
+    () => buildRecurringCompletionIndex(state.todos),
+    [state.todos],
+  );
+
   const canvasItems = useMemo(() => {
     const orderMap = new Map<string, number>();
     const resolvedOrder: CanvasPlacement[] =
@@ -280,7 +286,7 @@ export function CanvasScreen() {
       orderMap.set(`${placement.artifactType}:${placement.artifactId}`, placement.position);
     }
 
-    const todoItems = getVisibleCanvasTodos(state, state.ui.selectedDateKey).map((todo) => ({
+    const todoItems = getVisibleCanvasTodos(state, state.ui.selectedDateKey, recurringCompletionIndex).map((todo) => ({
       kind: "todo" as const,
       createdAt: todo.createdAt,
       data: todo,
@@ -312,7 +318,7 @@ export function CanvasScreen() {
       }
       return left.createdAt - right.createdAt;
     });
-  }, [canvasOrderCache, currentCanvasOrder, state.bookmarks, state.notes, state.events, state.todos, state.ui.selectedDateKey]);
+  }, [canvasOrderCache, currentCanvasOrder, recurringCompletionIndex, state.bookmarks, state.notes, state.events, state.todos, state.ui.selectedDateKey]);
   useEffect(() => {
     if (!canvasItems.length) return;
     if (!currentCanvasOrder) return;

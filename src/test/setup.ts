@@ -46,7 +46,44 @@ if (typeof window !== "undefined" && typeof window.matchMedia !== "function") {
     }) as MediaQueryList;
 }
 
+// Some jsdom builds don't ship a functional Web Storage (getItem/setItem are
+// missing), which the app relies on for theme, settings, drafts, and mode
+// persistence. Install a minimal in-memory implementation only when the real
+// one is broken, so environments that provide Storage keep it.
+function createMemoryStorage(): Storage {
+  const store = new Map<string, string>();
+  return {
+    get length() {
+      return store.size;
+    },
+    clear: () => store.clear(),
+    getItem: (key) => (store.has(key) ? store.get(key)! : null),
+    key: (index) => [...store.keys()][index] ?? null,
+    removeItem: (key) => {
+      store.delete(key);
+    },
+    setItem: (key, value) => {
+      store.set(key, String(value));
+    },
+  };
+}
+
+if (typeof window !== "undefined") {
+  for (const name of ["localStorage", "sessionStorage"] as const) {
+    if (typeof window[name]?.getItem !== "function") {
+      Object.defineProperty(window, name, { configurable: true, writable: true, value: createMemoryStorage() });
+    }
+  }
+}
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  // Keep tests isolated from each other's persisted state.
+  try {
+    window.localStorage?.clear?.();
+    window.sessionStorage?.clear?.();
+  } catch {
+    // ignore
+  }
 });

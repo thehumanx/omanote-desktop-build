@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type TouchEvent as ReactTouchEvent } from "react";
-import { Bookmark, BookmarkCheck, Check, CheckSquare, Compass, Download, FileText, GripHorizontal, Info, LogOut, CalendarDays, MessageSquare, Monitor, Moon, Rss, Settings, Puzzle, Sparkles, SquarePen, Sun, X } from "lucide-react";
+import { Bookmark, BookmarkCheck, BookOpen, Check, CheckSquare, Compass, Download, FileText, GripHorizontal, Info, LogOut, CalendarDays, MessageSquare, Monitor, Moon, Rss, Settings, Puzzle, Sparkles, SquarePen, Sun, X } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useApp } from "../../app/AppProvider";
 import { useAuth } from "../../app/auth/AuthContext";
@@ -50,9 +50,16 @@ export function BottomNav({ hidden = false, forceHidden = false, onOpenAbout = (
   const isUpdatesRoute = location.pathname.startsWith("/updates");
   const isSettingsRoute = location.pathname.startsWith("/settings");
   const isInsightsRoute = location.pathname.startsWith("/insights");
+  const isGuideRoute = location.pathname.startsWith("/guide");
 
-  if (isUpdatesRoute || isSettingsRoute || isInsightsRoute) {
-    const label = isSettingsRoute ? "Close settings" : isInsightsRoute ? "Close insights" : "Close updates";
+  if (isUpdatesRoute || isSettingsRoute || isInsightsRoute || isGuideRoute) {
+    const label = isSettingsRoute
+      ? "Close settings"
+      : isInsightsRoute
+        ? "Close insights"
+        : isGuideRoute
+          ? "Close guide"
+          : "Close updates";
     return <SimpleRouteCloseNav forceHidden={forceHidden} hidden={hidden} label={label} />;
   }
 
@@ -381,6 +388,15 @@ function FullBottomNav({ hidden = false, forceHidden = false, onOpenAbout }: { h
       >
         <Settings className="h-4 w-4" />
         Settings
+      </MenuItem>
+      <MenuItem
+        onClick={() => {
+          navigate("/guide");
+          closeProfileOptions();
+        }}
+      >
+        <BookOpen className="h-4 w-4" />
+        Guide
       </MenuItem>
       <MenuItem
         onClick={() => {

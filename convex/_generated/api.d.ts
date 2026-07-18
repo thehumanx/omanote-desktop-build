@@ -23,6 +23,7 @@ import type * as feedback from "../feedback.js";
 import type * as hashtags from "../hashtags.js";
 import type * as history from "../history.js";
 import type * as insights from "../insights.js";
+import type * as lib_recurrenceValidator from "../lib/recurrenceValidator.js";
 import type * as lib_rssParser from "../lib/rssParser.js";
 import type * as notes from "../notes.js";
 import type * as plans from "../plans.js";
@@ -60,6 +61,7 @@ declare const fullApi: ApiFromModules<{
   hashtags: typeof hashtags;
   history: typeof history;
   insights: typeof insights;
+  "lib/recurrenceValidator": typeof lib_recurrenceValidator;
   "lib/rssParser": typeof lib_rssParser;
   notes: typeof notes;
   plans: typeof plans;

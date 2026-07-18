@@ -1,4 +1,4 @@
-import type { DateKey } from "@omanote/shared";
+import type { DateKey, RecurrenceRule } from "@omanote/shared";
 import { prefixedRandomId } from "@omanote/shared";
 
 const STORAGE_KEY = "omanote.canvas-outbox";
@@ -70,6 +70,9 @@ type TodoCreatePayload = {
   hashtags?: string[];
   folderId?: string;
   folderName?: string;
+  recurrence?: RecurrenceRule;
+  reminderEveryMinutes?: number;
+  reminderUntil?: number;
 };
 
 type TodoUpdatePayload = {
@@ -80,10 +83,23 @@ type TodoUpdatePayload = {
   hashtags?: string[];
   folderId?: string;
   folderName?: string;
+  recurrence?: RecurrenceRule | null;
+  reminderEveryMinutes?: number | null;
+  reminderUntil?: number | null;
 };
 
 type TodoDeletePayload = {
   todoId: string;
+};
+
+type TodoDeleteOccurrencePayload = {
+  todoId: string;
+  occurrenceDateKey: string;
+};
+
+type TodoTruncateSeriesPayload = {
+  todoId: string;
+  fromDateKey: string;
 };
 
 type TodoRestorePayload = {
@@ -98,6 +114,16 @@ type TodoTogglePayload = {
 type TodoSnoozePayload = {
   todoId: string;
   minutes: number;
+};
+
+type TodoCompleteOccurrencePayload = {
+  todoId: string;
+  occurrenceDateKey: string;
+  completedAt?: number;
+};
+
+type TodoUncompleteOccurrencePayload = {
+  todoId: string;
 };
 
 type TodoMarkFiredPayload = {
@@ -174,8 +200,12 @@ type CanvasPayloadMap = {
   "todo/create": TodoCreatePayload;
   "todo/update": TodoUpdatePayload;
   "todo/delete": TodoDeletePayload;
+  "todo/delete-occurrence": TodoDeleteOccurrencePayload;
+  "todo/truncate-series": TodoTruncateSeriesPayload;
   "todo/restore": TodoRestorePayload;
   "todo/toggle": TodoTogglePayload;
+  "todo/complete-occurrence": TodoCompleteOccurrencePayload;
+  "todo/uncomplete-occurrence": TodoUncompleteOccurrencePayload;
   "todo/snooze": TodoSnoozePayload;
   "todo/mark-fired": TodoMarkFiredPayload;
   "todo/checklist/ensure": TodoChecklistEnsurePayload;

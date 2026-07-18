@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../app/AppProvider";
 import { Button } from "./ui";
 import { Bell, Clock, X } from "lucide-react";
@@ -34,10 +34,12 @@ function ToastStack({
   toasts,
   dispatch,
   settings,
+  noSnoozeTodoIds,
 }: {
   toasts: RenderedToast[];
   dispatch: ReturnType<typeof useApp>["dispatch"];
   settings: ReturnType<typeof useUserSettings>["settings"];
+  noSnoozeTodoIds: ReadonlySet<string>;
 }) {
   const [hovered, setHovered] = useState(false);
   const nodeMapRef = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -143,17 +145,19 @@ function ToastStack({
                       >
                         ✓ Complete
                       </Button>
-                      <Button
-                        tone="soft"
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs"
-                        onClick={() => {
-                          dispatch({ type: "todo/snooze", todoId: toast.todoId!, minutes: settings.defaultSnoozeMinutes });
-                          dispatch({ type: "toast/remove", toastId: toast.id });
-                        }}
-                      >
-                        <Clock className="h-3 w-3" />
-                        Snooze {settings.defaultSnoozeMinutes}m
-                      </Button>
+                      {toast.todoId && noSnoozeTodoIds.has(toast.todoId) ? null : (
+                        <Button
+                          tone="soft"
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs"
+                          onClick={() => {
+                            dispatch({ type: "todo/snooze", todoId: toast.todoId!, minutes: settings.defaultSnoozeMinutes });
+                            dispatch({ type: "toast/remove", toastId: toast.id });
+                          }}
+                        >
+                          <Clock className="h-3 w-3" />
+                          Snooze {settings.defaultSnoozeMinutes}m
+                        </Button>
+                      )}
                       <Button
                         tone="ghost"
                         className="px-2.5 py-1.5 text-xs text-app-ink-faint"
@@ -204,6 +208,13 @@ export function ToastHost() {
   const reminderToastTimeoutMs = settings.reminderToastDurationSeconds * 1_000;
   const defaultToastTimeoutMs = 5_000;
   const [renderedToasts, setRenderedToasts] = useState<RenderedToast[]>([]);
+
+  // Snooze rewrites a todo's due date/time, which would knock a recurring
+  // series or repeating reminder off its schedule — so hide it for those.
+  const noSnoozeTodoIds = useMemo(
+    () => new Set(state.todos.filter((todo) => todo.recurrence || todo.reminderEveryMinutes).map((todo) => todo.id)),
+    [state.todos],
+  );
 
   useEffect(() => {
     const timers = state.toasts.map((toast) =>
@@ -271,7 +282,7 @@ export function ToastHost() {
 
   return (
     <div className="fixed left-1/2 top-4 z-50 w-[min(92vw,420px)] -translate-x-1/2">
-      <ToastStack toasts={renderedToasts} dispatch={dispatch} settings={settings} />
+      <ToastStack toasts={renderedToasts} dispatch={dispatch} settings={settings} noSnoozeTodoIds={noSnoozeTodoIds} />
     </div>
   );
 }
