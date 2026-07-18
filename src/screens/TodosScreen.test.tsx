@@ -10,6 +10,13 @@ const { mockDispatch, mockState } = vi.hoisted(() => ({
   mockState: { current: null as AppState | null },
 }));
 
+vi.mock("convex/react", () => ({
+  useQuery: () => [],
+  useMutation: () => vi.fn(),
+  useAction: () => vi.fn(),
+  useConvex: () => ({}),
+}));
+
 vi.mock("../app/AppProvider", () => ({
   useApp: () => ({
     state: mockState.current,
@@ -475,9 +482,10 @@ describe("TodosScreen completion animation", () => {
     if (!scrollFrame) throw new Error("Expected the mobile todo view button to be inside a scroll frame");
     expect(todayViewButton.parentElement).toHaveClass("px-app-compact");
     expect(todayViewButton.parentElement).toHaveClass("py-app-compact");
+    // The scroll frame only scrolls horizontally (overflow-x-auto), so it just
+    // needs the horizontal shadow-reservation padding, not vertical.
     expect(scrollFrame).toHaveClass("-mx-app-compact");
     expect(scrollFrame).toHaveClass("px-app-compact");
-    expect(scrollFrame).toHaveClass("py-app-compact");
   });
 
   it("sorts later todos by nearest due date first", () => {
@@ -665,12 +673,14 @@ describe("TodosScreen completion animation", () => {
 
     renderTodosScreen();
 
-    const sortButton = screen.getByRole("button", { name: /Last updated/ });
+    const sortButton = screen.getByRole("button", { name: "Sort folders" });
+    expect(sortButton).toHaveTextContent("Last updated");
     fireEvent.click(sortButton);
 
-    fireEvent.click(screen.getByRole("button", { name: "A-Z" }));
+    fireEvent.click(screen.getByRole("button", { name: "Alphabetically" }));
 
+    // Menu closes and the trigger reflects the newly selected sort.
     expect(screen.queryByRole("button", { name: "Most todos" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /A-Z/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort folders" })).toHaveTextContent("Alphabetically");
   });
 });

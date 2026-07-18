@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Bookmark, CalendarDays, CheckSquare, Clock3, FileText, X } from "lucide-react";
+import { Bookmark, CalendarDays, CheckSquare, Clock3, FileText, Repeat, X } from "lucide-react";
 import { useApp } from "../app/AppProvider";
-import { parseEventDraftInput, parseTodoDraftInput, randomId } from "@omanote/shared";
+import { materializeReminderFields, parseEventDraftInput, parseTodoDraftInput, randomId } from "@omanote/shared";
 import { handlePasteAsLink } from "../lib/link-utils";
 import { useOutsideClick } from "../lib/useOutsideClick";
 import { SegmentedHighlight, SegmentedItem, SegmentedShell, TodoCheckmark } from "./ui";
@@ -642,14 +642,31 @@ export function CanvasDraftBlock() {
     const resolvedFolderName = todoFolderTrimmed || "Others";
 
     for (const line of parsedLines) {
+      // Sub-daily phrases ("every 30 minutes for 6 hours") become a repeating
+      // reminder on one todo; day-and-up cadences become a series anchored on
+      // the canvas day being composed (not necessarily today).
+      const reminder = line.recurrence?.kind === "reminder" ? materializeReminderFields(line.recurrence) : null;
+      const rule =
+        line.recurrence?.kind === "series"
+          ? {
+              ...line.recurrence.rule,
+              anchorDateKey:
+                state.ui.selectedDateKey > line.recurrence.rule.anchorDateKey
+                  ? state.ui.selectedDateKey
+                  : line.recurrence.rule.anchorDateKey,
+            }
+          : undefined;
       dispatch({
         type: "todo/create",
         title: line.title,
         dateKey: state.ui.selectedDateKey,
-        dueDateKey: line.dueDateKey,
-        dueTime: line.dueTime,
+        dueDateKey: reminder?.dueDateKey ?? line.dueDateKey,
+        dueTime: reminder?.dueTime ?? line.dueTime,
         folderId: resolvedFolderId,
         folderName: resolvedFolderName,
+        recurrence: rule,
+        reminderEveryMinutes: reminder?.reminderEveryMinutes,
+        reminderUntil: reminder?.reminderUntil,
       });
     }
 
@@ -775,6 +792,13 @@ export function CanvasDraftBlock() {
   const canSaveCurrent = canSaveNote || canSaveTodo || canSaveBookmark || canSaveEvent;
   const showMobileTypeSwitcher = mobileSwitcherVisible;
   const activeTodoLine = mode === "todo" ? (todoLines.find((line) => line.id === activeTodoLineId) ?? todoLines[0] ?? null) : null;
+  // Confirmation chip: what the recurrence parser understood from the active
+  // line, shown before saving so a parser miss is visible, not silent.
+  const activeTodoRecurrence = useMemo(() => {
+    const text = activeTodoLine?.text.trim();
+    if (!text) return null;
+    return parseTodoDraftInput(text).recurrence ?? null;
+  }, [activeTodoLine?.text]);
   const todoPicker = useHashtagPicker({
     value: activeTodoLine?.text ?? "",
     textareaRef: activeTodoInputRef,
@@ -1396,6 +1420,12 @@ export function CanvasDraftBlock() {
                   </div>
                 </div>
               ))}
+              {mode === "todo" && activeTodoRecurrence ? (
+                <div className="flex items-center gap-1.5 pl-11 text-xs text-app-ink-muted">
+                  <Repeat className="h-3 w-3" />
+                  <span>{activeTodoRecurrence.description}</span>
+                </div>
+              ) : null}
               {mode === "todo" ? (
                 <HashtagPickerDropdown
                   isOpen={todoPicker.isOpen}

@@ -104,5 +104,6 @@ export function createInitialState(): AppState {
       },
     ],
     toasts: [],
+    recurringDeletePrompt: null,
   };
 }

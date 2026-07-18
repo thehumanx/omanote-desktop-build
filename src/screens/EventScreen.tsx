@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { addDays, buildDateStripWindow, formatMonthDayRange, parseEventDraftInputForDate, toDateKey } from "@omanote/shared";
+import { addDays, buildDateStripWindow, formatMonthDayRange, listVirtualOccurrencesForDates, parseEventDraftInputForDate, parseVirtualOccurrenceId, toDateKey } from "@omanote/shared";
 import type { DateKey, TodoFolder, TodoItem } from "@omanote/shared";
 import { CalendarDays, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, Clock3, List, Plus, Trash2, X } from "lucide-react";
 import { useApp } from "../app/AppProvider";
@@ -638,13 +638,18 @@ export function EventScreen() {
     () => state.events.filter((event) => !event.deletedAt).sort((left, right) => left.loggedAt - right.loggedAt),
     [state.events],
   );
-  const activeScheduledTodos = useMemo(
-    () => state.todos.filter((todo) => !todo.deletedAt && todo.dueDateKey),
-    [state.todos],
-  );
-
   const weekDates = useMemo(() => buildDateStripWindow(addDays(today, state.ui.dateWindowOffset)), [state.ui.dateWindowOffset, today]);
   const weekDateKeys = useMemo(() => weekDates.map((date) => toDateKey(date)), [weekDates]);
+
+  // Scheduled todos for the calendar: plain todos with a due date, plus a
+  // virtual occurrence of each recurring series on every day it's due within
+  // the visible week (matching how the canvas expands them).
+  const activeScheduledTodos = useMemo(() => {
+    const todayKey = toDateKey(today);
+    const nonRecurring = state.todos.filter((todo) => !todo.deletedAt && todo.dueDateKey && !todo.recurrence);
+    const virtual = listVirtualOccurrencesForDates(state.todos, weekDateKeys, todayKey);
+    return [...nonRecurring, ...virtual];
+  }, [state.todos, weekDateKeys, today]);
   const visibleEvents = activeEvents;
   const allDayTodosByDateKey = useMemo(() => {
     const grouped: Record<string, TodoItem[]> = {};
@@ -695,7 +700,11 @@ export function EventScreen() {
     [calendarHourLayout, timedCalendarEntries, weekDateKeys],
   );
   const editingEvent = state.events.find((event) => event.id === editingEventId) ?? null;
-  const editingTodo = state.todos.find((todo) => todo.id === editingTodoId) ?? null;
+  // A virtual occurrence id (masterId::date) edits its series master.
+  const editingTodoRealId = editingTodoId
+    ? parseVirtualOccurrenceId(editingTodoId)?.masterId ?? editingTodoId
+    : null;
+  const editingTodo = state.todos.find((todo) => todo.id === editingTodoRealId) ?? null;
 
   const weekRangeLabel = useMemo(() => {
     const [firstDate] = weekDateKeys;
@@ -1183,6 +1192,9 @@ export function EventScreen() {
               hashtags: payload.hashtags,
               folderId: payload.folderId,
               folderName: payload.folderName,
+              recurrence: payload.recurrence,
+              reminderEveryMinutes: payload.reminderEveryMinutes,
+              reminderUntil: payload.reminderUntil,
             });
             setEditingTodoId(null);
           }}

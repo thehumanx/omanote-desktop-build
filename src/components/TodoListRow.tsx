@@ -1,8 +1,8 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { CircleCheckBig, Trash2, X } from "lucide-react";
+import { CircleCheckBig, Repeat, Trash2, X } from "lucide-react";
 import type { TodoFolder, TodoItem } from "@omanote/shared";
 import { Badge, Button, cn, TodoCheckmark } from "./ui";
-import { formatCompletedLabel, formatDueChip, formatNaturalLanguageDueInput, parseNaturalLanguageDueInput } from "@omanote/shared";
+import { describeRecurrenceRule, formatCompletedLabel, formatDueChip, formatNaturalLanguageDueInput, parseNaturalLanguageDueInput } from "@omanote/shared";
 import { useOutsideClick } from "../lib/useOutsideClick";
 import { handlePasteAsLink } from "../lib/link-utils";
 import { RichTextPreview } from "./rich-text";
@@ -347,6 +347,15 @@ export const TodoListRow = memo(function TodoListRow({
               <RichTextPreview value={todo.title} onLinkEdit={editTodoTitle} />
             </div>
             {todo.priority === "high" ? <Badge tone="outline" className="uppercase tracking-wide">High</Badge> : null}
+            {todo.recurrence || todo.recurringSourceId ? (
+              <Badge
+                title={todo.recurrence ? describeRecurrenceRule(todo.recurrence) : "recurring"}
+                className="inline-flex items-center gap-1 rounded-md text-app-ink-faint"
+              >
+                <Repeat className="h-3 w-3" />
+                {todo.recurrence ? describeRecurrenceRule(todo.recurrence) : null}
+              </Badge>
+            ) : null}
             {dueChip ? <Badge className="rounded-md text-app-ink-faint">{dueChip}</Badge> : null}
           </div>
           {todo.notes ? <p className="mt-1 text-sm leading-6 text-app-ink-muted">{todo.notes}</p> : null}

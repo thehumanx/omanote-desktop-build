@@ -1949,6 +1949,12 @@ export function LandingScreen() {
                   Roadmap
                 </a>
                 <Link
+                  to="/guide"
+                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
+                >
+                  Guide
+                </Link>
+                <Link
                   to="/updates"
                   className="underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
                 >

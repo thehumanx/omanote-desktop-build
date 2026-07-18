@@ -1,7 +1,8 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { CircleCheckBig, Trash2, WifiOff, X } from "lucide-react";
+import { CircleCheckBig, Repeat, Trash2, WifiOff, X } from "lucide-react";
 import type { TodoFolder, TodoItem } from "@omanote/shared";
 import {
+  describeRecurrenceRule,
   formatCompletedLabel,
   formatDueChip,
   formatFutureTodoCanvasLabel,
@@ -389,6 +390,20 @@ function CanvasTodoBlockComponent({
               <RichTextPreview value={todo.title} onLinkEdit={editTodoTitle} />
             </div>
             {todo.priority === "high" ? <span className="rounded-full border border-app-line px-2 py-0.5 text-[11px] uppercase tracking-wide text-app-ink-muted">High</span> : null}
+            {todo.recurrence || todo.recurringSourceId ? (
+              <span
+                title={todo.recurrence ? describeRecurrenceRule(todo.recurrence) : "recurring"}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px]",
+                  todo.occurrenceState === "missed"
+                    ? "bg-warning-surface text-warning-ink"
+                    : "bg-app-surface-muted text-app-ink-faint",
+                )}
+              >
+                <Repeat className="h-3 w-3" />
+                {todo.occurrenceState === "missed" ? "missed" : null}
+              </span>
+            ) : null}
             {!isFutureTodo && dueChip ? <span className="rounded-md bg-app-surface-muted px-2 py-0.5 text-[11px] text-app-ink-faint">{dueChip}</span> : null}
             {completedLabel ? (
               <span className="ml-auto inline-flex items-center gap-1 text-xs text-app-ink-faint">

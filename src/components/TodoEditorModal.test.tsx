@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DateKey, TodoFolder, TodoItem } from "@omanote/shared";
 import { TodoEditorModal } from "./TodoEditorModal";
 
@@ -46,7 +46,14 @@ const folders: TodoFolder[] = [
 
 describe("TodoEditorModal", () => {
   beforeEach(() => {
+    // Fake only Date so "today" is deterministic (the completed/due chips
+    // compare against the current date); leave real timers for RTL.
+    vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-06-20T08:00:00"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("preserves an existing todo due date and time when only the title changes", () => {
@@ -128,13 +135,59 @@ describe("TodoEditorModal", () => {
 
     const title = screen.getByText("Call dentist");
     expect(title).toHaveClass("line-through");
-    expect(screen.getByText("2:30PM, Today")).toBeInTheDocument();
+    // Due date equals the canvas date, so the chip shows just the time.
+    expect(screen.getByText("2:30PM")).toBeInTheDocument();
     expect(screen.getByText("4PM, Sat, Jun 20")).toBeInTheDocument();
     expect(screen.queryByLabelText("Todo title")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "toggle todo" }));
 
     expect(onToggle).toHaveBeenCalledWith("todo_1");
+  });
+
+  it("prefills the repeat field and lets the count be edited", () => {
+    const onSave = vi.fn();
+    render(
+      <TodoEditorModal
+        todo={makeTodo({
+          recurrence: { freq: "day", interval: 1, count: 5, anchorDateKey: "2026-06-18" as DateKey },
+        })}
+        selectedDateKey="2026-06-20"
+        onClose={vi.fn()}
+        onSave={onSave}
+      />,
+    );
+
+    const repeatInput = screen.getByLabelText("Repeat");
+    expect(repeatInput).toHaveValue("every day, 5 times");
+
+    fireEvent.change(repeatInput, { target: { value: "every day, 7 times" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recurrence: expect.objectContaining({ freq: "day", count: 7, anchorDateKey: "2026-06-18" }),
+      }),
+    );
+  });
+
+  it("clears recurrence when the repeat field is emptied", () => {
+    const onSave = vi.fn();
+    render(
+      <TodoEditorModal
+        todo={makeTodo({
+          recurrence: { freq: "day", interval: 1, anchorDateKey: "2026-06-18" as DateKey },
+        })}
+        selectedDateKey="2026-06-20"
+        onClose={vi.fn()}
+        onSave={onSave}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Repeat"), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ recurrence: null }));
   });
 
   it("saves a new todo from separate title and due fields", () => {

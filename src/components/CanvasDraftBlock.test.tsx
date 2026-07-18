@@ -322,6 +322,8 @@ describe("CanvasDraftBlock keyboard shortcuts", () => {
 
     fireEvent.change(urlInput, { target: { value: "https://example.com" } });
     fireEvent.focus(categoryInput);
+    // The category menu opens on arrow navigation (or typing), not bare focus.
+    fireEvent.keyDown(categoryInput, { key: "ArrowDown" });
     fireEvent.mouseDown(screen.getByRole("button", { name: "Work" }));
     expect(categoryInput).toHaveValue("Work");
 

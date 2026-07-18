@@ -11,6 +11,7 @@ import { NotificationPermissionBanner } from "../NotificationPermissionBanner";
 import { FaviconBadgeSync } from "../FaviconBadgeSync";
 import { UpdateNotificationBanner } from "../UpdateNotificationBanner";
 import { UpdateModal } from "../UpdateModal";
+import { RecurringDeleteModal } from "../RecurringDeleteModal";
 import { FounderNoteModal } from "../FounderNoteModal";
 import { OfflineStatusBanner } from "../OfflineStatusBanner";
 import { CookieNotice } from "../CookieNotice";
@@ -32,7 +33,8 @@ export function AppShell() {
     location.pathname.startsWith("/notes") ||
     location.pathname.startsWith("/bookmarks") ||
     location.pathname === "/todos" ||
-    location.pathname.startsWith("/reader");
+    location.pathname.startsWith("/reader") ||
+    location.pathname.startsWith("/guide");
   const isExploreRoute = location.pathname.startsWith("/explore");
   const isSettingsRoute = location.pathname.startsWith("/settings");
   const isInsightsRoute = location.pathname.startsWith("/insights");
@@ -283,6 +285,7 @@ export function AppShell() {
           </Suspense>
         </main>
         <ToastHost />
+        <RecurringDeleteModal />
       </div>
       <BottomNav
         hidden={bottomChromeHidden || hideBottomNavForKeyboard || notesDrawerOpen}

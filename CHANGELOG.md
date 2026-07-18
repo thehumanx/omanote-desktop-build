@@ -4,6 +4,17 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.26.0 [July 18, 2026]
+
+> Todos that repeat. Set a cadence, and omanote keeps the day-to-day going.
+
+- [Add] Recurring todos — repeat daily, weekly, monthly, or on chosen weekdays (even "the last Saturday of every month"), with an end date or a fixed number of repeats. Just type it — "every mon and fri" or "pay rent every month on the last saturday until December" — and a chip confirms what omanote understood
+- [Add] Repeating reminders — "drink water every 30 minutes for the next 6 hours" pings you on that cadence without cluttering your list with copies
+- [Add] Recurring todos appear on every day they're due, on both the canvas and the Event calendar; completing one advances the series and logs that day. Edit the cadence, repeat count, or end date any time, and choose what to delete — this one, this and future, or the whole series
+- [Update] Reminders keep firing on every occurrence even if you skip a day, the Todos list buckets a recurring todo by its current occurrence (Today vs. Overdue), and snooze is hidden for recurring todos and repeating reminders since it would knock them off schedule
+- [Add] A built-in guide at omanote.com/guide — a browsable help site covering the canvas, todos, notes, bookmarks, events, and more, readable without signing in and reachable from the profile menu when you are
+- [Fix] The Write/Read switcher no longer flips to Write when you open Settings, Updates, Insights, or the Guide — it stays on whichever side you were last using
+
 ### v0.25.3 [July 13, 2026]
 
 > Type a colon, get an emoji. Slack-style shortcuts, right in your notes, todos, and events.
@@ -525,6 +536,17 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Desktop Versions
 
+### v0.26.0 [July 18, 2026]
+
+> Todos that repeat. Set a cadence, and omanote keeps the day-to-day going.
+
+- [Add] Recurring todos — repeat daily, weekly, monthly, or on chosen weekdays (even "the last Saturday of every month"), with an end date or a fixed number of repeats. Just type it — "every mon and fri" or "pay rent every month on the last saturday until December" — and a chip confirms what omanote understood
+- [Add] Repeating reminders — "drink water every 30 minutes for the next 6 hours" pings you on that cadence without cluttering your list with copies
+- [Add] Recurring todos appear on every day they're due, on both the canvas and the Event calendar; completing one advances the series and logs that day. Edit the cadence, repeat count, or end date any time, and choose what to delete — this one, this and future, or the whole series
+- [Update] Reminders keep firing on every occurrence even if you skip a day, the Todos list buckets a recurring todo by its current occurrence (Today vs. Overdue), and snooze is hidden for recurring todos and repeating reminders since it would knock them off schedule
+- [Add] A built-in guide at omanote.com/guide — a browsable help site covering the canvas, todos, notes, bookmarks, events, and more, readable without signing in and reachable from the profile menu when you are
+- [Fix] The Write/Read switcher no longer flips to Write when you open Settings, Updates, Insights, or the Guide — it stays on whichever side you were last using
+
 ### v0.25.3 [July 13, 2026]
 
 > Type a colon, get an emoji. Slack-style shortcuts, right in your notes, todos, and events.
@@ -628,6 +650,16 @@ All notable changes to omanote are documented here, organized by product.
 - [Add] Desktop apps are now live. Whether you are on Windows, MacOS or Linux, omanote installs standalone on your device. Download them for seamless experience.
 
 ## Extension Versions
+
+### v2.5 [July 13, 2026]
+
+> Todo gets its own folders, dropdowns stop cutting off, and hashtags just work by typing them.
+
+- [Add] Folder selection for Todo, matching Note and Bookmark — pick an existing folder or create one right from the save form.
+- [Fix] Bookmark and Todo folder dropdowns were getting cut off partway down the list; Note's worked fine. All three now position themselves correctly regardless of how far down the popup they open.
+- [Fix] Removed the separate Hashtags field for notes — just type `#tag` directly in your note or todo and it's picked up automatically, same as the app.
+- [Fix] Sign-in and passphrase unlock could fail with a connection error on a fresh install due to a missing build configuration value.
+- [Fix] Folders could fail to load entirely if a single folder had an unreadable record — now the rest of your folders still show up instead of the whole list disappearing.
 
 ### v2.4 [July 09, 2026]
 

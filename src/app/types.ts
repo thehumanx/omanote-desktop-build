@@ -9,6 +9,7 @@ import type {
   NoteFolder,
   NoteItem,
   EventEntry,
+  RecurrenceRule,
   TabKey,
   TodoFilter,
   TodoItem,
@@ -58,6 +59,15 @@ export interface AppState {
   habits: HabitDefinition[];
   activity: ActivityItem[];
   toasts: ToastItem[];
+  // Set when deleting a recurring todo needs a scope choice (this day / this
+  // and future / all). Rendered by a global modal.
+  recurringDeletePrompt?: RecurringDeletePrompt | null;
+}
+
+export interface RecurringDeletePrompt {
+  masterId: string;
+  occurrenceDateKey: string;
+  title: string;
 }
 
 export type AppAction =
@@ -68,11 +78,16 @@ export type AppAction =
   | { type: "ui/set-search-query"; query: string }
   | { type: "ui/set-search-open"; open: boolean }
   | { type: "ui/set-notes-drawer-open"; open: boolean }
-  | { type: "todo/create"; title: string; dateKey: DateKey; dueDateKey?: DateKey; dueTime?: string; hashtags?: string[]; fromReminder?: boolean; folderId?: string; folderName?: string }
+  | { type: "todo/create"; title: string; dateKey: DateKey; dueDateKey?: DateKey; dueTime?: string; hashtags?: string[]; fromReminder?: boolean; folderId?: string; folderName?: string; recurrence?: RecurrenceRule; reminderEveryMinutes?: number; reminderUntil?: number }
   | { type: "todo/toggle"; todoId: string; completedAt?: number }
   | { type: "todo/delete"; todoId: string }
+  | { type: "todo/delete-series"; todoId: string }
+  | { type: "todo/delete-occurrence"; todoId: string; occurrenceDateKey: string }
+  | { type: "todo/truncate-series"; todoId: string; fromDateKey: string }
+  | { type: "todo/prompt-recurring-delete"; prompt: RecurringDeletePrompt }
+  | { type: "todo/close-recurring-delete" }
   | { type: "todo/restore"; todoId: string }
-  | { type: "todo/update"; todoId: string; title: string; dueDateKey?: DateKey; dueTime?: string; hashtags?: string[]; folderId?: string; folderName?: string }
+  | { type: "todo/update"; todoId: string; title: string; dueDateKey?: DateKey; dueTime?: string; hashtags?: string[]; folderId?: string; folderName?: string; recurrence?: RecurrenceRule | null; reminderEveryMinutes?: number | null; reminderUntil?: number | null }
   | { type: "todo/snooze"; todoId: string; minutes: number }
   | { type: "todo/mark-fired"; todoId: string; timestamp: number }
   | { type: "note/create"; body: string; dateKey: DateKey; title?: string; tags?: string[]; hashtags?: string[]; folderName?: string; folderId?: string }

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useApp } from "../app/AppProvider";
 import { useLocation } from "react-router-dom";
-import { combineDateKeyAndTime, randomId } from "@omanote/shared";
+import { combineDateKeyAndTime, previousOccurrenceOnOrBefore, randomId, toDateKey } from "@omanote/shared";
 import { useUserSettings } from "../contexts/UserSettingsContext";
 import { computeReminderTriggerAt } from "../lib/reminder-schedule";
 import { isTauri, sendDesktopNotification } from "../lib/desktop";
@@ -69,14 +69,46 @@ export function ReminderMonitor() {
   useEffect(() => {
     function checkReminders() {
       const now = new Date();
+      const todayKey = toDateKey(now);
       for (const todo of todosRef.current) {
-        if (todo.deletedAt || todo.status !== "open" || !todo.dueDateKey || !todo.dueTime || todo.reminderFiredAt) {
+        if (todo.deletedAt || todo.status !== "open" || !todo.dueDateKey || !todo.dueTime) {
+          continue;
+        }
+        const repeating = Boolean(todo.reminderEveryMinutes && todo.reminderUntil);
+
+        // Recurring series: fire for the current occurrence computed from the
+        // rule (so daily/weekly reminders repeat), not the pinned dueDateKey.
+        // Skip occurrences the master has already advanced past (completed).
+        let occurrenceDateKey = todo.dueDateKey;
+        const recurring = Boolean(todo.recurrence);
+        if (todo.recurrence) {
+          const occ = previousOccurrenceOnOrBefore(todo.recurrence, todayKey);
+          if (!occ || occ < todo.dueDateKey) continue;
+          occurrenceDateKey = occ;
+        }
+
+        // reminderFiredAt only debounces one-shot reminders; repeating and
+        // recurring reminders fire once per slot/occurrence, deduped by key.
+        if (todo.reminderFiredAt && !repeating && !recurring) {
           continue;
         }
 
-        const dueAt = combineDateKeyAndTime(todo.dueDateKey, todo.dueTime);
-        const triggerAt = computeReminderTriggerAt(dueAt, settings.reminderLeadMinutes);
-        const key = `${todo.id}:${todo.dueDateKey}:${todo.dueTime}`;
+        const dueAt = combineDateKeyAndTime(occurrenceDateKey, todo.dueTime);
+        let triggerAt = computeReminderTriggerAt(dueAt, settings.reminderLeadMinutes);
+        let key = `${todo.id}:${occurrenceDateKey}:${todo.dueTime}`;
+        if (repeating) {
+          if (now.getTime() > todo.reminderUntil!) continue;
+          if (now >= triggerAt) {
+            // Fire only the latest elapsed slot — after a laptop wakes from
+            // sleep we don't replay every missed interval.
+            const everyMs = todo.reminderEveryMinutes! * 60_000;
+            const slot = Math.floor((now.getTime() - triggerAt.getTime()) / everyMs);
+            const slotAt = triggerAt.getTime() + slot * everyMs;
+            if (slotAt > todo.reminderUntil!) continue;
+            triggerAt = new Date(slotAt);
+            key = `${todo.id}:repeat:${slotAt}`;
+          }
+        }
         if (triggerAt <= now && !firedRef.current.has(key)) {
           const canShowInApp = settings.inAppReminderNotifications;
           // The desktop app has its own local toggle and OS-level permission;

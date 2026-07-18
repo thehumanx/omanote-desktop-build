@@ -16,6 +16,9 @@ const { mockNoteInlineEditor } = vi.hoisted(() => ({
 
 vi.mock("convex/react", () => ({
   useQuery: () => [],
+  useMutation: () => vi.fn(),
+  useAction: () => vi.fn(),
+  useConvex: () => ({}),
 }));
 
 vi.mock("../app/AppProvider", () => ({

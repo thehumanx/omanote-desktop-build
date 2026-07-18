@@ -3,7 +3,13 @@ import { useAction, useConvex, useConvexAuth, useMutation, useQuery } from "conv
 import { useLocation } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
-import { conjugateTitleToPastTense, toDateKey } from "@omanote/shared";
+import {
+  conjugateTitleToPastTense,
+  getLiveOccurrenceDateKey,
+  makeVirtualOccurrenceId,
+  parseVirtualOccurrenceId,
+  toDateKey,
+} from "@omanote/shared";
 import type { ActivityItem, BookmarkCategory, BookmarkItem, DateKey, NoteFolder, NoteItem, EventEntry, TodoChecklistItem, TodoFolder, TodoItem } from "@omanote/shared";
 import { useEncryption } from "../contexts/EncryptionContext";
 import { useUserSettings } from "../contexts/UserSettingsContext";
@@ -32,7 +38,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "./db";
 import { useAuth } from "./auth/AuthContext";
 import { parseHashtags } from "../lib/hashtags";
-import type { AppAction, AppState, ToastItem } from "./types";
+import type { AppAction, AppState, RecurringDeletePrompt, ToastItem } from "./types";
 import { prefixedRandomId, randomId } from "@omanote/shared";
 
 // Stable empty array used as the fallback for not-yet-loaded Dexie queries.
@@ -98,6 +104,7 @@ const defaultUiState: UiState = {
 type LocalState = {
   ui: UiState;
   toasts: ToastItem[];
+  recurringDeletePrompt: RecurringDeletePrompt | null;
   optimisticTodos: TodoItem[];
   deletingTodoIds: string[];
   deletingNoteIds: string[];
@@ -125,6 +132,8 @@ type LocalAction =
   | { type: "ui/set-notes-drawer-open"; open: boolean }
   | { type: "toast/add"; toast: ToastItem }
   | { type: "toast/remove"; toastId: string }
+  | { type: "todo/prompt-recurring-delete"; prompt: RecurringDeletePrompt }
+  | { type: "todo/close-recurring-delete" }
   | { type: "todo/add-optimistic"; todo: TodoItem }
   | { type: "todo/remove-optimistic"; clientKey: string }
   | { type: "todo/mark-deleting"; todoId: string }
@@ -183,6 +192,10 @@ function localReducer(state: LocalState, action: LocalAction): LocalState {
       return { ...state, toasts: [action.toast, ...state.toasts] };
     case "toast/remove":
       return { ...state, toasts: state.toasts.filter((toast) => toast.id !== action.toastId) };
+    case "todo/prompt-recurring-delete":
+      return { ...state, recurringDeletePrompt: action.prompt };
+    case "todo/close-recurring-delete":
+      return { ...state, recurringDeletePrompt: null };
     case "todo/add-optimistic":
       return { ...state, optimisticTodos: [action.todo, ...state.optimisticTodos] };
     case "todo/remove-optimistic":
@@ -324,6 +337,10 @@ function mapTodo(todo: Doc<"todos">): TodoItem {
     reminderFiredAt: todo.reminderFiredAt ?? undefined,
     folderId: todo.folderId ? String(todo.folderId) : undefined,
     folderName: todo.folderName ?? undefined,
+    recurrence: (todo.recurrence as TodoItem["recurrence"]) ?? undefined,
+    recurringSourceId: todo.recurringSourceId ? String(todo.recurringSourceId) : undefined,
+    reminderEveryMinutes: todo.reminderEveryMinutes ?? undefined,
+    reminderUntil: todo.reminderUntil ?? undefined,
   };
 }
 
@@ -514,6 +531,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [localState, localDispatch] = useReducer(localReducer, undefined, () => ({
     ui: loadUiState(),
     toasts: [],
+    recurringDeletePrompt: null,
     optimisticTodos: [],
     deletingTodoIds: [],
     deletingNoteIds: [],
@@ -839,7 +857,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const backfillEventUpdatedAt = useMutation(api.events.backfillEventUpdatedAt);
   const updateTodo = useMutation(api.todos.updateTodo);
   const toggleTodo = useMutation(api.todos.toggleTodo);
+  const completeRecurringOccurrence = useMutation(api.todos.completeRecurringOccurrence);
+  const uncompleteRecurringOccurrence = useMutation(api.todos.uncompleteRecurringOccurrence);
   const deleteTodo = useMutation(api.todos.deleteTodo);
+  const deleteRecurringOccurrence = useMutation(api.todos.deleteRecurringOccurrence);
+  const truncateRecurringSeries = useMutation(api.todos.truncateRecurringSeries);
   const restoreTodo = useMutation(api.todos.restoreTodo);
   const snoozeTodo = useMutation(api.todos.snoozeTodo);
   const markFired = useMutation(api.todos.markFired);
@@ -1471,6 +1493,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       "todo/toggle": async (payload) => {
         await toggleTodo({ todoId: payload.todoId as any, completedAt: payload.completedAt });
       },
+      // Retries drop the encrypted past-tense event label (same trade-off as
+      // the plain toggle retry above); the server falls back to the title.
+      "todo/complete-occurrence": async (payload) => {
+        await completeRecurringOccurrence({
+          todoId: payload.todoId as any,
+          occurrenceDateKey: payload.occurrenceDateKey,
+          completedAt: payload.completedAt,
+        });
+      },
+      "todo/uncomplete-occurrence": async (payload) => {
+        await uncompleteRecurringOccurrence({ todoId: payload.todoId as any });
+      },
+      "todo/delete-occurrence": async (payload) => {
+        await deleteRecurringOccurrence({ todoId: payload.todoId as any, occurrenceDateKey: payload.occurrenceDateKey });
+      },
+      "todo/truncate-series": async (payload) => {
+        await truncateRecurringSeries({ todoId: payload.todoId as any, fromDateKey: payload.fromDateKey });
+      },
       "todo/create": async (payload) => {
         await createTodo({
           title: payload.title,
@@ -1482,6 +1522,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           hashtags: payload.hashtags,
           folderId: payload.folderId as any,
           folderName: payload.folderName,
+          recurrence: payload.recurrence,
+          reminderEveryMinutes: payload.reminderEveryMinutes,
+          reminderUntil: payload.reminderUntil,
         });
       },
       "todo/update": async (payload) => {
@@ -1493,6 +1536,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           hashtags: payload.hashtags,
           folderId: payload.folderId as any,
           folderName: payload.folderName,
+          recurrence: payload.recurrence,
+          reminderEveryMinutes: payload.reminderEveryMinutes,
+          reminderUntil: payload.reminderUntil,
         });
       },
       "todo/checklist/ensure": async (payload) => {
@@ -1516,11 +1562,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
     }).then(() => scheduleSync());
   }, [
+    completeRecurringOccurrence,
+    deleteRecurringOccurrence,
+    truncateRecurringSeries,
     createChecklistItem,
     createTodo,
     createNote,
     createEventEntry,
     deleteChecklistItem,
+    uncompleteRecurringOccurrence,
     deleteNote,
     deleteEventEntry,
     ensureChecklistItem,
@@ -1592,6 +1642,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // ---------------------------------------------------------------------------
 
   const handleTodoAction = useCallback((action: AppAction): boolean => {
+    // Virtual occurrence ids ("masterId::dateKey") only make sense for
+    // toggle (routes to occurrence mutations) and delete (needs the occurrence
+    // date for scoped deletes). Every other todo action falls through to plain
+    // Convex mutations, so remap to the series master.
+    if (action.type !== "todo/toggle" && action.type !== "todo/delete" && "todoId" in action && typeof action.todoId === "string") {
+      const virtual = parseVirtualOccurrenceId(action.todoId);
+      if (virtual) {
+        action = { ...action, todoId: virtual.masterId } as AppAction;
+      }
+    }
     switch (action.type) {
       case "todo/create": {
         const normalizedDue = normalizeTodoDueInput({ dueDateKey: action.dueDateKey, dueTime: action.dueTime });
@@ -1618,6 +1678,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           reminderFiredAt: undefined,
           folderId: optimisticFolder.folderId,
           folderName: optimisticFolder.folderName,
+          recurrence: action.recurrence,
+          reminderEveryMinutes: action.reminderEveryMinutes,
+          reminderUntil: action.reminderUntil,
         };
         localDispatch({ type: "todo/add-optimistic", todo: optimisticTodo });
         void (async () => {
@@ -1634,6 +1697,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               hashtags,
               folderId: resolvedFolder.folderId as any,
               folderName: resolvedFolder.folderId ? undefined : resolvedFolder.folderName ? await encrypt(resolvedFolder.folderName) : undefined,
+              recurrence: action.recurrence,
+              reminderEveryMinutes: action.reminderEveryMinutes,
+              reminderUntil: action.reminderUntil,
             })) as string;
             localDispatch({ type: "todo/confirm-optimistic", clientKey });
             scheduleSync();
@@ -1661,12 +1727,104 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               hashtags,
               folderId: resolvedFolder.folderId,
               folderName: resolvedFolder.folderId ? undefined : resolvedFolder.folderName ? await encrypt(resolvedFolder.folderName) : undefined,
+              recurrence: action.recurrence,
+              reminderEveryMinutes: action.reminderEveryMinutes,
+              reminderUntil: action.reminderUntil,
             });
           }
         })();
         return true;
       }
       case "todo/toggle": {
+        // --- Recurring routing -------------------------------------------
+        // Virtual occurrence ids ("masterId::dateKey") and series masters
+        // complete one occurrence; done completions un-complete themselves.
+        const virtual = parseVirtualOccurrenceId(action.todoId);
+        const routedSnapshot = stateRef.current?.todos.find(
+          (t) => t.id === (virtual?.masterId ?? action.todoId),
+        );
+
+        if (!virtual && routedSnapshot?.recurringSourceId && routedSnapshot.status === "done" && !routedSnapshot.deletedAt) {
+          const cloneId = routedSnapshot.id;
+          localDispatch({ type: "todo/mark-toggling", todoId: cloneId, targetStatus: "open" });
+          void (async () => {
+            try {
+              await uncompleteRecurringOccurrence({ todoId: cloneId as any });
+              scheduleSync();
+              // The clone soft-deletes rather than reopening, so the generic
+              // status reconciler never clears this one.
+              localDispatch({ type: "todo/clear-toggling", todoId: cloneId });
+              pushHistory({
+                key: `todo:toggle:${cloneId}`,
+                undo: () => dispatchRef.current({ type: "todo/toggle", todoId: cloneId }),
+                redo: () => dispatchRef.current({ type: "todo/toggle", todoId: cloneId }),
+              });
+            } catch {
+              localDispatch({ type: "todo/clear-toggling", todoId: cloneId });
+              enqueueCanvasMutation("todo/uncomplete-occurrence", { todoId: cloneId });
+            }
+          })();
+          return true;
+        }
+
+        if (routedSnapshot?.recurrence && routedSnapshot.status === "open" && !routedSnapshot.deletedAt) {
+          const master = routedSnapshot;
+          const occurrenceDateKey = virtual?.dateKey ?? getLiveOccurrenceDateKey(master, toDateKey(new Date()));
+          if (!occurrenceDateKey) return true;
+          const completedAt = action.completedAt ?? Date.now();
+          const togglingId = action.todoId;
+          const optimisticClientKey = prefixedRandomId("toggle-event");
+          localDispatch({ type: "todo/mark-toggling", todoId: togglingId, targetStatus: "done" });
+          localDispatch({
+            type: "event/add-optimistic",
+            event: {
+              id: optimisticClientKey,
+              clientKey: optimisticClientKey,
+              pendingSync: false,
+              label: conjugateTitleToPastTense(master.title),
+              loggedAt: completedAt,
+              createdAt: completedAt,
+              createdDateKey: occurrenceDateKey,
+              sourceType: "todo_completed",
+              sourceTodoId: master.id,
+            },
+          });
+          void (async () => {
+            try {
+              const eventLabel = await encrypt(conjugateTitleToPastTense(master.title));
+              const cloneId = await completeRecurringOccurrence({
+                todoId: master.id as any,
+                occurrenceDateKey,
+                eventLabel,
+                completedAt,
+              });
+              scheduleSync();
+              localDispatch({ type: "todo/clear-toggling", todoId: togglingId });
+              // The server event references the materialized clone, not the
+              // master, so the generic reconciler can't match this one.
+              localDispatch({ type: "event/remove-optimistic", clientKey: optimisticClientKey });
+              pushHistory({
+                key: `todo:toggle:${master.id}:${occurrenceDateKey}`,
+                undo: () => dispatchRef.current({ type: "todo/toggle", todoId: String(cloneId) }),
+                redo: () =>
+                  dispatchRef.current({
+                    type: "todo/toggle",
+                    todoId: makeVirtualOccurrenceId(master.id, occurrenceDateKey),
+                  }),
+              });
+            } catch {
+              localDispatch({ type: "todo/clear-toggling", todoId: togglingId });
+              localDispatch({ type: "event/remove-optimistic", clientKey: optimisticClientKey });
+              enqueueCanvasMutation("todo/complete-occurrence", {
+                todoId: master.id,
+                occurrenceDateKey,
+                completedAt,
+              });
+            }
+          })();
+          return true;
+        }
+        // --- Plain (non-recurring) toggle --------------------------------
         const snapshot = stateRef.current?.todos.find((t) => t.id === action.todoId);
         const isCompleting = snapshot?.status !== "done";
         const targetStatus = isCompleting ? "done" : "open";
@@ -1720,6 +1878,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return true;
       }
       case "todo/delete": {
+        // Deleting a recurring series (its master row or a virtual occurrence)
+        // asks for a scope first: this day, this and future, or all.
+        const virtual = parseVirtualOccurrenceId(action.todoId);
+        const seriesTarget = stateRef.current?.todos.find((t) => t.id === (virtual?.masterId ?? action.todoId));
+        if (seriesTarget?.recurrence) {
+          const occurrenceDateKey =
+            virtual?.dateKey ??
+            getLiveOccurrenceDateKey(seriesTarget, toDateKey(new Date())) ??
+            seriesTarget.dueDateKey ??
+            toDateKey(new Date());
+          localDispatch({
+            type: "todo/prompt-recurring-delete",
+            prompt: { masterId: seriesTarget.id, occurrenceDateKey, title: seriesTarget.title },
+          });
+          return true;
+        }
+
         const snapshot = stateRef.current?.todos.find((t) => t.id === action.todoId);
         if (!historySuppressedRef.current) {
           showDeleteToast(
@@ -1742,6 +1917,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             }
           } catch {
             enqueueCanvasMutation("todo/delete", { todoId: action.todoId });
+          }
+        })();
+        return true;
+      }
+      case "todo/delete-series": {
+        // "Delete all" from the recurring-delete modal: soft-delete the master
+        // directly (the plain todo/delete would re-open the scope prompt).
+        const snapshot = stateRef.current?.todos.find((t) => t.id === action.todoId);
+        if (!historySuppressedRef.current) {
+          showDeleteToast(
+            "todo",
+            snapshot?.title ?? "Untitled",
+            snapshot ? () => dispatchRef.current({ type: "todo/restore", todoId: snapshot.id }) : undefined,
+          );
+        }
+        localDispatch({ type: "todo/mark-deleting", todoId: action.todoId });
+        void (async () => {
+          try {
+            await deleteTodo({ todoId: action.todoId as any });
+            scheduleSync();
+          } catch {
+            enqueueCanvasMutation("todo/delete", { todoId: action.todoId });
+          }
+        })();
+        return true;
+      }
+      case "todo/delete-occurrence": {
+        void (async () => {
+          try {
+            await deleteRecurringOccurrence({ todoId: action.todoId as any, occurrenceDateKey: action.occurrenceDateKey });
+            scheduleSync();
+          } catch {
+            enqueueCanvasMutation("todo/delete-occurrence", { todoId: action.todoId, occurrenceDateKey: action.occurrenceDateKey });
+          }
+        })();
+        return true;
+      }
+      case "todo/truncate-series": {
+        void (async () => {
+          try {
+            await truncateRecurringSeries({ todoId: action.todoId as any, fromDateKey: action.fromDateKey });
+            scheduleSync();
+          } catch {
+            enqueueCanvasMutation("todo/truncate-series", { todoId: action.todoId, fromDateKey: action.fromDateKey });
           }
         })();
         return true;
@@ -1773,6 +1992,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               hashtags,
               folderId: resolvedFolder.folderId as any,
               folderName: resolvedFolder.folderId ? undefined : resolvedFolder.folderName ? await encrypt(resolvedFolder.folderName) : undefined,
+              recurrence: action.recurrence,
+              reminderEveryMinutes: action.reminderEveryMinutes,
+              reminderUntil: action.reminderUntil,
             });
             scheduleSync();
             if (snapshot) {
@@ -1810,6 +2032,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               hashtags,
               folderId: resolvedFolder.folderId,
               folderName: resolvedFolder.folderId ? undefined : resolvedFolder.folderName ? await encrypt(resolvedFolder.folderName) : undefined,
+              recurrence: action.recurrence,
+              reminderEveryMinutes: action.reminderEveryMinutes,
+              reminderUntil: action.reminderUntil,
             });
           }
         })();
@@ -1934,7 +2159,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       default:
         return false;
     }
-  }, [createTodo, updateTodo, toggleTodo, deleteTodo, restoreTodo, snoozeTodo, markFired, createTodoFolder, updateTodoFolder, deleteTodoFolder, deleteTodoFolderWithTodos, pushHistory, showDeleteToast, localDispatch, encrypt, authUser, db, resolveTodoFolderInput, scheduleSync, setDecryptedTodoFolders]);
+  }, [createTodo, updateTodo, toggleTodo, completeRecurringOccurrence, uncompleteRecurringOccurrence, deleteTodo, deleteRecurringOccurrence, truncateRecurringSeries, restoreTodo, snoozeTodo, markFired, createTodoFolder, updateTodoFolder, deleteTodoFolder, deleteTodoFolderWithTodos, pushHistory, showDeleteToast, localDispatch, encrypt, authUser, db, resolveTodoFolderInput, scheduleSync, setDecryptedTodoFolders]);
 
   const handleNoteAction = useCallback((action: AppAction): boolean => {
     switch (action.type) {
@@ -2459,6 +2684,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       habits: [],
       activity: decryptedActivity,
       toasts: localState.toasts,
+      recurringDeletePrompt: localState.recurringDeletePrompt,
     }),
     [
       decryptedActivity,
@@ -2482,6 +2708,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       localState.optimisticEvents,
       localState.optimisticTodos,
       localState.toasts,
+      localState.recurringDeletePrompt,
       localState.ui,
       serverBookmarkClientKeys,
       serverNoteClientKeys,

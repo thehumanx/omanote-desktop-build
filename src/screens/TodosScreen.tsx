@@ -17,7 +17,7 @@ import { TodoEditorModal } from "../components/TodoEditorModal";
 import { TodoFolderRow } from "../components/TodoFolderRow";
 import { TodoListRow } from "../components/TodoListRow";
 import { Button, cn, SegmentedPill } from "../components/ui";
-import { formatCompletedLabel, formatLongDateKey } from "@omanote/shared";
+import { formatCompletedLabel, formatLongDateKey, getSeriesListBucket, isClosedSeriesMaster, type TodoListBucket } from "@omanote/shared";
 import { useDrawerDrag } from "../lib/useDrawerDrag";
 import { useMeasuredHighlight } from "../hooks/useMeasuredHighlight";
 import { parseHashtags } from "../lib/hashtags";
@@ -715,19 +715,39 @@ export function TodosScreen() {
     [folderTodos, completionFilterByTodoId, uncompletionFilterByTodoId],
   );
 
-  const viewCounts = useMemo(() => {
-    const today = folderTodos.filter((todo) => todo.dueDateKey === todayKey);
-    const overdue = folderTodos.filter((todo) => todo.dueDateKey && todo.dueDateKey < todayKey && todo.status !== "done");
-    const upcoming = folderTodos.filter((todo) => todo.dueDateKey && todo.dueDateKey > todayKey && todo.status !== "done");
-    const completed = folderTodos.filter((todo) => todo.status === "done");
+  // Bucketing for the todo filters. Recurring series masters route through
+  // getSeriesListBucket (their dueDateKey tracks the current occurrence);
+  // closed/exhausted masters are hidden since their completion clone already
+  // represents them. Non-recurring todos keep the original date logic.
+  const matchesFilter = useCallback(
+    (todo: TodoItem, filter: TodoFilter): boolean => {
+      if (isClosedSeriesMaster(todo)) return false;
+      if (filter === "completed") return todo.status === "done";
+      if (todo.recurrence) return getSeriesListBucket(todo, new Date()) === (filter as TodoListBucket);
+      switch (filter) {
+        case "today":
+          return todo.dueDateKey === todayKey;
+        case "overdue":
+          return Boolean(todo.dueDateKey && todo.dueDateKey < todayKey && todo.status !== "done");
+        case "upcoming":
+          return Boolean(todo.dueDateKey && todo.dueDateKey > todayKey && todo.status !== "done");
+        default:
+          return false;
+      }
+    },
+    [todayKey],
+  );
 
-    return {
-      today: today.length,
-      overdue: overdue.length,
-      upcoming: upcoming.length,
-      completed: completed.length,
-    } satisfies Record<TodoFilter, number>;
-  }, [folderTodos, todayKey]);
+  const viewCounts = useMemo(
+    () =>
+      ({
+        today: folderTodos.filter((todo) => matchesFilter(todo, "today")).length,
+        overdue: folderTodos.filter((todo) => matchesFilter(todo, "overdue")).length,
+        upcoming: folderTodos.filter((todo) => matchesFilter(todo, "upcoming")).length,
+        completed: folderTodos.filter((todo) => matchesFilter(todo, "completed")).length,
+      }) satisfies Record<TodoFilter, number>,
+    [folderTodos, matchesFilter],
+  );
 
   const visibleTodos = useMemo(() => {
     return sortedTodos.filter((todo) => {
@@ -739,22 +759,9 @@ export function TodosScreen() {
         return true;
       }
 
-      if (state.ui.todoFilter === "completed") {
-        return todo.status === "done";
-      }
-
-      switch (state.ui.todoFilter) {
-        case "today":
-          return todo.dueDateKey === todayKey;
-        case "overdue":
-          return Boolean(todo.dueDateKey && todo.dueDateKey < todayKey && todo.status !== "done");
-        case "upcoming":
-          return Boolean(todo.dueDateKey && todo.dueDateKey > todayKey);
-        default:
-          return false;
-      }
+      return matchesFilter(todo, state.ui.todoFilter);
     });
-  }, [completionFilterByTodoId, sortedTodos, state.ui.todoFilter, todayKey, uncompletionFilterByTodoId]);
+  }, [completionFilterByTodoId, sortedTodos, state.ui.todoFilter, matchesFilter, uncompletionFilterByTodoId]);
 
   const allFolderTodos = useMemo(() => {
     return [...folderTodos].sort((left, right) => {
@@ -1600,6 +1607,9 @@ export function TodosScreen() {
               dueTime: payload.dueTime,
               folderId: payload.folderId,
               folderName: payload.folderName,
+              recurrence: payload.recurrence ?? undefined,
+              reminderEveryMinutes: payload.reminderEveryMinutes ?? undefined,
+              reminderUntil: payload.reminderUntil ?? undefined,
             });
             setCreating(false);
           }}
