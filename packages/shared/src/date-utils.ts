@@ -1,6 +1,7 @@
 import * as chrono from "chrono-node";
 import type { DateKey } from "./domain";
 import { formatLongDate, formatTimeLabel, fromDateKey, toDateKey } from "./dates";
+import { parseRecurrencePhrase, type ParsedRecurrence } from "./recurrence-parse";
 
 export function formatDueChip(dueDateKey?: string, dueTime?: string, canvasDateKey?: string, createdDateKey?: string) {
   if (!dueDateKey) return "";
@@ -139,25 +140,38 @@ function normalizeEventDraftInput(input: string) {
 
 export function parseTodoDraftInput(input: string) {
   const trimmed = normalizeClockTimeInput(input);
-  if (!trimmed) {
-    return { title: "", dueDateKey: undefined as DateKey | undefined, dueTime: undefined as string | undefined };
-  }
-
   const todayKey = toDateKey(new Date());
-  const parsed = parseNaturalLanguageDueInput(trimmed);
-  if (!parsed) {
-    return { title: trimmed, dueDateKey: todayKey, dueTime: undefined as string | undefined };
+  if (!trimmed) {
+    return {
+      title: "",
+      dueDateKey: undefined as DateKey | undefined,
+      dueTime: undefined as string | undefined,
+      recurrence: undefined as ParsedRecurrence | undefined,
+    };
   }
 
-  const results = chrono.parse(trimmed, new Date(), { forwardDate: true });
+  // Recurrence phrases first ("every day until december"), so chrono never
+  // eats parts of them as one-off dates. Due parsing runs on the remainder.
+  const recurrence = parseRecurrencePhrase(trimmed, todayKey) ?? undefined;
+  const remainder = recurrence ? recurrence.cleanedText : trimmed;
+  if (!remainder) {
+    return { title: "", dueDateKey: todayKey, dueTime: undefined as string | undefined, recurrence };
+  }
+
+  const parsed = parseNaturalLanguageDueInput(remainder);
+  if (!parsed) {
+    return { title: remainder, dueDateKey: todayKey, dueTime: undefined as string | undefined, recurrence };
+  }
+
+  const results = chrono.parse(remainder, new Date(), { forwardDate: true });
   const best = pickBestChronoResult(results);
-  const strippedTitle = best ? stripMatchedPhrase(trimmed, best) : trimmed;
+  const strippedTitle = best ? stripMatchedPhrase(remainder, best) : remainder;
 
   if (!strippedTitle) {
-    return { title: "", dueDateKey: parsed.dateKey, dueTime: parsed.time };
+    return { title: "", dueDateKey: parsed.dateKey, dueTime: parsed.time, recurrence };
   }
 
-  return { title: strippedTitle, dueDateKey: parsed.dateKey, dueTime: parsed.time };
+  return { title: strippedTitle, dueDateKey: parsed.dateKey, dueTime: parsed.time, recurrence };
 }
 
 export function parseEventDraftInput(input: string, startedAt: number) {
