@@ -1,3 +1,5 @@
+import type { RecurrenceRule } from "./recurrence";
+
 export type DateKey = `${number}-${number}-${number}`;
 
 export type TabKey = "canvas" | "todos" | "notes" | "bookmarks" | "event";
@@ -34,6 +36,19 @@ export interface TodoItem {
   reminderFiredAt?: number;
   folderId?: string;
   folderName?: string;
+  /** Recurring series master: the rule expanded virtually on clients. */
+  recurrence?: RecurrenceRule;
+  /** Materialized completion of one occurrence -> its series master id. */
+  recurringSourceId?: string;
+  /** Repeating reminder within a day ("every 30 minutes …"). */
+  reminderEveryMinutes?: number;
+  /** Absolute timestamp the repeating reminder window closes. */
+  reminderUntil?: number;
+  /**
+   * Client-only: set on virtual occurrences synthesized from a series
+   * master for one canvas day. Never persisted.
+   */
+  occurrenceState?: "live" | "missed" | "upcoming";
 }
 
 export interface TodoFolder {
