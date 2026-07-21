@@ -69,6 +69,7 @@ export function BottomNav({ hidden = false, forceHidden = false, onOpenAbout = (
 function SimpleRouteCloseNav({ hidden, forceHidden, label }: { hidden: boolean; forceHidden: boolean; label: string }) {
   const navRef = useRef<HTMLElement | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const shouldHide = forceHidden || hidden;
 
   useEffect(() => {
@@ -91,7 +92,14 @@ function SimpleRouteCloseNav({ hidden, forceHidden, label }: { hidden: boolean; 
   }, []);
 
   const handleClose = () => {
-    if (window.history.length > 1) {
+    // location.key is "default" when this entry was reached by a hard/full
+    // page navigation (e.g. a redirect back from an external OAuth flow like
+    // Google Calendar connect) rather than in-app routing. window.history
+    // still reports a non-trivial length in that case, but the entries
+    // behind it belong to the external site, not this app — navigate(-1)
+    // would send the user out to that redirect chain instead of back
+    // through the app, so fall back to a known-good in-app route instead.
+    if (location.key !== "default" && window.history.length > 1) {
       navigate(-1);
       return;
     }

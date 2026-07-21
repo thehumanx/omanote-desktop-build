@@ -3,6 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DateKey, TodoFolder, TodoItem } from "@omanote/shared";
 import { TodoEditorModal } from "./TodoEditorModal";
 
+const { mockUseQuery } = vi.hoisted(() => ({ mockUseQuery: vi.fn() }));
+
+vi.mock("convex/react", () => ({
+  useQuery: mockUseQuery,
+}));
+
 vi.mock("../contexts/UserSettingsContext", () => ({
   useUserSettings: () => ({
     settings: {
@@ -50,6 +56,7 @@ describe("TodoEditorModal", () => {
     // compare against the current date); leave real timers for RTL.
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-06-20T08:00:00"));
+    mockUseQuery.mockReturnValue(undefined);
   });
 
   afterEach(() => {
@@ -279,5 +286,34 @@ describe("TodoEditorModal", () => {
       folderId: undefined,
       folderName: "Reading",
     }));
+  });
+
+  it("shows a Google Calendar sync indicator with a link for a linked todo", () => {
+    mockUseQuery.mockReturnValue({ htmlLink: "https://calendar.google.com/event?eid=abc", importedFromGoogle: true });
+    render(
+      <TodoEditorModal
+        todo={makeTodo()}
+        selectedDateKey="2026-06-20"
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+      />,
+    );
+
+    const link = screen.getByRole("link", { name: "Synced with Google Calendar" });
+    expect(link).toHaveAttribute("href", "https://calendar.google.com/event?eid=abc");
+  });
+
+  it("shows no sync indicator for a todo that isn't linked to Google", () => {
+    mockUseQuery.mockReturnValue(null);
+    render(
+      <TodoEditorModal
+        todo={makeTodo()}
+        selectedDateKey="2026-06-20"
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText("Synced with Google Calendar")).not.toBeInTheDocument();
   });
 });

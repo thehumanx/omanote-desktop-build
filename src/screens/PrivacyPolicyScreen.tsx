@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { SeoHead } from "../seo/SeoHead";
 
-const LAST_UPDATED = "May 2, 2025";
+const LAST_UPDATED = "July 21, 2026";
 const CONTACT_EMAIL = "omanote@iambishistha.com";
 
 export function PrivacyPolicyScreen() {
@@ -50,6 +50,7 @@ export function PrivacyPolicyScreen() {
                 ["#legal-basis", "Legal basis for processing (GDPR)"],
                 ["#browser-extension", "Browser extension"],
                 ["#third-parties", "Third-party services"],
+                ["#google-calendar", "Google Calendar integration"],
                 ["#international-transfers", "International data transfers"],
                 ["#data-retention", "Data retention & deletion"],
                 ["#encryption", "Encryption & your passphrase"],
@@ -134,6 +135,18 @@ export function PrivacyPolicyScreen() {
                     encryption key material in the browser's local extension storage. The web app
                     uses browser localStorage and IndexedDB to support offline operation. This data
                     stays on your device and is not transmitted unless you explicitly save content.
+                  </p>
+                </div>
+                <div>
+                  <p className="font-bold text-app-ink mb-1">Connected accounts (optional)</p>
+                  <p>
+                    If you choose to connect your Google account for Calendar sync, we receive
+                    Google Calendar event data (titles, times, descriptions, and similar details) as
+                    described in{" "}
+                    <a href="#google-calendar" className="text-app-ink underline underline-offset-2 hover:no-underline">
+                      Google Calendar integration
+                    </a>{" "}
+                    below.
                   </p>
                 </div>
               </div>
@@ -265,6 +278,11 @@ export function PrivacyPolicyScreen() {
                       role: "Cloud database and backend infrastructure. Stores your encrypted content. Convex cannot decrypt your data and has no access to its contents.",
                       url: "https://www.convex.dev/privacy",
                     },
+                    {
+                      name: "Google",
+                      role: "Only if you connect Google Calendar sync (optional, off by default). See Google Calendar integration below for what data is involved and how it's used.",
+                      url: "https://policies.google.com/privacy",
+                    },
                   ].map(({ name, role, url }) => (
                     <li key={name} className="rounded-xl border border-app-line bg-app-canvas px-4 py-3">
                       <p className="text-sm font-bold text-app-ink">{name}</p>
@@ -287,8 +305,64 @@ export function PrivacyPolicyScreen() {
             </section>
 
             {/* 7 */}
+            <section id="google-calendar">
+              <h2 className="text-lg font-black text-app-ink tracking-tight">7. Google Calendar integration</h2>
+              <div className="mt-3 text-[15px] text-app-ink-muted leading-relaxed space-y-3">
+                <p>
+                  Connecting Google Calendar is entirely optional, off by default, and available
+                  from Settings. If you connect it, omanote requests access to your Google Calendar
+                  (the <code className="rounded-md border border-app-line bg-app-canvas px-1.5 py-0.5 text-[13px] font-mono">calendar</code> OAuth
+                  scope) solely to provide two-way sync between your todos/events and your Google
+                  Calendar:
+                </p>
+                <ul className="list-disc list-inside space-y-1.5 pl-1">
+                  <li>
+                    We read event details (title, description, start/end time, location, and any
+                    video-conferencing link) from your primary Google Calendar, to create matching
+                    todos in omanote and to detect edits or cancellations to events you've already
+                    imported.
+                  </li>
+                  <li>
+                    We create, update, and delete events on a dedicated "omanote" Google Calendar
+                    (and, when you edit a todo that originated from an imported Google event, on
+                    that original event) to reflect your open and completed todos.
+                  </li>
+                  <li>
+                    We do not access any other Google data — no Gmail, Drive, Contacts, or any
+                    calendar beyond the ones described above.
+                  </li>
+                </ul>
+                <p>
+                  Google user data obtained this way is used only to provide the sync features
+                  described here. Titles and notes are encrypted client-side the same as your other
+                  content before being stored; the scheduling metadata needed to run the sync itself
+                  (dates, times, and Google's own event identifiers) is stored in plaintext, since
+                  our servers never hold the key needed to encrypt or decrypt it. This data is never
+                  used for advertising, never sold, and never shared with anyone other than Google
+                  (to perform the sync) and Convex (see Third-party services above). No one at
+                  omanote reads it except when necessary to investigate a bug or support request you
+                  raise yourself.
+                </p>
+                <p>
+                  You can disconnect Google Calendar sync at any time from Settings, which revokes
+                  omanote's access to your Google account. omanote's use and transfer of information
+                  received from Google APIs adheres to the{" "}
+                  <a
+                    href="https://developers.google.com/terms/api-services-user-data-policy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-app-ink underline underline-offset-2 hover:no-underline"
+                  >
+                    Google API Services User Data Policy
+                  </a>
+                  , including its Limited Use requirements.
+                </p>
+              </div>
+            </section>
+
+            {/* 8 */}
             <section id="international-transfers">
-              <h2 className="text-lg font-black text-app-ink tracking-tight">7. International data transfers</h2>
+              <h2 className="text-lg font-black text-app-ink tracking-tight">8. International data transfers</h2>
               <div className="mt-3 text-[15px] text-app-ink-muted leading-relaxed space-y-3">
                 <p>
                   Our sub-processors (Clerk and Convex) are headquartered in the United States.
@@ -305,9 +379,9 @@ export function PrivacyPolicyScreen() {
               </div>
             </section>
 
-            {/* 8 */}
+            {/* 9 */}
             <section id="data-retention">
-              <h2 className="text-lg font-black text-app-ink tracking-tight">8. Data retention &amp; deletion</h2>
+              <h2 className="text-lg font-black text-app-ink tracking-tight">9. Data retention &amp; deletion</h2>
               <div className="mt-3 text-[15px] text-app-ink-muted leading-relaxed space-y-3">
                 <p>
                   We retain your account data and encrypted content for as long as your account
@@ -332,9 +406,9 @@ export function PrivacyPolicyScreen() {
               </div>
             </section>
 
-            {/* 9 */}
+            {/* 10 */}
             <section id="encryption">
-              <h2 className="text-lg font-black text-app-ink tracking-tight">9. Encryption &amp; your passphrase</h2>
+              <h2 className="text-lg font-black text-app-ink tracking-tight">10. Encryption &amp; your passphrase</h2>
               <div className="mt-3 text-[15px] text-app-ink-muted leading-relaxed space-y-3">
                 <p>
                   omanote encrypts your content client-side using AES-GCM with a key derived from
@@ -356,9 +430,9 @@ export function PrivacyPolicyScreen() {
               </div>
             </section>
 
-            {/* 10 */}
+            {/* 11 */}
             <section id="your-rights">
-              <h2 className="text-lg font-black text-app-ink tracking-tight">10. Your rights</h2>
+              <h2 className="text-lg font-black text-app-ink tracking-tight">11. Your rights</h2>
               <div className="mt-3 text-[15px] text-app-ink-muted leading-relaxed space-y-4">
                 <p>
                   Depending on your jurisdiction, you may have the following rights regarding your
@@ -417,9 +491,9 @@ export function PrivacyPolicyScreen() {
               </div>
             </section>
 
-            {/* 11 */}
+            {/* 12 */}
             <section id="children">
-              <h2 className="text-lg font-black text-app-ink tracking-tight">11. Children's privacy</h2>
+              <h2 className="text-lg font-black text-app-ink tracking-tight">12. Children's privacy</h2>
               <div className="mt-3 text-[15px] text-app-ink-muted leading-relaxed space-y-3">
                 <p>
                   The Service is not directed at children under the age of 13 (or 16 in the EEA
@@ -437,9 +511,9 @@ export function PrivacyPolicyScreen() {
               </div>
             </section>
 
-            {/* 12 */}
+            {/* 13 */}
             <section id="changes">
-              <h2 className="text-lg font-black text-app-ink tracking-tight">12. Changes to this policy</h2>
+              <h2 className="text-lg font-black text-app-ink tracking-tight">13. Changes to this policy</h2>
               <div className="mt-3 text-[15px] text-app-ink-muted leading-relaxed space-y-3">
                 <p>
                   We may update this policy from time to time. When we make material changes, we
@@ -455,9 +529,9 @@ export function PrivacyPolicyScreen() {
               </div>
             </section>
 
-            {/* 13 */}
+            {/* 14 */}
             <section id="contact">
-              <h2 className="text-lg font-black text-app-ink tracking-tight">13. Contact</h2>
+              <h2 className="text-lg font-black text-app-ink tracking-tight">14. Contact</h2>
               <div className="mt-3 text-[15px] text-app-ink-muted leading-relaxed space-y-3">
                 <p>
                   For privacy-related questions, data requests, or complaints, contact us at:

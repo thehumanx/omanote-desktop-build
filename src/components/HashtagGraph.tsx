@@ -583,10 +583,7 @@ export function HashtagGraph({
           todo={artifact.data}
           canvasDateKey={artifact.data.dueDateKey ?? artifact.data.createdDateKey}
           pendingSync={Boolean(artifact.data.pendingSync)}
-          isEditing={false}
-          onStartEdit={() => undefined}
-          onSaveEdit={() => undefined}
-          onCancelEdit={() => undefined}
+          onOpenEditor={() => undefined}
           onInlineTitleEdit={() => undefined}
           onToggle={() => undefined}
           onDelete={() => undefined}

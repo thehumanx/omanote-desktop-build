@@ -303,10 +303,14 @@ function durationToMinutes(amount: number, unit: string): number | null {
 }
 
 function durationToUntilDateKey(amount: number, unit: string, todayKey: DateKey): DateKey | null {
-  if (unit.startsWith("day")) return addDaysToDateKey(todayKey, amount);
-  if (unit.startsWith("week")) return addDaysToDateKey(todayKey, amount * 7);
-  if (unit.startsWith("month")) return addMonthsToDateKey(todayKey, amount);
-  return null;
+  // untilDateKey is inclusive (see recurrence.ts), so "for N days/weeks/months"
+  // starting today must end 1 day short of the raw span -- otherwise "for 4
+  // days" produces 5 occurrences (today plus 4 more) instead of 4 total.
+  let raw: DateKey | null = null;
+  if (unit.startsWith("day")) raw = addDaysToDateKey(todayKey, amount);
+  else if (unit.startsWith("week")) raw = addDaysToDateKey(todayKey, amount * 7);
+  else if (unit.startsWith("month")) raw = addMonthsToDateKey(todayKey, amount);
+  return raw ? addDaysToDateKey(raw, -1) : null;
 }
 
 /**

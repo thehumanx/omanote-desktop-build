@@ -38,6 +38,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "./db";
 import { useAuth } from "./auth/AuthContext";
 import { parseHashtags } from "../lib/hashtags";
+import { detectWebClientType, getCurrentDeviceMetadata } from "../lib/device-info";
 import type { AppAction, AppState, RecurringDeletePrompt, ToastItem } from "./types";
 import { prefixedRandomId, randomId } from "@omanote/shared";
 
@@ -863,6 +864,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const deleteRecurringOccurrence = useMutation(api.todos.deleteRecurringOccurrence);
   const truncateRecurringSeries = useMutation(api.todos.truncateRecurringSeries);
   const restoreTodo = useMutation(api.todos.restoreTodo);
+  const pushEventForTodo = useAction(api.googleCalendar.pushEventForTodo);
+  const deleteGoogleEventForTodo = useAction(api.googleCalendar.deleteGoogleEventForTodo);
+  const pushEventForEventEntry = useAction(api.googleCalendar.pushEventForEventEntry);
+  const deleteGoogleEventForEventEntry = useAction(api.googleCalendar.deleteGoogleEventForEventEntry);
   const snoozeTodo = useMutation(api.todos.snoozeTodo);
   const markFired = useMutation(api.todos.markFired);
   const ensureChecklistItem = useMutation(api.todos.ensureTodoChecklistItem);
@@ -1280,6 +1285,172 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const inflightFolderCreationsRef = useRef(new Map<string, Promise<{ folderId: string; folderName: string }>>());
   decryptedTodoFoldersRef.current = decryptedTodoFolders;
 
+  // Best-effort push to Google Calendar. The server (pushEventForTodo) is the
+  // source of truth on whether this todo is actually eligible (open, Google
+  // connected+sync-enabled) — these callers don't need to duplicate that
+  // gating, they just fire it after any create/update/restore/uncomplete.
+  // Falls back to the outbox on failure so a dropped network call doesn't
+  // silently lose the sync. Every open todo goes here now, timed or not,
+  // recurring or not — Google Tasks sync was removed (its API is one-way
+  // and date-only, a worse fit than Calendar for every case it covered).
+  const pushTodoToGoogleCalendarEvent = useCallback(
+    (todoId: string, plaintextTitle: string) => {
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      void runWithCanvasOutboxFallback(
+        "google/event-push",
+        { todoId, plaintextTitle, timeZone },
+        async () => { await pushEventForTodo({ todoId: todoId as any, plaintextTitle, timeZone }); },
+      );
+    },
+    [pushEventForTodo],
+  );
+
+  const removeTodoFromGoogleCalendar = useCallback(
+    (todoId: string) => {
+      void runWithCanvasOutboxFallback(
+        "google/event-delete",
+        { todoId },
+        async () => { await deleteGoogleEventForTodo({ todoId: todoId as any }); },
+      );
+    },
+    [deleteGoogleEventForTodo],
+  );
+
+  const syncTodoToGoogle = useCallback(
+    (todoId: string, plaintextTitle: string) => {
+      pushTodoToGoogleCalendarEvent(todoId, plaintextTitle);
+    },
+    [pushTodoToGoogleCalendarEvent],
+  );
+
+  // Re-syncs a recurring series master's Calendar event after its recurrence
+  // rule itself changed (an occurrence became an EXDATE, or the series was
+  // truncated) -- or removes the event if truncation deleted the whole
+  // series (nothing remained before the cut).
+  const refreshRecurringMasterCalendarSync = useCallback(
+    (masterId: string, plaintextTitle: string) => {
+      void convexClient.query(api.todos.getTodoById, { todoId: masterId as any }).then((fresh) => {
+        if (!fresh || fresh.deletedAt) {
+          removeTodoFromGoogleCalendar(masterId);
+        } else {
+          syncTodoToGoogle(masterId, plaintextTitle);
+        }
+      });
+    },
+    [convexClient, removeTodoFromGoogleCalendar, syncTodoToGoogle],
+  );
+
+  // Completed todos (via their derived eventEntries row) and manual events
+  // push to the same "omanote" Google Calendar as a historical log entry
+  // (separate from the "upcoming" timed-todo event above, which gets
+  // removed once the todo completes).
+  const pushEventEntryToGoogleCalendar = useCallback(
+    (eventEntryId: string, plaintextLabel: string, plaintextNotes?: string) => {
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      void runWithCanvasOutboxFallback(
+        "google/event-entry-push",
+        { eventEntryId, plaintextLabel, plaintextNotes, timeZone },
+        async () => { await pushEventForEventEntry({ eventEntryId: eventEntryId as any, plaintextLabel, plaintextNotes, timeZone }); },
+      );
+    },
+    [pushEventForEventEntry],
+  );
+
+  const removeEventEntryFromGoogleCalendar = useCallback(
+    (eventEntryId: string) => {
+      void runWithCanvasOutboxFallback(
+        "google/event-entry-delete",
+        { eventEntryId },
+        async () => { await deleteGoogleEventForEventEntry({ eventEntryId: eventEntryId as any }); },
+      );
+    },
+    [deleteGoogleEventForEventEntry],
+  );
+
+  // Phase 4 inbound: events created directly on the user's primary Google
+  // Calendar land as plaintext staging rows (server can't encrypt -- no
+  // key). This is a reactive query, so new rows the webhook/poll cron
+  // writes show up here automatically without any polling of our own.
+  const pendingGoogleImports = useQuery(
+    api.googleSync.listPendingGoogleImports,
+    isAuthenticated && !isLocked ? { limit: 10 } : "skip",
+  );
+  const claimGoogleImportMutation = useMutation(api.googleSync.claimGoogleImport);
+  const completeGoogleImportMutation = useMutation(api.googleSync.completeGoogleImport);
+  const failGoogleImportMutation = useMutation(api.googleSync.failGoogleImport);
+  const googleImportDeviceId = useMemo(() => getCurrentDeviceMetadata(detectWebClientType()).deviceId, []);
+  const processingGoogleImportsRef = useRef(false);
+
+  useEffect(() => {
+    if (isLocked || !pendingGoogleImports || pendingGoogleImports.length === 0) return;
+    if (processingGoogleImportsRef.current) return;
+    processingGoogleImportsRef.current = true;
+    void (async () => {
+      for (const row of pendingGoogleImports) {
+        try {
+          const claim = await claimGoogleImportMutation({ stagingId: row._id, deviceId: googleImportDeviceId });
+          if (!claim.claimed) continue;
+          const encTitle = await encrypt(row.title ?? "Untitled");
+          const encNotes = row.notesPlain ? await encrypt(row.notesPlain) : undefined;
+
+          // An edit to an already-imported Google event re-arrives as a
+          // fresh staging row for the same googleEventId -- update the
+          // existing todo instead of creating a second one.
+          const existingTodoId = await convexClient.query(api.googleSync.getExistingImportedTodoId, {
+            googleEventId: row.googleEventId,
+          });
+          const existingTodo = existingTodoId
+            ? await convexClient.query(api.todos.getTodoById, { todoId: existingTodoId })
+            : null;
+
+          let todoId: string;
+          if (existingTodo && !existingTodo.deletedAt) {
+            await updateTodo({
+              todoId: existingTodoId as any,
+              title: encTitle,
+              notes: encNotes,
+              dueDateKey: row.dueDateKey,
+              dueTime: row.dueTime,
+              recurrence: row.recurrence ?? null,
+            });
+            todoId = existingTodoId as string;
+          } else {
+            todoId = (await createTodo({
+              title: encTitle,
+              notes: encNotes,
+              createdDateKey: row.dueDateKey ?? toDateKey(new Date()),
+              dueDateKey: row.dueDateKey,
+              dueTime: row.dueTime,
+              recurrence: row.recurrence,
+              source: "web",
+            })) as string;
+          }
+
+          await completeGoogleImportMutation({ stagingId: row._id, resultTodoId: todoId as any });
+          scheduleSync();
+        } catch (err) {
+          await failGoogleImportMutation({
+            stagingId: row._id,
+            errorMessage: err instanceof Error ? err.message : "unknown error",
+          }).catch(() => {});
+        }
+      }
+      processingGoogleImportsRef.current = false;
+    })();
+  }, [
+    pendingGoogleImports,
+    isLocked,
+    claimGoogleImportMutation,
+    completeGoogleImportMutation,
+    failGoogleImportMutation,
+    googleImportDeviceId,
+    encrypt,
+    createTodo,
+    updateTodo,
+    convexClient,
+    scheduleSync,
+  ]);
+
   const resolveTodoFolderInput = useCallback(
     async (folderId?: string, folderName?: string) => {
       if (folderId) return { folderId, folderName };
@@ -1560,6 +1731,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await toggleChecklistItem({ itemId: payload.itemId as any });
         clearCanvasDraftForKey(payload.clientKey);
       },
+      "google/event-push": async (payload) => {
+        await pushEventForTodo({
+          todoId: payload.todoId as any,
+          plaintextTitle: payload.plaintextTitle,
+          plaintextNotes: payload.plaintextNotes,
+          timeZone: payload.timeZone,
+        });
+      },
+      "google/event-delete": async (payload) => {
+        await deleteGoogleEventForTodo({ todoId: payload.todoId as any });
+      },
+      "google/event-entry-push": async (payload) => {
+        await pushEventForEventEntry({
+          eventEntryId: payload.eventEntryId as any,
+          plaintextLabel: payload.plaintextLabel,
+          plaintextNotes: payload.plaintextNotes,
+          timeZone: payload.timeZone,
+        });
+      },
+      "google/event-entry-delete": async (payload) => {
+        await deleteGoogleEventForEventEntry({ eventEntryId: payload.eventEntryId as any });
+      },
     }).then(() => scheduleSync());
   }, [
     completeRecurringOccurrence,
@@ -1575,6 +1768,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     deleteEventEntry,
     ensureChecklistItem,
     markFired,
+    pushEventForTodo,
+    deleteGoogleEventForTodo,
+    pushEventForEventEntry,
+    deleteGoogleEventForEventEntry,
     saveBookmarkCreate,
     saveBookmarkUpdate,
     snoozeTodo,
@@ -1703,6 +1900,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             })) as string;
             localDispatch({ type: "todo/confirm-optimistic", clientKey });
             scheduleSync();
+            syncTodoToGoogle(todoId, action.title);
             pushHistory({
               key: `todo:create:${todoId}`,
               undo: () => dispatchRef.current({ type: "todo/delete", todoId }),
@@ -1751,6 +1949,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             try {
               await uncompleteRecurringOccurrence({ todoId: cloneId as any });
               scheduleSync();
+              // Uncompleting soft-deletes the derived event entry server-side
+              // (same as the plain-toggle path) -- remove its Calendar event too.
+              void convexClient
+                .query(api.events.getDerivedEventEntryForTodo, { todoId: cloneId as any })
+                .then((derived) => {
+                  if (derived) removeEventEntryFromGoogleCalendar(derived._id);
+                });
               // The clone soft-deletes rather than reopening, so the generic
               // status reconciler never clears this one.
               localDispatch({ type: "todo/clear-toggling", todoId: cloneId });
@@ -1799,6 +2004,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 completedAt,
               });
               scheduleSync();
+              const derivedLabel = conjugateTitleToPastTense(master.title);
+              void convexClient
+                .query(api.events.getDerivedEventEntryForTodo, { todoId: cloneId as any })
+                .then((derived) => {
+                  if (derived) pushEventEntryToGoogleCalendar(derived._id, derivedLabel, master.notes);
+                });
               localDispatch({ type: "todo/clear-toggling", todoId: togglingId });
               // The server event references the materialized clone, not the
               // master, so the generic reconciler can't match this one.
@@ -1861,6 +2072,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               completedAt,
             });
             scheduleSync();
+            if (isCompleting) {
+              // The upcoming Calendar event stays as a record of when this
+              // was due (and so the completed event's "Originally scheduled"
+              // link below keeps pointing at something that still exists).
+              if (snapshot?.title) {
+                const derivedLabel = conjugateTitleToPastTense(snapshot.title);
+                void convexClient
+                  .query(api.events.getDerivedEventEntryForTodo, { todoId: action.todoId as any })
+                  .then((derived) => {
+                    if (derived) pushEventEntryToGoogleCalendar(derived._id, derivedLabel, snapshot.notes);
+                  });
+              }
+            } else {
+              if (snapshot?.title) {
+                syncTodoToGoogle(action.todoId, snapshot.title);
+              }
+              // Uncompleting soft-deletes the derived event entry server-side
+              // (see syncDerivedEventEntryForTodo) -- remove its Calendar event too.
+              void convexClient
+                .query(api.events.getDerivedEventEntryForTodo, { todoId: action.todoId as any })
+                .then((derived) => {
+                  if (derived) removeEventEntryFromGoogleCalendar(derived._id);
+                });
+            }
             if (snapshot) {
               pushHistory({
                 key: `todo:toggle:${snapshot.id}`,
@@ -1908,6 +2143,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           try {
             await deleteTodo({ todoId: action.todoId as any });
             scheduleSync();
+            removeTodoFromGoogleCalendar(action.todoId);
             if (snapshot) {
               pushHistory({
                 key: `todo:delete:${snapshot.id}`,
@@ -1944,10 +2180,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return true;
       }
       case "todo/delete-occurrence": {
+        const seriesSnapshot = stateRef.current?.todos.find((t) => t.id === action.todoId);
         void (async () => {
           try {
             await deleteRecurringOccurrence({ todoId: action.todoId as any, occurrenceDateKey: action.occurrenceDateKey });
             scheduleSync();
+            // The occurrence is now an exception in the master's recurrence
+            // rule -- re-push so the Google-side RRULE's EXDATE stays in sync.
+            if (seriesSnapshot?.title) refreshRecurringMasterCalendarSync(action.todoId, seriesSnapshot.title);
           } catch {
             enqueueCanvasMutation("todo/delete-occurrence", { todoId: action.todoId, occurrenceDateKey: action.occurrenceDateKey });
           }
@@ -1955,27 +2195,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return true;
       }
       case "todo/truncate-series": {
+        const seriesSnapshot = stateRef.current?.todos.find((t) => t.id === action.todoId);
         void (async () => {
           try {
             await truncateRecurringSeries({ todoId: action.todoId as any, fromDateKey: action.fromDateKey });
             scheduleSync();
+            // Either the master's UNTIL moved (re-push) or the whole series
+            // got deleted because nothing remained before the cut (remove).
+            if (seriesSnapshot?.title) refreshRecurringMasterCalendarSync(action.todoId, seriesSnapshot.title);
           } catch {
             enqueueCanvasMutation("todo/truncate-series", { todoId: action.todoId, fromDateKey: action.fromDateKey });
           }
         })();
         return true;
       }
-      case "todo/restore":
+      case "todo/restore": {
+        const snapshot = stateRef.current?.todos.find((t) => t.id === action.todoId);
         localDispatch({ type: "todo/clear-deleting", todoIds: [action.todoId] });
         void (async () => {
           try {
             await restoreTodo({ todoId: action.todoId as any });
             scheduleSync();
+            if (snapshot?.title) {
+              syncTodoToGoogle(action.todoId, snapshot.title);
+            }
           } catch {
             enqueueCanvasMutation("todo/restore", { todoId: action.todoId });
           }
         })();
         return true;
+      }
       case "todo/update": {
         const normalizedDue = normalizeTodoDueInput({ dueDateKey: action.dueDateKey, dueTime: action.dueTime });
         void (async () => {
@@ -1997,6 +2246,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               reminderUntil: action.reminderUntil,
             });
             scheduleSync();
+            syncTodoToGoogle(action.todoId, action.title);
             if (snapshot) {
               const snapshotHashtags = buildHashtagsFromText(snapshot.title, snapshot.notes);
               pushHistory({
@@ -2159,7 +2409,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       default:
         return false;
     }
-  }, [createTodo, updateTodo, toggleTodo, completeRecurringOccurrence, uncompleteRecurringOccurrence, deleteTodo, deleteRecurringOccurrence, truncateRecurringSeries, restoreTodo, snoozeTodo, markFired, createTodoFolder, updateTodoFolder, deleteTodoFolder, deleteTodoFolderWithTodos, pushHistory, showDeleteToast, localDispatch, encrypt, authUser, db, resolveTodoFolderInput, scheduleSync, setDecryptedTodoFolders]);
+  }, [createTodo, updateTodo, toggleTodo, completeRecurringOccurrence, uncompleteRecurringOccurrence, deleteTodo, deleteRecurringOccurrence, truncateRecurringSeries, restoreTodo, snoozeTodo, markFired, createTodoFolder, updateTodoFolder, deleteTodoFolder, deleteTodoFolderWithTodos, pushHistory, showDeleteToast, localDispatch, encrypt, authUser, db, resolveTodoFolderInput, scheduleSync, setDecryptedTodoFolders, syncTodoToGoogle, removeTodoFromGoogleCalendar, refreshRecurringMasterCalendarSync, pushEventEntryToGoogleCalendar, removeEventEntryFromGoogleCalendar, convexClient]);
 
   const handleNoteAction = useCallback((action: AppAction): boolean => {
     switch (action.type) {
@@ -2478,6 +2728,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             const eventId = (await createEventEntry({ clientKey, label: encLabel, dateKey: action.dateKey, loggedAt: action.loggedAt, notes: encNotes, hashtags })) as string;
             localDispatch({ type: "event/confirm-optimistic", clientKey });
             scheduleSync();
+            pushEventEntryToGoogleCalendar(eventId, action.label, action.notes);
             pushHistory({
               key: `event:create:${eventId}`,
               undo: () => dispatchRef.current({ type: "event/delete", eventId }),
@@ -2505,6 +2756,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           try {
             await updateEventEntry({ eventId: action.eventId as any, label: encLabel, loggedAt: action.loggedAt, notes: encNotes, hashtags });
             scheduleSync();
+            pushEventEntryToGoogleCalendar(action.eventId, action.label, action.notes);
             if (snapshot) {
               const snapshotHashtags = buildHashtagsFromText(snapshot.label, snapshot.notes);
               pushHistory({
@@ -2546,6 +2798,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           try {
             await deleteEventEntry({ eventId: action.eventId as any });
             scheduleSync();
+            removeEventEntryFromGoogleCalendar(action.eventId);
             if (snapshot) {
               pushHistory({
                 key: `event:delete:${snapshot.id}`,
@@ -2559,21 +2812,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         })();
         return true;
       }
-      case "event/restore":
+      case "event/restore": {
+        const snapshot = stateRef.current?.events.find((r) => r.id === action.eventId);
         localDispatch({ type: "event/clear-deleting", eventIds: [action.eventId] });
         void (async () => {
           try {
             await restoreEventEntry({ eventId: action.eventId as any });
             scheduleSync();
+            if (snapshot?.label) {
+              pushEventEntryToGoogleCalendar(action.eventId, snapshot.label, snapshot.notes);
+            }
           } catch {
             enqueueCanvasMutation("event/restore", { eventId: action.eventId });
           }
         })();
         return true;
+      }
       default:
         return false;
     }
-  }, [createEventEntry, updateEventEntry, deleteEventEntry, restoreEventEntry, pushHistory, showDeleteToast, encrypt, encryptOptional, scheduleSync]);
+  }, [createEventEntry, updateEventEntry, deleteEventEntry, restoreEventEntry, pushHistory, showDeleteToast, encrypt, encryptOptional, scheduleSync, pushEventEntryToGoogleCalendar, removeEventEntryFromGoogleCalendar]);
 
   const handleCanvasAction = useCallback((action: AppAction): boolean => {
     if (action.type !== "canvas/reorder") return false;
@@ -2611,6 +2869,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         case "ui/set-notes-drawer-open":
         case "toast/add":
         case "toast/remove":
+        case "todo/prompt-recurring-delete":
+        case "todo/close-recurring-delete":
           localDispatch(action as LocalAction);
           return;
         default:

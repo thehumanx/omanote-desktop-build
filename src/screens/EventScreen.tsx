@@ -420,7 +420,7 @@ function EventClusterModal({
   onUpdateTodo,
   onDeleteTodo,
   onDeleteTodoEvent,
-  todoFolders,
+  onOpenTodoEditor,
 }: {
   entries: CalendarEntry[];
   onClose: () => void;
@@ -429,9 +429,8 @@ function EventClusterModal({
   onUpdateTodo: (todoId: string, payload: { title: string; dueDateKey?: string; dueTime?: string; folderId?: string; folderName?: string }) => void;
   onDeleteTodo: (todoId: string) => void;
   onDeleteTodoEvent: (todoId: string) => void;
-  todoFolders: TodoFolder[];
+  onOpenTodoEditor: (todoId: string) => void;
 }) {
-  const [editingStackTodoId, setEditingStackTodoId] = useState<string | null>(null);
   const sortedEntries = [...entries].sort((left, right) => left.startMinutes - right.startMinutes);
 
   return (
@@ -475,16 +474,10 @@ function EventClusterModal({
                     <TodoListRow
                       todo={todo}
                       canvasDateKey={entry.dateKey}
-                      isEditing={editingStackTodoId === todo.id}
-                      folders={todoFolders}
                       onToggle={onToggleTodo}
                       onDelete={onDeleteTodo}
-                      onStartEdit={(nextTodo) => setEditingStackTodoId(nextTodo.id)}
-                      onSaveEdit={(todoId, payload) => {
-                        onUpdateTodo(todoId, payload);
-                        setEditingStackTodoId(null);
-                      }}
-                      onCancelEdit={() => setEditingStackTodoId(null)}
+                      onSaveEdit={(todoId, payload) => onUpdateTodo(todoId, payload)}
+                      onOpenEditor={(t) => onOpenTodoEditor(t.id)}
                     />
                   </div>
                 </div>
@@ -1120,7 +1113,10 @@ export function EventScreen() {
               return next.length ? next : null;
             });
           }}
-          todoFolders={state.todoFolders}
+          onOpenTodoEditor={(todoId) => {
+            setActiveCluster(null);
+            setEditingTodoId(todoId);
+          }}
         />
       ) : null}
 

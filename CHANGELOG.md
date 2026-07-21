@@ -4,6 +4,19 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.27.0 [July 21, 2026]
+
+> Two-way Google Calendar sync, and one consistent way to edit any todo — on every screen, at every size.
+
+- [Add] Google Calendar sync — connect your Google account in Settings to keep todos and events flowing both ways. Every open todo (timed, all-day, or recurring) appears on a dedicated "omanote" calendar in the omanote brand color; completing a todo logs it there too, as a checkmarked entry linking back to the original. Create an event directly in your primary Google Calendar and it shows up as a new todo in omanote automatically — recurring events included
+- [Add] A small "Synced with Google Calendar" badge shows up on todos linked to a Google event, with a note that edits made on both sides around the same time can overwrite each other
+- [Update] One consistent way to edit a todo everywhere — the pencil icon (or double-click) opens the full editor with due date, folder, repeat, and reminders, on Todos, Canvas, and the Event/Calendar screen alike
+- [Update] The todo editor is now a bottom drawer on mobile instead of a floating popup — full width, bigger tap targets, and a Save button that stays pinned in view
+- [Fix] The checkmark next to a todo title that wraps onto multiple lines now lines up with the first line instead of sitting too high
+- [Update] Todo titles now grow to fit as you type instead of scrolling sideways in a single line
+- [Fix] Redesigned the "Delete recurring todo" confirmation to match omanote's usual layout — buttons at the bottom, close via the X — and fixed a bug where the X didn't actually close it
+- [Fix] Reminders no longer fire for a todo whose due time has already passed by the time you create it
+
 ### v0.26.0 [July 18, 2026]
 
 > Todos that repeat. Set a cadence, and omanote keeps the day-to-day going.
@@ -535,6 +548,19 @@ All notable changes to omanote are documented here, organized by product.
 - More customizations
 
 ## Desktop Versions
+
+### v0.27.0 [July 21, 2026]
+
+> Two-way Google Calendar sync, and one consistent way to edit any todo — on every screen, at every size.
+
+- [Add] Google Calendar sync — connect your Google account in Settings to keep todos and events flowing both ways. Every open todo (timed, all-day, or recurring) appears on a dedicated "omanote" calendar in the omanote brand color; completing a todo logs it there too, as a checkmarked entry linking back to the original. Create an event directly in your primary Google Calendar and it shows up as a new todo in omanote automatically — recurring events included
+- [Add] A small "Synced with Google Calendar" badge shows up on todos linked to a Google event, with a note that edits made on both sides around the same time can overwrite each other
+- [Update] One consistent way to edit a todo everywhere — the pencil icon (or double-click) opens the full editor with due date, folder, repeat, and reminders, on Todos, Canvas, and the Event/Calendar screen alike
+- [Update] The todo editor is now a bottom drawer on mobile instead of a floating popup — full width, bigger tap targets, and a Save button that stays pinned in view
+- [Fix] The checkmark next to a todo title that wraps onto multiple lines now lines up with the first line instead of sitting too high
+- [Update] Todo titles now grow to fit as you type instead of scrolling sideways in a single line
+- [Fix] Redesigned the "Delete recurring todo" confirmation to match omanote's usual layout — buttons at the bottom, close via the X — and fixed a bug where the X didn't actually close it
+- [Fix] Reminders no longer fire for a todo whose due time has already passed by the time you create it
 
 ### v0.26.0 [July 18, 2026]
 

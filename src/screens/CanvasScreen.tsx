@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { GripVertical } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
-import { addDays, buildDateStripWindow, buildRecurringCompletionIndex, toDateKey } from "@omanote/shared";
+import { addDays, buildDateStripWindow, buildRecurringCompletionIndex, parseVirtualOccurrenceId, toDateKey } from "@omanote/shared";
 import type { DateKey } from "@omanote/shared";
 import type { BookmarkItem, NoteItem, EventEntry, TodoItem } from "@omanote/shared";
 import { api } from "../../convex/_generated/api";
@@ -14,6 +14,7 @@ import { CanvasNoteBlock } from "../components/CanvasNoteBlock";
 import { CanvasEventBlock } from "../components/CanvasEventBlock";
 import { CanvasTodoBlock } from "../components/CanvasTodoBlock";
 import { BookmarkEditorModal } from "../components/BookmarkEditorModal";
+import { TodoEditorModal } from "../components/TodoEditorModal";
 import { BookmarkCard } from "../components/cards";
 import { PageHeader } from "../components/layout/PageHeader";
 import { useTopChrome } from "../components/layout/useTopChrome";
@@ -338,29 +339,11 @@ export function CanvasScreen() {
   }, [canvasItems, currentCanvasOrder, setCanvasOrder, state.ui.selectedDateKey]);
 
   const editingBookmark = state.bookmarks.find((bookmark) => bookmark.id === editingBookmarkId) ?? null;
+  const editingTodoRealId = editingTodoId ? parseVirtualOccurrenceId(editingTodoId)?.masterId ?? editingTodoId : null;
+  const editingTodo = state.todos.find((todo) => todo.id === editingTodoRealId) ?? null;
 
-  const handleStartTodoEdit = useCallback((nextTodo: TodoItem) => {
+  const handleOpenTodoEditor = useCallback((nextTodo: TodoItem) => {
     setEditingTodoId(nextTodo.id);
-  }, []);
-
-  const handleSaveTodoEdit = useCallback(
-    (todoId: string, payload: { title: string; dueDateKey?: string; dueTime?: string; folderId?: string; folderName?: string }) => {
-      dispatch({
-        type: "todo/update",
-        todoId,
-        title: payload.title,
-        dueDateKey: payload.dueDateKey as DateKey,
-        dueTime: payload.dueTime,
-        folderId: payload.folderId,
-        folderName: payload.folderName,
-      });
-      setEditingTodoId(null);
-    },
-    [dispatch],
-  );
-
-  const handleCancelTodoEdit = useCallback(() => {
-    setEditingTodoId(null);
   }, []);
 
   const handleInlineTodoTitleEdit = useCallback(
@@ -519,11 +502,7 @@ export function CanvasScreen() {
                   todo={item.data}
                   canvasDateKey={state.ui.selectedDateKey}
                   pendingSync={!!item.data.pendingSync}
-                  isEditing={editingTodoId === item.data.id}
-                  folders={state.todoFolders}
-                  onStartEdit={handleStartTodoEdit}
-                  onSaveEdit={handleSaveTodoEdit}
-                  onCancelEdit={handleCancelTodoEdit}
+                  onOpenEditor={handleOpenTodoEditor}
                   onInlineTitleEdit={handleInlineTodoTitleEdit}
                   onToggle={handleToggleTodo}
                   onDelete={handleDeleteTodo}
@@ -577,6 +556,32 @@ export function CanvasScreen() {
           onDelete={() => {
             dispatch({ type: "bookmark/delete", bookmarkId: editingBookmark.id });
             setEditingBookmarkId(null);
+          }}
+        />
+      ) : null}
+      {editingTodo ? (
+        <TodoEditorModal
+          todo={editingTodo}
+          folders={state.todoFolders}
+          selectedFolderId={editingTodo.folderId}
+          selectedDateKey={editingTodo.dueDateKey ?? editingTodo.createdDateKey}
+          onClose={() => setEditingTodoId(null)}
+          onToggle={(todoId) => dispatch({ type: "todo/toggle", todoId })}
+          onSave={(payload) => {
+            dispatch({
+              type: "todo/update",
+              todoId: editingTodo.id,
+              title: payload.title,
+              dueDateKey: payload.dueDateKey as DateKey,
+              dueTime: payload.dueTime,
+              hashtags: payload.hashtags,
+              folderId: payload.folderId,
+              folderName: payload.folderName,
+              recurrence: payload.recurrence,
+              reminderEveryMinutes: payload.reminderEveryMinutes,
+              reminderUntil: payload.reminderUntil,
+            });
+            setEditingTodoId(null);
           }}
         />
       ) : null}

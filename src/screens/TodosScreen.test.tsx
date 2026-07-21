@@ -32,6 +32,27 @@ vi.mock("../components/AttachmentLinkPreview", () => ({
   AttachmentLinkPreview: () => null,
 }));
 
+vi.mock("../contexts/UserSettingsContext", () => ({
+  useUserSettings: () => ({
+    settings: {
+      saveShortcut: "mod_enter",
+      newlineShortcut: "shift_enter",
+    },
+  }),
+}));
+
+vi.mock("../components/HashtagPicker", () => ({
+  HashtagPickerDropdown: () => null,
+  useHashtagPicker: () => ({
+    isOpen: false,
+    suggestions: [],
+    activeIndex: 0,
+    selectSuggestion: vi.fn(),
+    setActiveIndex: vi.fn(),
+    handleKeyDown: () => false,
+  }),
+}));
+
 function makeTodo(overrides: Partial<TodoItem> = {}): TodoItem {
   return {
     id: "todo_1",

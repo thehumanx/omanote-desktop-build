@@ -28,10 +28,7 @@ function makeProps(overrides: Partial<CanvasTodoBlockProps> = {}): CanvasTodoBlo
   return {
     todo: makeTodo(),
     canvasDateKey: "2026-05-07",
-    isEditing: false,
-    onStartEdit: vi.fn(),
-    onSaveEdit: vi.fn(),
-    onCancelEdit: vi.fn(),
+    onOpenEditor: vi.fn(),
     onInlineTitleEdit: vi.fn(),
     onToggle: vi.fn(),
     onDelete: vi.fn(),
@@ -45,50 +42,25 @@ describe("CanvasTodoBlock", () => {
     vi.restoreAllMocks();
   });
 
-  it("enters edit mode and keeps the title input responsive", () => {
-    const onStartEdit = vi.fn();
-    const view = render(<CanvasTodoBlock {...makeProps({ onStartEdit })} />);
+  it("opens the full todo editor on double click", () => {
+    const onOpenEditor = vi.fn();
+    render(<CanvasTodoBlock {...makeProps({ onOpenEditor })} />);
 
     fireEvent.doubleClick(screen.getByText("File quarterly receipts"));
-    expect(onStartEdit).toHaveBeenCalledWith(expect.objectContaining({ id: "todo_1" }));
-
-    view.rerender(
-      <CanvasTodoBlock {...makeProps({ isEditing: true, onStartEdit })} />,
-    );
-
-    const titleInput = screen.getByPlaceholderText("Todo title");
-    fireEvent.change(titleInput, { target: { value: "File receipts today" } });
-
-    expect(titleInput).toHaveValue("File receipts today");
+    expect(onOpenEditor).toHaveBeenCalledWith(expect.objectContaining({ id: "todo_1" }));
   });
 
-  it("defers focusing the title input until the next animation frame", () => {
-    const requestAnimationFrameSpy = vi.spyOn(window, "requestAnimationFrame");
+  it("opens the full todo editor from the pencil icon", () => {
+    const onOpenEditor = vi.fn();
+    render(<CanvasTodoBlock {...makeProps({ onOpenEditor })} />);
 
-    render(
-      <CanvasTodoBlock {...makeProps({ isEditing: true })} />,
-    );
-
-    expect(requestAnimationFrameSpy).toHaveBeenCalled();
-  });
-
-  it("uses the full canvas lane width while editing", () => {
-    render(<CanvasTodoBlock {...makeProps({ isEditing: true })} />);
-
-    const titleInput = screen.getByPlaceholderText("Todo title");
-    const editRoot = titleInput.closest("[data-testid='canvas-todo-block']");
-    const inputRow = titleInput.parentElement;
-
-    expect(editRoot).toHaveClass("w-full");
-    expect(inputRow).toHaveClass("w-full");
-    expect(titleInput).toHaveClass("w-full");
+    fireEvent.click(screen.getByRole("button", { name: "edit todo details" }));
+    expect(onOpenEditor).toHaveBeenCalledWith(expect.objectContaining({ id: "todo_1" }));
   });
 
   it("can skip rerenders when visible todo props and handlers are unchanged", () => {
     const todo = makeTodo();
-    const onStartEdit = vi.fn();
-    const onSaveEdit = vi.fn();
-    const onCancelEdit = vi.fn();
+    const onOpenEditor = vi.fn();
     const onInlineTitleEdit = vi.fn();
     const onToggle = vi.fn();
     const onDelete = vi.fn();
@@ -100,10 +72,7 @@ describe("CanvasTodoBlock", () => {
           todo,
           canvasDateKey: "2026-05-07",
           pendingSync: false,
-          isEditing: false,
-          onStartEdit,
-          onSaveEdit,
-          onCancelEdit,
+          onOpenEditor,
           onInlineTitleEdit,
           onToggle,
           onDelete,
@@ -113,10 +82,7 @@ describe("CanvasTodoBlock", () => {
           todo,
           canvasDateKey: "2026-05-07",
           pendingSync: false,
-          isEditing: false,
-          onStartEdit,
-          onSaveEdit,
-          onCancelEdit,
+          onOpenEditor,
           onInlineTitleEdit,
           onToggle,
           onDelete,

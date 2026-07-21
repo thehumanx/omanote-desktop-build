@@ -17,6 +17,10 @@ vi.mock("../app/AppProvider", () => ({
   }),
 }));
 
+vi.mock("convex/react", () => ({
+  useQuery: () => undefined,
+}));
+
 vi.mock("../components/layout/useTopChrome", () => ({
   useTopChrome: vi.fn(),
 }));
@@ -198,7 +202,7 @@ describe("EventScreen", () => {
     expect(screen.getAllByRole("button", { name: "toggle todo" })[0]).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("opens inline edit for a todo from the stacked calendar modal on double click", () => {
+  it("opens the full todo editor from the stacked calendar modal on double click", () => {
     mockState.current = {
       ...makeState(),
       todos: [
@@ -215,20 +219,20 @@ describe("EventScreen", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /2 todos/i }));
     fireEvent.doubleClick(screen.getAllByText("First date todo").at(-1)!);
-    fireEvent.change(screen.getByDisplayValue("First date todo"), {
-      target: { value: "Renamed date todo" },
-    });
-    fireEvent.keyDown(screen.getByDisplayValue("Renamed date todo"), { key: "Enter" });
 
-    expect(mockDispatch).toHaveBeenCalledWith({
-      type: "todo/update",
-      todoId: "todo_1",
-      title: "Renamed date todo",
-      dueDateKey: "2026-06-20",
-      dueTime: undefined,
-      folderId: undefined,
-      folderName: "Others",
-    });
+    const titleInput = screen.getByLabelText("Todo title") as HTMLInputElement;
+    expect(titleInput.value).toBe("First date todo");
+
+    fireEvent.change(titleInput, { target: { value: "Renamed date todo" } });
+    fireEvent.keyDown(titleInput, { key: "Enter" });
+
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "todo/update",
+        todoId: "todo_1",
+        title: "Renamed date todo",
+      }),
+    );
   });
 
   it("does not complete todos directly from the calendar card", () => {
