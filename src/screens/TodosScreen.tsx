@@ -191,31 +191,27 @@ function TodoTabStrip({
 function TodoSection({
   title,
   items,
-  editing,
   focusedTodoId,
   completionFilterByTodoId,
   uncompletionFilterByTodoId,
   uncompletionCompletedLabelByTodoId,
   activeFilter,
-  setEditing,
   selectedDateKey,
-  todoFolders,
   onToggle,
   dispatch,
+  onOpenEditor,
 }: {
   title?: string;
   items: TodoItem[];
-  editing: string | null;
   focusedTodoId: string | null;
   completionFilterByTodoId: CompletionFilterByTodoId;
   uncompletionFilterByTodoId: CompletionFilterByTodoId;
   uncompletionCompletedLabelByTodoId: CompletedLabelByTodoId;
   activeFilter: TodoFilter;
-  setEditing: (value: string | null) => void;
   selectedDateKey: string;
-  todoFolders: TodoFolder[];
   onToggle: (todo: TodoItem) => void;
   dispatch: ReturnType<typeof useApp>["dispatch"];
+  onOpenEditor: (todo: TodoItem) => void;
 }) {
   if (!items.length) return null;
 
@@ -239,21 +235,18 @@ function TodoSection({
               todoId={todo.id}
               isExiting={isExitingTodo(todo)}
               className={cn(
-                focusedTodoId === todo.id && editing !== todo.id ? "rounded-xl bg-info-surface/60 ring-1 ring-info-line transition duration-300" : "",
+                focusedTodoId === todo.id ? "rounded-xl bg-info-surface/60 ring-1 ring-info-line transition duration-300" : "",
                 exitingTodoClassName(todo),
               )}
             >
               <TodoListRow
                 todo={todo}
                 canvasDateKey={selectedDateKey}
-                isEditing={editing === todo.id}
                 isCompleting={completionFilterByTodoId[todo.id] === activeFilter}
                 isUncompleting={uncompletionFilterByTodoId[todo.id] === activeFilter}
                 exitingCompletedLabel={uncompletionCompletedLabelByTodoId[todo.id]}
-                folders={todoFolders}
                 onToggle={() => onToggle(todo)}
                 onDelete={(todoId) => dispatch({ type: "todo/delete", todoId })}
-                onStartEdit={(nextTodo) => setEditing(nextTodo.id)}
                 onSaveEdit={(todoId, payload) => {
                   dispatch({
                     type: "todo/update",
@@ -262,12 +255,9 @@ function TodoSection({
                     dueDateKey: payload.dueDateKey as DateKey,
                     dueTime: payload.dueTime,
                     hashtags: parseHashtags(payload.title + (todo.notes ? " " + todo.notes : "")),
-                    folderId: payload.folderId,
-                    folderName: payload.folderName,
                   });
-                  setEditing(null);
                 }}
-                onCancelEdit={() => setEditing(null)}
+                onOpenEditor={onOpenEditor}
               />
             </TodoExitFrame>
           ))}
@@ -281,9 +271,11 @@ export function TodosScreen() {
   const { state, dispatch } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
-  const [editing, setEditing] = useState<string | null>(null);
   const [focusedTodoId, setFocusedTodoId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  // The inline row edit (onStartEdit above) only covers title/due/folder;
+  // this opens the full editor (recurrence, reminders) for an existing todo.
+  const [editingModalTodoId, setEditingModalTodoId] = useState<string | null>(null);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(() => readLastSelectedTodoFolder() || null);
   const [todoViewFading, setTodoViewFading] = useState(false);
   const [completionFilterByTodoId, setCompletionFilterByTodoId] = useState<CompletionFilterByTodoId>({});
@@ -442,6 +434,10 @@ export function TodosScreen() {
   }, [mobileTodosOpen]);
 
   const activeTodos = useMemo(() => state.todos.filter((todo) => !todo.deletedAt), [state.todos]);
+  const editingModalTodo = useMemo(
+    () => (editingModalTodoId ? state.todos.find((todo) => todo.id === editingModalTodoId) ?? null : null),
+    [editingModalTodoId, state.todos],
+  );
   const effectiveTodoFolders = useMemo(() => {
     if (state.todoFolders.length) return state.todoFolders;
     return [{ id: "__others__", name: "Others", createdAt: 0, updatedAt: 0 }];
@@ -840,7 +836,6 @@ export function TodosScreen() {
     const target = state.todos.find((todo) => todo.id === focusTodoId && !todo.deletedAt);
     if (!target) return;
     dispatch({ type: "ui/set-todo-filter", filter: focusFilterForTodo(target, todayKey) });
-    setEditing(null);
     setFocusedTodoId(focusTodoId);
     navigate(location.pathname, { replace: true, state: null });
   }, [dispatch, focusTodoId, location.pathname, navigate, state.todos, todayKey]);
@@ -1227,31 +1222,27 @@ export function TodosScreen() {
                   <div data-testid="todo-section-stack" className="omanote-todo-section-stack">
                     <TodoSection
                       items={todaySections.pending}
-                      editing={editing}
                       focusedTodoId={focusedTodoId}
                       completionFilterByTodoId={completionFilterByTodoId}
                       uncompletionFilterByTodoId={uncompletionFilterByTodoId}
                       uncompletionCompletedLabelByTodoId={uncompletionCompletedLabelByTodoId}
                       activeFilter={state.ui.todoFilter}
-                      setEditing={setEditing}
                       selectedDateKey={todayKey}
-                      todoFolders={state.todoFolders}
                       onToggle={handleToggleTodo}
                       dispatch={dispatch}
+                      onOpenEditor={(todo) => setEditingModalTodoId(todo.id)}
                     />
                     <TodoSection
                       items={todaySections.completed}
-                      editing={editing}
                       focusedTodoId={focusedTodoId}
                       completionFilterByTodoId={completionFilterByTodoId}
                       uncompletionFilterByTodoId={uncompletionFilterByTodoId}
                       uncompletionCompletedLabelByTodoId={uncompletionCompletedLabelByTodoId}
                       activeFilter={state.ui.todoFilter}
-                      setEditing={setEditing}
                       selectedDateKey={todayKey}
-                      todoFolders={state.todoFolders}
                       onToggle={handleToggleTodo}
                       dispatch={dispatch}
+                      onOpenEditor={(todo) => setEditingModalTodoId(todo.id)}
                     />
                   </div>
                 ) : state.ui.todoFilter === "completed" ? (
@@ -1261,17 +1252,15 @@ export function TodosScreen() {
                         key={group.dateKey}
                         title={formatLongDateKey(group.dateKey)}
                         items={group.items}
-                        editing={editing}
                         focusedTodoId={focusedTodoId}
                         completionFilterByTodoId={completionFilterByTodoId}
                         uncompletionFilterByTodoId={uncompletionFilterByTodoId}
                         uncompletionCompletedLabelByTodoId={uncompletionCompletedLabelByTodoId}
                         activeFilter={state.ui.todoFilter}
-                        setEditing={setEditing}
                         selectedDateKey={state.ui.selectedDateKey}
-                        todoFolders={state.todoFolders}
                         onToggle={handleToggleTodo}
                         dispatch={dispatch}
+                        onOpenEditor={(todo) => setEditingModalTodoId(todo.id)}
                       />
                     ))}
                   </div>
@@ -1282,17 +1271,15 @@ export function TodosScreen() {
                         key={group.dateKey}
                         title={formatLongDateKey(group.dateKey)}
                         items={group.items}
-                        editing={editing}
                         focusedTodoId={focusedTodoId}
                         completionFilterByTodoId={completionFilterByTodoId}
                         uncompletionFilterByTodoId={uncompletionFilterByTodoId}
                         uncompletionCompletedLabelByTodoId={uncompletionCompletedLabelByTodoId}
                         activeFilter={state.ui.todoFilter}
-                        setEditing={setEditing}
                         selectedDateKey={state.ui.selectedDateKey}
-                        todoFolders={state.todoFolders}
                         onToggle={handleToggleTodo}
                         dispatch={dispatch}
+                        onOpenEditor={(todo) => setEditingModalTodoId(todo.id)}
                       />
                     ))}
                   </div>
@@ -1511,11 +1498,8 @@ export function TodosScreen() {
                         key={todo.id}
                         todo={todo}
                         canvasDateKey={state.ui.selectedDateKey}
-                        isEditing={editing === todo.id}
-                        folders={state.todoFolders}
                         onToggle={() => handleToggleTodo(todo)}
                         onDelete={(todoId) => dispatch({ type: "todo/delete", todoId })}
-                        onStartEdit={() => setEditing(todo.id)}
                         onSaveEdit={(todoId, payload) => {
                           dispatch({
                             type: "todo/update",
@@ -1523,12 +1507,9 @@ export function TodosScreen() {
                             title: payload.title,
                             dueDateKey: payload.dueDateKey as DateKey | undefined,
                             dueTime: payload.dueTime,
-                            folderId: payload.folderId,
-                            folderName: payload.folderName,
                           });
-                          setEditing(null);
                         }}
-                        onCancelEdit={() => setEditing(null)}
+                        onOpenEditor={(t) => setEditingModalTodoId(t.id)}
                       />
                     ))
                   ) : (
@@ -1547,11 +1528,8 @@ export function TodosScreen() {
                         key={todo.id}
                         todo={todo}
                         canvasDateKey={state.ui.selectedDateKey}
-                        isEditing={editing === todo.id}
-                        folders={state.todoFolders}
                         onToggle={() => handleToggleTodo(todo)}
                         onDelete={(todoId) => dispatch({ type: "todo/delete", todoId })}
-                        onStartEdit={() => setEditing(todo.id)}
                         onSaveEdit={(todoId, payload) => {
                           dispatch({
                             type: "todo/update",
@@ -1559,12 +1537,9 @@ export function TodosScreen() {
                             title: payload.title,
                             dueDateKey: payload.dueDateKey as DateKey | undefined,
                             dueTime: payload.dueTime,
-                            folderId: payload.folderId,
-                            folderName: payload.folderName,
                           });
-                          setEditing(null);
                         }}
-                        onCancelEdit={() => setEditing(null)}
+                        onOpenEditor={(t) => setEditingModalTodoId(t.id)}
                       />
                     ))
                   ) : (
@@ -1612,6 +1587,32 @@ export function TodosScreen() {
               reminderUntil: payload.reminderUntil ?? undefined,
             });
             setCreating(false);
+          }}
+        />
+      ) : null}
+      {editingModalTodo ? (
+        <TodoEditorModal
+          todo={editingModalTodo}
+          folders={state.todoFolders}
+          selectedFolderId={editingModalTodo.folderId}
+          selectedDateKey={editingModalTodo.dueDateKey ?? editingModalTodo.createdDateKey}
+          onClose={() => setEditingModalTodoId(null)}
+          onToggle={(todoId) => dispatch({ type: "todo/toggle", todoId })}
+          onSave={(payload) => {
+            dispatch({
+              type: "todo/update",
+              todoId: editingModalTodo.id,
+              title: payload.title,
+              dueDateKey: payload.dueDateKey as DateKey,
+              dueTime: payload.dueTime,
+              hashtags: payload.hashtags,
+              folderId: payload.folderId,
+              folderName: payload.folderName,
+              recurrence: payload.recurrence,
+              reminderEveryMinutes: payload.reminderEveryMinutes,
+              reminderUntil: payload.reminderUntil,
+            });
+            setEditingModalTodoId(null);
           }}
         />
       ) : null}

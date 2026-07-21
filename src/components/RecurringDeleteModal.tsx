@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import { useApp } from "../app/AppProvider";
 import { BaseModal } from "./BaseModal";
 import { Button } from "./ui";
@@ -23,16 +24,27 @@ export function RecurringDeleteModal() {
   return (
     <BaseModal onClose={close} onBackdropMouseDown={close}>
       <div
-        className="w-full max-w-md rounded-app-dialog border border-app-line bg-app-surface p-5 shadow-soft"
+        className="w-full max-w-md rounded-app-dialog border border-app-line bg-app-surface shadow-soft"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <h2 className="text-lg font-bold text-app-ink">Delete recurring todo</h2>
-        <p className="mt-2 truncate text-sm text-app-ink-muted">"{title}" repeats. What would you like to delete?</p>
+        <div className="flex items-start justify-between gap-4 p-5 pb-3">
+          <div className="min-w-0">
+            <h2 className="text-lg font-bold text-app-ink">Delete recurring todo</h2>
+            <p className="mt-1 truncate text-sm text-app-ink-muted">"{title}" repeats. What would you like to delete?</p>
+          </div>
+          <button
+            onClick={close}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink-muted"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
 
-        <div className="mt-5 flex flex-col gap-2">
+        <div className="flex flex-wrap justify-end gap-2 px-5 pb-5">
           <Button
             tone="soft"
-            className="w-full justify-start px-4 py-2.5 text-sm"
+            className="text-sm"
             onClick={() =>
               run({ type: "todo/delete-occurrence", todoId: prompt.masterId, occurrenceDateKey: prompt.occurrenceDateKey })
             }
@@ -41,25 +53,19 @@ export function RecurringDeleteModal() {
           </Button>
           <Button
             tone="soft"
-            className="w-full justify-start px-4 py-2.5 text-sm"
+            className="text-sm"
             onClick={() =>
               run({ type: "todo/truncate-series", todoId: prompt.masterId, fromDateKey: prompt.occurrenceDateKey })
             }
           >
-            This and all future todos
+            This and all future
           </Button>
           <Button
-            tone="dangerGhost"
-            className="w-full justify-start px-4 py-2.5 text-sm"
+            tone="danger"
+            className="text-sm"
             onClick={() => run({ type: "todo/delete-series", todoId: prompt.masterId })}
           >
-            All todos in the series
-          </Button>
-        </div>
-
-        <div className="mt-5 flex justify-end">
-          <Button tone="plain" onClick={close}>
-            Cancel
+            All in series
           </Button>
         </div>
       </div>

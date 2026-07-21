@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import {
   GripHorizontal,
   X,
@@ -80,6 +80,45 @@ export function SettingsScreen() {
   const removePushSubscription = useMutation(api.pushSubscriptions.removePushSubscription);
   const devices = useQuery(api.devices.listMyDevices, { limit: 20 });
   const currentDevice = useMemo(() => getCurrentDeviceMetadata(detectWebClientType()), []);
+  const googleConnection = useQuery(api.googleAuth.getConnectionStatus, {});
+  const startGoogleConnect = useAction(api.googleAuth.startConnect);
+  const disconnectGoogle = useAction(api.googleAuth.disconnect);
+  const setGoogleSyncEnabled = useMutation(api.googleAuth.setSyncEnabled);
+  const [googleActionPending, setGoogleActionPending] = useState(false);
+  const [googleActionError, setGoogleActionError] = useState<string | null>(null);
+
+  async function handleConnectGoogle() {
+    setGoogleActionError(null);
+    setGoogleActionPending(true);
+    try {
+      const { url } = await startGoogleConnect({});
+      window.location.href = url;
+    } catch (err) {
+      setGoogleActionError(friendlyErrorMessage(err, "Could not connect to Google."));
+      setGoogleActionPending(false);
+    }
+  }
+
+  async function handleDisconnectGoogle() {
+    setGoogleActionError(null);
+    setGoogleActionPending(true);
+    try {
+      await disconnectGoogle({});
+    } catch (err) {
+      setGoogleActionError(friendlyErrorMessage(err, "Could not disconnect Google."));
+    } finally {
+      setGoogleActionPending(false);
+    }
+  }
+
+  async function handleToggleGoogleSync(enabled: boolean) {
+    setGoogleActionError(null);
+    try {
+      await setGoogleSyncEnabled({ enabled });
+    } catch (err) {
+      setGoogleActionError(friendlyErrorMessage(err, "Could not update sync setting."));
+    }
+  }
 
   const [selectedCategory, setSelectedCategory] = useState<CategoryId>("appearance");
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -514,6 +553,69 @@ export function SettingsScreen() {
               </p>
             </div>
             <div className="space-y-4">
+              <div className="rounded-2xl border border-app-line bg-app-surface p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-app-ink">Google Calendar</p>
+                    <p className="mt-0.5 text-[13px] leading-5 text-app-ink-faint">
+                      {googleConnection === undefined
+                        ? "Checking connection…"
+                        : googleConnection.connected
+                          ? googleConnection.status === "needs_reconnect"
+                            ? "Google access was revoked or expired — reconnect to resume syncing."
+                            : `Connected as ${maskEmail(googleConnection.googleEmail ?? "")}. Todos and events push to a dedicated "omanote" Google Calendar, including recurring todos. Events you create on your primary Google Calendar sync back as todos.`
+                          : "Push todos and events to a dedicated Google Calendar, and sync events from your primary calendar back as todos."}
+                    </p>
+                    {googleActionError && (
+                      <p className="mt-1 text-[13px] leading-5 text-danger-ink">{googleActionError}</p>
+                    )}
+                  </div>
+                  {googleConnection?.connected ? (
+                    googleConnection.status === "needs_reconnect" ? (
+                      <Button tone="default" disabled={googleActionPending} onClick={() => void handleConnectGoogle()}>
+                        Reconnect
+                      </Button>
+                    ) : (
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={googleConnection.syncEnabled}
+                        aria-label="Toggle Google sync"
+                        onClick={() => void handleToggleGoogleSync(!googleConnection.syncEnabled)}
+                        className={cn(
+                          "mt-0.5 flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-focus focus-visible:ring-offset-2",
+                          googleConnection.syncEnabled ? "bg-app-ink" : "bg-app-line-strong",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "pointer-events-none block h-4 w-4 rounded-full bg-white shadow-sm ring-0 transition-transform duration-200",
+                            googleConnection.syncEnabled ? "translate-x-5" : "translate-x-0",
+                          )}
+                        />
+                      </button>
+                    )
+                  ) : (
+                    <Button disabled={googleActionPending} onClick={() => void handleConnectGoogle()}>
+                      Connect
+                    </Button>
+                  )}
+                </div>
+                {googleConnection?.connected && (
+                  <div className="mt-3 flex items-center justify-between border-t border-app-line pt-3">
+                    <p className="text-[13px] leading-5 text-app-ink-faint">
+                      Disconnecting removes omanote's access to your Google account and stops all syncing.
+                    </p>
+                    <Button
+                      tone="dangerGhost"
+                      disabled={googleActionPending}
+                      onClick={() => void handleDisconnectGoogle()}
+                    >
+                      Disconnect
+                    </Button>
+                  </div>
+                )}
+              </div>
               <div className="rounded-2xl border border-app-line bg-app-surface p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">

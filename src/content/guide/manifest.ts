@@ -6,6 +6,7 @@ import {
   Compass,
   FileText,
   LayoutGrid,
+  RefreshCw,
   Rss,
   Settings,
   Share2,
@@ -30,6 +31,7 @@ import search from "./search.md?raw";
 import sharing from "./sharing.md?raw";
 import settings from "./settings.md?raw";
 import encryption from "./encryption.md?raw";
+import googleSync from "./google-sync.md?raw";
 
 export interface GuideTopic {
   slug: string;
@@ -109,6 +111,19 @@ export const guideCategories: GuideCategory[] = [
     topics: [{ slug: "rss", title: "RSS reader", description: "Subscribe to feeds and read in omanote.", body: rss }],
   },
   {
+    id: "google-sync",
+    title: "Google Calendar",
+    icon: RefreshCw,
+    topics: [
+      {
+        slug: "google-sync",
+        title: "Google Calendar",
+        description: "Sync todos and events with Google Calendar, both ways.",
+        body: googleSync,
+      },
+    ],
+  },
+  {
     id: "organize",
     title: "Organizing & finding",
     icon: Compass,
@@ -139,7 +154,7 @@ export const guideCategories: GuideCategory[] = [
 
 // Shown in the guide header (like the changelog version on /updates). Bump
 // when guide content is meaningfully revised.
-export const GUIDE_LAST_UPDATED = "Jul 19, 2026";
+export const GUIDE_LAST_UPDATED = "Jul 21, 2026";
 
 export const guideTopics: GuideTopic[] = guideCategories.flatMap((category) => category.topics);
 

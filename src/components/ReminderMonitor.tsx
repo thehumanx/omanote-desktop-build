@@ -7,6 +7,13 @@ import { computeReminderTriggerAt } from "../lib/reminder-schedule";
 import { isTauri, sendDesktopNotification } from "../lib/desktop";
 import { desktopNotificationsEnabled } from "../lib/desktop-notifications";
 
+// A one-shot (non-repeating) reminder more than this far past its trigger
+// time is considered stale and won't fire at all -- this is the grace
+// window for "laptop was asleep" style delays, not an invitation to fire a
+// reminder for a due time that was already in the past when the todo was
+// created.
+const STALE_REMINDER_THRESHOLD_MS = 5 * 60 * 1000;
+
 export function ReminderMonitor() {
   const { state, dispatch } = useApp();
   const location = useLocation();
@@ -108,6 +115,13 @@ export function ReminderMonitor() {
             triggerAt = new Date(slotAt);
             key = `${todo.id}:repeat:${slotAt}`;
           }
+        } else if (now.getTime() - triggerAt.getTime() > STALE_REMINDER_THRESHOLD_MS) {
+          // The due moment already passed before this todo was ever created
+          // or synced (e.g. typing "gym at 6am" at 2pm, or a recurring
+          // series' current occurrence rolling past before the client next
+          // polls) — don't fire a notification for something already gone,
+          // only for reminders that are recently due.
+          continue;
         }
         if (triggerAt <= now && !firedRef.current.has(key)) {
           const canShowInApp = settings.inAppReminderNotifications;

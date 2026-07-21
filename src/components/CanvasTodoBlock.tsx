@@ -1,32 +1,16 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { CircleCheckBig, Repeat, Trash2, WifiOff, X } from "lucide-react";
-import type { TodoFolder, TodoItem } from "@omanote/shared";
-import {
-  describeRecurrenceRule,
-  formatCompletedLabel,
-  formatDueChip,
-  formatFutureTodoCanvasLabel,
-  formatNaturalLanguageDueInput,
-  isFutureDateKey,
-  parseNaturalLanguageDueInput,
-} from "@omanote/shared";
-import { useOutsideClick } from "../lib/useOutsideClick";
-import { cn, Input, TodoCheckmark } from "./ui";
+import { memo } from "react";
+import { CircleCheckBig, Pencil, Repeat, Trash2, WifiOff } from "lucide-react";
+import type { TodoItem } from "@omanote/shared";
+import { describeRecurrenceRule, formatCompletedLabel, formatDueChip, formatFutureTodoCanvasLabel, isFutureDateKey } from "@omanote/shared";
+import { cn, TodoCheckmark } from "./ui";
 import { RichTextPreview } from "./rich-text";
 import { AttachmentLinkPreview } from "./AttachmentLinkPreview";
-import { focusWithoutScrolling } from "../lib/preserve-focus-scroll";
-import { HashtagPickerDropdown, useHashtagPicker } from "./HashtagPicker";
-import { EmojiPickerDropdown, useEmojiPicker } from "./EmojiPicker";
 
 export type CanvasTodoBlockProps = {
   todo: TodoItem;
   canvasDateKey: string;
   pendingSync?: boolean;
-  isEditing: boolean;
-  folders?: TodoFolder[];
-  onStartEdit: (todo: TodoItem) => void;
-  onSaveEdit: (todoId: string, payload: { title: string; dueDateKey?: string; dueTime?: string; folderId?: string; folderName?: string }) => void;
-  onCancelEdit: () => void;
+  onOpenEditor: (todo: TodoItem) => void;
   onInlineTitleEdit: (todo: TodoItem, nextTitle: string) => void;
   onToggle: (todo: TodoItem) => void;
   onDelete: (todo: TodoItem) => void;
@@ -38,11 +22,7 @@ export function areCanvasTodoBlockPropsEqual(previous: CanvasTodoBlockProps, nex
     previous.todo === next.todo &&
     previous.canvasDateKey === next.canvasDateKey &&
     previous.pendingSync === next.pendingSync &&
-    previous.isEditing === next.isEditing &&
-    previous.folders === next.folders &&
-    previous.onStartEdit === next.onStartEdit &&
-    previous.onSaveEdit === next.onSaveEdit &&
-    previous.onCancelEdit === next.onCancelEdit &&
+    previous.onOpenEditor === next.onOpenEditor &&
     previous.onInlineTitleEdit === next.onInlineTitleEdit &&
     previous.onToggle === next.onToggle &&
     previous.onDelete === next.onDelete &&
@@ -54,302 +34,27 @@ function CanvasTodoBlockComponent({
   todo,
   canvasDateKey,
   pendingSync,
-  isEditing,
-  folders = [],
-  onStartEdit,
-  onSaveEdit,
-  onCancelEdit,
+  onOpenEditor,
   onInlineTitleEdit,
   onToggle,
   onDelete,
   onSelectDate,
 }: CanvasTodoBlockProps) {
-  const [draftTitle, setDraftTitle] = useState(todo.title);
-  const [draftWhen, setDraftWhen] = useState(formatNaturalLanguageDueInput(todo.dueDateKey, todo.dueTime));
-  const [draftFolder, setDraftFolder] = useState(
-    todo.folderName ??
-    (todo.folderId ? folders.find((f) => f.id === todo.folderId)?.name : undefined) ??
-    "Others"
-  );
-  const [folderMenuOpen, setFolderMenuOpen] = useState(false);
-  const [draftError, setDraftError] = useState("");
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const titleRef = useRef<HTMLInputElement | null>(null);
   const dueChip = formatDueChip(todo.dueDateKey, todo.dueTime, canvasDateKey, todo.createdDateKey);
   const isFutureTodo = isFutureDateKey(canvasDateKey, todo.dueDateKey);
   const futureCanvasLabel = formatFutureTodoCanvasLabel(todo.dueDateKey, todo.dueTime);
   const completedLabel = todo.status === "done" ? formatCompletedLabel(todo.completedAt ?? todo.updatedAt) : "";
-  const titlePicker = useHashtagPicker({
-    value: draftTitle,
-    textareaRef: titleRef,
-    onChange: setDraftTitle,
-  });
-  const titleEmojiPicker = useEmojiPicker({
-    value: draftTitle,
-    textareaRef: titleRef,
-    onChange: setDraftTitle,
-  });
   const editTodoTitle = (nextTitle: string) => {
     const title = nextTitle.trim();
     if (!title) return;
     onInlineTitleEdit(todo, title);
   };
 
-  const trimmedFolder = draftFolder.trim();
-  const folderFilter = trimmedFolder.toLowerCase();
-  const visibleFolders = useMemo(() => {
-    if (!folderFilter) return folders;
-    return folders.filter((folder) => folder.name.toLowerCase().includes(folderFilter));
-  }, [folderFilter, folders]);
-  const exactFolderMatch = useMemo(
-    () => folders.find((folder) => folder.name.toLowerCase() === folderFilter) ?? null,
-    [folderFilter, folders],
-  );
-
-  useEffect(() => {
-    if (!isEditing) return;
-    setDraftTitle(todo.title);
-    setDraftWhen(formatNaturalLanguageDueInput(todo.dueDateKey, todo.dueTime));
-    setDraftFolder(
-      todo.folderName ??
-      (todo.folderId ? folders.find((f) => f.id === todo.folderId)?.name : undefined) ??
-      "Others"
-    );
-    setDraftError("");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditing, todo.dueDateKey, todo.dueTime, todo.title, todo.folderId, todo.folderName]);
-
-  useEffect(() => {
-    if (isEditing) return;
-    setDraftTitle(todo.title);
-    setDraftWhen(formatNaturalLanguageDueInput(todo.dueDateKey, todo.dueTime));
-    setDraftError("");
-  }, [isEditing, todo.dueDateKey, todo.dueTime, todo.title]);
-
-  useEffect(() => {
-    if (!isEditing || !titleRef.current) return;
-    const titleInput = titleRef.current;
-    return focusWithoutScrolling(titleInput, () => {
-      titleInput.focus({ preventScroll: true });
-      titleInput.setSelectionRange(titleInput.value.length, titleInput.value.length);
-    });
-  }, [isEditing, todo.id]);
-
-  const handleOutsideClick = () => {
-    commit();
-    onCancelEdit();
-  };
-
-  useOutsideClick(rootRef, isEditing, handleOutsideClick);
-
-  const commit = () => {
-    const title = draftTitle.trim();
-    if (!title) return;
-
-    const parsed = draftWhen.trim() ? parseNaturalLanguageDueInput(draftWhen) : null;
-    if (draftWhen.trim() && !parsed) {
-      setDraftError("Try a phrase like tomorrow 9pm or 5 days later.");
-      return;
-    }
-
-    onSaveEdit(todo.id, {
-      title,
-      dueDateKey: parsed?.dateKey,
-      dueTime: parsed?.time,
-      folderId: exactFolderMatch?.id,
-      folderName: trimmedFolder || "Others",
-    });
-  };
-
-  if (isEditing) {
-    return (
-      <div
-        ref={rootRef}
-        data-testid="canvas-todo-block"
-        className="group relative -ml-3 -mr-2 -my-1 w-full rounded-xl px-2 py-1 pl-3 transition-[transform,opacity,background-color,box-shadow] duration-200 ease-out hover:bg-app-surface-hover focus-within:bg-app-surface-muted focus-within:ring-1 focus-within:ring-app-focus/15 before:pointer-events-none before:absolute before:inset-y-2 before:left-0 before:w-px before:rounded-full before:bg-transparent focus-within:before:bg-app-line-strong"
-        onDoubleClick={() => onStartEdit(todo)}
-      >
-        <div className="flex w-full items-start gap-2">
-          <TodoCheckmark
-            type="button"
-            aria-label="toggle todo"
-            disabled={isFutureTodo}
-            checked={todo.status === "done"}
-            onClick={() => onToggle(todo)}
-            align="text"
-          />
-
-          <div className="min-w-0 flex-1 space-y-2">
-            <div className="flex w-full flex-col gap-2 md:flex-row md:items-center">
-              <Input
-                ref={titleRef}
-                value={draftTitle}
-                onChange={(event) => setDraftTitle(event.target.value)}
-                onKeyDown={(event) => {
-                  if (titlePicker.handleKeyDown(event)) return;
-                  if (titleEmojiPicker.handleKeyDown(event)) return;
-                  if (event.key === "Escape") {
-                    event.preventDefault();
-                    onCancelEdit();
-                    return;
-                  }
-                  if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-                    event.preventDefault();
-                    commit();
-                    return;
-                  }
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    commit();
-                  }
-                }}
-                placeholder="Todo title"
-                className="min-w-0 w-full flex-[2] rounded-none border-0 border-b border-app-line bg-transparent px-0 text-base leading-6 text-app-ink outline-none placeholder:text-app-line-strong focus:border-app-line-strong focus:ring-0"
-              />
-              <Input
-                value={draftWhen}
-                onChange={(event) => {
-                  setDraftWhen(event.target.value);
-                  setDraftError("");
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "Escape") {
-                    event.preventDefault();
-                    onCancelEdit();
-                    return;
-                  }
-                  if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-                    event.preventDefault();
-                    commit();
-                    return;
-                  }
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    commit();
-                  }
-                }}
-                placeholder="Tomorrow 9:30pm, 1 hour later, 5 days later"
-                className="min-w-0 w-full flex-1 rounded-none border-0 border-b border-app-line bg-transparent px-0 text-[15px] text-app-ink-faint outline-none placeholder:text-app-line-strong focus:border-app-line-strong focus:ring-0"
-              />
-              {folders.length ? (
-                <div className="relative min-w-0 w-full flex-1">
-                  <input
-                    value={draftFolder}
-                    onChange={(event) => {
-                      setDraftFolder(event.target.value);
-                      setFolderMenuOpen(true);
-                    }}
-                    onFocus={() => setFolderMenuOpen(true)}
-                    onBlur={() => {
-                      window.requestAnimationFrame(() => setFolderMenuOpen(false));
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === "Escape") {
-                        event.preventDefault();
-                        onCancelEdit();
-                        return;
-                      }
-                      if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-                        event.preventDefault();
-                        commit();
-                        return;
-                      }
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        commit();
-                      }
-                    }}
-                    placeholder="Folder"
-                    className="w-full border-0 border-b border-app-line bg-transparent px-0 text-[15px] text-app-ink-faint outline-none placeholder:text-app-line-strong focus:border-app-line-strong"
-                  />
-                  {draftFolder.trim() ? (
-                    <button
-                      type="button"
-                      aria-label="Clear folder"
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => {
-                        setDraftFolder("");
-                        setFolderMenuOpen(true);
-                      }}
-                      className="absolute right-0 top-1/2 -translate-y-1/2 rounded-full p-1 text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  ) : null}
-                  {folderMenuOpen && visibleFolders.length ? (
-                    <div
-                      className="absolute left-0 right-0 top-full z-20 mt-2 rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
-                      onMouseDown={(event) => event.preventDefault()}
-                    >
-                      {visibleFolders.map((folder) => (
-                        <button
-                          key={folder.id}
-                          type="button"
-                          className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink"
-                          onMouseDown={(event) => {
-                            event.preventDefault();
-                            setDraftFolder(folder.name);
-                            setFolderMenuOpen(false);
-                          }}
-                        >
-                          {folder.name}
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-
-            {draftError ? <p className="text-xs text-danger-ink">{draftError}</p> : null}
-            <div className="flex justify-end md:hidden">
-              <button
-                type="button"
-                aria-label="Cancel"
-                onClick={onCancelEdit}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-app-line bg-app-surface-muted text-app-ink-muted transition hover:bg-app-surface-hover active:translate-y-px active:scale-[0.98]"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-        <HashtagPickerDropdown
-          isOpen={titlePicker.isOpen}
-          suggestions={titlePicker.suggestions}
-          activeIndex={titlePicker.activeIndex}
-          onSelect={titlePicker.selectSuggestion}
-          onHover={titlePicker.setActiveIndex}
-          anchorRef={titleRef}
-        />
-        <EmojiPickerDropdown
-          isOpen={titleEmojiPicker.isOpen}
-          suggestions={titleEmojiPicker.suggestions}
-          activeIndex={titleEmojiPicker.activeIndex}
-          onSelect={titleEmojiPicker.selectSuggestion}
-          onHover={titleEmojiPicker.setActiveIndex}
-          anchorRef={titleRef}
-        />
-
-        <div className="absolute right-1 top-1 flex items-center gap-1 rounded-full opacity-0 transition group-hover:bg-app-surface group-hover:bg-app-surface group-hover:opacity-100 group-focus-within:opacity-100">
-          <button
-            aria-label="delete todo"
-            onClick={() => onDelete(todo)}
-            className="rounded-full p-1 text-app-line-strong transition hover:bg-app-surface-hover hover:text-danger-ink"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div
-      ref={rootRef}
       data-testid="canvas-todo-block"
       className="group relative -ml-3 -mr-2 -my-1 w-full rounded-xl px-2 py-1 pl-3 transition-[transform,opacity,background-color,box-shadow] duration-200 ease-out hover:bg-app-surface-hover focus-within:bg-app-surface-muted focus-within:ring-1 focus-within:ring-app-focus/15 before:pointer-events-none before:absolute before:inset-y-2 before:left-0 before:w-px before:rounded-full before:bg-transparent focus-within:before:bg-app-line-strong"
-      onDoubleClick={() => onStartEdit(todo)}
+      onDoubleClick={() => onOpenEditor(todo)}
     >
       {pendingSync && (
         <div className="absolute right-2 top-2 flex items-center justify-center rounded-full bg-app-surface-muted p-1" title="Not synced — will upload when you reconnect">
@@ -418,6 +123,14 @@ function CanvasTodoBlockComponent({
       </div>
 
       <div className="absolute right-1 top-1 flex items-center gap-1 opacity-0 transition group-hover:opacity-100 rounded-full group-hover:bg-app-surface group-focus-within:opacity-100">
+        <button
+          type="button"
+          aria-label="edit todo details"
+          onClick={() => onOpenEditor(todo)}
+          className="rounded-full p-1 text-app-line-strong transition hover:bg-app-surface-hover hover:text-app-ink"
+        >
+          <Pencil className="h-4 w-4" />
+        </button>
         <button
           type="button"
           aria-label="delete todo"

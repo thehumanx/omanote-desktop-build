@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { SeoHead } from "../seo/SeoHead";
 
-const LAST_UPDATED = "May 10, 2026";
+const LAST_UPDATED = "July 21, 2026";
 const CONTACT_EMAIL = "omanote@iambishistha.com";
 
 export function TermsScreen() {
@@ -95,7 +95,23 @@ export function TermsScreen() {
             </section>
 
             <section>
-              <h2 className="text-base font-bold text-app-ink mb-3">6. Limitation of liability</h2>
+              <h2 className="text-base font-bold text-app-ink mb-3">6. Third-party integrations</h2>
+              <p>
+                omanote offers optional integrations with third-party services, such as Google
+                Calendar sync. These are off by default and only take effect if you explicitly
+                connect them from Settings. Using an integration is also subject to that provider's
+                own terms (for Google, its standard account terms) — omanote isn't responsible for
+                the availability or behavior of third-party services themselves. You can disconnect
+                any integration at any time from Settings. See our{" "}
+                <Link to="/privacy" className="text-app-ink underline underline-offset-2 hover:no-underline">
+                  Privacy Policy
+                </Link>{" "}
+                for what data an integration involves.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-base font-bold text-app-ink mb-3">7. Limitation of liability</h2>
               <p>
                 omanote is provided without warranties of any kind. To the extent permitted by law,
                 we are not liable for any loss of data, loss of access, or damages arising from your
@@ -105,7 +121,7 @@ export function TermsScreen() {
             </section>
 
             <section>
-              <h2 className="text-base font-bold text-app-ink mb-3">7. Changes to these terms</h2>
+              <h2 className="text-base font-bold text-app-ink mb-3">8. Changes to these terms</h2>
               <p>
                 We may update these terms occasionally. Continued use of omanote after changes are
                 posted means you accept the updated terms. Material changes will be announced via
@@ -114,7 +130,7 @@ export function TermsScreen() {
             </section>
 
             <section>
-              <h2 className="text-base font-bold text-app-ink mb-3">8. Contact</h2>
+              <h2 className="text-base font-bold text-app-ink mb-3">9. Contact</h2>
               <p>
                 Questions about these terms?{" "}
                 <a

@@ -6,6 +6,10 @@ Todos are your task ledger. They're more than checkboxes on the canvas — the *
 
 Make one from the canvas composer (`/todo`, or start a checklist line) or from the Todos view. Add a due date and time in plain language — `pay bills friday 9am` — and omanote sets the schedule for you.
 
+## Editing a todo
+
+Hover a todo and click the pencil icon (or just double-click it) to open the full editor — title, due date, folder, repeat, and reminders, all in one place. This works the same way everywhere a todo shows up: the Todos view, the daily canvas, and the Event/Calendar screen. On mobile, it opens as a drawer from the bottom of the screen instead of a popup, sized for a thumb rather than a mouse.
+
 ## Due dates, reminders, and priority
 
 - **Due date & time:** todos with no date default to today. Add a time to get a reminder.

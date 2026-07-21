@@ -11,7 +11,7 @@ Settings is organized into categories so each kind of control is easy to find.
 
 ## Features
 
-Turn optional features on or off — for example, the **RSS reader**.
+Turn optional features on or off — for example, the **RSS reader**, or **Google Calendar sync**.
 
 ## Notifications
 

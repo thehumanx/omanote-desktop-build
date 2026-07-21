@@ -1,5 +1,6 @@
 import type { DateKey, RecurrenceRule } from "@omanote/shared";
 import { prefixedRandomId } from "@omanote/shared";
+import { ConvexError } from "convex/values";
 
 const STORAGE_KEY = "omanote.canvas-outbox";
 
@@ -175,6 +176,28 @@ type BookmarkCreatePayload = {
   draftKey?: string;
 };
 
+type GoogleEventPushPayload = {
+  todoId: string;
+  plaintextTitle: string;
+  plaintextNotes?: string;
+  timeZone: string;
+};
+
+type GoogleEventDeletePayload = {
+  todoId: string;
+};
+
+type GoogleEventEntryPushPayload = {
+  eventEntryId: string;
+  plaintextLabel: string;
+  plaintextNotes?: string;
+  timeZone: string;
+};
+
+type GoogleEventEntryDeletePayload = {
+  eventEntryId: string;
+};
+
 type BookmarkUpdatePayload = {
   bookmarkId: string;
   categoryId?: string;
@@ -215,6 +238,10 @@ type CanvasPayloadMap = {
   "todo/checklist/toggle": TodoChecklistTogglePayload;
   "bookmark/create": BookmarkCreatePayload;
   "bookmark/update": BookmarkUpdatePayload;
+  "google/event-push": GoogleEventPushPayload;
+  "google/event-delete": GoogleEventDeletePayload;
+  "google/event-entry-push": GoogleEventEntryPushPayload;
+  "google/event-entry-delete": GoogleEventEntryDeletePayload;
 };
 
 export type CanvasKind = keyof CanvasPayloadMap;
@@ -225,6 +252,10 @@ type OutboxItem<K extends CanvasKind = CanvasKind> = {
   createdAt: number;
   attempts: number;
   payload: CanvasPayloadMap[K];
+  // Set when a Google push comes back rate-limited (429), so the retry
+  // waits out Google's Retry-After instead of hammering it again on the
+  // next flush (app foreground/online event).
+  nextAttemptAt?: number;
 };
 
 type HandlerMap = Partial<{
@@ -256,7 +287,7 @@ function writeOutbox(items: OutboxItem[]) {
   }
 }
 
-export function enqueueCanvasMutation<K extends CanvasKind>(kind: K, payload: CanvasPayloadMap[K]) {
+export function enqueueCanvasMutation<K extends CanvasKind>(kind: K, payload: CanvasPayloadMap[K], delayMs = 0) {
   const items = readOutbox();
   items.push({
     id: newId(),
@@ -264,8 +295,20 @@ export function enqueueCanvasMutation<K extends CanvasKind>(kind: K, payload: Ca
     createdAt: Date.now(),
     attempts: 0,
     payload,
+    nextAttemptAt: delayMs > 0 ? Date.now() + delayMs : undefined,
   });
   writeOutbox(items);
+}
+
+// A server push that got rate-limited surfaces this shape (see
+// convex/googleCalendar.ts's 429 handling) so the retry can wait out
+// Google's Retry-After instead of firing immediately.
+function extractRetryAfterMs(err: unknown): number {
+  if (err instanceof ConvexError && err.data && typeof err.data === "object") {
+    const retryAfterMs = (err.data as { retryAfterMs?: unknown }).retryAfterMs;
+    if (typeof retryAfterMs === "number" && retryAfterMs > 0) return retryAfterMs;
+  }
+  return 0;
 }
 
 export async function runWithCanvasOutboxFallback<K extends CanvasKind>(
@@ -275,8 +318,8 @@ export async function runWithCanvasOutboxFallback<K extends CanvasKind>(
 ) {
   try {
     await operation();
-  } catch {
-    enqueueCanvasMutation(kind, payload);
+  } catch (err) {
+    enqueueCanvasMutation(kind, payload, extractRetryAfterMs(err));
   }
 }
 
@@ -289,6 +332,7 @@ export async function flushCanvasOutbox(handlers: HandlerMap) {
 
   const removedIds = new Set<string>();
   const attemptBumps = new Map<string, number>();
+  const nextAttemptUpdates = new Map<string, number | undefined>();
   const now = Date.now();
 
   for (const item of items) {
@@ -296,28 +340,39 @@ export async function flushCanvasOutbox(handlers: HandlerMap) {
       removedIds.add(item.id);
       continue;
     }
+    if (item.nextAttemptAt && item.nextAttemptAt > now) {
+      continue; // Still waiting out a rate-limit backoff.
+    }
     const handler = handlers[item.kind];
     if (!handler) continue;
     try {
       await handler(item.payload as never);
       removedIds.add(item.id);
-    } catch {
+    } catch (err) {
       const next = (item.attempts ?? 0) + 1;
       if (next >= MAX_ATTEMPTS) {
         removedIds.add(item.id);
       } else {
         attemptBumps.set(item.id, next);
+        const retryAfterMs = extractRetryAfterMs(err);
+        if (retryAfterMs > 0) nextAttemptUpdates.set(item.id, now + retryAfterMs);
       }
     }
   }
 
-  if (removedIds.size === 0 && attemptBumps.size === 0) return;
+  if (removedIds.size === 0 && attemptBumps.size === 0 && nextAttemptUpdates.size === 0) return;
 
   const nextItems = items
     .filter((item) => !removedIds.has(item.id))
     .map((item) => {
       const bumped = attemptBumps.get(item.id);
-      return bumped !== undefined ? { ...item, attempts: bumped } : item;
+      const nextAttemptAt = nextAttemptUpdates.get(item.id);
+      if (bumped === undefined && nextAttemptAt === undefined) return item;
+      return {
+        ...item,
+        attempts: bumped !== undefined ? bumped : item.attempts,
+        nextAttemptAt: nextAttemptAt !== undefined ? nextAttemptAt : item.nextAttemptAt,
+      };
     });
 
   writeOutbox(nextItems);
