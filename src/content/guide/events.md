@@ -4,7 +4,7 @@ Events are the record of things that **happened** — not things to do, but mome
 
 ## Logging an event
 
-Start with `@` in the canvas composer, or use `/event`. Write what happened in plain language, and add a time if it matters — `@finished the 10k run 8am`. Each line becomes its own event, so you can log several at once.
+Use `/event` in the canvas composer, then write what happened in plain language, and add a time if it matters — `finished the 10k run 8am`. On the mobile app, you can also start the line with `@` instead of typing the slash command. Each line becomes its own event, so you can log several at once.
 
 ## The timeline
 

@@ -7,9 +7,9 @@ omanote is a quiet workspace built around a single idea: **your day is the unit*
 The fastest way to use omanote is to just start typing on the canvas. The composer figures out what you mean:
 
 - Type a thought and press save — it becomes a **note**.
-- Start with a checkbox-style task — it becomes a **todo**.
 - Paste a link — it becomes a **bookmark** with a preview.
-- Prefix with `@` — it becomes an **event** (something that happened).
+- Prefix with `@` — it becomes an **event** (something that happened). Mobile app only for now; on web and desktop, use `/event`.
+- Type `/` for todos, events, or bookmarks explicitly.
 
 You can always sort things into folders and add hashtags later. The point is never to lose a fragment because you didn't have the "right" place for it.
 
@@ -25,4 +25,4 @@ Everything you write is **encrypted on your device** before it's saved to the cl
 
 omanote runs as a web app, a native app for Android and iOS, a desktop app, and a browser extension for saving links and snippets from any page. Everything syncs through the same account, and works offline — changes queue locally and sync when you reconnect.
 
-Ready to go deeper? The **Todos** section covers due dates, reminders, and recurring tasks; **Notes**, **Bookmarks**, and **Events** each have their own guide.
+Ready to go deeper? The **Download & install** page covers every platform. The **Todos** section covers due dates, reminders, and recurring tasks; **Notes**, **Bookmarks**, and **Events** each have their own guide.

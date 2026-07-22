@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useContext, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import changelogMarkdown from "../../CHANGELOG.md?raw";
+import bundledChangelogMarkdown from "../../CHANGELOG.md?raw";
 import { CHANGELOG_TABS, type ChangelogProduct } from "../components/ChangelogProductTabs";
 import { SegmentedPill } from "../components/ui";
 import { useTopChrome } from "../components/layout/useTopChrome";
 import { parseLatestVersion } from "../lib/update-checker";
+import { UpdateContext } from "../contexts/UpdateContext";
 
 type RoadmapPhase = {
   phase: string;
@@ -169,7 +170,9 @@ function renderInline(text: string): ReactNode[] {
 export function UpdatesScreen() {
   const [activeTab, setActiveTab] = useState<ChangelogProduct>("webapp");
   const activeTabConfig = CHANGELOG_TABS.find((tab) => tab.id === activeTab) ?? CHANGELOG_TABS[0];
-  const versionLabel = useMemo(() => parseLatestVersion(changelogMarkdown)?.version ?? "", []);
+  const ctx = useContext(UpdateContext);
+  const changelogMarkdown = ctx?.changelogMarkdown ?? bundledChangelogMarkdown;
+  const versionLabel = useMemo(() => parseLatestVersion(changelogMarkdown)?.version ?? "", [changelogMarkdown]);
 
   const topChrome = useMemo(
     () => (

@@ -2,6 +2,7 @@ import React, { lazy, Suspense } from "react";
 import { Link, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { useConvexAuth } from "convex/react";
 import { LandingScreen } from "./screens/LandingScreen";
+import { LandingScreen as LandingScreenV2 } from "./screens/LandingScreen.v2";
 import { useUserSettings } from "./contexts/UserSettingsContext";
 import { isTauri } from "./lib/desktop";
 import { DesktopAuthListener } from "./components/desktop/DesktopAuthListener";

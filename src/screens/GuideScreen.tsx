@@ -87,6 +87,9 @@ function GuideSidebarContents({ activeSlug }: { activeSlug: string }) {
           </div>
         );
       })}
+      <p className="mt-6 px-2 text-xs text-app-ink-faint">
+        Updated {GUIDE_LAST_UPDATED}
+      </p>
     </>
   );
 }

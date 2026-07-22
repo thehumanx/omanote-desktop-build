@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState, type TouchEvent as ReactTouchEvent, type WheelEvent as ReactWheelEvent } from "react";
 import { ExternalLink, RefreshCw, Sparkles, FileText, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import changelogMarkdown from "../../CHANGELOG.md?raw";
 import { Button, SegmentedPill } from "./ui";
 import { CHANGELOG_TABS, type ChangelogProduct } from "./ChangelogProductTabs";
 import { BaseModal } from "./BaseModal";
@@ -16,7 +15,7 @@ function isInsideModalScrollArea(target: EventTarget | null) {
 }
 
 export function UpdateModal() {
-  const { isModalOpen, closeModal, latestVersion, modalVersions, isTransitioningToModal } = useUpdate();
+  const { isModalOpen, closeModal, latestVersion, modalVersions, isTransitioningToModal, changelogMarkdown } = useUpdate();
   const navigate = useNavigate();
   const [isEntered, setIsEntered] = useState(false);
   const [activeTab, setActiveTab] = useState<ChangelogProduct>("webapp");

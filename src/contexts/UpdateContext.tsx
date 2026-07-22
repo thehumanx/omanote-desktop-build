@@ -1,10 +1,18 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import changelogMarkdown from "../../CHANGELOG.md?raw";
+import bundledChangelogMarkdown from "../../CHANGELOG.md?raw";
+import { isTauri } from "../lib/desktop";
 import { getLastSeenVersion, getUnseenVersions, markVersionSeen, parseVersions, type VersionInfo } from "../lib/update-checker";
 
 const MODAL_OPEN_TRANSITION_MS = 320;
 
+type ChangelogManifest = {
+  version: string;
+  versions: VersionInfo[];
+  changelog: string;
+};
+
 type UpdateContextValue = {
+  changelogMarkdown: string;
   latestVersion: VersionInfo | null;
   unseenVersions: VersionInfo[];
   modalVersions: VersionInfo[];
@@ -18,12 +26,14 @@ type UpdateContextValue = {
   dismissBanner: () => void;
 };
 
-const UpdateContext = createContext<UpdateContextValue | null>(null);
+export const UpdateContext = createContext<UpdateContextValue | null>(null);
 
 const POLL_INTERVAL_MS = 5 * 60 * 1000;
+const LIVE_VERSION_URL = "https://omanote.com/version.json";
 
 export function UpdateProvider({ children }: { children: ReactNode }) {
-  const [versions, setVersions] = useState<VersionInfo[]>(() => parseVersions(changelogMarkdown));
+  const [versions, setVersions] = useState<VersionInfo[]>(() => parseVersions(bundledChangelogMarkdown));
+  const [changelogMarkdown, setChangelogMarkdown] = useState(bundledChangelogMarkdown);
   const bundledVersion = useRef<string | null>(versions[0]?.version ?? null);
   const [lastSeen, setLastSeen] = useState<string | null>(() => getLastSeenVersion());
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -57,13 +67,20 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    const isDesktop = isTauri();
+    // In Tauri dev mode the local dev server is the source of truth — skip remote fetch.
+    if (isDesktop && import.meta.env.DEV) return;
+
+    const endpointUrl = isDesktop ? LIVE_VERSION_URL : "/version.json";
+
     const check = async () => {
       try {
-        const res = await fetch("/version.json", { cache: "no-store" });
+        const res = await fetch(endpointUrl, { cache: "no-store" });
         if (!res.ok) return;
-        const data: { version: string; versions: VersionInfo[] } = await res.json();
+        const data: ChangelogManifest = await res.json();
         if (data.version && bundledVersion.current && data.version !== bundledVersion.current) {
           setVersions(data.versions ?? []);
+          if (data.changelog) setChangelogMarkdown(data.changelog);
           setIsBannerDismissed(false);
         }
       } catch {
@@ -137,6 +154,7 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
   return (
     <UpdateContext.Provider
       value={{
+        changelogMarkdown,
         latestVersion,
         unseenVersions,
         modalVersions,

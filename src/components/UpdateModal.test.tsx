@@ -9,6 +9,7 @@ vi.mock("./ModalPortal", () => ({
 
 vi.mock("../contexts/UpdateContext", () => ({
   useUpdate: () => ({
+    changelogMarkdown: "",
     isModalOpen: true,
     closeModal: vi.fn(),
     latestVersion: {
