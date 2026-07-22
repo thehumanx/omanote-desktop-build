@@ -6,7 +6,7 @@ The composer at the top of the canvas is the single place you put things in. It 
 
 - **Just type** a thought and save — it becomes a **note**.
 - **Paste a link** — it becomes a **bookmark**, with a preview fetched automatically.
-- **Start with `@`** — it becomes an **event** (something that happened).
+- **Start with `@`** — it becomes an **event** (something that happened). This works on the mobile app; on web and desktop, use `/event` instead.
 
 ## Slash commands
 

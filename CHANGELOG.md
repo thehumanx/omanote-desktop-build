@@ -4,6 +4,15 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.27.1 [July 22, 2026]
+
+> Expanded guide, cleaner landing copy, and feedback tuned for quality over quantity.
+
+- [Add] Guide now covers the full app — Insights, Profile & account, Send feedback & request features, What's new & changelogs, Write & Read mode, Dynamic greetings, and a dedicated Download & install page for every platform (web/PWA, desktop, extension, mobile)
+- [Update] Guide sidebar shows a last-updated date so you know the content is fresh
+- [Update] Landing page hero CTA now reads "Open your canvas — it's free", subtext says "One canvas for everything that fits in a day", and the closing CTA has new copy with "Start dumping →"
+- [Update] Feedback message limit tightened to 1,000 characters and rate limit changed from 5/hour to 10/month for more thoughtful submissions
+
 ### v0.27.0 [July 21, 2026]
 
 > Two-way Google Calendar sync, and one consistent way to edit any todo — on every screen, at every size.

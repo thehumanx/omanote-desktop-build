@@ -41,7 +41,7 @@ function versionJsonPlugin(): Plugin {
       const changelog = readFileSync(changelogPath, "utf-8");
       const versions = parseVersionsFromMarkdown(changelog);
       if (!versions.length) return;
-      writeFileSync(outPath, JSON.stringify({ version: versions[0].version, versions }));
+      writeFileSync(outPath, JSON.stringify({ version: versions[0].version, versions, changelog }));
     } catch (e) {
       console.warn("[version-json] Failed to write public/version.json:", e);
     }

@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   BookOpen,
   Bookmark,
   CalendarDays,
@@ -6,6 +7,7 @@ import {
   Compass,
   FileText,
   LayoutGrid,
+  Megaphone,
   RefreshCw,
   Rss,
   Settings,
@@ -32,6 +34,13 @@ import sharing from "./sharing.md?raw";
 import settings from "./settings.md?raw";
 import encryption from "./encryption.md?raw";
 import googleSync from "./google-sync.md?raw";
+import greetings from "./greetings.md?raw";
+import insights from "./insights.md?raw";
+import writeReadMode from "./write-read-mode.md?raw";
+import profile from "./profile.md?raw";
+import feedback from "./feedback.md?raw";
+import changelog from "./changelog.md?raw";
+import downloadAndInstall from "./download-and-install.md?raw";
 
 export interface GuideTopic {
   slug: string;
@@ -61,6 +70,12 @@ export const guideCategories: GuideCategory[] = [
         description: "What omanote is and how to capture your first day.",
         body: gettingStarted,
       },
+      {
+        slug: "download-and-install",
+        title: "Download & install",
+        description: "Web app, desktop app, browser extension, and mobile.",
+        body: downloadAndInstall,
+      },
     ],
   },
   {
@@ -70,6 +85,7 @@ export const guideCategories: GuideCategory[] = [
     topics: [
       { slug: "daily-canvas", title: "The daily canvas", description: "One day, everything in one place.", body: dailyCanvas },
       { slug: "capturing", title: "Capturing anything", description: "The composer, slash commands, and natural language.", body: capturing },
+      { slug: "greetings", title: "Dynamic greetings", description: "A greeting that changes with the time of day.", body: greetings },
     ],
   },
   {
@@ -108,7 +124,10 @@ export const guideCategories: GuideCategory[] = [
     id: "rss",
     title: "RSS reader",
     icon: Rss,
-    topics: [{ slug: "rss", title: "RSS reader", description: "Subscribe to feeds and read in omanote.", body: rss }],
+    topics: [
+      { slug: "rss", title: "RSS reader", description: "Subscribe to feeds and read in omanote.", body: rss },
+      { slug: "write-read-mode", title: "Write & Read mode", description: "Switch between canvas and reader in one workspace.", body: writeReadMode },
+    ],
   },
   {
     id: "google-sync",
@@ -133,6 +152,12 @@ export const guideCategories: GuideCategory[] = [
     ],
   },
   {
+    id: "insights",
+    title: "Insights",
+    icon: BarChart3,
+    topics: [{ slug: "insights", title: "Insights", description: "Completion rates, activity heatmaps, and trends.", body: insights }],
+  },
+  {
     id: "sharing",
     title: "Sharing",
     icon: Share2,
@@ -142,7 +167,19 @@ export const guideCategories: GuideCategory[] = [
     id: "settings",
     title: "Settings & account",
     icon: Settings,
-    topics: [{ slug: "settings", title: "Settings", description: "Appearance, notifications, devices, and data.", body: settings }],
+    topics: [
+      { slug: "settings", title: "Settings", description: "Appearance, notifications, devices, and data.", body: settings },
+      { slug: "profile", title: "Profile & account", description: "Your display name, avatar, and account settings.", body: profile },
+    ],
+  },
+  {
+    id: "feedback",
+    title: "Feedback & updates",
+    icon: Megaphone,
+    topics: [
+      { slug: "feedback", title: "Send feedback & request features", description: "How to report bugs and suggest improvements.", body: feedback },
+      { slug: "changelog", title: "What's new & changelogs", description: "Update notifications, version history, and roadmap.", body: changelog },
+    ],
   },
   {
     id: "privacy",
@@ -154,7 +191,7 @@ export const guideCategories: GuideCategory[] = [
 
 // Shown in the guide header (like the changelog version on /updates). Bump
 // when guide content is meaningfully revised.
-export const GUIDE_LAST_UPDATED = "Jul 21, 2026";
+export const GUIDE_LAST_UPDATED = "Jul 22, 2026";
 
 export const guideTopics: GuideTopic[] = guideCategories.flatMap((category) => category.topics);
 

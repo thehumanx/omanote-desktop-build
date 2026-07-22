@@ -1399,7 +1399,7 @@ function ExtensionPopupMockup() {
 }
 
 // ─── RSS announcement banner ──────────────────────────────────────────────────
-const RSS_BANNER_KEY = "omanote_rss_banner_dismissed";
+const RSS_BANNER_KEY = "omanote_gcal_banner_dismissed";
 
 function RssBanner() {
   const [visible, setVisible] = useState(false);
@@ -1426,8 +1426,8 @@ function RssBanner() {
   return (
     <div className="relative px-4 py-2" style={{ backgroundColor: CTA_BG }}>
       <p className="text-center text-sm font-medium text-white">
-        Feature announcement: omanote reader is here. Read your favorite authors right from the app.{" "}
-        <a href="#reader" className="font-bold underline underline-offset-2 hover:no-underline">
+        Feature announcement: Google Calendar sync is here. Keep todos and events flowing both ways.{" "}
+        <a href="#offerings" className="font-bold underline underline-offset-2 hover:no-underline">
           Learn more →
         </a>
       </p>
@@ -1691,10 +1691,10 @@ export function LandingScreen() {
           <p className="mt-5 text-md text-app-ink-muted max-w-[560px] mx-auto leading-relaxed">
             Notes, todos, bookmarks, events, RSS.
             <br />
-            One workspace for everything that fits in a day.
+            One canvas for everything that fits in a day.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <JournalCta label="Start your daily workspace" />
+            <JournalCta label="Open your canvas — it's free" />
             <a
               href="https://omanote.com/s/FeUM44Rd"
               target="_blank"
@@ -1849,6 +1849,61 @@ export function LandingScreen() {
           </div>
         </section>
 
+        {/* Offerings */}
+        <section id="offerings" className="border-t border-app-line">
+          <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-16 sm:py-20 lg:py-24">
+            <div className="text-center">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">Offerings</p>
+              <h2 className="font-serif-heading font-serif-heading-smooth mt-4 text-3xl sm:text-4xl font-black tracking-[-0.025em] leading-tight">
+                It grew a lot since "just a canvas."
+              </h2>
+              <p className="mt-4 text-app-ink-muted leading-relaxed text-[15px] max-w-[560px] mx-auto">
+                A running list of what's shipped and quietly become part of the daily habit.
+              </p>
+            </div>
+            <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[
+                {
+                  icon: RefreshCw,
+                  title: "Recurring todos",
+                  body: "\"Every mon and fri\" or \"pay rent every month until December\" — just type it. Repeats daily, weekly, monthly, or on chosen weekdays, with an end date or a fixed count.",
+                },
+                {
+                  icon: CalendarDays,
+                  title: "Google Calendar sync",
+                  body: "Connect your Google account and todos flow both ways — open todos land on a dedicated omanote calendar, and events you create in Google show up as todos automatically.",
+                },
+                {
+                  icon: LayoutDashboard,
+                  title: "Insights",
+                  body: "Completion rate, overdue rate, and week-over-week deltas. Content breakdown by type. A 365-day activity heatmap. All the patterns you'd otherwise never notice.",
+                },
+                {
+                  icon: Bell,
+                  title: "Reminders that understand you",
+                  body: "\"Drink water every 30 minutes for the next 6 hours\" pings on that cadence without cluttering your list. Natural-language dates and times, parsed as you type.",
+                },
+                {
+                  icon: Share2,
+                  title: "Share any folder",
+                  body: "Todo folders, note folders, bookmark categories — each can become a clean, read-only public link. Your encrypted workspace stays private; visitors just see the page.",
+                },
+                {
+                  icon: Download,
+                  title: "Export & import",
+                  body: "Your data isn't locked in. Export everything as plain text once decrypted, and import it back — move accounts, back it up, treat it like the private journal it is.",
+                },
+              ].map((card) => (
+                <div key={card.title} className="rounded-2xl border border-app-line bg-app-surface p-5 text-left">
+                  <card.icon className="h-6 w-6 text-app-ink-muted" />
+                  <p className="mt-3 text-sm font-bold text-app-ink">{card.title}</p>
+                  <p className="mt-1.5 text-sm text-app-ink-muted leading-snug">{card.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* Extension */}
         <ExtensionSection />
 
@@ -1898,14 +1953,16 @@ export function LandingScreen() {
           <div
             className="max-w-[1136px] mx-auto px-4 sm:px-6 py-12 sm:py-16 lg:py-20 text-center rounded-3xl my-8 sm:my-12" style={{ backgroundColor: "#F7FCF1" }}
           >
-            <h2 className="font-serif-heading font-serif-heading-smooth text-3xl sm:text-4xl font-black tracking-[-0.025em] max-w-[480px] mx-auto leading-tight text-app-ink">
-              Ready to start dumping?
+            <h2 className="font-serif-heading font-serif-heading-smooth text-3xl sm:text-4xl font-black tracking-[-0.025em] max-w-[440px] mx-auto leading-tight text-app-ink">
+              Everything you capture,
+              <br />
+              already in one place.
             </h2>
-            <p className="mt-4 max-w-[380px] mx-auto leading-relaxed text-[15px] text-app-ink-muted">
-              Your canvas is already waiting. No setup. No onboarding. No tour.
+            <p className="mt-4 max-w-[400px] mx-auto leading-relaxed text-[15px] text-app-ink-muted">
+              No setup. No onboarding. Just your day, handled.
             </p>
             <div className="mt-8 flex justify-center">
-              <JournalCta label="Start your daily workspace" />
+              <JournalCta label="Start dumping →" />
             </div>
           </div>
         </section>

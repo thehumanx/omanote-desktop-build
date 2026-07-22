@@ -10,7 +10,7 @@ import { Button, CheckboxField, SegmentedPill } from "./ui";
 
 type FeedbackType = "feedback" | "feature";
 
-const MESSAGE_MAX_LENGTH = 5000;
+const MESSAGE_MAX_LENGTH = 1000;
 
 const TYPE_ITEMS = [
   { key: "feedback" as const, label: "Feedback" },
