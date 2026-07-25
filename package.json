@@ -2,25 +2,15 @@
   "name": "omanote",
   "private": true,
   "workspaces": [
-    "packages/*",
-    "extension"
+    "packages/*"
   ],
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "docs:html": "node scripts/generate-docs-html.mjs",
-    "audit:colors": "node scripts/audit-colors.mjs",
-    "audit:design-tokens": "node scripts/audit-design-tokens.mjs",
-    "ci:design-system": "npm run audit:design-tokens && npm run typecheck",
     "desktop": "npm --prefix apps/desktop run dev",
-    "desktop:build": "npm --prefix apps/desktop run build",
-    "desktop:build:linux": "bash apps/desktop/docker-builder/build-linux.sh",
-    "mobile": "npm --prefix apps/mobile run start",
-    "mobile:android": "npm --prefix apps/mobile run android"
+    "desktop:build": "npm --prefix apps/desktop run build"
   },
   "dependencies": {
     "@clerk/react": "^6.1.3",
