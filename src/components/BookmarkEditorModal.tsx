@@ -3,8 +3,15 @@ import type { BookmarkCategory, BookmarkItem } from "@omanote/shared";
 import { useCanvasDraftValue } from "../app/useCanvasDraftValue";
 import { Button, Input } from "./ui";
 import { BaseModal } from "./BaseModal";
+import { DrawerHeaderRow } from "./DrawerHeaderRow";
 import { Check, ChevronDown, X } from "lucide-react";
 import { useOutsideClick } from "../lib/useOutsideClick";
+
+// Floating card overlay on mobile -- inset from all edges, fully rounded --
+// and a centered dialog on desktop, matching TodoEditorModal.
+const BACKDROP_CLASS = "items-end px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:items-center md:px-app-page md:pb-0";
+const SURFACE_CLASS =
+  "w-full max-w-2xl rounded-2xl border border-app-line bg-app-surface-raised p-5 shadow-app-drawer max-h-[85vh] overflow-y-auto md:max-h-none md:overflow-visible md:bg-app-surface md:shadow-soft";
 
 export function BookmarkEditorModal({
   bookmark,
@@ -102,9 +109,23 @@ export function BookmarkEditorModal({
     setCategoryMenuOpen(false);
   };
 
+  const handleSave = () =>
+    onSave({
+      categoryId: exactCategoryMatch?.id,
+      categoryName: categoryName.trim() || undefined,
+      url: url.trim(),
+      draftKey,
+    });
+
   return (
-    <BaseModal onClose={onClose}>
-      <div ref={modalBodyRef} className="w-full max-w-2xl rounded-xl border border-app-line bg-app-surface p-5 shadow-soft">
+    <BaseModal onClose={onClose} className={BACKDROP_CLASS}>
+      <div ref={modalBodyRef} className={SURFACE_CLASS}>
+          <DrawerHeaderRow
+            className="-mx-5 -mt-5 mb-2 px-4 pt-3 pb-2 md:hidden"
+            onCancel={onClose}
+            onSave={handleSave}
+            canSave={canSave}
+          />
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-lg font-bold text-app-ink">{bookmark ? "Edit bookmark" : "Save bookmark"}</h2>
@@ -113,7 +134,7 @@ export function BookmarkEditorModal({
               type="button"
               onClick={onClose}
               aria-label="Close modal"
-              className="rounded-full p-2 text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
+              className="hidden rounded-full p-2 text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink md:inline-flex"
             >
               <X className="h-5 w-5" />
             </button>
@@ -227,24 +248,14 @@ export function BookmarkEditorModal({
           </div>
 
           <div className="mt-5 flex flex-wrap items-center gap-2">
-            <Button
-              disabled={!canSave}
-              onClick={() =>
-                onSave({
-                  categoryId: exactCategoryMatch?.id,
-                  categoryName: categoryName.trim() || undefined,
-                  url: url.trim(),
-                  draftKey,
-                })
-              }
-            >
+            <Button disabled={!canSave} onClick={handleSave} className="hidden md:inline-flex">
               Save
             </Button>
-            <Button tone="ghost" onClick={onClose}>
+            <Button tone="ghost" onClick={onClose} className="hidden md:inline-flex">
               Cancel
             </Button>
             {bookmark && onDelete ? (
-              <Button tone="ghost" className="ml-auto text-app-ink-muted" onClick={onDelete}>
+              <Button tone="ghost" className="text-app-ink-muted md:ml-auto" onClick={onDelete}>
                 Delete
               </Button>
             ) : null}

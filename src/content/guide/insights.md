@@ -4,7 +4,7 @@ Insights gives you a data-driven look at how you use omanote — completion rate
 
 ## How to open it
 
-Insights is available from the bottom navigation bar (the compass icon on mobile, or the main nav on desktop). Tap it to open.
+Tap the streak/stat badge in the top-right of the canvas header to open Insights.
 
 ## Period selector
 

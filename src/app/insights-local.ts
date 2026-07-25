@@ -249,16 +249,14 @@ export function useLocalInsights(
         db.notes.toArray(),
         db.bookmarks.toArray(),
         db.events.toArray(),
-        db.canvasPlacements.toArray(),
         db.noteFolders.toArray(),
         db.bookmarkCategories.toArray(),
         db.activityHistory.toArray(),
-      ]).then(([todos, notes, bookmarks, events, canvas, noteFolders, bookmarkCategories, history]) => ({
+      ]).then(([todos, notes, bookmarks, events, noteFolders, bookmarkCategories, history]) => ({
         todos,
         notes,
         bookmarks,
         events,
-        canvas,
         noteFolders,
         bookmarkCategories,
         history,
@@ -398,13 +396,15 @@ export function useLocalInsights(
     const events = rawData.events.filter(
       (e) => !e.deletedAt && (startKey === null || e.createdDateKey >= startKey),
     );
-    const canvas = rawData.canvas.filter(
-      (c) => startKey === null || c.dateKey >= startKey,
-    );
 
-    const uniqueCanvasDays = new Set(canvas.map((c) => c.dateKey));
-    const canvasActiveDays = uniqueCanvasDays.size;
-    const canvasTotalArtifacts = canvas.length;
+    const activeDateKeys = new Set<string>();
+    for (const t of todos) if (!t.deletedAt) activeDateKeys.add(t.createdDateKey);
+    for (const n of notes) if (!n.deletedAt) activeDateKeys.add(n.createdDateKey);
+    for (const b of bookmarks) if (!b.deletedAt) activeDateKeys.add(b.createdDateKey);
+    for (const e of events) activeDateKeys.add(e.createdDateKey);
+
+    const canvasActiveDays = activeDateKeys.size;
+    const canvasTotalArtifacts = notes.length + bookmarks.length + events.length + todos.filter((t) => !t.deletedAt).length;
     const canvasDensity =
       canvasActiveDays > 0
         ? Math.round((canvasTotalArtifacts / canvasActiveDays) * 10) / 10
@@ -697,11 +697,17 @@ export function useLocalDashboardStat(stat: PageStat): string | undefined {
 
     if (stat === "canvas_streak") {
       const ninetyDaysAgoKey = timestampToKey(now - 90 * DAY_MS);
-      const recent = await db.canvasPlacements
-        .where("dateKey")
-        .aboveOrEqual(ninetyDaysAgoKey)
-        .toArray();
-      const activeDates = new Set(recent.map((r) => r.dateKey));
+      const [allTodos, allNotes, allBookmarks, allEvents] = await Promise.all([
+        db.todos.toArray(),
+        db.notes.toArray(),
+        db.bookmarks.toArray(),
+        db.events.toArray(),
+      ]);
+      const activeDates = new Set<string>();
+      for (const t of allTodos) if (t.createdDateKey >= ninetyDaysAgoKey) activeDates.add(t.createdDateKey);
+      for (const n of allNotes) if (n.createdDateKey >= ninetyDaysAgoKey) activeDates.add(n.createdDateKey);
+      for (const b of allBookmarks) if (b.createdDateKey >= ninetyDaysAgoKey) activeDates.add(b.createdDateKey);
+      for (const e of allEvents) if (e.createdDateKey >= ninetyDaysAgoKey) activeDates.add(e.createdDateKey);
       const todayKey = timestampToKey(now);
       const yesterdayKey = timestampToKey(now - DAY_MS);
       let streak = 0;

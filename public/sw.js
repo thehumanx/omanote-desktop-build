@@ -21,14 +21,29 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  event.waitUntil(
-    clients
-      .matchAll({ type: "window", includeUncontrolled: true })
-      .then((clientList) => {
+
+  const todoId = event.notification.data?.todoId;
+
+  if (event.action === "complete" && todoId) {
+    event.waitUntil(
+      clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
         for (const client of clientList) {
+          client.postMessage({ type: "todo/toggle", todoId });
           if ("focus" in client) return client.focus();
         }
-        if (clients.openWindow) return clients.openWindow("/");
+        if (clients.openWindow) return clients.openWindow(`/?todoAction=complete&todoId=${encodeURIComponent(todoId)}`);
       }),
+    );
+    return;
+  }
+
+  // Default click: focus existing window or open a new one
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ("focus" in client) return client.focus();
+      }
+      if (clients.openWindow) return clients.openWindow("/");
+    }),
   );
 });

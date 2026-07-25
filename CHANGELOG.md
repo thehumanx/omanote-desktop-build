@@ -4,6 +4,17 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.28.0 [July 24, 2026]
+
+> A redesigned mobile canvas: one "+" to create anything, floating drawers to edit it, long-press instead of a tap.
+
+- [Add] Mobile bottom bar is now icon-only tabs plus a persistent **+** button — tap it anywhere to open a floating composer for a todo, note, bookmark, or event, always labeled with which day it's saving to
+- [Add] Explore and your profile moved to a top bar on mobile, out of the way of the tab row
+- [Update] Editing a todo, note, bookmark, or event on mobile now opens the same floating drawer everywhere — Cancel on the top left, Save on the top right, disabled until there's something to save
+- [Update] On the canvas, notes/todos/events now open for editing on **long-press** instead of a tap, so a normal tap can still scroll the page
+- [Update] Bookmark and todo editors now match the same rounded floating-card look on mobile as everywhere else
+- [Remove] Tapping a day column in the Event calendar no longer opens the quick-log composer — use the **+** composer or the "Log your event" button instead
+
 ### v0.27.1 [July 22, 2026]
 
 > Expanded guide, cleaner landing copy, and feedback tuned for quality over quantity.
@@ -12,6 +23,8 @@ All notable changes to omanote are documented here, organized by product.
 - [Update] Guide sidebar shows a last-updated date so you know the content is fresh
 - [Update] Landing page hero CTA now reads "Open your canvas — it's free", subtext says "One canvas for everything that fits in a day", and the closing CTA has new copy with "Start dumping →"
 - [Update] Feedback message limit tightened to 1,000 characters and rate limit changed from 5/hour to 10/month for more thoughtful submissions
+- [Update] Canvas items now sort by creation time (newest at the bottom) instead of a separate drag-and-drop placement system — simpler, faster, and always consistent across web and mobile
+- [Fix] Desktop app now checks for updates and changelog from omanote.com instead of relying on the bundled version, so the What's New modal always shows the latest release notes
 
 ### v0.27.0 [July 21, 2026]
 

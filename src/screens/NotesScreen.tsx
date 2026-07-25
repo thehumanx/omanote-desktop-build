@@ -757,19 +757,25 @@ export function NotesScreen() {
               )}
             </div>
           ))}
-          {renderCreateComposer(suppressToolbar)}
+          {/* Mobile uses the "+" button (same floating composer sheet as
+              every other artifact type) instead of this persistent inline
+              row; desktop keeps the inline composer. */}
+          {!isMobileDrawer ? renderCreateComposer(suppressToolbar) : null}
           <div aria-hidden="true" style={{ height: "calc(var(--omanote-bottom-nav-height, 64px) + 1.5rem)", flexShrink: 0 }} />
         </div>
       ) : (
         <div className={cn("min-h-0 flex-1 overflow-y-auto", isMobileDrawer && "px-4")} onScroll={notifyNotesScroll}>
-          {renderCreateComposer(suppressToolbar)}
+          {/* Mobile uses the "+" button (same floating composer sheet as
+              every other artifact type) instead of this persistent inline
+              row; desktop keeps the inline composer. */}
+          {!isMobileDrawer ? renderCreateComposer(suppressToolbar) : null}
           <div className="flex min-h-[calc(100%-5rem)] items-center justify-center">
             <EmptyState
               title={selectedFolder ? `No notes in ${selectedFolderLabel}` : "No notes yet"}
               description={
                 selectedFolder
                   ? "This folder is empty. Create a note or move an existing one into it."
-                  : "Create a note from the button above or file one from the canvas."
+                  : "Tap + to create a note, or type above on desktop."
               }
             />
           </div>

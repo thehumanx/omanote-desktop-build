@@ -4,7 +4,7 @@ Your profile — name, email, and avatar — is managed through your account pro
 
 ## Where to find your profile
 
-Tap your avatar in the bottom navigation bar (mobile) or the navigation bar (desktop) to open the profile menu. Here you'll see:
+Tap your avatar in the top bar (mobile) or the navigation bar (desktop) to open the profile menu. Here you'll see:
 
 - Your **display name** and **email address**
 - An **Edit** link that opens your account settings

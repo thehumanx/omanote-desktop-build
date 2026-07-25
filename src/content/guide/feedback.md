@@ -4,7 +4,7 @@ omanote is built for personal use and shared publicly. Feedback and feature requ
 
 ## How to send feedback
 
-Open your **profile menu** (tap your avatar in the bottom nav on mobile, or in the nav bar on desktop). Select **Share feedback** to open the feedback modal.
+Open your **profile menu** (tap your avatar in the top bar on mobile, or in the nav bar on desktop). Select **Share feedback** to open the feedback modal.
 
 From there you can:
 

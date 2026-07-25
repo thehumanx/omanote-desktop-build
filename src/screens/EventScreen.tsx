@@ -4,6 +4,7 @@ import { addDays, buildDateStripWindow, formatMonthDayRange, listVirtualOccurren
 import type { DateKey, TodoFolder, TodoItem } from "@omanote/shared";
 import { CalendarDays, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, Clock3, List, Plus, Trash2, X } from "lucide-react";
 import { useApp } from "../app/AppProvider";
+import { useIsMobileViewport } from "../lib/mobile";
 import { BaseModal } from "../components/BaseModal";
 import { EventEditorModal } from "../components/EventEditorModal";
 import { TodoEditorModal } from "../components/TodoEditorModal";
@@ -12,12 +13,14 @@ import { AttachmentLinkPreview } from "../components/AttachmentLinkPreview";
 import { RichTextPreview } from "../components/rich-text";
 import { useTopChrome } from "../components/layout/useTopChrome";
 import { PageHeader } from "../components/layout/PageHeader";
-import { MobileSaveButton } from "../components/MobileSaveButton";
+import { DrawerHeaderRow } from "../components/DrawerHeaderRow";
 import { Button, SegmentedPill, TodoCheckmark } from "../components/ui";
 import { handlePasteAsLink } from "../lib/link-utils";
 import { useUserSettings } from "../contexts/UserSettingsContext";
 import { isNewlineShortcutEvent, isSaveShortcutEvent } from "../lib/editor-shortcuts";
 import { SaveShortcutHint } from "../components/settings/SaveShortcutHint";
+import { HashtagPickerDropdown, useHashtagPicker } from "../components/HashtagPicker";
+import { EmojiPickerDropdown, useEmojiPicker } from "../components/EmojiPicker";
 
 type EventView = "week" | "timeline";
 
@@ -521,6 +524,12 @@ function EventClusterModal({
   );
 }
 
+// Floating card overlay on mobile -- inset from all edges, fully rounded --
+// and a centered dialog on desktop, matching TodoEditorModal/BookmarkEditorModal.
+const EVENT_CREATE_BACKDROP_CLASS = "items-end px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:items-center md:px-app-page md:pb-0";
+const EVENT_CREATE_SURFACE_CLASS =
+  "w-full max-w-2xl rounded-2xl border border-app-line bg-app-surface-raised p-5 shadow-app-drawer md:bg-app-surface md:shadow-soft";
+
 function EventCreateModal({
   dateKey,
   startedAt,
@@ -536,6 +545,8 @@ function EventCreateModal({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const canSave = Boolean(value.trim());
   const { settings } = useUserSettings();
+  const hashtagPicker = useHashtagPicker({ value, textareaRef, onChange: setValue });
+  const emojiPicker = useEmojiPicker({ value, textareaRef, onChange: setValue });
 
   useEffect(() => {
     textareaRef.current?.focus();
@@ -547,46 +558,64 @@ function EventCreateModal({
   }, [value]);
 
   return (
-    <BaseModal onClose={onClose} onBackdropMouseDown={onClose}>
-      <div
-        className="w-full max-w-2xl rounded-app-dialog border border-app-line bg-app-surface p-5 shadow-soft"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-start gap-4">
-          <div className="min-w-[104px] rounded-md border border-app-line bg-app-surface-muted px-2 py-1.5 text-sm font-medium text-app-ink-faint">
+    <BaseModal onClose={onClose} onBackdropMouseDown={onClose} className={EVENT_CREATE_BACKDROP_CLASS}>
+      <div className={EVENT_CREATE_SURFACE_CLASS} onMouseDown={(event) => event.stopPropagation()}>
+        <DrawerHeaderRow
+          className="-mx-5 -mt-5 mb-2 px-4 pt-3 pb-2 md:hidden"
+          onCancel={onClose}
+          onSave={() => onSave(value)}
+          canSave={canSave}
+        />
+        <div className="flex items-center justify-between gap-2">
+          <div className="rounded-md border border-app-line bg-app-surface-muted px-2 py-0.5 text-xs font-medium text-app-ink-faint">
             {new Date(startedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }).replace(":00", "").replace(/\s+/g, "")}
           </div>
-          <div className="min-w-0 flex-1">
-            <textarea
-              ref={textareaRef}
-              value={value}
-              onChange={(event) => setValue(event.target.value)}
-              onPaste={(event) => {
-                handlePasteAsLink(event, value, setValue);
-              }}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter") return;
-                if (isSaveShortcutEvent(event, settings.saveShortcut)) {
-                  event.preventDefault();
-                  onSave(value);
-                  return;
-                }
-                if (isNewlineShortcutEvent(event, settings.newlineShortcut)) {
-                  return;
-                }
-                event.preventDefault();
-              }}
-              rows={1}
-              placeholder="Write your event like in canvas, for example: woke up 6am"
-              className="block w-full resize-none border-0 bg-transparent p-0 text-[28px] font-bold leading-[1.25] text-app-ink caret-app-ink outline-none placeholder:text-app-line-strong selection:bg-app-surface-muted selection:text-app-ink"
-            />
-            <p className="mt-2 text-sm text-app-ink-faint">{dateKey}</p>
-            <div className="mt-3 flex items-center justify-end gap-2">
-              <SaveShortcutHint className="hidden text-sm md:inline" />
-              <MobileSaveButton disabled={!canSave} onClick={() => onSave(value)} />
-            </div>
-          </div>
+          <SaveShortcutHint className="hidden text-sm md:inline" />
         </div>
+        <div className="mt-3">
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+            onPaste={(event) => {
+              handlePasteAsLink(event, value, setValue);
+            }}
+            onKeyDown={(event) => {
+              if (hashtagPicker.handleKeyDown(event)) return;
+              if (emojiPicker.handleKeyDown(event)) return;
+              if (event.key !== "Enter") return;
+              if (isSaveShortcutEvent(event, settings.saveShortcut)) {
+                event.preventDefault();
+                onSave(value);
+                return;
+              }
+              if (isNewlineShortcutEvent(event, settings.newlineShortcut)) {
+                return;
+              }
+              event.preventDefault();
+            }}
+            rows={1}
+            placeholder="Write your event"
+            className="block w-full resize-none border-0 bg-transparent p-0 text-[15px] leading-6 text-app-ink caret-app-ink outline-none placeholder:text-app-line-strong selection:bg-app-surface-muted selection:text-app-ink"
+          />
+          <p className="mt-1 text-xs text-app-ink-faint">{dateKey}</p>
+        </div>
+        <HashtagPickerDropdown
+          isOpen={hashtagPicker.isOpen}
+          suggestions={hashtagPicker.suggestions}
+          activeIndex={hashtagPicker.activeIndex}
+          onSelect={hashtagPicker.selectSuggestion}
+          onHover={hashtagPicker.setActiveIndex}
+          anchorRef={textareaRef}
+        />
+        <EmojiPickerDropdown
+          isOpen={emojiPicker.isOpen}
+          suggestions={emojiPicker.suggestions}
+          activeIndex={emojiPicker.activeIndex}
+          onSelect={emojiPicker.selectSuggestion}
+          onHover={emojiPicker.setActiveIndex}
+          anchorRef={textareaRef}
+        />
       </div>
     </BaseModal>
   );
@@ -595,6 +624,7 @@ function EventCreateModal({
 export function EventScreen() {
   const { state, dispatch } = useApp();
   const location = useLocation();
+  const isMobile = useIsMobileViewport();
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
   const [activeCluster, setActiveCluster] = useState<CalendarEntry[] | null>(null);
@@ -773,7 +803,11 @@ export function EventScreen() {
             onEdit={(eventId) => setEditingEventId(eventId)}
             onDelete={(eventId) => dispatch({ type: "event/delete", eventId })}
             onDeleteTodoEvent={(todoId) => dispatch({ type: "todo/toggle", todoId })}
-            onLogEvent={() => setCreateState({ dateKey: todayKey, startedAt: Date.now() })}
+            onLogEvent={() =>
+              isMobile
+                ? dispatch({ type: "ui/open-composer", mode: "event" })
+                : setCreateState({ dateKey: todayKey, startedAt: Date.now() })
+            }
           />
         </div>
       )}
@@ -794,14 +828,9 @@ export function EventScreen() {
                   return (
                     <div
                       key={dateKey}
-                      onClick={() => {
-                        if (!isToday) return;
-                        setCreateState({ dateKey, startedAt: Date.now() });
-                      }}
                       className={[
                         "border-r border-app-line px-3 py-3 text-left transition last:border-r-0",
                         isToday ? "bg-app-surface" : "bg-app-surface-muted/90",
-                        isToday ? "cursor-text hover:bg-app-surface-hover" : "",
                       ].join(" ")}
                     >
                       <div className="flex items-center justify-between gap-3">
@@ -859,14 +888,9 @@ export function EventScreen() {
                 return (
                   <div
                     key={dateKey}
-                    onClick={() => {
-                      if (!isToday) return;
-                      setCreateState({ dateKey, startedAt: Date.now() });
-                    }}
                     className={[
                       "relative border-r border-app-line last:border-r-0",
                       isToday ? "bg-app-surface" : "bg-app-surface-muted/90",
-                      isToday ? "cursor-text" : "",
                     ].join(" ")}
                   >
                     <div className="absolute inset-x-0 border-b border-app-line" style={{ top: CALENDAR_TOP_PADDING }} />

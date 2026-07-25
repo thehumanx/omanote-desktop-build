@@ -154,6 +154,16 @@ export function BookmarksScreen() {
   const navigate = useNavigate();
   const location = useLocation();
   const [creating, setCreating] = useState(false);
+  // Mobile uses the same floating composer sheet as every other artifact
+  // type; desktop keeps its own BookmarkEditorModal dialog.
+  const handleCreateBookmark = (isMobileDrawer: boolean) => {
+    if (isMobileDrawer) {
+      dispatch({ type: "ui/open-composer", mode: "bookmark" });
+    } else {
+      setCreating(true);
+    }
+    setMobileBookmarksOpen(false);
+  };
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [renamingCategoryId, setRenamingCategoryId] = useState<string | null>(null);
   const [editingIcon, setEditingIcon] = useState<string | undefined>(undefined);
@@ -671,10 +681,7 @@ export function BookmarksScreen() {
         <button
           type="button"
           aria-label="Add bookmark"
-          onClick={() => {
-            setCreating(true);
-            setMobileBookmarksOpen(false);
-          }}
+          onClick={() => handleCreateBookmark(isMobileDrawer)}
           className="flex h-8 w-8 items-center justify-center rounded-md border border-app-line bg-app-surface text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
         >
           <Plus className="h-4 w-4" />
@@ -727,14 +734,11 @@ export function BookmarksScreen() {
             title={selectedCategoryId === null ? "No bookmarks yet" : `No bookmarks in ${selectedCategoryLabel}`}
             description={
               selectedCategoryId === null
-                ? "Save a link from the canvas composer or create a bookmark here."
+                ? "Save a link from the + composer or create a bookmark here."
                 : "Create a bookmark or move an existing one into this category."
             }
             actionLabel="Create bookmark"
-            onAction={() => {
-              setCreating(true);
-              setMobileBookmarksOpen(false);
-            }}
+            onAction={() => handleCreateBookmark(isMobileDrawer)}
           />
         </div>
       )}

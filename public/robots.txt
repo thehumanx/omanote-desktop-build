@@ -1,4 +1,15 @@
 User-agent: *
 Allow: /
+Disallow: /canvas
+Disallow: /notes
+Disallow: /todos
+Disallow: /bookmarks
+Disallow: /event
+Disallow: /search
+Disallow: /explore
+Disallow: /settings
+Disallow: /insights
+Disallow: /reader
+Disallow: /auth/
 
-Sitemap: https://omanote.iambishistha.com/sitemap.xml
+Sitemap: https://omanote.com/sitemap.xml

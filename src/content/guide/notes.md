@@ -12,6 +12,8 @@ Start a note from the canvas composer (plain text becomes a note) or from the No
 
 Paste a link into a note and it's kept as a clickable link; notes with a link also show a preview card.
 
+To edit a note already on the canvas, click it on desktop; on mobile, long-press it to open the editor as a floating drawer.
+
 ## Folders
 
 Group notes into folders with custom icons, the same way todos and bookmarks work. Uncategorized notes stay together until you file them.

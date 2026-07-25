@@ -16,6 +16,9 @@ export function createInitialState(): AppState {
       searchQuery: "",
       searchOpen: false,
       notesDrawerOpen: false,
+      composerOpen: false,
+      composerMode: "note",
+      composerOpenToken: 0,
     },
     todos: [
       {

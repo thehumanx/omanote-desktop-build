@@ -39,7 +39,7 @@ import { db } from "./db";
 import { useAuth } from "./auth/AuthContext";
 import { parseHashtags } from "../lib/hashtags";
 import { detectWebClientType, getCurrentDeviceMetadata } from "../lib/device-info";
-import type { AppAction, AppState, RecurringDeletePrompt, ToastItem } from "./types";
+import type { AppAction, AppState, DraftMode, RecurringDeletePrompt, ToastItem } from "./types";
 import { prefixedRandomId, randomId } from "@omanote/shared";
 
 // Stable empty array used as the fallback for not-yet-loaded Dexie queries.
@@ -100,6 +100,9 @@ const defaultUiState: UiState = {
   searchQuery: "",
   searchOpen: false,
   notesDrawerOpen: false,
+  composerOpen: false,
+  composerMode: "note",
+  composerOpenToken: 0,
 };
 
 type LocalState = {
@@ -131,6 +134,8 @@ type LocalAction =
   | { type: "ui/set-search-query"; query: string }
   | { type: "ui/set-search-open"; open: boolean }
   | { type: "ui/set-notes-drawer-open"; open: boolean }
+  | { type: "ui/open-composer"; mode?: DraftMode }
+  | { type: "ui/close-composer" }
   | { type: "toast/add"; toast: ToastItem }
   | { type: "toast/remove"; toastId: string }
   | { type: "todo/prompt-recurring-delete"; prompt: RecurringDeletePrompt }
@@ -172,6 +177,7 @@ function loadUiState(): UiState {
         ? "today"
         : (saved.todoFilter ?? defaultUiState.todoFilter),
     searchOpen: false,
+    composerOpen: false,
   };
 }
 
@@ -189,6 +195,18 @@ function localReducer(state: LocalState, action: LocalAction): LocalState {
       return { ...state, ui: { ...state.ui, searchQuery: action.query } };
     case "ui/set-search-open":
       return { ...state, ui: { ...state.ui, searchOpen: action.open } };
+    case "ui/open-composer":
+      return {
+        ...state,
+        ui: {
+          ...state.ui,
+          composerOpen: true,
+          composerMode: action.mode ?? state.ui.composerMode,
+          composerOpenToken: state.ui.composerOpenToken + 1,
+        },
+      };
+    case "ui/close-composer":
+      return { ...state, ui: { ...state.ui, composerOpen: false } };
     case "toast/add":
       return { ...state, toasts: [action.toast, ...state.toasts] };
     case "toast/remove":
@@ -433,6 +451,7 @@ export function shouldSyncRss({
 function mapNote(note: Doc<"notes">) {
   return {
     id: String(note._id),
+    clientKey: note.clientKey ?? undefined,
     title: note.title ?? undefined,
     body: note.body,
     tags: note.tags ?? [],
@@ -485,6 +504,7 @@ function mapBookmarkCategory(category: Doc<"bookmarkCategories">) {
 function mapEvent(event: Doc<"eventEntries">) {
   return {
     id: String(event._id),
+    clientKey: event.clientKey ?? undefined,
     label: event.label,
     loggedAt: event.loggedAt,
     notes: event.notes ?? undefined,
@@ -564,7 +584,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       void Promise.all([
         db.todos.clear(), db.todoFolders.clear(), db.todoChecklistItems.clear(), db.notes.clear(),
         db.noteFolders.clear(), db.bookmarks.clear(), db.bookmarkCategories.clear(),
-        db.events.clear(), db.canvasPlacements.clear(), db.activityHistory.clear(),
+        db.events.clear(), db.activityHistory.clear(),
         db.syncCursors.clear(),
       ]).then(() => { try { localStorage.setItem("omanote.dexie-user", clerkUserId); } catch {} });
     } else {
@@ -898,30 +918,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updateEventEntry = useMutation(api.events.updateEventEntry);
   const deleteEventEntry = useMutation(api.events.deleteEventEntry);
   const restoreEventEntry = useMutation(api.events.restoreEventEntry);
-  const setCanvasOrder = useMutation(api.canvas.setCanvasOrder);
   const backfillUsageCount = useMutation(api.hashtags.backfillUsageCount);
   const patchItemHashtags = useMutation(api.hashtags.patchItemHashtags);
   const fetchLinkPreview = useAction((api as any)["actions/linkPreview"].fetchLinkPreview);
 
   // Track which client keys are already confirmed by the server so optimistic
-  // items can be removed once the real documents arrive.
+  // items can be removed once the real documents arrive. These all key off the
+  // decrypted (not raw Dexie) lists so the optimistic item isn't removed before
+  // the async-decrypted version is ready — prevents a flash of disappearance.
   const serverTodoClientKeys = useMemo(
-    () => new Set(serverTodos.map((todo) => todo.clientKey).filter((v): v is string => Boolean(v))),
-    [serverTodos],
+    () => new Set(decryptedTodos.map((todo) => todo.clientKey).filter((v): v is string => Boolean(v))),
+    [decryptedTodos],
   );
-  // Use decryptedBookmarks (not rawBookmarks) so the optimistic isn't removed
-  // before the async-decrypted version is ready — prevents a flash of disappearance.
   const serverBookmarkClientKeys = useMemo(
     () => new Set(decryptedBookmarks.map((b) => b.clientKey).filter((v): v is string => Boolean(v))),
     [decryptedBookmarks],
   );
   const serverEventClientKeys = useMemo(
-    () => new Set(rawEvents.map((r) => r.clientKey).filter((v): v is string => Boolean(v))),
-    [rawEvents],
+    () => new Set(decryptedEvents.map((r) => r.clientKey).filter((v): v is string => Boolean(v))),
+    [decryptedEvents],
   );
   const serverNoteClientKeys = useMemo(
-    () => new Set(rawNotes.map((n) => n.clientKey).filter((v): v is string => Boolean(v))),
-    [rawNotes],
+    () => new Set(decryptedNotes.map((n) => n.clientKey).filter((v): v is string => Boolean(v))),
+    [decryptedNotes],
   );
 
   // One-time data migrations
@@ -2833,26 +2852,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [createEventEntry, updateEventEntry, deleteEventEntry, restoreEventEntry, pushHistory, showDeleteToast, encrypt, encryptOptional, scheduleSync, pushEventEntryToGoogleCalendar, removeEventEntryFromGoogleCalendar]);
 
-  const handleCanvasAction = useCallback((action: AppAction): boolean => {
-    if (action.type !== "canvas/reorder") return false;
-    void (async () => {
-      try {
-        await setCanvasOrder({ dateKey: action.dateKey, orderedItems: action.orderedItems });
-        scheduleSync();
-        if (action.previousOrderedItems) {
-          pushHistory({
-            key: `canvas:reorder:${action.dateKey}`,
-            undo: () => dispatchRef.current({ type: "canvas/reorder", dateKey: action.dateKey, orderedItems: action.previousOrderedItems ?? [], previousOrderedItems: action.orderedItems }),
-            redo: () => dispatchRef.current({ type: "canvas/reorder", dateKey: action.dateKey, orderedItems: action.orderedItems, previousOrderedItems: action.previousOrderedItems }),
-          });
-        }
-      } catch {
-        // Canvas ordering is best-effort when offline.
-      }
-    })();
-    return true;
-  }, [setCanvasOrder, pushHistory, scheduleSync]);
-
   // ---------------------------------------------------------------------------
   // Main dispatch — routes to the right domain handler.
   // ---------------------------------------------------------------------------
@@ -2867,6 +2866,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         case "ui/set-search-query":
         case "ui/set-search-open":
         case "ui/set-notes-drawer-open":
+        case "ui/open-composer":
+        case "ui/close-composer":
         case "toast/add":
         case "toast/remove":
         case "todo/prompt-recurring-delete":
@@ -2877,11 +2878,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           handleTodoAction(action) ||
           handleNoteAction(action) ||
           handleBookmarkAction(action) ||
-          handleEventAction(action) ||
-          handleCanvasAction(action);
+          handleEventAction(action);
       }
     },
-    [handleTodoAction, handleNoteAction, handleBookmarkAction, handleEventAction, handleCanvasAction, localDispatch],
+    [handleTodoAction, handleNoteAction, handleBookmarkAction, handleEventAction, localDispatch],
   );
 
   // Keep the ref in sync so undo/redo closures always call the latest dispatch.

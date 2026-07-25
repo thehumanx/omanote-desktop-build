@@ -36,6 +36,8 @@ export interface ToastItem {
   createdAt: number;
 }
 
+export type DraftMode = "note" | "todo" | "bookmark" | "event";
+
 export interface AppState {
   ui: {
     selectedDateKey: DateKey;
@@ -45,6 +47,13 @@ export interface AppState {
     searchQuery: string;
     searchOpen: boolean;
     notesDrawerOpen: boolean;
+    composerOpen: boolean;
+    composerMode: DraftMode;
+    // Increments on every ui/open-composer dispatch so the composer can
+    // re-sync its visible mode on each fresh open, even when composerMode's
+    // value is unchanged from last time (e.g. reopening from the same tab
+    // after manually switching modes inside the sheet).
+    composerOpenToken: number;
   };
   todos: TodoItem[];
   todoFolders: TodoFolder[];
@@ -78,6 +87,8 @@ export type AppAction =
   | { type: "ui/set-search-query"; query: string }
   | { type: "ui/set-search-open"; open: boolean }
   | { type: "ui/set-notes-drawer-open"; open: boolean }
+  | { type: "ui/open-composer"; mode?: DraftMode }
+  | { type: "ui/close-composer" }
   | { type: "todo/create"; title: string; dateKey: DateKey; dueDateKey?: DateKey; dueTime?: string; hashtags?: string[]; fromReminder?: boolean; folderId?: string; folderName?: string; recurrence?: RecurrenceRule; reminderEveryMinutes?: number; reminderUntil?: number }
   | { type: "todo/toggle"; todoId: string; completedAt?: number }
   | { type: "todo/delete"; todoId: string }
@@ -126,11 +137,5 @@ export type AppAction =
   | { type: "event/update"; eventId: string; label: string; loggedAt: number; notes?: string; hashtags?: string[] }
   | { type: "event/delete"; eventId: string }
   | { type: "event/restore"; eventId: string }
-  | {
-      type: "canvas/reorder";
-      dateKey: DateKey;
-      orderedItems: { artifactType: "todo" | "note" | "bookmark" | "event"; artifactId: string }[];
-      previousOrderedItems?: { artifactType: "todo" | "note" | "bookmark" | "event"; artifactId: string }[];
-    }
   | { type: "toast/add"; toast: ToastItem }
   | { type: "toast/remove"; toastId: string };

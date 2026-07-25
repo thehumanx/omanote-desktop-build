@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Bookmark, CalendarDays, CheckSquare, Clock3, FileText, Repeat, X } from "lucide-react";
 import { useApp } from "../app/AppProvider";
+import type { DraftMode } from "../app/types";
 import { materializeReminderFields, parseEventDraftInput, parseTodoDraftInput, randomId } from "@omanote/shared";
 import { handlePasteAsLink } from "../lib/link-utils";
 import { useOutsideClick } from "../lib/useOutsideClick";
-import { SegmentedHighlight, SegmentedItem, SegmentedShell, TodoCheckmark } from "./ui";
+import { cn, SegmentedHighlight, SegmentedItem, SegmentedShell, TodoCheckmark } from "./ui";
 import { hasMeaningfulNoteInput, isUncategorizedFolderName, readLastNoteFolder, resolveNoteFolderByName, writeLastNoteFolder } from "../lib/note-folder-utils";
 import { MobileSaveButton } from "./MobileSaveButton";
 import { hashtagColor, hashtagHighlightSegments, parseHashtags } from "../lib/hashtags";
@@ -16,8 +17,6 @@ import { NoteCanvasEditor } from "./NoteCanvasEditor";
 import { useMobileKeyboardState } from "./layout/useMobileKeyboardState";
 import { HashtagPickerDropdown, useHashtagPicker } from "./HashtagPicker";
 import { EmojiPickerDropdown, useEmojiPicker } from "./EmojiPicker";
-
-type DraftMode = "note" | "todo" | "bookmark" | "event";
 
 const commands: Array<{ key: DraftMode; label: string }> = [
   { key: "todo", label: "todo" },
@@ -54,6 +53,12 @@ const modeMeta: Record<DraftMode, { label: string; chipClass: string; textClass:
     textClass: "text-app-ink",
   },
 };
+
+function autoResize(element: HTMLTextAreaElement | null) {
+  if (!element) return;
+  element.style.height = "auto";
+  element.style.height = `${element.scrollHeight}px`;
+}
 
 function stripSlashPrefix(value: string) {
   return value.replace(/^\/\s*/, "");
@@ -104,9 +109,11 @@ function draftLinesToText(lines: TodoDraftLine[]) {
 function MobileArtifactTypeSwitcher({
   activeMode,
   onModeChange,
+  docked = false,
 }: {
   activeMode: DraftMode;
   onModeChange: (nextMode: DraftMode) => void;
+  docked?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Record<string, HTMLButtonElement | null>>({
@@ -124,7 +131,14 @@ function MobileArtifactTypeSwitcher({
   });
 
   return (
-    <SegmentedShell ref={containerRef} aria-label="Artifact type" className="absolute bottom-full left-0 z-20 mb-3 h-9 rounded-full p-1 shadow-app-nav md:hidden">
+    <SegmentedShell
+      ref={containerRef}
+      aria-label="Artifact type"
+      className={cn(
+        "h-9 rounded-full p-1 shadow-app-nav md:hidden",
+        docked ? "relative mb-3 w-fit" : "absolute bottom-full left-0 z-20 mb-3",
+      )}
+    >
       {highlightStyle ? <SegmentedHighlight style={highlightStyle} className="rounded-full" /> : null}
       {draftModeOptions.map(({ key, label, Icon }) => (
         <SegmentedItem
@@ -166,10 +180,70 @@ function writeLastBookmarkCategory(value: string) {
   }
 }
 
-export function CanvasDraftBlock() {
+const TODO_LAST_FOLDER_KEY = "omanote.todo-last-folder";
+
+function readLastTodoFolder() {
+  if (typeof window === "undefined") return "Others";
+  try {
+    return window.localStorage.getItem(TODO_LAST_FOLDER_KEY) || "Others";
+  } catch {
+    return "Others";
+  }
+}
+
+function writeLastTodoFolder(value: string) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(TODO_LAST_FOLDER_KEY, value);
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+export type CanvasDraftBlockHandle = {
+  save: () => void;
+  cancel: () => void;
+};
+
+export type CanvasDraftBlockProps = {
+  embedded?: boolean;
+  // Called after a successful save AND after Cancel (embedded only) — both
+  // mean "the composer interaction is over, close it." Nothing about a
+  // save/cancel is destructive across modes either way: each mode's draft
+  // lives in its own state slot regardless of which one is visible, so
+  // closing never discards a different mode's in-progress work.
+  onDone?: () => void;
+  // Reports whether the currently-visible mode has enough input to save,
+  // so a caller rendering its own Save button (e.g. a shared drawer header)
+  // can drive its disabled state.
+  onCanSaveChange?: (canSave: boolean) => void;
+  // When `requestToken` changes (a fresh "open the composer" request, even
+  // if `requestedMode`'s value is unchanged from last time), the visible
+  // mode switches to `requestedMode`. This never touches the other modes'
+  // draft state — mode is just which one is currently displayed — so
+  // switching can't lose in-progress text/todos/etc. in the others.
+  requestedMode?: DraftMode;
+  requestToken?: number;
+};
+
+export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBlockProps>(function CanvasDraftBlock(
+  { embedded = false, onDone, onCanSaveChange, requestedMode, requestToken },
+  ref,
+) {
   const { state, dispatch } = useApp();
   const { settings } = useUserSettings();
   const [mode, setMode] = useState<DraftMode>("note");
+
+  // Re-sync the visible mode on every fresh "open the composer" request
+  // (requestToken changing), not on requestedMode's value changing — so
+  // reopening from the same screen still resets away from a mode the user
+  // manually switched to last time. requestedMode is read from the render
+  // in which requestToken changes, so it's intentionally left out of deps.
+  useEffect(() => {
+    if (requestedMode === undefined) return;
+    setMode(requestedMode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestToken]);
   const [body, setBody] = useState("");
   const [noteFolderValue, setNoteFolderValue] = useState(() => readLastNoteFolder());
   const [commandValue, setCommandValue] = useState("");
@@ -182,7 +256,7 @@ export function CanvasDraftBlock() {
   const allowEventBlurRef = useRef(false);
   const [todoLines, setTodoLines] = useState<TodoDraftLine[]>(() => [createTodoDraftLine()]);
   const [activeTodoLineId, setActiveTodoLineId] = useState<string>(todoLines[0]?.id ?? "");
-  const [todoFolderValue, setTodoFolderValue] = useState("Others");
+  const [todoFolderValue, setTodoFolderValue] = useState(() => readLastTodoFolder());
   const [todoFolderOpen, setTodoFolderOpen] = useState(false);
   const [todoFolderActiveIndex, setTodoFolderActiveIndex] = useState(0);
   const todoFolderContainerRef = useRef<HTMLDivElement | null>(null);
@@ -193,17 +267,17 @@ export function CanvasDraftBlock() {
   const [bookmarkCategoryOpen, setBookmarkCategoryOpen] = useState(false);
   const [bookmarkCategoryActiveIndex, setBookmarkCategoryActiveIndex] = useState(0);
   const bookmarkFocusPendingRef = useRef(false);
-  const bookmarkUrlInputRef = useRef<HTMLInputElement | null>(null);
+  const bookmarkUrlInputRef = useRef<HTMLTextAreaElement | null>(null);
   const bookmarkCategoryInputRef = useRef<HTMLInputElement | null>(null);
   const [eventLines, setEventLines] = useState<TodoDraftLine[]>(() => [createTodoDraftLine()]);
   const [activeEventLineId, setActiveEventLineId] = useState<string>(eventLines[0]?.id ?? "");
   const eventFocusPendingRef = useRef(false);
   const eventStartedAtRef = useRef<number>(Date.now());
   const noteEditorHostRef = useRef<HTMLDivElement | null>(null);
-  const todoLineRefs = useRef<Record<string, HTMLInputElement | null>>({});
-  const activeTodoInputRef = useRef<HTMLInputElement | null>(null);
-  const eventLineRefs = useRef<Record<string, HTMLInputElement | null>>({});
-  const activeEventInputRef = useRef<HTMLInputElement | null>(null);
+  const todoLineRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+  const activeTodoInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const eventLineRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+  const activeEventInputRef = useRef<HTMLTextAreaElement | null>(null);
   const shellRef = useRef<HTMLDivElement | null>(null);
   const pickerRef = useRef<HTMLDivElement | null>(null);
   const [mobileSwitcherVisible, setMobileSwitcherVisible] = useState(false);
@@ -437,6 +511,20 @@ export function CanvasDraftBlock() {
     });
   }, [mode, eventLines, activeEventLineId]);
 
+  // Height grows with content (wrapped hashtag/emoji-picker edits included),
+  // not just direct typing — resize whenever the lines themselves change.
+  useLayoutEffect(() => {
+    autoResize(bookmarkUrlInputRef.current);
+  }, [bookmarkUrl, mode]);
+
+  useLayoutEffect(() => {
+    Object.values(todoLineRefs.current).forEach((node) => autoResize(node));
+  }, [todoLines, mode]);
+
+  useLayoutEffect(() => {
+    Object.values(eventLineRefs.current).forEach((node) => autoResize(node));
+  }, [eventLines, mode]);
+
   useLayoutEffect(() => {
     if (!showPicker || !shellRef.current || !pickerRef.current) return;
 
@@ -501,13 +589,15 @@ export function CanvasDraftBlock() {
     }
 
     if (mode === "todo") {
+      const resolvedFolderName = todoFolderTrimmed || "Others";
+      writeLastTodoFolder(resolvedFolderName);
       dispatch({
         type: "todo/create",
         title: text,
         hashtags: parseHashtags(text),
         dateKey: state.ui.selectedDateKey,
         folderId: todoFolderExactMatch?.id,
-        folderName: todoFolderTrimmed || "Others",
+        folderName: resolvedFolderName,
       });
     }
 
@@ -640,6 +730,7 @@ export function CanvasDraftBlock() {
 
     const resolvedFolderId = todoFolderExactMatch?.id;
     const resolvedFolderName = todoFolderTrimmed || "Others";
+    writeLastTodoFolder(resolvedFolderName);
 
     for (const line of parsedLines) {
       // Sub-daily phrases ("every 30 minutes for 6 hours") become a repeating
@@ -688,7 +779,7 @@ export function CanvasDraftBlock() {
     const nextLine = createTodoDraftLine();
     setTodoLines([nextLine]);
     setActiveTodoLineId(nextLine.id);
-    setTodoFolderValue("Others");
+    setTodoFolderValue(readLastTodoFolder());
     setTodoFolderOpen(false);
     setTodoFolderActiveIndex(0);
     allowTodoBlurRef.current = false;
@@ -790,7 +881,7 @@ export function CanvasDraftBlock() {
   const canSaveBookmark = mode === "bookmark" && bookmarkUrl.trim().length > 0;
   const canSaveEvent = mode === "event" && eventLines.some((line) => parseEventDraftInput(line.text, eventStartedAtRef.current).title.trim().length > 0);
   const canSaveCurrent = canSaveNote || canSaveTodo || canSaveBookmark || canSaveEvent;
-  const showMobileTypeSwitcher = mobileSwitcherVisible;
+  const showMobileTypeSwitcher = embedded || mobileSwitcherVisible;
   const activeTodoLine = mode === "todo" ? (todoLines.find((line) => line.id === activeTodoLineId) ?? todoLines[0] ?? null) : null;
   // Confirmation chip: what the recurrence parser understood from the active
   // line, shown before saving so a parser miss is visible, not silent.
@@ -852,13 +943,12 @@ export function CanvasDraftBlock() {
   const handleMobileSave = () => {
     if (mode === "todo") {
       commitTodoDraft();
-      return;
-    }
-    if (mode === "event") {
+    } else if (mode === "event") {
       commitEventDraft();
-      return;
+    } else {
+      commit();
     }
-    commit();
+    onDone?.();
   };
 
   const currentDraftText = () => {
@@ -936,24 +1026,84 @@ export function CanvasDraftBlock() {
     bookmarkFocusPendingRef.current = true;
   };
 
+  const handleCancel = () => {
+    if (mode === "bookmark") {
+      cancelBookmarkDraft();
+    } else if (mode === "todo") {
+      resetTodoDraft();
+      allowTodoBlurRef.current = true;
+      allowEventBlurRef.current = true;
+      setMode("note");
+      window.requestAnimationFrame(() => { focusNoteComposer(); });
+    } else if (mode === "event") {
+      resetEventDraft();
+      allowTodoBlurRef.current = true;
+      allowEventBlurRef.current = true;
+      setMode("note");
+      window.requestAnimationFrame(() => { focusNoteComposer(); });
+    } else {
+      setBody("");
+      allowTodoBlurRef.current = true;
+      allowEventBlurRef.current = true;
+      window.requestAnimationFrame(() => { focusNoteComposer(); });
+    }
+    // In the composer sheet, Cancel means "close" (matching every other
+    // creation dialog's Cancel button) — not just "clear this one mode."
+    if (embedded) onDone?.();
+  };
+
+  useImperativeHandle(ref, () => ({ save: handleMobileSave, cancel: handleCancel }), [handleMobileSave, handleCancel]);
+
+  useEffect(() => {
+    onCanSaveChange?.(canSaveCurrent);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canSaveCurrent]);
+
+  const hasDraftInput = mode !== "note" || body.trim().length > 0;
+
+  const renderModeActions = () => (
+    <div className="flex items-center gap-2">
+      {hasDraftInput ? (
+        <button
+          type="button"
+          aria-label="Cancel"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={handleCancel}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-app-line bg-app-surface-muted text-app-ink-muted transition hover:bg-app-surface-hover active:translate-y-px active:scale-[0.98] md:hidden"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      ) : null}
+      {canSaveCurrent ? <MobileSaveButton onClick={handleMobileSave} /> : null}
+    </div>
+  );
+
   return (
     <>
-    <div ref={shellRef} className="mt-6 px-0 md:pl-8 md:pr-2">
-      <div className="relative">
-        {showMobileTypeSwitcher ? <MobileArtifactTypeSwitcher activeMode={mode} onModeChange={switchDraftMode} /> : null}
+    <div ref={shellRef} className={embedded ? "px-0" : "mt-6 px-0 md:pr-2"}>
+      <div className={embedded ? "relative min-h-[320px]" : "relative"}>
+        {showMobileTypeSwitcher ? (
+          <MobileArtifactTypeSwitcher activeMode={mode} onModeChange={switchDraftMode} docked={embedded} />
+        ) : null}
         {mode === "todo" || mode === "bookmark" || mode === "event" ? (
           mode === "bookmark" ? (
+            <div className="space-y-2">
             <div className="flex items-center gap-3">
               <div aria-hidden="true" className="mt-0.5 flex h-8 w-8 flex-none items-center justify-center">
                 <span className="flex h-5 w-5 items-center justify-center rounded border border-app-line-strong bg-app-surface text-success-ink">
                   <Bookmark className="h-3.5 w-3.5" />
                 </span>
               </div>
-              <input
-                ref={bookmarkUrlInputRef}
+              <textarea
+                ref={(node) => {
+                  bookmarkUrlInputRef.current = node;
+                  autoResize(node);
+                }}
+                rows={1}
                 value={bookmarkUrl}
                 onChange={(event) => {
                   setBookmarkUrl(event.target.value);
+                  autoResize(event.currentTarget);
                   allowBookmarkBlurRef.current = false;
                 }}
                 onFocus={() => {
@@ -999,9 +1149,10 @@ export function CanvasDraftBlock() {
                   }
                 }}
                 placeholder="Paste or type a URL"
-                className="min-w-0 flex-1 border-0 bg-transparent px-0 py-0.5 text-[15px] leading-6 text-app-ink caret-app-ink outline-none placeholder:text-app-line-strong selection:bg-app-surface-muted selection:text-app-ink"
+                className="min-w-0 flex-1 resize-none overflow-hidden border-0 bg-transparent px-0 py-0.5 text-[15px] leading-6 text-app-ink caret-app-ink outline-none placeholder:text-app-line-strong selection:bg-app-surface-muted selection:text-app-ink"
               />
-              <div ref={bookmarkCategoryContainerRef} className="relative w-[220px] flex-none">
+            </div>
+              <div ref={bookmarkCategoryContainerRef} className="relative ml-11 w-auto">
               <input
                 ref={bookmarkCategoryInputRef}
                 value={bookmarkCategoryValue}
@@ -1082,14 +1233,14 @@ export function CanvasDraftBlock() {
           ) : (
             <div className="w-full space-y-1.5">
               {(mode === "todo" ? todoLines : eventLines).map((line, index) => (
-                <div key={line.id} className="flex w-full items-center gap-3">
+                <div key={line.id} className="flex w-full items-start gap-3">
                   {mode === "todo" ? (
                     <TodoCheckmark
                       type="button"
                       aria-hidden="true"
                       tabIndex={-1}
                       checked={false}
-                      className="mt-0.5"
+                      align="text"
                     />
                   ) : (
                     <div aria-hidden="true" className="mt-0.5 flex h-8 w-8 flex-none items-center justify-center">
@@ -1122,7 +1273,7 @@ export function CanvasDraftBlock() {
                         })}
                         {line.text === "" && "\u200b"}
                       </div>
-                      <input
+                      <textarea
                         ref={(node) => {
                           if (mode === "todo") {
                             todoLineRefs.current[line.id] = node;
@@ -1131,10 +1282,13 @@ export function CanvasDraftBlock() {
                             eventLineRefs.current[line.id] = node;
                             if (line.id === activeEventLineId) activeEventInputRef.current = node;
                           }
+                          autoResize(node);
                         }}
+                        rows={1}
                         value={line.text}
                         onChange={(event) => {
                           const nextText = event.target.value;
+                          autoResize(event.currentTarget);
                           if (mode === "todo") {
                             setTodoLines((current) => current.map((currentLine) => (currentLine.id === line.id ? { ...currentLine, text: nextText } : currentLine)));
                           } else {
@@ -1302,7 +1456,7 @@ export function CanvasDraftBlock() {
                           }
                         }}
                         placeholder={index === 0 ? (mode === "todo" ? "Write your checklist" : "Write your event") : ""}
-                        className="relative min-w-0 w-full flex-1 border-0 bg-transparent px-0 py-0.5 text-[15px] leading-6 text-app-ink caret-app-ink outline-none placeholder:text-app-line-strong selection:bg-app-surface-muted selection:text-app-ink"
+                        className="relative min-w-0 w-full flex-1 resize-none overflow-hidden border-0 bg-transparent px-0 py-0.5 text-[15px] leading-6 text-app-ink caret-app-ink outline-none placeholder:text-app-line-strong selection:bg-app-surface-muted selection:text-app-ink"
                       />
                     </div>
                     </div>
@@ -1574,41 +1728,9 @@ export function CanvasDraftBlock() {
         )}
       </div>
 
-      {mode !== "note" || body.trim() ? (
+      {!embedded && hasDraftInput ? (
         <div className="mt-3 flex items-center justify-end gap-3">
-          <div className="flex items-center justify-end gap-2">
-            <button
-              type="button"
-              aria-label="Cancel"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => {
-                if (mode === "bookmark") {
-                  cancelBookmarkDraft();
-                } else if (mode === "todo") {
-                  resetTodoDraft();
-                  allowTodoBlurRef.current = true;
-                  allowEventBlurRef.current = true;
-                  setMode("note");
-                  window.requestAnimationFrame(() => { focusNoteComposer(); });
-                } else if (mode === "event") {
-                  resetEventDraft();
-                  allowTodoBlurRef.current = true;
-                  allowEventBlurRef.current = true;
-                  setMode("note");
-                  window.requestAnimationFrame(() => { focusNoteComposer(); });
-                } else {
-                  setBody("");
-                  allowTodoBlurRef.current = true;
-                  allowEventBlurRef.current = true;
-                  window.requestAnimationFrame(() => { focusNoteComposer(); });
-                }
-              }}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-app-line bg-app-surface-muted text-app-ink-muted transition hover:bg-app-surface-hover active:translate-y-px active:scale-[0.98] md:hidden"
-            >
-              <X className="h-4 w-4" />
-            </button>
-            {canSaveCurrent ? <MobileSaveButton onClick={handleMobileSave} /> : null}
-          </div>
+          {renderModeActions()}
         </div>
       ) : null}
     </div>
@@ -1649,4 +1771,4 @@ export function CanvasDraftBlock() {
       : null}
     </>
   );
-}
+});

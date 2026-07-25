@@ -9,3 +9,4 @@ coverage
 .claude/worktrees/
 docs/html/
 public/version.json
+.worktrees/

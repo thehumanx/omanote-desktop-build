@@ -58,6 +58,10 @@ export function NoteCanvasEditor({
   hideFolderPicker = false,
   suppressToolbar = false,
   suppressToolbarOnMobile = false,
+  // Callers that render their own Save/Cancel elsewhere for mobile (e.g. a
+  // shared drawer header) set this so this component's own bottom-row
+  // buttons don't also show, duplicating them.
+  hideMobileActions = false,
 }: {
   body: string;
   folderName: string;
@@ -73,6 +77,7 @@ export function NoteCanvasEditor({
   hideFolderPicker?: boolean;
   suppressToolbar?: boolean;
   suppressToolbarOnMobile?: boolean;
+  hideMobileActions?: boolean;
 }) {
   const [bodyFocused, setBodyFocused] = useState(false);
   const [toolbarStyle, setToolbarStyle] = useState<CSSProperties | null>(null);
@@ -329,7 +334,7 @@ export function NoteCanvasEditor({
             <div
               ref={toolbarRef}
               data-omanote-ignore-outside-click="true"
-              className="fixed z-app-floating rounded-full border border-app-line bg-app-surface/95 p-1 shadow-soft backdrop-blur"
+              className="fixed z-app-tooltip rounded-full border border-app-line bg-app-surface/95 p-1 shadow-soft backdrop-blur"
               style={toolbarStyle ?? { left: 0, top: 0, visibility: "hidden" }}
             >
               <TiptapRichTextToolbar editor={editor} className="flex-nowrap" />
@@ -365,7 +370,7 @@ export function NoteCanvasEditor({
         {showFolderPicker ? <NoteFolderPicker folders={folders} value={folderName} onChange={onFolderNameChange} /> : <div />}
         <div className="flex items-center gap-2">
           <SaveShortcutHint className="hidden md:inline" />
-          {(!mobileKeyboard.isMobileViewport || mobileKeyboard.keyboardOpen) ? (
+          {!hideMobileActions && (!mobileKeyboard.isMobileViewport || mobileKeyboard.keyboardOpen) ? (
             <>
               {onCancel && (
                 <button

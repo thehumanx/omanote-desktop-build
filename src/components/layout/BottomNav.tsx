@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type TouchEvent as ReactTouchEvent } from "react";
-import { Bookmark, BookmarkCheck, BookOpen, Check, CheckSquare, Compass, Download, FileText, GripHorizontal, Info, LogOut, CalendarDays, MessageSquare, Monitor, Moon, Rss, Settings, Puzzle, Sparkles, SquarePen, Sun, X } from "lucide-react";
+import { Bookmark, BookmarkCheck, BookOpen, Check, CheckSquare, ChevronLeft, ChevronRight, Compass, Download, ExternalLink, FileText, GripHorizontal, Info, LogOut, CalendarDays, MessageSquare, Monitor, Moon, Plus, Rss, ScrollText, Settings, Shield, Puzzle, Sparkles, SquarePen, Sun, X } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useApp } from "../../app/AppProvider";
 import { useAuth } from "../../app/auth/AuthContext";
@@ -11,6 +11,7 @@ import { useDrawerDrag } from "../../lib/useDrawerDrag";
 import { useMeasuredHighlight } from "../../hooks/useMeasuredHighlight";
 import { useOutsideClick } from "../../lib/useOutsideClick";
 import { getNavRouteIndex, getWrappedNavRoutePath } from "./navRoutes";
+import type { DraftMode } from "../../app/types";
 import { isMobileViewport } from "../../lib/mobile";
 import { getExtensionStoreUrl } from "../../lib/device-info";
 import { isTauri } from "../../lib/desktop";
@@ -32,6 +33,16 @@ const readerTabs = [
   { to: "/reader", label: "Feeds", icon: Rss },
   { to: "/reader/saved", label: "Saved", icon: BookmarkCheck },
 ];
+
+// So the "+" composer opens already set to the kind of artifact each tab is
+// for, instead of always defaulting to a note.
+const composerModeByRoute: Record<string, DraftMode> = {
+  "/canvas": "note",
+  "/todos": "todo",
+  "/notes": "note",
+  "/bookmarks": "bookmark",
+  "/event": "event",
+};
 
 const defaultAvatarSrc =
   "data:image/svg+xml;utf8," +
@@ -168,6 +179,9 @@ function ThemeToggle({ themeMode, setThemeMode }: { themeMode: "system" | "light
 
 function FullBottomNav({ hidden = false, forceHidden = false, onOpenAbout }: { hidden?: boolean; forceHidden?: boolean; onOpenAbout: () => void }) {
   const navRef = useRef<HTMLElement | null>(null);
+  const mobileTopBarRef = useRef<HTMLDivElement | null>(null);
+  const mobileTabRowRef = useRef<HTMLDivElement | null>(null);
+  const mobileTabRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
   const pillRef = useRef<HTMLDivElement | null>(null);
   const tabRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -189,6 +203,7 @@ function FullBottomNav({ hidden = false, forceHidden = false, onOpenAbout }: { h
   const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [learnMoreOpen, setLearnMoreOpen] = useState(false);
 
   useEffect(() => {
     const vv = window.visualViewport;
@@ -209,11 +224,19 @@ function FullBottomNav({ hidden = false, forceHidden = false, onOpenAbout }: { h
     }
     return writeTabs[activeTabIndex]?.to ?? null;
   }, [activeTabIndex, isReaderRoute, location.pathname]);
+  const composerModeForActiveTab = (activeTab !== null ? composerModeByRoute[activeTab] : undefined) ?? "note";
   const highlightStyle = useMeasuredHighlight({
     activeKey: activeTab,
     containerRef: pillRef,
     itemRefs: tabRefs,
     layoutKey: `${navLabelStyle}:${isReaderRoute ? "read" : "write"}`,
+    observeResize: false,
+  });
+  const mobileHighlightStyle = useMeasuredHighlight({
+    activeKey: activeTab,
+    containerRef: mobileTabRowRef,
+    itemRefs: mobileTabRefs,
+    layoutKey: isReaderRoute ? "read" : "write",
     observeResize: false,
   });
 
@@ -262,6 +285,27 @@ function FullBottomNav({ hidden = false, forceHidden = false, onOpenAbout }: { h
     };
   }, []);
 
+  // Publish the mobile top bar's height as a CSS variable (0 on desktop,
+  // since the bar is display:none there and ResizeObserver reports 0x0).
+  useEffect(() => {
+    if (!mobileTopBarRef.current) return;
+
+    const updateHeight = () => {
+      const height = mobileTopBarRef.current?.getBoundingClientRect().height ?? 0;
+      document.documentElement.style.setProperty("--omanote-mobile-top-bar-height", `${height}px`);
+    };
+
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(mobileTopBarRef.current);
+    window.addEventListener("resize", updateHeight);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateHeight);
+    };
+  }, []);
+
   // Focus search input when explore mode opens
   useEffect(() => {
     if (!isExploreRoute) return;
@@ -279,11 +323,13 @@ function FullBottomNav({ hidden = false, forceHidden = false, onOpenAbout }: { h
     if (!forceHidden) return;
     setMenuOpen(false);
     setProfileDrawerOpen(false);
+    setLearnMoreOpen(false);
   }, [forceHidden]);
 
   useEffect(() => {
     setMenuOpen(false);
     setProfileDrawerOpen(false);
+    setLearnMoreOpen(false);
   }, [location.pathname]);
 
   const handlePageSwipeTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
@@ -362,6 +408,7 @@ function FullBottomNav({ hidden = false, forceHidden = false, onOpenAbout }: { h
   const closeProfileOptions = () => {
     setMenuOpen(false);
     setProfileDrawerOpen(false);
+    setLearnMoreOpen(false);
   };
 
   const handleProfileClick = () => {
@@ -380,23 +427,13 @@ function FullBottomNav({ hidden = false, forceHidden = false, onOpenAbout }: { h
     </div>
   );
 
-  const renderProfileActions = ({
-    includeExtension,
-    includeDownloadApp,
-  }: {
-    includeExtension: boolean;
-    includeDownloadApp: boolean;
-  }) => (
+  const renderLearnMoreActions = () => (
     <>
-      <MenuItem
-        onClick={() => {
-          navigate("/settings");
-          closeProfileOptions();
-        }}
-      >
-        <Settings className="h-4 w-4" />
-        Settings
+      <MenuItem onClick={() => setLearnMoreOpen(false)}>
+        <ChevronLeft className="h-4 w-4" />
+        Learn more
       </MenuItem>
+      <div className="my-2 h-px bg-app-line" />
       <MenuItem
         onClick={() => {
           navigate("/guide");
@@ -425,6 +462,58 @@ function FullBottomNav({ hidden = false, forceHidden = false, onOpenAbout }: { h
         What&apos;s new
         {hasUpdate && <span className="ml-auto h-2 w-2 flex-shrink-0 rounded-full bg-app-ink" />}
       </MenuItem>
+      <div className="my-2 h-px bg-app-line" />
+      <MenuItem
+        onClick={() => {
+          closeProfileOptions();
+          window.open("/privacy", "_blank", "noopener,noreferrer");
+        }}
+      >
+        <Shield className="h-4 w-4" />
+        Privacy policy
+        <ExternalLink className="ml-auto h-3.5 w-3.5 text-app-ink-faint" />
+      </MenuItem>
+      <MenuItem
+        onClick={() => {
+          closeProfileOptions();
+          window.open("/terms", "_blank", "noopener,noreferrer");
+        }}
+      >
+        <ScrollText className="h-4 w-4" />
+        Terms of service
+        <ExternalLink className="ml-auto h-3.5 w-3.5 text-app-ink-faint" />
+      </MenuItem>
+    </>
+  );
+
+  const renderProfileActions = ({
+    includeExtension,
+    includeDownloadApp,
+  }: {
+    includeExtension: boolean;
+    includeDownloadApp: boolean;
+  }) => {
+    if (learnMoreOpen) return renderLearnMoreActions();
+
+    return (
+    <>
+      <MenuItem
+        onClick={() => {
+          navigate("/settings");
+          closeProfileOptions();
+        }}
+      >
+        <Settings className="h-4 w-4" />
+        Settings
+      </MenuItem>
+      <MenuItem
+        onClick={() => setLearnMoreOpen(true)}
+      >
+        <Info className="h-4 w-4" />
+        Learn more
+        {hasUpdate && <span className="ml-auto h-2 w-2 flex-shrink-0 rounded-full bg-app-ink" />}
+        <ChevronRight className="h-4 w-4 text-app-ink-faint" />
+      </MenuItem>
       {includeExtension ? (
         <MenuItem
           onClick={() => {
@@ -434,6 +523,7 @@ function FullBottomNav({ hidden = false, forceHidden = false, onOpenAbout }: { h
         >
           <Puzzle className="h-4 w-4" />
           Download extension
+          <ExternalLink className="ml-auto h-3.5 w-3.5 text-app-ink-faint" />
         </MenuItem>
       ) : null}
       {includeDownloadApp ? (
@@ -445,6 +535,7 @@ function FullBottomNav({ hidden = false, forceHidden = false, onOpenAbout }: { h
         >
           <Download className="h-4 w-4" />
           Download app
+          <ExternalLink className="ml-auto h-3.5 w-3.5 text-app-ink-faint" />
         </MenuItem>
       ) : null}
       <MenuItem
@@ -471,10 +562,48 @@ function FullBottomNav({ hidden = false, forceHidden = false, onOpenAbout }: { h
         Log out
       </MenuItem>
     </>
-  );
+    );
+  };
 
   return (
     <>
+    <ModalPortal>
+      <div
+        ref={mobileTopBarRef}
+        style={keyboardOpen ? { display: "none" } : undefined}
+        className={[
+          "fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between px-4 transform-gpu md:hidden",
+          forceHidden ? "transition-none" : "transition-transform duration-app-slow ease-app-in-out",
+          shouldHide ? "-translate-y-[calc(100%+0.5rem)] pointer-events-none" : "translate-y-0",
+        ].join(" ")}
+      >
+        {!isReaderRoute ? (
+          <button
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-app-line bg-app-surface p-0 text-app-ink-muted shadow-soft transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-app-surface-hover active:translate-y-px active:scale-[0.98]"
+            aria-label="Open explore"
+            onClick={openExplore}
+          >
+            <Compass className="h-4 w-4" />
+          </button>
+        ) : (
+          <div className="h-10 w-10 shrink-0" />
+        )}
+        <button
+          className="relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full border border-app-line bg-app-surface p-0 shadow-soft transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-app-surface-hover active:translate-y-px active:scale-[0.98]"
+          onClick={handleProfileClick}
+          aria-label="Profile menu"
+        >
+          <img
+            src={user?.imageUrl ?? defaultAvatarSrc}
+            alt={user?.name ? `${user.name} profile` : "Profile avatar"}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          {hasUpdate && (
+            <span className="pointer-events-none absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-app-surface bg-app-ink" />
+          )}
+        </button>
+      </div>
+    </ModalPortal>
     <nav
       ref={navRef}
       style={keyboardOpen ? { display: "none" } : undefined}
@@ -492,7 +621,7 @@ function FullBottomNav({ hidden = false, forceHidden = false, onOpenAbout }: { h
             "absolute inset-0 transition-[transform,opacity] duration-app-slow ease-app-in-out",
             isExploreRoute ? "pointer-events-none translate-y-2 opacity-0" : "translate-y-0 opacity-100",
           ].join(" ")}>
-              <div className="grid h-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
+              <div data-testid="desktop-tab-row" className="hidden h-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 md:grid">
                 {/* Compass — hidden in reader view */}
                 {!isReaderRoute ? (
                   <button
@@ -602,6 +731,55 @@ function FullBottomNav({ hidden = false, forceHidden = false, onOpenAbout }: { h
                 </div>
               ) : null}
             </div>
+          </div>
+
+          {/* Mobile: icon-only tabs hugging their content, centered with a persistent "+" compose button */}
+          <div data-testid="mobile-tab-row" className="flex h-full w-full items-center justify-center gap-2 md:hidden">
+            <div className="relative">
+              <SegmentedShell
+                ref={mobileTabRowRef}
+                data-omanote-page-swipe-zone="true"
+                onTouchStart={handlePageSwipeTouchStart}
+                onTouchMove={handlePageSwipeTouchMove}
+                onTouchEnd={handlePageSwipeTouchEnd}
+                onTouchCancel={handlePageSwipeTouchCancel}
+                onClickCapture={handlePageSwipeClickCapture}
+                style={{ touchAction: "none" }}
+                className="gap-1 p-2 shadow-nav"
+              >
+                {mobileHighlightStyle ? <SegmentedHighlight style={mobileHighlightStyle} /> : null}
+                {tabs.map(({ to, label, icon: Icon }) => (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    end={to === "/reader"}
+                    aria-label={label}
+                    ref={(node) => {
+                      mobileTabRefs.current[to] = node;
+                    }}
+                    className={({ isActive }) =>
+                      segmentedItemClass({
+                        active: isActive,
+                        className:
+                          "relative flex items-center justify-center px-3 py-2 text-app-ink-muted transition-[transform,color,opacity] duration-150 ease-out active:translate-y-px active:scale-[0.98]",
+                      })
+                    }
+                  >
+                    <Icon className="relative z-10 h-4 w-4" />
+                  </NavLink>
+                ))}
+              </SegmentedShell>
+            </div>
+            {!isReaderRoute ? (
+              <button
+                type="button"
+                aria-label="New artifact"
+                onClick={() => dispatch({ type: "ui/open-composer", mode: composerModeForActiveTab })}
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-app-line bg-app-surface p-0 text-app-ink-muted shadow-soft transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-app-surface-hover active:translate-y-px active:scale-[0.98]"
+              >
+                <Plus className="h-5 w-5" />
+              </button>
+            ) : null}
           </div>
             </div>
 

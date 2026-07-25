@@ -3,6 +3,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { useApp } from "../../app/AppProvider";
 import { ErrorBoundary } from "../ErrorBoundary";
 import { BottomNav } from "./BottomNav";
+import { ComposerSheet } from "../ComposerSheet";
 import { ModeSwitch } from "./ModeSwitch";
 import { ToastHost } from "../ToastHost";
 import { ReminderMonitor } from "../ReminderMonitor";
@@ -74,7 +75,15 @@ export function AppShell() {
   useEffect(() => {
     const updateTopChromeHeight = () => {
       const height = topChromeRef.current?.getBoundingClientRect().height ?? 0;
-      document.documentElement.style.setProperty("--omanote-top-chrome-height", `${height}px`);
+      // Combined with the mobile-only top bar (Explore/Profile) so every
+      // screen that reads --omanote-top-chrome-height gets the full offset
+      // without needing to know about the extra bar. calc() re-evaluates
+      // live as --omanote-mobile-top-bar-height changes, so this stays
+      // correct even if that bar's height updates after this ran.
+      document.documentElement.style.setProperty(
+        "--omanote-top-chrome-height",
+        `calc(${height}px + var(--omanote-mobile-top-bar-height, 0px))`,
+      );
     };
 
     updateTopChromeHeight();
@@ -209,9 +218,10 @@ export function AppShell() {
           ref={topChromeRef}
           data-tauri-drag-region
           className={[
-            "fixed inset-x-0 top-0 z-40 border-b border-app-line bg-app-surface transform-gpu transition-[transform,opacity] duration-app-base ease-app-in-out will-change-transform",
+            "fixed inset-x-0 z-40 border-b border-app-line bg-app-surface transform-gpu transition-[transform,opacity] duration-app-base ease-app-in-out will-change-transform",
             topChromeHidden ? "-translate-y-2 opacity-0 pointer-events-none" : "translate-y-0 opacity-100",
           ].join(" ")}
+          style={{ top: "var(--omanote-mobile-top-bar-height, 0px)" }}
         >
           {desktopShellPlatform === "windows" ? (
             <div className="absolute right-0 top-0 z-10">
@@ -293,6 +303,7 @@ export function AppShell() {
         onOpenAbout={openFounderNote}
       />
       <FounderNoteModal open={founderNoteOpen} onClose={closeFounderNote} />
+      <ComposerSheet />
       <CookieNotice />
     </div>
   );

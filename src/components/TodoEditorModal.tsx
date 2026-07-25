@@ -18,6 +18,7 @@ import { parseHashtags } from "../lib/hashtags";
 import { useUserSettings } from "../contexts/UserSettingsContext";
 import { isNewlineShortcutEvent, isSaveShortcutEvent } from "../lib/editor-shortcuts";
 import { SaveShortcutHint } from "./settings/SaveShortcutHint";
+import { DrawerHeaderRow } from "./DrawerHeaderRow";
 import { Button, TodoCheckmark } from "./ui";
 
 function autoResize(textarea: HTMLTextAreaElement) {
@@ -54,12 +55,12 @@ function GoogleSyncIndicator({ htmlLink, className }: { htmlLink: string | null;
   );
 }
 
-// Bottom drawer on mobile -- full width, rounded top corners, sticky footer
-// -- and the existing centered dialog on desktop, everywhere this editor is
+// Floating card overlay on mobile -- inset from all edges, fully rounded --
+// and the existing centered dialog on desktop, everywhere this editor is
 // used (Todos, Event/Calendar, and Canvas).
-const BACKDROP_CLASS = "items-end px-0 md:items-center md:px-app-page";
+const BACKDROP_CLASS = "items-end px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:items-center md:px-app-page md:pb-0";
 const SURFACE_CLASS =
-  "w-full rounded-t-app-drawer border-t border-app-line bg-app-surface-raised px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 shadow-app-drawer max-h-[85vh] overflow-y-auto md:max-w-4xl md:max-h-none md:overflow-visible md:rounded-app-dialog md:border md:bg-app-surface md:px-7 md:py-6 md:shadow-soft";
+  "w-full rounded-2xl border border-app-line bg-app-surface-raised px-5 py-5 shadow-app-drawer max-h-[85vh] overflow-y-auto md:max-w-4xl md:max-h-none md:overflow-visible md:rounded-app-dialog md:bg-app-surface md:px-7 md:py-6 md:shadow-soft";
 // Larger tap targets on the mobile drawer; unchanged on desktop.
 const FIELD_ROW_PADDING = "py-2 md:py-1";
 
@@ -311,6 +312,12 @@ export function TodoEditorModal({
   return (
     <BaseModal onClose={onClose} onBackdropMouseDown={onClose} className={BACKDROP_CLASS}>
       <div className={SURFACE_CLASS} onMouseDown={(event) => event.stopPropagation()}>
+        <DrawerHeaderRow
+          className="-mx-5 -mt-5 mb-2 px-4 pt-3 pb-2 md:hidden"
+          onCancel={onClose}
+          onSave={save}
+          canSave={canSave}
+        />
         {/* The checkmark only relates to the title -- everything below spans
             the full width instead of trailing its indent, so a single-column
             mobile layout doesn't end up with a permanent empty gutter down
@@ -452,9 +459,6 @@ export function TodoEditorModal({
             </div>
             <div className="flex items-center gap-3">
               <SaveShortcutHint className="hidden text-sm md:inline" />
-              <Button type="button" tone="default" className="w-full md:hidden" disabled={!canSave} onClick={save}>
-                Save
-              </Button>
             </div>
           </div>
         </div>

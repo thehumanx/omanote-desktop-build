@@ -103,6 +103,24 @@ export function appReducer(state: AppState = createInitialState(), action: AppAc
           notesDrawerOpen: action.open,
         },
       };
+    case "ui/open-composer":
+      return {
+        ...state,
+        ui: {
+          ...state.ui,
+          composerOpen: true,
+          composerMode: action.mode ?? state.ui.composerMode,
+          composerOpenToken: state.ui.composerOpenToken + 1,
+        },
+      };
+    case "ui/close-composer":
+      return {
+        ...state,
+        ui: {
+          ...state.ui,
+          composerOpen: false,
+        },
+      };
     case "todo/create": {
       const dueDateKey = action.dueDateKey ?? toDateKey(new Date());
       const todo: TodoItem = {

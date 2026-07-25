@@ -1,6 +1,6 @@
 # Capturing anything
 
-The composer at the top of the canvas is the single place you put things in. It reads what you type and turns it into the right kind of item, so you rarely have to stop and choose.
+The composer is the single place you put things in — on desktop it sits at the top of the canvas; on a phone-sized screen, tap **+** in the bottom bar to open it. It reads what you type and turns it into the right kind of item, so you rarely have to stop and choose.
 
 ## It figures out what you mean
 

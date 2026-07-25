@@ -56,7 +56,14 @@ export const TodoListRow = memo(function TodoListRow({
         onClick={() => onToggle(todo.id)}
         align="text"
       />
-      <div className={cn("min-w-0 flex-1", completedLabel ? "lg:flex lg:items-start lg:justify-between lg:gap-4" : undefined)}>
+      <div
+        className={cn("min-w-0 flex-1 cursor-pointer", completedLabel ? "lg:flex lg:items-start lg:justify-between lg:gap-4" : undefined)}
+        onClick={(event) => {
+          const target = event.target as HTMLElement;
+          if (target.closest("a")) return;
+          onToggle(todo.id);
+        }}
+      >
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <div className={cn("text-base leading-6", isVisuallyDone ? "text-app-ink-faint line-through" : "text-app-ink")}>

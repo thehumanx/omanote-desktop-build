@@ -12,7 +12,7 @@ The date strip at the top moves you backward and forward through your days. Toda
 
 ## Arranging your day
 
-Items on the canvas can be reordered by dragging, so the most important things sit where you want them. Your arrangement is saved per day. If you prefer a cleaner backdrop, you can toggle the dot grid on or off in Settings → Appearance.
+Items land on the canvas in the order you captured them, oldest to newest, so new entries always sit at the bottom — no rearranging needed. If you prefer a cleaner backdrop, you can toggle the dot grid on or off in Settings → Appearance.
 
 ## What lands here
 

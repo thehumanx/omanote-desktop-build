@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
-import type { MouseEvent } from "react";
+import type { MouseEvent, TouchEvent } from "react";
 import { useCanvasDraftValue } from "../app/useCanvasDraftValue";
 import { Trash2, WifiOff } from "lucide-react";
 import type { EventEntry } from "@omanote/shared";
@@ -7,6 +7,8 @@ import type { AppAction } from "../app/types";
 import { combineDateKeyAndTime, formatTimeLabel } from "@omanote/shared";
 import { handlePasteAsLink } from "../lib/link-utils";
 import { useOutsideClick } from "../lib/useOutsideClick";
+import { useIsMobileViewport } from "../lib/mobile";
+import { MobileEditDrawer } from "./MobileEditDrawer";
 import { Input } from "./ui";
 import { RichTextPreview } from "./rich-text";
 import { parseHashtags } from "../lib/hashtags";
@@ -169,12 +171,19 @@ function CanvasEventBlockComponent({ event, pendingSync, dispatch }: CanvasEvent
     });
   };
 
-  useOutsideClick(rootRef, isEditing, () => {
+  const finishEditing = useCallback(() => {
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
     saveTimerRef.current = null;
     saveEventDraft();
     setIsEditing(false);
-  });
+  }, [saveEventDraft]);
+
+  const isMobile = useIsMobileViewport();
+
+  // On mobile the editor renders inside a MobileEditDrawer portal, so a
+  // click there wouldn't register as "outside" rootRef anyway — the
+  // drawer's own backdrop/drag dismissal (wired to finishEditing) replaces this.
+  useOutsideClick(rootRef, isEditing && !isMobile, finishEditing);
 
   useEffect(() => {
     const nextSignature = `${label.trim()}\u0000${notes.trim()}\u0000${draftTime || timeToInput(event.loggedAt)}`;
@@ -190,6 +199,125 @@ function CanvasEventBlockComponent({ event, pendingSync, dispatch }: CanvasEvent
     };
   }, [draftTime, label, notes, event.loggedAt, saveEventDraft]);
 
+  const editingInline = isEditing && !isMobile;
+
+  // Mobile opens editing on long-press instead of a tap, so a normal tap
+  // can still be used to scroll. The time chip already opens editing on its
+  // own tap (a small, explicit target) — long-press only applies to the
+  // rest of the row and skips it, matching the checkbox/pencil/trash-style
+  // exclusions used elsewhere.
+  const LONG_PRESS_MS = 450;
+  const LONG_PRESS_MOVE_CANCEL_PX = 10;
+  const longPressTimerRef = useRef<number | null>(null);
+  const longPressStartRef = useRef<{ x: number; y: number } | null>(null);
+  const longPressSkipRef = useRef(false);
+
+  const clearLongPressTimer = () => {
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  useEffect(() => clearLongPressTimer, []);
+
+  const handlePreviewTouchStart = (touchEvent: TouchEvent<HTMLDivElement>) => {
+    if (isReadOnly) return;
+    const touch = touchEvent.touches[0];
+    if (!touch) return;
+    const eventTarget = touchEvent.target as HTMLElement | null;
+    longPressSkipRef.current = Boolean(eventTarget?.closest('button, a, [data-rich-text-popover="true"]'));
+    if (longPressSkipRef.current) return;
+    longPressStartRef.current = { x: touch.clientX, y: touch.clientY };
+    clearLongPressTimer();
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressTimerRef.current = null;
+      setFocusTarget("label");
+      setIsEditing(true);
+    }, LONG_PRESS_MS);
+  };
+
+  const handlePreviewTouchMove = (touchEvent: TouchEvent<HTMLDivElement>) => {
+    const start = longPressStartRef.current;
+    const touch = touchEvent.touches[0];
+    if (!start || !touch) return;
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (Math.hypot(dx, dy) > LONG_PRESS_MOVE_CANCEL_PX) {
+      clearLongPressTimer();
+    }
+  };
+
+  const handlePreviewTouchEnd = (touchEvent: TouchEvent<HTMLDivElement>) => {
+    clearLongPressTimer();
+    // Whether this was a short tap or the long-press already fired, don't
+    // let the browser's synthetic click also fire — except on a link/button/
+    // popover, which needs its own click to fire normally.
+    if (!longPressSkipRef.current) {
+      touchEvent.preventDefault();
+    }
+    longPressStartRef.current = null;
+  };
+
+  const preview = (
+    <div
+      role={isReadOnly || isEditing ? undefined : "button"}
+      tabIndex={isReadOnly || isEditing ? undefined : 0}
+      className="flex w-full items-start gap-2 text-left outline-none"
+      onClick={(event) => {
+        if (isReadOnly || isEditing || isPopoverEvent(event)) return;
+        setFocusTarget("label");
+        setIsEditing(true);
+      }}
+      onDoubleClick={(event) => {
+        if (isReadOnly || isEditing || isPopoverEvent(event)) return;
+        setFocusTarget("label");
+        setIsEditing(true);
+      }}
+      onKeyDown={(event) => {
+        if (isReadOnly || isEditing) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          setFocusTarget("label");
+          setIsEditing(true);
+        }
+      }}
+      onTouchStart={isReadOnly || isEditing || !isMobile ? undefined : handlePreviewTouchStart}
+      onTouchMove={isReadOnly || isEditing || !isMobile ? undefined : handlePreviewTouchMove}
+      onTouchEnd={isReadOnly || isEditing || !isMobile ? undefined : handlePreviewTouchEnd}
+      onTouchCancel={isReadOnly || isEditing || !isMobile ? undefined : handlePreviewTouchEnd}
+    >
+      <div className="flex flex-none items-center">
+        <button
+          type="button"
+          aria-label="edit event time"
+          disabled={isReadOnly || isEditing}
+          onClick={(event) => {
+            if (isReadOnly || isEditing) return;
+            event.preventDefault();
+            event.stopPropagation();
+            setFocusTarget("time");
+            setIsEditing(true);
+          }}
+          className="h-6 rounded-md border border-app-line bg-app-surface-muted px-2 py-0.5 text-xs font-medium text-app-ink-faint shadow-none"
+        >
+          {formatTimeLabel(draftTime)}
+        </button>
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-base leading-6 text-app-ink">
+          <RichTextPreview value={label} onLinkEdit={isEditing ? undefined : updateEventLabel} />
+        </div>
+        {notes ? (
+          <div className="mt-1 text-sm leading-7 text-app-ink-muted">
+            <RichTextPreview value={notes} paragraphClassName="text-app-ink-muted" onLinkEdit={isEditing ? undefined : updateEventNotes} />
+          </div>
+        ) : null}
+        <AttachmentLinkPreview textValues={[label, notes]} className="mt-2" />
+      </div>
+    </div>
+  );
+
   return (
     <div
       ref={rootRef}
@@ -201,26 +329,34 @@ function CanvasEventBlockComponent({ event, pendingSync, dispatch }: CanvasEvent
           <WifiOff className="h-2.5 w-2.5 text-app-ink-faint" />
         </div>
       )}
+      {/* On mobile, editing opens in a drawer elsewhere on screen — keep
+          showing the (live-updating) preview here instead of leaving this
+          canvas row blank while the drawer is open. */}
+      {editingInline ? null : preview}
       {isEditing ? (
-        <>
-          <div data-testid="canvas-event-edit-row" className="flex w-full items-center gap-2">
-            <Input
-              ref={timeRef}
-              type="time"
-              value={draftTime}
-              onChange={(event) => setDraftTime(event.target.value)}
-              onBlur={() => {
-                if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
-                saveTimerRef.current = null;
-                saveEventDraft();
-              }}
-              onDoubleClick={() => {
-                setFocusTarget("time");
-                setIsEditing(true);
-                timeRef.current?.focus();
-              }}
-              className="h-6 w-[92px] flex-none rounded-md border border-app-line bg-app-surface-muted px-2 py-0.5 text-xs font-medium text-app-ink-faint shadow-none"
-            />
+        <MobileEditDrawer onClose={finishEditing} onCancel={finishEditing} onSave={finishEditing} canSave={Boolean(label.trim())}>
+          <div data-testid="canvas-event-edit-row" className="flex w-full flex-col gap-2">
+            <div className="flex flex-none items-center">
+              <Input
+                ref={timeRef}
+                type="time"
+                value={draftTime}
+                onChange={(event) => setDraftTime(event.target.value)}
+                onBlur={() => {
+                  if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+                  saveTimerRef.current = null;
+                  saveEventDraft();
+                }}
+                className="h-6 w-[92px] flex-none rounded-md border border-app-line bg-app-surface-muted px-2 py-0.5 text-xs font-medium text-app-ink-faint shadow-none absolute opacity-0 pointer-events-none"
+              />
+              <button
+                type="button"
+                onClick={() => timeRef.current?.click()}
+                className="h-6 w-[92px] rounded-md border border-app-line bg-app-surface-muted px-2 py-0.5 text-xs font-medium text-app-ink-faint shadow-none"
+              >
+                {formatTimeLabel(draftTime)}
+              </button>
+            </div>
             <div className="min-w-0 w-full flex-1">
               <textarea
                 ref={labelRef}
@@ -287,61 +423,8 @@ function CanvasEventBlockComponent({ event, pendingSync, dispatch }: CanvasEvent
             onHover={activeEmojiPicker.setActiveIndex}
             anchorRef={activeField === "label" ? labelRef : notesRef}
           />
-        </>
-      ) : (
-        <div
-          role={isReadOnly ? undefined : "button"}
-          tabIndex={isReadOnly ? undefined : 0}
-          className="flex w-full items-start gap-2 text-left outline-none"
-          onClick={(event) => {
-            if (isReadOnly || isPopoverEvent(event)) return;
-            setFocusTarget("label");
-            setIsEditing(true);
-          }}
-          onDoubleClick={(event) => {
-            if (isReadOnly || isPopoverEvent(event)) return;
-            setFocusTarget("label");
-            setIsEditing(true);
-          }}
-          onKeyDown={(event) => {
-            if (isReadOnly) return;
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              setFocusTarget("label");
-              setIsEditing(true);
-            }
-          }}
-        >
-          <div className="flex flex-none items-center">
-            <button
-              type="button"
-              aria-label="edit event time"
-              disabled={isReadOnly}
-              onClick={(event) => {
-                if (isReadOnly) return;
-                event.preventDefault();
-                event.stopPropagation();
-                setFocusTarget("time");
-                setIsEditing(true);
-              }}
-              className="h-6 rounded-md border border-app-line bg-app-surface-muted px-2 py-0.5 text-xs font-medium text-app-ink-faint shadow-none"
-            >
-              {formatTimeLabel(draftTime)}
-            </button>
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-base leading-6 text-app-ink">
-              <RichTextPreview value={label} onLinkEdit={updateEventLabel} />
-            </div>
-            {notes ? (
-              <div className="mt-1 text-sm leading-7 text-app-ink-muted">
-                <RichTextPreview value={notes} paragraphClassName="text-app-ink-muted" onLinkEdit={updateEventNotes} />
-              </div>
-            ) : null}
-            <AttachmentLinkPreview textValues={[label, notes]} className="mt-2" />
-          </div>
-        </div>
-      )}
+        </MobileEditDrawer>
+      ) : null}
 
       {isReadOnly ? (
         event.sourceTodoId ? (

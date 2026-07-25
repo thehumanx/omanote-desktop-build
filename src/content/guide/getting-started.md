@@ -4,7 +4,7 @@ omanote is a quiet workspace built around a single idea: **your day is the unit*
 
 ## Capture first, organize later
 
-The fastest way to use omanote is to just start typing on the canvas. The composer figures out what you mean:
+The fastest way to use omanote is to just start typing on the canvas (on a phone-sized screen, tap **+** in the bottom bar first). The composer figures out what you mean:
 
 - Type a thought and press save — it becomes a **note**.
 - Paste a link — it becomes a **bookmark** with a preview.

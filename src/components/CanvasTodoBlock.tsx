@@ -1,7 +1,9 @@
-import { memo } from "react";
+import { memo, useEffect, useRef } from "react";
+import type { TouchEvent } from "react";
 import { CircleCheckBig, Pencil, Repeat, Trash2, WifiOff } from "lucide-react";
 import type { TodoItem } from "@omanote/shared";
 import { describeRecurrenceRule, formatCompletedLabel, formatDueChip, formatFutureTodoCanvasLabel, isFutureDateKey } from "@omanote/shared";
+import { useIsMobileViewport } from "../lib/mobile";
 import { cn, TodoCheckmark } from "./ui";
 import { RichTextPreview } from "./rich-text";
 import { AttachmentLinkPreview } from "./AttachmentLinkPreview";
@@ -44,10 +46,60 @@ function CanvasTodoBlockComponent({
   const isFutureTodo = isFutureDateKey(canvasDateKey, todo.dueDateKey);
   const futureCanvasLabel = formatFutureTodoCanvasLabel(todo.dueDateKey, todo.dueTime);
   const completedLabel = todo.status === "done" ? formatCompletedLabel(todo.completedAt ?? todo.updatedAt) : "";
+  const isMobile = useIsMobileViewport();
   const editTodoTitle = (nextTitle: string) => {
     const title = nextTitle.trim();
     if (!title) return;
     onInlineTitleEdit(todo, title);
+  };
+
+  // Mobile opens the editor on long-press instead of a tap, so a normal tap
+  // can still be used to scroll without accidentally opening it. Taps on
+  // the checkbox/date-chip/pencil/trash buttons are left alone — they
+  // already stopPropagation on click and shouldn't also start a long-press.
+  const LONG_PRESS_MS = 450;
+  const LONG_PRESS_MOVE_CANCEL_PX = 10;
+  const longPressTimerRef = useRef<number | null>(null);
+  const longPressStartRef = useRef<{ x: number; y: number } | null>(null);
+  const longPressSkipRef = useRef(false);
+
+  const clearLongPressTimer = () => {
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  useEffect(() => clearLongPressTimer, []);
+
+  const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
+    const touch = event.touches[0];
+    if (!touch) return;
+    const eventTarget = event.target as HTMLElement | null;
+    longPressSkipRef.current = Boolean(eventTarget?.closest("button"));
+    if (longPressSkipRef.current) return;
+    longPressStartRef.current = { x: touch.clientX, y: touch.clientY };
+    clearLongPressTimer();
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressTimerRef.current = null;
+      onOpenEditor(todo);
+    }, LONG_PRESS_MS);
+  };
+
+  const handleTouchMove = (event: TouchEvent<HTMLDivElement>) => {
+    const start = longPressStartRef.current;
+    const touch = event.touches[0];
+    if (!start || !touch) return;
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (Math.hypot(dx, dy) > LONG_PRESS_MOVE_CANCEL_PX) {
+      clearLongPressTimer();
+    }
+  };
+
+  const handleTouchEnd = () => {
+    clearLongPressTimer();
+    longPressStartRef.current = null;
   };
 
   return (
@@ -55,6 +107,10 @@ function CanvasTodoBlockComponent({
       data-testid="canvas-todo-block"
       className="group relative -ml-3 -mr-2 -my-1 w-full rounded-xl px-2 py-1 pl-3 transition-[transform,opacity,background-color,box-shadow] duration-200 ease-out hover:bg-app-surface-hover focus-within:bg-app-surface-muted focus-within:ring-1 focus-within:ring-app-focus/15 before:pointer-events-none before:absolute before:inset-y-2 before:left-0 before:w-px before:rounded-full before:bg-transparent focus-within:before:bg-app-line-strong"
       onDoubleClick={() => onOpenEditor(todo)}
+      onTouchStart={isMobile ? handleTouchStart : undefined}
+      onTouchMove={isMobile ? handleTouchMove : undefined}
+      onTouchEnd={isMobile ? handleTouchEnd : undefined}
+      onTouchCancel={isMobile ? handleTouchEnd : undefined}
     >
       {pendingSync && (
         <div className="absolute right-2 top-2 flex items-center justify-center rounded-full bg-app-surface-muted p-1" title="Not synced — will upload when you reconnect">
@@ -66,7 +122,8 @@ function CanvasTodoBlockComponent({
           <button
             type="button"
             aria-label={`Open todo on ${todo.dueDateKey}`}
-            onClick={() => {
+            onClick={(event) => {
+              event.stopPropagation();
               if (!todo.dueDateKey) return;
               onSelectDate(todo.dueDateKey);
             }}
@@ -79,12 +136,22 @@ function CanvasTodoBlockComponent({
             type="button"
             aria-label="toggle todo"
             checked={todo.status === "done"}
-            onClick={() => onToggle(todo)}
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggle(todo);
+            }}
             align="text"
           />
         )}
 
-        <div className="min-w-0 flex-1">
+        <div
+          className="min-w-0 flex-1 cursor-pointer"
+          onClick={(event) => {
+            const target = event.target as HTMLElement;
+            if (target.closest("a")) return;
+            onToggle(todo);
+          }}
+        >
           <div className="flex flex-wrap items-center gap-2">
             <div
               className={cn(
@@ -126,7 +193,10 @@ function CanvasTodoBlockComponent({
         <button
           type="button"
           aria-label="edit todo details"
-          onClick={() => onOpenEditor(todo)}
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpenEditor(todo);
+          }}
           className="rounded-full p-1 text-app-line-strong transition hover:bg-app-surface-hover hover:text-app-ink"
         >
           <Pencil className="h-4 w-4" />
@@ -134,7 +204,10 @@ function CanvasTodoBlockComponent({
         <button
           type="button"
           aria-label="delete todo"
-          onClick={() => onDelete(todo)}
+          onClick={(event) => {
+            event.stopPropagation();
+            onDelete(todo);
+          }}
           className="rounded-full p-1 text-app-line-strong transition hover:bg-app-surface-hover hover:text-danger-ink"
         >
           <Trash2 className="h-4 w-4" />

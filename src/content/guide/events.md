@@ -6,6 +6,8 @@ Events are the record of things that **happened** — not things to do, but mome
 
 Use `/event` in the canvas composer, then write what happened in plain language, and add a time if it matters — `finished the 10k run 8am`. On the mobile app, you can also start the line with `@` instead of typing the slash command. Each line becomes its own event, so you can log several at once.
 
+To log an event for a day other than today, navigate the canvas to that day first, then use the composer — the Event view's own "Log your event" button only logs for today. To edit an event already on the canvas, click it on desktop; on mobile, long-press it (or tap the time chip) to open the editor.
+
 ## The timeline
 
 The **Event** view shows your events as a chronological timeline. It's a quiet way to see what your days have actually contained over time.

@@ -173,7 +173,6 @@ export interface SyncResult {
   bookmarks: number;
   bookmarkCategories: number;
   events: number;
-  canvasPlacements: number;
   activityHistory: number;
   rssSubscriptions: number;
   rssCategories: number;
@@ -189,7 +188,7 @@ interface SyncOptions {
 // block others and the next call retries from the last good cursor.
 export async function runIncrementalSync(queryFn: SyncQueryFn, options: SyncOptions = {}): Promise<SyncResult> {
   const includeRss = options.includeRss ?? true;
-  const [todos, todoFolders, checklistItems, notes, noteFolders, bookmarks, bookmarkCategories, events, canvasPlacements, activityHistoryCount] =
+  const [todos, todoFolders, checklistItems, notes, noteFolders, bookmarks, bookmarkCategories, events, activityHistoryCount] =
     await Promise.all([
       syncTable(queryFn, "todos", api.todos.listTodosUpdatedAfter, db.todos, (i) => i.updatedAt ?? 0),
       syncTable(queryFn, "todoFolders", api.todos.listTodoFoldersUpdatedAfter, db.todoFolders, (i) => i.updatedAt ?? 0),
@@ -199,7 +198,6 @@ export async function runIncrementalSync(queryFn: SyncQueryFn, options: SyncOpti
       syncTable(queryFn, "bookmarks", api.bookmarks.listBookmarksUpdatedAfter, db.bookmarks, (i) => i.updatedAt ?? 0),
       syncTable(queryFn, "bookmarkCategories", api.bookmarks.listBookmarkCategoriesUpdatedAfter, db.bookmarkCategories, (i) => i.updatedAt ?? 0),
       syncTable(queryFn, "events", api.events.listEventsUpdatedAfter, db.events, eventCursor),
-      syncTable(queryFn, "canvasPlacements", api.canvas.listCanvasPlacementsUpdatedAfter, db.canvasPlacements, (i) => i.updatedAt ?? 0),
       syncHistory(queryFn),
     ]);
 
@@ -218,5 +216,5 @@ export async function runIncrementalSync(queryFn: SyncQueryFn, options: SyncOpti
     await syncRssFeeds(queryFn);
   }
 
-  return { todos, todoFolders, checklistItems, notes, noteFolders, bookmarks, bookmarkCategories, events, canvasPlacements, activityHistory: activityHistoryCount, rssSubscriptions: rssSubscriptionsCount, rssCategories, rssReadState };
+  return { todos, todoFolders, checklistItems, notes, noteFolders, bookmarks, bookmarkCategories, events, activityHistory: activityHistoryCount, rssSubscriptions: rssSubscriptionsCount, rssCategories, rssReadState };
 }

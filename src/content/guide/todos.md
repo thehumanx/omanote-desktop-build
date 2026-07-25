@@ -8,7 +8,7 @@ Make one from the canvas composer (`/todo`, or start a checklist line) or from t
 
 ## Editing a todo
 
-Hover a todo and click the pencil icon (or just double-click it) to open the full editor — title, due date, folder, repeat, and reminders, all in one place. This works the same way everywhere a todo shows up: the Todos view, the daily canvas, and the Event/Calendar screen. On mobile, it opens as a drawer from the bottom of the screen instead of a popup, sized for a thumb rather than a mouse.
+Hover a todo and click the pencil icon (or just double-click it) to open the full editor — title, due date, folder, repeat, and reminders, all in one place. This works the same way everywhere a todo shows up: the Todos view, the daily canvas, and the Event/Calendar screen. On mobile, it opens as a floating drawer sized for a thumb rather than a mouse — long-press a todo on the canvas to open it, and tap the checkmark or the X to save or cancel.
 
 ## Due dates, reminders, and priority
 

@@ -74,7 +74,6 @@ class OmanoteDB extends Dexie {
   bookmarks!: Table<Doc<"bookmarks">, string>;
   bookmarkCategories!: Table<Doc<"bookmarkCategories">, string>;
   events!: Table<Doc<"eventEntries">, string>;
-  canvasPlacements!: Table<Doc<"canvasPlacements">, string>;
   activityHistory!: Table<Doc<"activityHistory">, string>;
   linkPreviews!: Table<CachedLinkPreview, string>;
   // RSS tables
@@ -95,7 +94,6 @@ class OmanoteDB extends Dexie {
       bookmarks:            "_id, userId, updatedAt, deletedAt, createdDateKey, categoryId",
       bookmarkCategories:   "_id, userId, updatedAt",
       events:               "_id, userId, updatedAt, deletedAt, createdDateKey",
-      canvasPlacements:     "_id, userId, dateKey, updatedAt",
       activityHistory:      "_id, userId, timestamp",
     });
     this.version(2).stores({
@@ -107,7 +105,6 @@ class OmanoteDB extends Dexie {
       bookmarks:            "_id, userId, updatedAt, deletedAt, createdDateKey, categoryId",
       bookmarkCategories:   "_id, userId, updatedAt",
       events:               "_id, userId, updatedAt, deletedAt, createdDateKey",
-      canvasPlacements:     "_id, userId, dateKey, updatedAt",
       activityHistory:      "_id, userId, timestamp",
       linkPreviews:         "url, fetchedAt",
     });
@@ -120,7 +117,6 @@ class OmanoteDB extends Dexie {
       bookmarks:            "_id, userId, updatedAt, deletedAt, createdDateKey, categoryId",
       bookmarkCategories:   "_id, userId, updatedAt",
       events:               "_id, userId, updatedAt, deletedAt, createdDateKey",
-      canvasPlacements:     "_id, userId, dateKey, updatedAt",
       activityHistory:      "_id, userId, timestamp",
       linkPreviews:         "url, fetchedAt",
       // RSS tables (no encryption — article content is public)
@@ -140,7 +136,6 @@ class OmanoteDB extends Dexie {
       bookmarks:            "_id, userId, updatedAt, deletedAt, createdDateKey, categoryId",
       bookmarkCategories:   "_id, userId, updatedAt",
       events:               "_id, userId, updatedAt, deletedAt, createdDateKey",
-      canvasPlacements:     "_id, userId, dateKey, updatedAt",
       activityHistory:      "_id, userId, timestamp",
       linkPreviews:         "url, fetchedAt",
       rssFeeds:             "_id, updatedAt",
