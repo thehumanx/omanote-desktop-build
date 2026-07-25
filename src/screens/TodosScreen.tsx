@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toDateKey, type DateKey, type TodoFilter, type TodoFolder, type TodoItem } from "@omanote/shared";
-import { ArrowDown, ArrowUp, Calendar, CalendarClock, CircleCheckBig, ClockAlert, GripHorizontal, LayoutGrid, LayoutList, MoreHorizontal, Pencil, Plus, Share2, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Calendar, CalendarClock, ClockAlert, GripHorizontal, LayoutGrid, LayoutList, ListChecks, MoreHorizontal, Pencil, Plus, Share2, Trash2 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -14,7 +14,7 @@ import { useTopChrome } from "../components/layout/useTopChrome";
 import { PageHeader } from "../components/layout/PageHeader";
 import { ModalPortal } from "../components/ModalPortal";
 import { TodoEditorModal } from "../components/TodoEditorModal";
-import { TodoFolderRow } from "../components/TodoFolderRow";
+import { TodoFolderCountBadge, TodoFolderRow } from "../components/TodoFolderRow";
 import { TodoListRow } from "../components/TodoListRow";
 import { Button, cn, SegmentedPill } from "../components/ui";
 import { formatCompletedLabel, formatLongDateKey, getSeriesListBucket, isClosedSeriesMaster, type TodoListBucket } from "@omanote/shared";
@@ -32,7 +32,7 @@ const todoViews: Array<{ key: TodoFilter; label: string; icon: ReactNode }> = [
   { key: "today", label: "Today", icon: <Calendar className="h-4 w-4" /> },
   { key: "overdue", label: "Overdue", icon: <ClockAlert className="h-4 w-4" /> },
   { key: "upcoming", label: "Later", icon: <CalendarClock className="h-4 w-4" /> },
-  { key: "completed", label: "Completed", icon: <CircleCheckBig className="h-4 w-4" /> },
+  { key: "all", label: "All", icon: <ListChecks className="h-4 w-4" /> },
 ];
 
 const TODO_COMPLETION_EXIT_MS = 360;
@@ -81,7 +81,6 @@ function writeSavedTodoFolderViewMode(value: "list" | "gallery") {
 
 type CompletionFilterByTodoId = Partial<Record<string, TodoFilter>>;
 type CompletedLabelByTodoId = Partial<Record<string, string>>;
-type CompletedSortByTodoId = Partial<Record<string, number>>;
 type FolderSortKey = "alphabetical" | "lastUpdated" | "totalTodos";
 
 function TodoExitFrame({
@@ -119,7 +118,7 @@ function toSortableDate(dateKey?: string) {
 }
 
 function focusFilterForTodo(todo: TodoItem, todayKey: DateKey): TodoFilter {
-  if (todo.status === "done") return "completed";
+  if (todo.status === "done") return "all";
   const targetDate = todo.dueDateKey ?? todo.createdDateKey;
   if (targetDate < todayKey) return "overdue";
   if (targetDate > todayKey) return "upcoming";
@@ -281,7 +280,6 @@ export function TodosScreen() {
   const [completionFilterByTodoId, setCompletionFilterByTodoId] = useState<CompletionFilterByTodoId>({});
   const [uncompletionFilterByTodoId, setUncompletionFilterByTodoId] = useState<CompletionFilterByTodoId>({});
   const [uncompletionCompletedLabelByTodoId, setUncompletionCompletedLabelByTodoId] = useState<CompletedLabelByTodoId>({});
-  const [uncompletionCompletedSortByTodoId, setUncompletionCompletedSortByTodoId] = useState<CompletedSortByTodoId>({});
   const prevTodoFilterRef = useRef(state.ui.todoFilter);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const touchAxisRef = useRef<"horizontal" | "vertical" | null>(null);
@@ -467,6 +465,20 @@ export function TodosScreen() {
     return counts;
   }, [activeTodos, effectiveTodoFolders]);
 
+  const folderCompletedCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const folder of effectiveTodoFolders) counts.set(folder.id, 0);
+    for (const todo of activeTodos) {
+      if (todo.status !== "done") continue;
+      const folderId =
+        todo.folderId && counts.has(todo.folderId)
+          ? todo.folderId
+          : effectiveTodoFolders.find((folder) => folder.name.toLowerCase() === "others")?.id ?? effectiveTodoFolders[0]?.id;
+      if (folderId) counts.set(folderId, (counts.get(folderId) ?? 0) + 1);
+    }
+    return counts;
+  }, [activeTodos, effectiveTodoFolders]);
+
   const allFolderNames = useMemo(
     () => effectiveTodoFolders.map((folder) => folder.name),
     [effectiveTodoFolders],
@@ -535,11 +547,6 @@ export function TodosScreen() {
           return rest;
         });
         setUncompletionCompletedLabelByTodoId((current) => {
-          if (!Object.prototype.hasOwnProperty.call(current, todoId)) return current;
-          const { [todoId]: _removed, ...rest } = current;
-          return rest;
-        });
-        setUncompletionCompletedSortByTodoId((current) => {
           if (!Object.prototype.hasOwnProperty.call(current, todoId)) return current;
           const { [todoId]: _removed, ...rest } = current;
           return rest;
@@ -639,12 +646,12 @@ export function TodosScreen() {
   }, [directIconFolderId, state.todoFolders, dispatch]);
 
   const handleToggleTodo = (todo: TodoItem) => {
-    if (todo.status !== "done" && state.ui.todoFilter !== "completed") {
+    if (todo.status !== "done" && state.ui.todoFilter !== "all") {
       setCompletionFilterByTodoId((current) => ({
         ...current,
         [todo.id]: state.ui.todoFilter,
       }));
-    } else if (todo.status === "done") {
+    } else if (todo.status === "done" && state.ui.todoFilter !== "all") {
       setUncompletionFilterByTodoId((current) => ({
         ...current,
         [todo.id]: state.ui.todoFilter,
@@ -652,10 +659,6 @@ export function TodosScreen() {
       setUncompletionCompletedLabelByTodoId((current) => ({
         ...current,
         [todo.id]: formatCompletedLabel(todo.completedAt ?? todo.updatedAt),
-      }));
-      setUncompletionCompletedSortByTodoId((current) => ({
-        ...current,
-        [todo.id]: todo.completedAt ?? todo.updatedAt,
       }));
     } else {
       const timeoutId = completionExitTimersRef.current.get(todo.id);
@@ -679,11 +682,6 @@ export function TodosScreen() {
         return rest;
       });
       setUncompletionCompletedLabelByTodoId((current) => {
-        if (!Object.prototype.hasOwnProperty.call(current, todo.id)) return current;
-        const { [todo.id]: _removed, ...rest } = current;
-        return rest;
-      });
-      setUncompletionCompletedSortByTodoId((current) => {
         if (!Object.prototype.hasOwnProperty.call(current, todo.id)) return current;
         const { [todo.id]: _removed, ...rest } = current;
         return rest;
@@ -718,7 +716,7 @@ export function TodosScreen() {
   const matchesFilter = useCallback(
     (todo: TodoItem, filter: TodoFilter): boolean => {
       if (isClosedSeriesMaster(todo)) return false;
-      if (filter === "completed") return todo.status === "done";
+      if (filter === "all") return true;
       if (todo.recurrence) return getSeriesListBucket(todo, new Date()) === (filter as TodoListBucket);
       switch (filter) {
         case "today":
@@ -740,14 +738,14 @@ export function TodosScreen() {
         today: folderTodos.filter((todo) => matchesFilter(todo, "today")).length,
         overdue: folderTodos.filter((todo) => matchesFilter(todo, "overdue")).length,
         upcoming: folderTodos.filter((todo) => matchesFilter(todo, "upcoming")).length,
-        completed: folderTodos.filter((todo) => matchesFilter(todo, "completed")).length,
+        all: folderTodos.filter((todo) => matchesFilter(todo, "all")).length,
       }) satisfies Record<TodoFilter, number>,
     [folderTodos, matchesFilter],
   );
 
   const visibleTodos = useMemo(() => {
     return sortedTodos.filter((todo) => {
-      if (state.ui.todoFilter !== "completed" && completionFilterByTodoId[todo.id] === state.ui.todoFilter) {
+      if (state.ui.todoFilter !== "all" && completionFilterByTodoId[todo.id] === state.ui.todoFilter) {
         return true;
       }
 
@@ -820,16 +818,9 @@ export function TodosScreen() {
       )
       .map(([dateKey, items]) => ({
         dateKey,
-        items: [...items].sort((left, right) => {
-          if (state.ui.todoFilter === "completed") {
-            const leftCompletedSort = uncompletionCompletedSortByTodoId[left.id] ?? left.completedAt ?? left.updatedAt;
-            const rightCompletedSort = uncompletionCompletedSortByTodoId[right.id] ?? right.completedAt ?? right.updatedAt;
-            return rightCompletedSort - leftCompletedSort;
-          }
-          return right.createdAt - left.createdAt;
-        }),
+        items: [...items].sort((left, right) => right.createdAt - left.createdAt),
       }));
-  }, [state.ui.todoFilter, uncompletionCompletedSortByTodoId, visibleTodos]);
+  }, [state.ui.todoFilter, visibleTodos]);
 
   useEffect(() => {
     if (!focusTodoId) return;
@@ -1003,7 +994,8 @@ export function TodosScreen() {
                     <div className="col-span-3">
                       <TodoFolderRow
                         folder={{ id: "__new__", name: newFolderName || "", createdAt: 0, updatedAt: 0 }}
-                        count={0}
+                        completedCount={0}
+                        totalCount={0}
                         selected={false}
                         isDefault={false}
                         menuOpen={false}
@@ -1037,7 +1029,8 @@ export function TodosScreen() {
                       <div key={folder.id} className="col-span-3">
                         <TodoFolderRow
                           folder={folder}
-                          count={folderCounts.get(folder.id) ?? 0}
+                          completedCount={folderCompletedCounts.get(folder.id) ?? 0}
+                          totalCount={folderCounts.get(folder.id) ?? 0}
                           selected={selectedFolder?.id === folder.id}
                           isDefault={folder.name === "Others"}
                           menuOpen={folderMenuOpenId === folder.id}
@@ -1087,9 +1080,10 @@ export function TodosScreen() {
                           className="flex w-full items-center justify-center gap-1"
                         >
                           <span className="min-w-0 truncate text-[13px] font-bold leading-tight">{folder.name}</span>
-                          <span className="flex-shrink-0 rounded-full bg-app-surface-muted px-2 py-0.5 text-[11px] font-medium text-app-ink-faint">
-                            {folderCounts.get(folder.id) ?? 0}
-                          </span>
+                          <TodoFolderCountBadge
+                            completedCount={folderCompletedCounts.get(folder.id) ?? 0}
+                            totalCount={folderCounts.get(folder.id) ?? 0}
+                          />
                         </button>
                       </div>
                     )
@@ -1100,7 +1094,8 @@ export function TodosScreen() {
                   {creatingFolder ? (
                     <TodoFolderRow
                       folder={{ id: "__new__", name: newFolderName || "", createdAt: 0, updatedAt: 0 }}
-                      count={0}
+                      completedCount={0}
+                      totalCount={0}
                       selected={false}
                       isDefault={false}
                       menuOpen={false}
@@ -1132,7 +1127,8 @@ export function TodosScreen() {
                     <TodoFolderRow
                       key={folder.id}
                       folder={folder}
-                      count={folderCounts.get(folder.id) ?? 0}
+                      completedCount={folderCompletedCounts.get(folder.id) ?? 0}
+                      totalCount={folderCounts.get(folder.id) ?? 0}
                       selected={selectedFolder?.id === folder.id}
                       isDefault={folder.name === "Others"}
                       menuOpen={folderMenuOpenId === folder.id}
@@ -1245,25 +1241,6 @@ export function TodosScreen() {
                       onOpenEditor={(todo) => setEditingModalTodoId(todo.id)}
                     />
                   </div>
-                ) : state.ui.todoFilter === "completed" ? (
-                  <div data-testid="todo-section-stack" className="omanote-todo-section-stack">
-                    {groupedTodos.map((group) => (
-                      <TodoSection
-                        key={group.dateKey}
-                        title={formatLongDateKey(group.dateKey)}
-                        items={group.items}
-                        focusedTodoId={focusedTodoId}
-                        completionFilterByTodoId={completionFilterByTodoId}
-                        uncompletionFilterByTodoId={uncompletionFilterByTodoId}
-                        uncompletionCompletedLabelByTodoId={uncompletionCompletedLabelByTodoId}
-                        activeFilter={state.ui.todoFilter}
-                        selectedDateKey={state.ui.selectedDateKey}
-                        onToggle={handleToggleTodo}
-                        dispatch={dispatch}
-                        onOpenEditor={(todo) => setEditingModalTodoId(todo.id)}
-                      />
-                    ))}
-                  </div>
                 ) : (
                   <div data-testid="todo-section-stack" className="omanote-todo-section-stack">
                     {groupedTodos.map((group) => (
@@ -1287,7 +1264,7 @@ export function TodosScreen() {
               ) : (
                 <div className="flex min-h-full items-center justify-center">
                   <EmptyState
-                    title={`No ${selectedView.label.toLowerCase()} todos`}
+                    title={selectedView.key === "all" ? "No todos yet" : `No ${selectedView.label.toLowerCase()} todos`}
                     description={
                       selectedView.key === "today"
                         ? "Nothing is scheduled for today yet."
@@ -1295,11 +1272,11 @@ export function TodosScreen() {
                           ? "Your overdue lane is clear."
                           : selectedView.key === "upcoming"
                             ? "Nothing scheduled for later yet."
-                            : "Completed todos will collect here."
+                            : "Add a todo to get started."
                     }
-                    actionLabel={selectedView.key === "today" ? "Add todo" : undefined}
-                    actionIcon={selectedView.key === "today" ? <Plus className="h-4 w-4" /> : undefined}
-                    onAction={selectedView.key === "today" ? () => setCreating(true) : undefined}
+                    actionLabel={selectedView.key === "today" || selectedView.key === "all" ? "Add todo" : undefined}
+                    actionIcon={selectedView.key === "today" || selectedView.key === "all" ? <Plus className="h-4 w-4" /> : undefined}
+                    onAction={selectedView.key === "today" || selectedView.key === "all" ? () => setCreating(true) : undefined}
                   />
                 </div>
               )}

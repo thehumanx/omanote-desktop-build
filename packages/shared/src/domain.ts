@@ -7,7 +7,7 @@ export type TabKey = "canvas" | "todos" | "notes" | "bookmarks" | "event";
 export type ArtifactType = "todo" | "note" | "bookmark" | "event";
 
 export type TodoStatus = "open" | "done";
-export type TodoFilter = "today" | "overdue" | "upcoming" | "completed";
+export type TodoFilter = "today" | "overdue" | "upcoming" | "all";
 
 export interface CanvasArtifact {
   id: string;

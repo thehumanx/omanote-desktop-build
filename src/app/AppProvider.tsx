@@ -173,9 +173,11 @@ function loadUiState(): UiState {
     selectedDateKey: toDateKey(new Date()),
     dateWindowOffset: 0,
     todoFilter:
-      rawTodoFilter === "all" || rawTodoFilter === "no-date"
+      rawTodoFilter === "no-date"
         ? "today"
-        : (saved.todoFilter ?? defaultUiState.todoFilter),
+        : rawTodoFilter === "completed"
+          ? "all"
+          : (saved.todoFilter ?? defaultUiState.todoFilter),
     searchOpen: false,
     composerOpen: false,
   };

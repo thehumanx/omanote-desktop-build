@@ -128,9 +128,43 @@ export function TodoFolderActionMenu({
   );
 }
 
+export function TodoFolderCountBadge({
+  completedCount,
+  totalCount,
+  selected,
+}: {
+  completedCount: number;
+  totalCount: number;
+  selected?: boolean;
+}) {
+  if (totalCount > 0 && completedCount === totalCount) {
+    return (
+      <span
+        role="img"
+        aria-label={`${totalCount} completed`}
+        className="flex flex-none items-center justify-center text-sm leading-none"
+      >
+        ✅
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={cn(
+        "flex-none rounded-full px-2 py-0.5 text-[11px] font-medium",
+        selected ? "bg-app-surface text-app-ink" : "bg-app-surface-muted text-app-ink-faint",
+      )}
+    >
+      {completedCount}/{totalCount}
+    </span>
+  );
+}
+
 export const TodoFolderRow = memo(function TodoFolderRow({
   folder,
-  count,
+  completedCount,
+  totalCount,
   selected,
   isDefault,
   menuOpen,
@@ -156,7 +190,8 @@ export const TodoFolderRow = memo(function TodoFolderRow({
   onClick,
 }: {
   folder: TodoFolder;
-  count: number;
+  completedCount: number;
+  totalCount: number;
   selected: boolean;
   isDefault: boolean;
   menuOpen: boolean;
@@ -274,14 +309,7 @@ export const TodoFolderRow = memo(function TodoFolderRow({
             <Globe className="h-3 w-3" />
           </span>
         ) : null}
-        <span
-          className={cn(
-            "flex-none rounded-full px-2 py-0.5 text-[11px] font-medium",
-            selected ? "bg-app-surface text-app-ink" : "bg-app-surface-muted text-app-ink-faint",
-          )}
-        >
-          {count}
-        </span>
+        <TodoFolderCountBadge completedCount={completedCount} totalCount={totalCount} selected={selected} />
       </span>
       {!isDefault && isDesktop ? (
         <TodoFolderActionMenu

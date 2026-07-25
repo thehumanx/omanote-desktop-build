@@ -13,5 +13,5 @@ Because your content is encrypted, search runs on your own device against your d
 ## Related ways to find things
 
 - **Hashtags & Explore** — browse by topic instead of by keyword.
-- **Todo views** — Today, Overdue, Upcoming, and Completed for tasks specifically.
+- **Todo views** — Today, Overdue, Later, and All for tasks specifically.
 - **Date navigation** — move to a day on the canvas to see everything from it.

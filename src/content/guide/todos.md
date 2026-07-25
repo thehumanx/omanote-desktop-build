@@ -26,12 +26,12 @@ The Todos view groups your tasks so you always know what needs attention:
 
 - **Today** — due today (and anything untimed that's active)
 - **Overdue** — past due and still open
-- **Upcoming** — scheduled for later
-- **Completed** — done, most recent first
+- **Later** — scheduled for later
+- **All** — everything, open and done, most recent first
 
 ## Folders
 
-Organize todos into folders with custom icons (a Lucide icon or an emoji). Uncategorized todos live in a default **Others** folder. You can sort folders alphabetically, by last updated, or by number of todos — and share a folder as a public link.
+Organize todos into folders with custom icons (a Lucide icon or an emoji). Uncategorized todos live in a default **Others** folder. Each folder shows a completed/total count badge, which turns into a green checkmark once everything inside is done. You can sort folders alphabetically, by last updated, or by number of todos — and share a folder as a public link.
 
 ## Completing a todo
 

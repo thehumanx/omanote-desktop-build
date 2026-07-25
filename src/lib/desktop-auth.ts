@@ -30,11 +30,7 @@ function randomState(): string {
  * state nonce so the deep-link callback can be validated. */
 export async function startDesktopSignIn(): Promise<void> {
   const state = randomState();
-  try {
-    window.localStorage.setItem(STATE_KEY, state);
-  } catch {
-    // Private mode — the callback will be accepted without state matching.
-  }
+  window.localStorage.setItem(STATE_KEY, state);
   const url = `${desktopAuthWebOrigin()}/auth/desktop?state=${state}`;
   await openInSystemBrowser(url);
 }
@@ -44,6 +40,13 @@ export type DesktopAuthCallback = { token: string };
 /**
  * Parses an omanote:// deep link. Returns the sign-in token when the URL is
  * a valid auth callback whose state matches the one we generated, else null.
+ *
+ * The state must always match a value this app instance stored when it
+ * opened the sign-in browser tab (via startDesktopSignIn). A callback with
+ * no matching expected state is rejected outright — treating a missing
+ * expected state as "trust it anyway" would let a crafted omanote://
+ * link log a victim into an attacker-controlled account (login CSRF)
+ * any time the app isn't mid-sign-in, which is most of the time.
  */
 export function parseDesktopAuthCallback(url: string): DesktopAuthCallback | null {
   let parsed: URL;
@@ -58,15 +61,10 @@ export function parseDesktopAuthCallback(url: string): DesktopAuthCallback | nul
   const token = parsed.searchParams.get("token");
   if (!token) return null;
 
-  let expectedState: string | null = null;
-  try {
-    expectedState = window.localStorage.getItem(STATE_KEY);
-    window.localStorage.removeItem(STATE_KEY);
-  } catch {
-    expectedState = null;
-  }
+  const expectedState = window.localStorage.getItem(STATE_KEY);
+  window.localStorage.removeItem(STATE_KEY);
   const state = parsed.searchParams.get("state");
-  if (expectedState && state !== expectedState) return null;
+  if (!expectedState || state !== expectedState) return null;
   return { token };
 }
 

@@ -4,6 +4,14 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.28.1 [July 25, 2026]
+
+> Todos: All replaces Completed, folders show their progress, and new accounts get a welcome email.
+
+- [Add] New accounts now receive a welcome email right after signing up — a quick look at the daily canvas, links to get started, RSS and Google Calendar sync, and download links for the desktop app and browser extension. Applies to every signup, whether it happens in the web app or the desktop app
+- [Update] The Todos **Completed** tab is now **All** — every todo, open and done, sorted latest-first
+- [Update] Todo folders now show a `completed/total` count badge, with a green checkmark once everything inside is done
+
 ### v0.28.0 [July 24, 2026]
 
 > A redesigned mobile canvas: one "+" to create anything, floating drawers to edit it, long-press instead of a tap.
