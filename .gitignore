@@ -10,3 +10,4 @@ coverage
 docs/html/
 public/version.json
 .worktrees/
+archive/claude-sessions/
