@@ -571,6 +571,24 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Desktop Versions
 
+### v0.28.0 [July 24, 2026]
+
+> A redesigned compact-width canvas: one "+" to create anything, floating drawers to edit it, long-press instead of a tap. Kicks in whenever the desktop window is narrow.
+
+- [Add] Compact-width bottom bar is now icon-only tabs plus a persistent **+** button — tap it anywhere to open a floating composer for a todo, note, bookmark, or event, always labeled with which day it's saving to
+- [Add] Explore and your profile moved to a top bar at compact widths, out of the way of the tab row
+- [Update] Editing a todo, note, bookmark, or event at a compact width now opens the same floating drawer everywhere — Cancel on the top left, Save on the top right, disabled until there's something to save
+- [Update] On the canvas, notes/todos/events now open for editing on **long-press** instead of a tap at compact widths, so a normal tap can still scroll the page
+
+### v0.27.1 [July 22, 2026]
+
+> Expanded in-app guide, cleaner canvas sorting, and update checks that always show the latest release notes.
+
+- [Add] Guide now covers the full app — Insights, Profile & account, Send feedback & request features, What's new & changelogs, Write & Read mode, Dynamic greetings, and a dedicated Download & install page for every platform (web/PWA, desktop, extension, mobile)
+- [Update] Guide sidebar shows a last-updated date so you know the content is fresh
+- [Update] Canvas items now sort by creation time (newest at the bottom) instead of a separate drag-and-drop placement system — simpler, faster, and always consistent across web and desktop
+- [Fix] Desktop app now checks for updates and changelog from omanote.com instead of relying on the bundled version, so the What's New modal always shows the latest release notes
+
 ### v0.27.0 [July 21, 2026]
 
 > Two-way Google Calendar sync, and one consistent way to edit any todo — on every screen, at every size.
