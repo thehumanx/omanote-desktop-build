@@ -15,6 +15,7 @@ export function MobileEditDrawer({
   onCancel,
   onSave,
   canSave,
+  ariaLabel = "Edit",
   children,
 }: {
   onClose: () => void;
@@ -26,6 +27,7 @@ export function MobileEditDrawer({
   onCancel?: () => void;
   onSave?: () => void;
   canSave?: boolean;
+  ariaLabel?: string;
   children: ReactNode;
 }) {
   const isMobile = useIsMobileViewport();
@@ -76,7 +78,7 @@ export function MobileEditDrawer({
       />
       <section
         role="dialog"
-        aria-label="Edit"
+        aria-label={ariaLabel}
         className={[
           "fixed inset-x-4 z-app-drawer flex max-h-[85dvh] min-h-0 flex-col rounded-2xl bg-app-surface-raised shadow-drawer transform-gpu",
           isDragging ? "" : "transition-transform duration-app-drawer ease-app-drawer",

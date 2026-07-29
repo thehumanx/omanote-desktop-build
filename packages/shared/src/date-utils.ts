@@ -268,6 +268,17 @@ export function formatLongDateKey(dateKey: string) {
   return formatLongDate(new Date(`${dateKey}T12:00:00`));
 }
 
+export function formatRelativeGroupHeading(dateKey: string): string {
+  const target = fromDateKey(dateKey as DateKey);
+  const today = fromDateKey(toDateKey(new Date()));
+  const diffDays = Math.round((target.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Tomorrow";
+  if (diffDays === -1) return "Yesterday";
+  return diffDays > 0 ? `${diffDays} days later` : `${Math.abs(diffDays)} days ago`;
+}
+
 export function combineDateKeyAndTime(dateKey: string, time: string) {
   const [hour, minute] = time.split(":").map(Number);
   return new Date(

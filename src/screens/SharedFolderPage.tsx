@@ -418,7 +418,7 @@ export function SharedFolderPage() {
               <p className="text-sm font-medium text-app-ink-muted">No bookmarks in this folder yet.</p>
             </div>
           ) : bd.linkViewMode === "list" ? (
-            <ol className="list-inside list-decimal space-y-3">
+            <ol className="list-outside list-decimal space-y-3 pl-5">
               {bd.bookmarks.map((bookmark) => {
                 const displayTitle = bookmark.title?.trim() || bookmark.url;
                 return (

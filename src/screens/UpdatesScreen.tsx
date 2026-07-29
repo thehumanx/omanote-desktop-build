@@ -7,12 +7,6 @@ import { useTopChrome } from "../components/layout/useTopChrome";
 import { parseLatestVersion } from "../lib/update-checker";
 import { UpdateContext } from "../contexts/UpdateContext";
 
-type RoadmapPhase = {
-  phase: string;
-  focus: string;
-  outcomes: string[];
-};
-
 type MarkdownBlock =
   | { type: "h3"; text: string }
   | { type: "h4"; text: string }
@@ -25,34 +19,6 @@ type VersionGroup = {
   summary: string | null;
   blocks: MarkdownBlock[];
 };
-
-const ROADMAP: RoadmapPhase[] = [
-  {
-    phase: "Now",
-    focus: "Core polish and reliability",
-    outcomes: [
-      "Make omanote more reliable and stable for day to day use",
-      "Improve browser extensions reliability and performance",
-    ],
-  },
-  {
-    phase: "Next",
-    focus: "Planned features",
-    outcomes: [
-      "Build mobile applications.",
-      "Invite your friends to your omanote folders.",
-      "Update landing page with better content, may be a tutorial for new users",
-    ],
-  },
-  {
-    phase: "Later",
-    focus: "Connected omanote ecosystem",
-    outcomes: [
-      "May be utilize AI in omanote -- not a priority right now",
-      "Voice notes for omanote -- maybe",
-    ],
-  },
-];
 
 const UPDATES_TAB_ITEMS = CHANGELOG_TABS.map((tab) => ({ key: tab.id, label: tab.label }));
 
@@ -199,7 +165,7 @@ export function UpdatesScreen() {
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-app-ink-faint">omanote updates</p>
         <h2 className="mt-3 text-2xl font-black tracking-[-0.02em] text-app-ink">What shipped and what is coming next.</h2>
         <p className="mt-3 max-w-[760px] text-sm leading-relaxed text-app-ink-muted">
-          Versions are rendered directly from markdown so changelog history stays transparent and easy to keep up to date.
+          Every release, big or small, right here — nothing held back.
         </p>
       </section>
 
@@ -303,25 +269,6 @@ export function UpdatesScreen() {
             Add a <code className="rounded bg-app-surface-muted px-1.5 py-0.5 text-xs text-app-ink-muted">## Versions</code> section in <code className="rounded bg-app-surface-muted px-1.5 py-0.5 text-xs text-app-ink-muted">CHANGELOG.md</code> to populate this area.
           </p>
         )}
-      </section>
-
-      <section className="mt-6 rounded-2xl border border-app-line bg-app-surface p-5 sm:p-6">
-        <h2 className="text-lg font-bold text-app-ink">Roadmap view</h2>
-        <div className="mt-4 grid gap-3 lg:grid-cols-3">
-          {ROADMAP.map((entry) => (
-            <article key={entry.phase} className="rounded-xl border border-app-line bg-app-surface-muted px-4 py-3">
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-app-ink-faint">{entry.phase}</p>
-              <h3 className="mt-1.5 text-sm font-bold text-app-ink">{entry.focus}</h3>
-              <ul className="mt-2 space-y-1.5 text-sm text-app-ink-muted">
-                {entry.outcomes.map((outcome) => (
-                  <li key={outcome} className="list-disc ml-4">
-                    {outcome}
-                  </li>
-                ))}
-              </ul>
-            </article>
-          ))}
-        </div>
       </section>
 
       <footer className="mt-8 pb-2 text-center text-xs font-medium text-app-ink-faint">

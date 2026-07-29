@@ -9,6 +9,8 @@ import { useAuth } from "../../app/auth/AuthContext";
 import { useLocalDashboardStat } from "../../app/insights-local";
 import { getGreetingForDate } from "./greetings";
 import { cn } from "../ui";
+import { MobileEditDrawer } from "../MobileEditDrawer";
+import { useIsMobileViewport } from "../../lib/mobile";
 
 export type PageStat =
   | "completion_rate"
@@ -70,6 +72,7 @@ export function PageHeader({ showDateNav = false, stat }: PageHeaderProps) {
   const datePickerRef = useRef<HTMLDivElement | null>(null);
   const datePickerContentRef = useRef<HTMLDivElement | null>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const isMobile = useIsMobileViewport();
 
   const firstName = useMemo(() => {
     const name = user?.name?.trim();
@@ -102,7 +105,11 @@ export function PageHeader({ showDateNav = false, stat }: PageHeaderProps) {
   }
 
   useEffect(() => {
-    if (!datePickerOpen) return;
+    // On mobile the picker renders inside a MobileEditDrawer, which already
+    // handles backdrop-click and drag-to-dismiss itself -- this outside-click
+    // listener is only for the desktop popover (and would otherwise
+    // immediately close the drawer since datePickerRef never attaches there).
+    if (!datePickerOpen || isMobile) return;
 
     const handlePointerDown = (event: PointerEvent) => {
       if (datePickerRef.current?.contains(event.target as Node)) return;
@@ -118,7 +125,7 @@ export function PageHeader({ showDateNav = false, stat }: PageHeaderProps) {
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [datePickerOpen]);
+  }, [datePickerOpen, isMobile]);
 
   useEffect(() => {
     if (!datePickerOpen) {
@@ -160,7 +167,51 @@ export function PageHeader({ showDateNav = false, stat }: PageHeaderProps) {
   const shortDateLabel = toDateKey(selectedDate) === toDateKey(today) ? "Today" : formatShortDateLabel(selectedDate);
   const dateButtonClassName = "min-w-0 truncate rounded-full px-2 py-1 text-sm font-bold text-app-ink transition hover:bg-app-surface-hover active:scale-95";
   const disabledDateNavClassName = "disabled:pointer-events-none disabled:opacity-35";
-  const datePicker = datePickerOpen && typeof document !== "undefined"
+  // Bigger tap targets in the mobile drawer (thumb input) than the desktop
+  // popover (mouse), where the tighter grid keeps the calendar compact.
+  const dayCellSizeClass = isMobile ? "h-11 w-11 text-base" : "h-8 w-8 text-sm";
+  const dayPickerElement = (
+    <DayPicker
+      mode="single"
+      selected={selectedDate}
+      defaultMonth={selectedDate}
+      startMonth={minDate}
+      endMonth={maxDate}
+      disabled={[{ before: minDate }, { after: maxDate }]}
+      onSelect={(date) => {
+        if (!date) return;
+        const nextDateKey = toDateKey(date);
+        if (nextDateKey < minDateKey || nextDateKey > todayKey) return;
+        dispatch({ type: "ui/set-selected-date", dateKey: nextDateKey });
+        setDatePickerOpen(false);
+      }}
+      classNames={{
+        root: "w-full text-app-ink",
+        months: "flex flex-col",
+        month: "space-y-3",
+        month_caption: "flex h-8 items-center justify-center",
+        caption_label: "text-sm font-bold text-app-ink",
+        nav: "absolute left-3 right-3 top-3 flex items-center justify-between",
+        button_previous: "flex h-8 w-8 items-center justify-center rounded-full text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink aria-disabled:pointer-events-none aria-disabled:text-app-line-strong aria-disabled:opacity-40 aria-disabled:hover:bg-transparent aria-disabled:hover:text-app-line-strong",
+        button_next: "flex h-8 w-8 items-center justify-center rounded-full text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink aria-disabled:pointer-events-none aria-disabled:text-app-line-strong aria-disabled:opacity-40 aria-disabled:hover:bg-transparent aria-disabled:hover:text-app-line-strong",
+        chevron: "h-4 w-4 fill-current",
+        month_grid: "w-full border-collapse",
+        weekdays: "grid grid-cols-7",
+        weekday: `pb-1 text-center text-[11px] font-bold uppercase text-app-ink-faint ${isMobile ? "w-11" : "w-8"}`,
+        weeks: "grid gap-1",
+        week: "grid grid-cols-7 gap-1",
+        day: `flex items-center justify-center rounded-full ${dayCellSizeClass}`,
+        day_button: `flex items-center justify-center rounded-full transition hover:bg-app-surface-hover ${dayCellSizeClass}`,
+      }}
+      modifiersClassNames={{
+        selected: "bg-action-primary text-action-primary-ink font-bold hover:bg-action-primary",
+        today: "ring-1 ring-app-line-strong",
+        disabled: "text-app-line-strong opacity-35",
+        outside: "text-app-line-strong",
+      }}
+    />
+  );
+  const datePicker = datePickerOpen && !isMobile && typeof document !== "undefined"
     ? createPortal(
         <div
           ref={datePickerRef}
@@ -170,50 +221,17 @@ export function PageHeader({ showDateNav = false, stat }: PageHeaderProps) {
           style={datePickerHeight ? { height: `${datePickerHeight}px` } : undefined}
         >
           <div ref={datePickerContentRef} className="p-3">
-            <DayPicker
-              mode="single"
-              selected={selectedDate}
-              defaultMonth={selectedDate}
-              startMonth={minDate}
-              endMonth={maxDate}
-              disabled={[{ before: minDate }, { after: maxDate }]}
-              onSelect={(date) => {
-                if (!date) return;
-                const nextDateKey = toDateKey(date);
-                if (nextDateKey < minDateKey || nextDateKey > todayKey) return;
-                dispatch({ type: "ui/set-selected-date", dateKey: nextDateKey });
-                setDatePickerOpen(false);
-              }}
-              classNames={{
-                root: "w-full text-app-ink",
-                months: "flex flex-col",
-                month: "space-y-3",
-                month_caption: "flex h-8 items-center justify-center",
-                caption_label: "text-sm font-bold text-app-ink",
-                nav: "absolute left-3 right-3 top-3 flex items-center justify-between",
-                button_previous: "flex h-8 w-8 items-center justify-center rounded-full text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink aria-disabled:pointer-events-none aria-disabled:text-app-line-strong aria-disabled:opacity-40 aria-disabled:hover:bg-transparent aria-disabled:hover:text-app-line-strong",
-                button_next: "flex h-8 w-8 items-center justify-center rounded-full text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink aria-disabled:pointer-events-none aria-disabled:text-app-line-strong aria-disabled:opacity-40 aria-disabled:hover:bg-transparent aria-disabled:hover:text-app-line-strong",
-                chevron: "h-4 w-4 fill-current",
-                month_grid: "w-full border-collapse",
-                weekdays: "grid grid-cols-7",
-                weekday: "pb-1 text-center text-[11px] font-bold uppercase text-app-ink-faint",
-                weeks: "grid gap-1",
-                week: "grid grid-cols-7 gap-1",
-                day: "flex h-8 w-8 items-center justify-center rounded-full text-sm",
-                day_button: "flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-app-surface-hover",
-              }}
-              modifiersClassNames={{
-                selected: "bg-action-primary text-action-primary-ink font-bold hover:bg-action-primary",
-                today: "ring-1 ring-app-line-strong",
-                disabled: "text-app-line-strong opacity-35",
-                outside: "text-app-line-strong",
-              }}
-            />
+            {dayPickerElement}
           </div>
         </div>,
         document.body,
       )
     : null;
+  const mobileDatePicker = datePickerOpen && isMobile ? (
+    <MobileEditDrawer onClose={() => setDatePickerOpen(false)} ariaLabel="Choose canvas date">
+      {dayPickerElement}
+    </MobileEditDrawer>
+  ) : null;
 
   return (
     <>
@@ -303,6 +321,7 @@ export function PageHeader({ showDateNav = false, stat }: PageHeaderProps) {
       </button>
     </div>
     {datePicker}
+    {mobileDatePicker}
     </>
   );
 }

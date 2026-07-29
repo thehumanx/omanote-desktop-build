@@ -29,6 +29,7 @@ import { isLinkedArtifactBookmarkId, type LinkedArtifactReference } from "../lib
 import { useOutsideClick } from "../lib/useOutsideClick";
 import { db, isLinkPreviewFresh } from "../app/db";
 import { normalizeLegacyNoteBodyForTiptap } from "../lib/note-body-migration";
+import { isTauri, openInSystemBrowser } from "../lib/desktop";
 
 type BookmarkPreviewFallback = {
   title?: string;
@@ -554,6 +555,10 @@ export const BookmarkCard = memo(function BookmarkCard({
   };
   const openBookmarkInNewTab = () => {
     if (!bookmark.url.startsWith("http")) return;
+    if (isTauri()) {
+      void openInSystemBrowser(bookmark.url);
+      return;
+    }
     window.open(bookmark.url, "_blank", "noopener,noreferrer");
   };
   const openLinkedArtifactSheet = (event: MouseEvent<HTMLButtonElement>) => {

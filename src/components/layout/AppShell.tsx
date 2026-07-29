@@ -17,6 +17,8 @@ import { FounderNoteModal } from "../FounderNoteModal";
 import { OfflineStatusBanner } from "../OfflineStatusBanner";
 import { CookieNotice } from "../CookieNotice";
 import { useMobileKeyboardState } from "./useMobileKeyboardState";
+import { useContentZoom } from "../../app/useContentZoom";
+import { ZoomIndicator } from "../ZoomIndicator";
 import { useUserSettings } from "../../contexts/UserSettingsContext";
 import { isTauri, desktopPlatform } from "../../lib/desktop";
 import { WindowControls } from "../desktop/WindowControls";
@@ -51,6 +53,7 @@ export function AppShell() {
   const founderNoteAutoOpenRef = useRef(false);
   const bottomHideSuppressedRef = useRef(false);
   const mobileKeyboard = useMobileKeyboardState();
+  const { zoomPercent, indicatorVisible } = useContentZoom();
   const hideBottomNavForKeyboard = mobileKeyboard.isMobileViewport && mobileKeyboard.keyboardOpen;
   const workspaceHeight =
     mobileKeyboard.isMobileViewport && mobileKeyboard.keyboardOpen && mobileKeyboard.viewportHeight > 0
@@ -305,6 +308,7 @@ export function AppShell() {
       <FounderNoteModal open={founderNoteOpen} onClose={closeFounderNote} />
       <ComposerSheet />
       <CookieNotice />
+      <ZoomIndicator percent={zoomPercent} visible={indicatorVisible} />
     </div>
   );
 }

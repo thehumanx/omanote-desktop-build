@@ -22,6 +22,7 @@ import { ModalPortal } from "../components/ModalPortal";
 import { BaseModal } from "../components/BaseModal";
 import {
   LINKED_ARTIFACT_SAVED_CATEGORY_ID,
+  LINKED_ARTIFACT_GCAL_CATEGORY_ID,
   buildLinkedArtifactBookmarks,
   isLinkedArtifactBookmarkId,
   type LinkedArtifactReference,
@@ -139,6 +140,10 @@ function isSavedCategoryName(name: string) {
   return normalizeCategoryName(name) === "saved";
 }
 
+function isGcalCategoryName(name: string) {
+  return normalizeCategoryName(name) === "synced from gcal";
+}
+
 function sortLabel(sortKey: CategorySortKey) {
   if (sortKey === "alphabetical") return "Alphabetically";
   if (sortKey === "lastUpdated") return "Last updated";
@@ -150,7 +155,7 @@ function bookmarkCategoryName(bookmark: BookmarkItem, categoryNameById: Map<stri
 }
 
 export function BookmarksScreen() {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, googleImportedTodoIds } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const [creating, setCreating] = useState(false);
@@ -286,12 +291,21 @@ export function BookmarksScreen() {
     () => new Set([...savedCategoryIds, LINKED_ARTIFACT_SAVED_CATEGORY_ID]),
     [savedCategoryIds],
   );
+  const gcalCategoryIds = useMemo(
+    () => state.bookmarkCategories.filter((category) => isGcalCategoryName(category.name)).map((category) => category.id),
+    [state.bookmarkCategories],
+  );
+  const canonicalGcalCategoryId = gcalCategoryIds[0] ?? LINKED_ARTIFACT_GCAL_CATEGORY_ID;
+  const gcalCategoryIdSet = useMemo(
+    () => new Set([...gcalCategoryIds, LINKED_ARTIFACT_GCAL_CATEGORY_ID]),
+    [gcalCategoryIds],
+  );
   const savedBookmarkUrlsForDedupe = useMemo(
     () =>
       activeBookmarks
-        .filter((bookmark) => savedCategoryIdSet.has(bookmark.categoryId))
+        .filter((bookmark) => savedCategoryIdSet.has(bookmark.categoryId) || gcalCategoryIdSet.has(bookmark.categoryId))
         .map((bookmark) => bookmark.url),
-    [activeBookmarks, savedCategoryIdSet],
+    [activeBookmarks, savedCategoryIdSet, gcalCategoryIdSet],
   );
   const linkedArtifactBookmarks = useMemo(
     () =>
@@ -301,9 +315,20 @@ export function BookmarksScreen() {
         events: state.events,
         bookmarks: state.bookmarks,
         savedCategoryId: canonicalSavedCategoryId,
+        gcalCategoryId: canonicalGcalCategoryId,
+        googleImportedTodoIds,
         dedupeUrls: savedBookmarkUrlsForDedupe,
       }),
-    [canonicalSavedCategoryId, savedBookmarkUrlsForDedupe, state.bookmarks, state.notes, state.events, state.todos],
+    [
+      canonicalSavedCategoryId,
+      canonicalGcalCategoryId,
+      googleImportedTodoIds,
+      savedBookmarkUrlsForDedupe,
+      state.bookmarks,
+      state.notes,
+      state.events,
+      state.todos,
+    ],
   );
   const linkedArtifactReferencesByBookmarkId = useMemo(() => {
     const next = new Map<string, LinkedArtifactReference[]>();
@@ -333,10 +358,12 @@ export function BookmarksScreen() {
     [activeBookmarks, linkedArtifactBookmarks],
   );
   const sourceBookmarks = activeBookmarksWithLinkedArtifacts;
-  const categoryNameById = useMemo(
-    () => new Map(state.bookmarkCategories.map((category) => [category.id, category.name] as const)),
-    [state.bookmarkCategories],
-  );
+  const categoryNameById = useMemo(() => {
+    const map = new Map(state.bookmarkCategories.map((category) => [category.id, category.name] as const));
+    map.set(LINKED_ARTIFACT_SAVED_CATEGORY_ID, "Saved");
+    map.set(LINKED_ARTIFACT_GCAL_CATEGORY_ID, "Synced from GCal");
+    return map;
+  }, [state.bookmarkCategories]);
   const managedCategoryIds = useMemo(
     () => new Set(state.bookmarkCategories.map((category) => category.id)),
     [state.bookmarkCategories],
@@ -359,11 +386,22 @@ export function BookmarksScreen() {
     });
   }, [allCategoryNames, newCategoryName, renamingCategoryId, state.bookmarkCategories]);
 
+  const virtualRowName = (rowId: string) => {
+    if (rowId === canonicalSavedCategoryId) return "Saved";
+    if (rowId === canonicalGcalCategoryId) return "Synced from GCal";
+    return null;
+  };
+
   const categoryRows = useMemo(() => {
     const rows = new Map<string, { id: string; name: string; icon?: string; count: number; lastUpdated: number }>();
 
     for (const category of state.bookmarkCategories) {
-      const rowId = isSavedCategoryName(category.name) ? canonicalSavedCategoryId : category.id;
+      const rowId = isSavedCategoryName(category.name)
+        ? canonicalSavedCategoryId
+        : isGcalCategoryName(category.name)
+          ? canonicalGcalCategoryId
+          : category.id;
+      const virtualName = virtualRowName(rowId);
       const existing = rows.get(rowId);
       if (existing) {
         existing.lastUpdated = Math.max(existing.lastUpdated, category.createdAt);
@@ -371,15 +409,20 @@ export function BookmarksScreen() {
       }
       rows.set(rowId, {
         id: rowId,
-        name: rowId === canonicalSavedCategoryId ? "Saved" : category.name,
-        icon: rowId === canonicalSavedCategoryId ? undefined : category.icon,
+        name: virtualName ?? category.name,
+        icon: virtualName ? undefined : category.icon,
         count: 0,
         lastUpdated: category.createdAt,
       });
     }
 
     for (const bookmark of sourceBookmarks) {
-      const rowId = savedCategoryIdSet.has(bookmark.categoryId) ? canonicalSavedCategoryId : bookmark.categoryId;
+      const rowId = savedCategoryIdSet.has(bookmark.categoryId)
+        ? canonicalSavedCategoryId
+        : gcalCategoryIdSet.has(bookmark.categoryId)
+          ? canonicalGcalCategoryId
+          : bookmark.categoryId;
+      const virtualName = virtualRowName(rowId);
       const existing = rows.get(rowId);
       if (existing) {
         existing.count += 1;
@@ -387,7 +430,7 @@ export function BookmarksScreen() {
       } else {
         rows.set(rowId, {
           id: rowId,
-          name: rowId === canonicalSavedCategoryId ? "Saved" : "Uncategorized",
+          name: virtualName ?? "Uncategorized",
           icon: undefined,
           count: 1,
           lastUpdated: bookmark.createdAt,
@@ -411,7 +454,16 @@ export function BookmarksScreen() {
 
       return categorySort.direction === "asc" ? comparison : -comparison;
     });
-  }, [canonicalSavedCategoryId, categorySort.direction, categorySort.key, savedCategoryIdSet, sourceBookmarks, state.bookmarkCategories]);
+  }, [
+    canonicalSavedCategoryId,
+    canonicalGcalCategoryId,
+    categorySort.direction,
+    categorySort.key,
+    savedCategoryIdSet,
+    gcalCategoryIdSet,
+    sourceBookmarks,
+    state.bookmarkCategories,
+  ]);
 
   const visibleCategoryRows = categoryRows;
 
@@ -483,14 +535,26 @@ export function BookmarksScreen() {
       selectedCategoryId === null
         ? sourceBookmarks
         : sourceBookmarks.filter((bookmark) => {
-            const rowId = savedCategoryIdSet.has(bookmark.categoryId) ? canonicalSavedCategoryId : bookmark.categoryId;
+            const rowId = savedCategoryIdSet.has(bookmark.categoryId)
+              ? canonicalSavedCategoryId
+              : gcalCategoryIdSet.has(bookmark.categoryId)
+                ? canonicalGcalCategoryId
+                : bookmark.categoryId;
             return rowId === selectedCategoryId;
           });
 
     return [...items].sort((left, right) =>
       bookmarkSortDirection === "asc" ? left.createdAt - right.createdAt : right.createdAt - left.createdAt,
     );
-  }, [bookmarkSortDirection, canonicalSavedCategoryId, savedCategoryIdSet, selectedCategoryId, sourceBookmarks]);
+  }, [
+    bookmarkSortDirection,
+    canonicalSavedCategoryId,
+    canonicalGcalCategoryId,
+    savedCategoryIdSet,
+    gcalCategoryIdSet,
+    selectedCategoryId,
+    sourceBookmarks,
+  ]);
 
   const editingBookmark =
     state.bookmarks.find((bookmark) => bookmark.id === editingBookmarkId) ??

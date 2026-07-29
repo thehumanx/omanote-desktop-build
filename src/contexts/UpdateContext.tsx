@@ -75,7 +75,12 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
 
     const check = async () => {
       try {
-        const res = await fetch(endpointUrl, { cache: "no-store" });
+        // Tauri's webview enforces CORS on the default `fetch` just like a
+        // browser, and omanote.com doesn't send an Access-Control-Allow-Origin
+        // header for the tauri://localhost origin. The http plugin issues the
+        // request natively from Rust instead, bypassing that restriction.
+        const doFetch = isDesktop ? (await import("@tauri-apps/plugin-http")).fetch : fetch;
+        const res = await doFetch(endpointUrl, { cache: "no-store" });
         if (!res.ok) return;
         const data: ChangelogManifest = await res.json();
         if (data.version && bundledVersion.current && data.version !== bundledVersion.current) {

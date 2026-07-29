@@ -10,6 +10,10 @@ Connect your Google account in **Settings → Features** to keep todos and event
 - **Manually logged events** → also mirror to the "omanote" calendar.
 - **Events you create directly in your primary Google Calendar** → appear as new open todos in omanote automatically, including recurring events.
 
+## Where imported events land
+
+Todos imported from Google Calendar are filed into their own **"Synced from GCal"** todo folder, so they don't mix into your other folders. If the event had a Google Meet link, it also shows up as a bookmark card in a matching **"Synced from GCal"** bookmarks folder, titled with the calendar event's name.
+
 ## Turning it on and off
 
 The toggle in Settings pauses syncing without disconnecting your Google account — flip it back on and syncing resumes right where it left off. Disconnecting fully revokes omanote's access.
@@ -24,6 +28,6 @@ One caveat: if you edit the notes on both sides — locally in omanote and on th
 
 - **Google Tasks isn't used.** Google's Tasks API is one-way and can't show a time of day even though its own apps can — a hard platform restriction, not something omanote could work around. Calendar covers everything Tasks would have, with real times and real recurrence, so everything syncs there instead.
 - **Editing a single occurrence of a recurring event directly in Google Calendar** doesn't sync back — only changes to the whole series are picked up.
-- **Existing todos and events aren't backfilled.** Connecting Google only starts syncing things going forward.
+- **Existing todos and events aren't backfilled.** Connecting Google only starts syncing things going forward. (Todos you'd already imported before the "Synced from GCal" folder existed do get moved into it automatically the next time you open omanote.)
 - **Web (and the desktop app) only, for now.** Google Calendar sync isn't available on the mobile app — connecting your Google account in the web app doesn't change anything on mobile, and mobile has no way to connect Google yet.
 - **While in testing**, Google shows an "unverified app" warning during connect, and only pre-approved accounts can connect at all — this clears once Google finishes reviewing the app.

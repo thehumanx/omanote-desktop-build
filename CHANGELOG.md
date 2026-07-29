@@ -4,6 +4,19 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.28.2 [July 29, 2026]
+
+> Content zoom, GCal imports get their own folders, and a friendlier mobile date picker.
+
+- [Add] App-wide content zoom — `Cmd/Ctrl` + `=`/`-` to resize, `0` to reset
+- [Add] Todos and bookmarks imported from Google Calendar now file into their own **"Synced from GCal"** folder
+- [Update] Google Meet links from synced events now show the calendar event's name as the card title
+- [Update] Mobile canvas date picker is now a bottom drawer with bigger tap targets
+- [Update] Todos list groups now read "Today" / "Tomorrow" / "Yesterday" / "N days ago" / "N days later"
+- [Fix] Empty todo folders no longer show a "0/0" badge
+- [Fix] Bottom nav's active tab pill no longer overlaps the next tab after zooming
+- [Fix] Wrapped titles in shared folder link lists now align under the first line
+
 ### v0.28.1 [July 25, 2026]
 
 > Todos: All replaces Completed, folders show their progress, and new accounts get a welcome email.
@@ -570,14 +583,34 @@ All notable changes to omanote are documented here, organized by product.
 - [Update] Bottom chrome on updates is simplified with a close `X` in the profile slot.
 - [Update] Hashtag mind-map tooltip flow is being actively improved.
 
+## Roadmap
 
-### Upcoming
-
-- OPML import/export for RSS feeds
-- Article readability extraction
-- More customizations
+See what's planned next: [omanote.com/s/FeUM44Rd](https://omanote.com/s/FeUM44Rd)
 
 ## Desktop Versions
+
+### v0.28.2 [July 29, 2026]
+
+> Content zoom, GCal imports get their own folders, and a friendlier compact-width date picker.
+
+- [Add] App-wide content zoom — `Cmd/Ctrl` + `=`/`-` to resize, `0` to reset
+- [Add] Todos and bookmarks imported from Google Calendar now file into their own **"Synced from GCal"** folder
+- [Update] Google Meet links from synced events now show the calendar event's name as the card title
+- [Update] Compact-width date picker is now a bottom drawer with bigger tap targets
+- [Update] Todos list groups now read "Today" / "Tomorrow" / "Yesterday" / "N days ago" / "N days later"
+- [Fix] Empty todo folders no longer show a "0/0" badge
+- [Fix] Bottom nav's active tab pill no longer overlaps the next tab after zooming
+- [Fix] Wrapped titles in shared folder link lists now align under the first line
+- [Fix] Clicking a bookmark card no longer does nothing — it now opens the link in your system browser
+- [Fix] Update/changelog check no longer fails silently due to a CORS error — the desktop app now fetches it natively instead of through the webview
+
+### v0.28.1 [July 25, 2026]
+
+> Todos: All replaces Completed, folders show their progress, and new accounts get a welcome email.
+
+- [Add] New accounts now receive a welcome email right after signing up — a quick look at the daily canvas, links to get started, RSS and Google Calendar sync, and download links for the desktop app and browser extension. Applies to every signup, whether it happens in the web app or the desktop app
+- [Update] The Todos **Completed** tab is now **All** — every todo, open and done, sorted latest-first
+- [Update] Todo folders now show a `completed/total` count badge, with a green checkmark once everything inside is done
 
 ### v0.28.0 [July 24, 2026]
 

@@ -191,7 +191,7 @@ export const guideCategories: GuideCategory[] = [
 
 // Shown in the guide header (like the changelog version on /updates). Bump
 // when guide content is meaningfully revised.
-export const GUIDE_LAST_UPDATED = "Jul 24, 2026";
+export const GUIDE_LAST_UPDATED = "Jul 28, 2026";
 
 export const guideTopics: GuideTopic[] = guideCategories.flatMap((category) => category.topics);
 

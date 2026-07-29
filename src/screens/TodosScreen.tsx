@@ -17,7 +17,7 @@ import { TodoEditorModal } from "../components/TodoEditorModal";
 import { TodoFolderCountBadge, TodoFolderRow } from "../components/TodoFolderRow";
 import { TodoListRow } from "../components/TodoListRow";
 import { Button, cn, SegmentedPill } from "../components/ui";
-import { formatCompletedLabel, formatLongDateKey, getSeriesListBucket, isClosedSeriesMaster, type TodoListBucket } from "@omanote/shared";
+import { formatCompletedLabel, formatRelativeGroupHeading, getSeriesListBucket, isClosedSeriesMaster, type TodoListBucket } from "@omanote/shared";
 import { useDrawerDrag } from "../lib/useDrawerDrag";
 import { useMeasuredHighlight } from "../hooks/useMeasuredHighlight";
 import { parseHashtags } from "../lib/hashtags";
@@ -1246,7 +1246,7 @@ export function TodosScreen() {
                     {groupedTodos.map((group) => (
                       <TodoSection
                         key={group.dateKey}
-                        title={formatLongDateKey(group.dateKey)}
+                        title={formatRelativeGroupHeading(group.dateKey)}
                         items={group.items}
                         focusedTodoId={focusedTodoId}
                         completionFilterByTodoId={completionFilterByTodoId}

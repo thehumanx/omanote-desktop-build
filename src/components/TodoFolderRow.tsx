@@ -137,7 +137,11 @@ export function TodoFolderCountBadge({
   totalCount: number;
   selected?: boolean;
 }) {
-  if (totalCount > 0 && completedCount === totalCount) {
+  if (totalCount === 0) {
+    return null;
+  }
+
+  if (completedCount === totalCount) {
     return (
       <span
         role="img"

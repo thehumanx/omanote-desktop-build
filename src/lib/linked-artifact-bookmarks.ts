@@ -2,6 +2,7 @@ import type { BookmarkItem, DateKey, NoteItem, EventEntry, TodoItem } from "@oma
 import { extractFirstPreviewableUrl } from "./attachment-link-preview";
 
 export const LINKED_ARTIFACT_SAVED_CATEGORY_ID = "__linked-artifact-saved__";
+export const LINKED_ARTIFACT_GCAL_CATEGORY_ID = "__linked-artifact-gcal__";
 const LINKED_ARTIFACT_BOOKMARK_ID_PREFIX = "linked-artifact:";
 
 export type LinkedArtifactReference = {
@@ -30,13 +31,14 @@ function createLinkedArtifactBookmark(params: {
   createdAt: number;
   createdDateKey: DateKey;
   sourceLabel: string;
+  title?: string;
 }): LinkedArtifactBookmark {
   const domain = domainFromUrl(params.url);
   return {
     id: `${LINKED_ARTIFACT_BOOKMARK_ID_PREFIX}${encodeURIComponent(params.url)}`,
     categoryId: params.categoryId,
     url: params.url,
-    title: domain,
+    title: params.title?.trim() || domain,
     siteName: domain,
     description: `Linked in ${params.sourceLabel}`,
     createdAt: params.createdAt,
@@ -73,9 +75,11 @@ export function buildLinkedArtifactBookmarks(params: {
   events: EventEntry[];
   bookmarks: BookmarkItem[];
   savedCategoryId: string;
+  gcalCategoryId?: string;
+  googleImportedTodoIds?: ReadonlySet<string>;
   dedupeUrls?: Iterable<string>;
 }): LinkedArtifactBookmark[] {
-  const { notes, todos, events, bookmarks, savedCategoryId, dedupeUrls } = params;
+  const { notes, todos, events, bookmarks, savedCategoryId, gcalCategoryId, googleImportedTodoIds, dedupeUrls } = params;
   const existingUrls = new Set(
     dedupeUrls ??
       bookmarks
@@ -131,12 +135,14 @@ export function buildLinkedArtifactBookmarks(params: {
     if (todo.deletedAt) continue;
     const url = extractFirstPreviewableUrl(todo.title, todo.notes);
     if (!url) continue;
+    const isFromGoogleCalendar = Boolean(gcalCategoryId && googleImportedTodoIds?.has(todo.id));
     const candidate = createLinkedArtifactBookmark({
-      categoryId: savedCategoryId,
+      categoryId: isFromGoogleCalendar ? gcalCategoryId! : savedCategoryId,
       url,
       createdAt: todo.updatedAt,
       createdDateKey: todo.createdDateKey,
       sourceLabel: "todo",
+      title: isFromGoogleCalendar ? summarizeTodoTitle(todo.title) : undefined,
     });
     upsert(candidate, {
       kind: "todo",

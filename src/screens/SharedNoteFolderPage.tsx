@@ -50,7 +50,7 @@ function FolderAttachedLinks({ notes, linkViewMode }: { notes: PublicNote[]; lin
         Attached links
       </p>
       {linkViewMode === "list" ? (
-        <ol className="list-inside list-decimal space-y-2">
+        <ol className="list-outside list-decimal space-y-2 pl-5">
           {linkUrls.map((url) => (
             <li key={url}>
               <LinkListItem url={url} />

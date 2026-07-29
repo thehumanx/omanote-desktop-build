@@ -215,6 +215,7 @@ body,
 
 html {
   background: rgb(var(--color-canvas));
+  font-size: calc(1rem * var(--omanote-content-zoom, 1));
 }
 
 body {

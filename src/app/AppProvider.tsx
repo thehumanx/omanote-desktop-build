@@ -87,10 +87,14 @@ interface AppContextValue {
   undo: () => Promise<void>;
   redo: () => Promise<void>;
   scheduleSync: () => void;
+  googleImportedTodoIds: Set<string>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
 const DELETE_MASK_RELEASE_MS = 220;
+// Kept in sync with BookmarksScreen.tsx's isGcalCategoryName() label for the
+// analogous "Synced from GCal" bookmark folder.
+const GOOGLE_CALENDAR_TODO_FOLDER_NAME = "Synced from GCal";
 
 const defaultUiState: UiState = {
   selectedDateKey: toDateKey(new Date()),
@@ -566,6 +570,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     optimisticNotes: [],
   }));
   const todoDueBackfillRequestedRef = useRef(false);
+  const gcalTodoFolderBackfillRequestedRef = useRef(false);
   const hashtagBackfillRequestedRef = useRef(false);
   const hashtagClientBackfillRequestedRef = useRef(false);
   const updatedAtBackfillRequestedRef = useRef(false);
@@ -875,6 +880,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const createTodoFolder = useMutation(api.todos.createTodoFolder);
   const updateTodoFolder = useMutation(api.todos.updateTodoFolder);
   const backfillTodoDueDates = useMutation(api.todos.backfillTodoDueDates);
+  const backfillGoogleCalendarTodoFolders = useMutation(api.todos.backfillGoogleCalendarTodoFolders);
   const backfillBookmarkUpdatedAt = useMutation(api.bookmarks.backfillBookmarkUpdatedAt);
   const backfillBookmarkCategoryUpdatedAt = useMutation(api.bookmarks.backfillBookmarkCategoryUpdatedAt);
   const backfillEventUpdatedAt = useMutation(api.events.backfillEventUpdatedAt);
@@ -1006,6 +1012,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     api.canvas.latestRemoteSyncTimestamp,
     isAuthenticated && !isLocked ? {} : "skip",
   );
+
+  // Todo ids imported from Google Calendar, so meeting links pulled from
+  // their notes can be filed into the "Synced from GCal" bookmark folder
+  // instead of the general "Saved" one -- see linked-artifact-bookmarks.ts.
+  const importedTodoIdsResult = useQuery(
+    api.googleSync.listImportedTodoIds,
+    isAuthenticated && !isLocked ? {} : "skip",
+  );
+  const googleImportedTodoIds = useMemo(
+    () => new Set(importedTodoIdsResult ?? []),
+    [importedTodoIdsResult],
+  );
+
+  // Files any already-imported todos into the "Synced from GCal" folder --
+  // covers todos imported before that folder existed, since createTodo only
+  // sets it going forward. Idempotent server-side, so re-running per session
+  // is cheap once it's already done.
+  useEffect(() => {
+    if (gcalTodoFolderBackfillRequestedRef.current) return;
+    if (googleImportedTodoIds.size === 0) return;
+    gcalTodoFolderBackfillRequestedRef.current = true;
+    void backfillGoogleCalendarTodoFolders({}).catch(() => {
+      gcalTodoFolderBackfillRequestedRef.current = false;
+    });
+  }, [backfillGoogleCalendarTodoFolders, googleImportedTodoIds]);
 
   const doSync = useCallback(async () => {
     if (syncRunningRef.current) return;
@@ -1444,6 +1475,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               dueTime: row.dueTime,
               recurrence: row.recurrence,
               source: "web",
+              // Files newly-imported events into their own folder (created
+              // on first use) so they don't mix into "Others" -- mirrors the
+              // "Synced from GCal" bookmark folder for their meeting links.
+              folderName: GOOGLE_CALENDAR_TODO_FOLDER_NAME,
             })) as string;
           }
 
@@ -2981,7 +3016,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   stateRef.current = state;
 
-  return <AppContext.Provider value={{ state, dispatch, undo, redo, scheduleSync }}>{children}</AppContext.Provider>;
+  return (
+    <AppContext.Provider value={{ state, dispatch, undo, redo, scheduleSync, googleImportedTodoIds }}>
+      {children}
+    </AppContext.Provider>
+  );
 }
 
 export function useApp() {
