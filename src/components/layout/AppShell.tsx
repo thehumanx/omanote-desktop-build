@@ -14,6 +14,7 @@ import { UpdateNotificationBanner } from "../UpdateNotificationBanner";
 import { UpdateModal } from "../UpdateModal";
 import { RecurringDeleteModal } from "../RecurringDeleteModal";
 import { FounderNoteModal } from "../FounderNoteModal";
+import { SurveyGate } from "../survey/SurveyGate";
 import { OfflineStatusBanner } from "../OfflineStatusBanner";
 import { CookieNotice } from "../CookieNotice";
 import { useMobileKeyboardState } from "./useMobileKeyboardState";
@@ -41,7 +42,8 @@ export function AppShell() {
   const isExploreRoute = location.pathname.startsWith("/explore");
   const isSettingsRoute = location.pathname.startsWith("/settings");
   const isInsightsRoute = location.pathname.startsWith("/insights");
-  const usesViewportShell = isWorkspaceRoute || isExploreRoute || isSettingsRoute || isInsightsRoute;
+  const isEventRoute = location.pathname.startsWith("/event");
+  const usesViewportShell = isWorkspaceRoute || isExploreRoute || isSettingsRoute || isInsightsRoute || isEventRoute;
   const topChromeRef = useRef<HTMLDivElement | null>(null);
   const bottomHideTimeoutRef = useRef<number | null>(null);
   const bottomHideSuppressTimeoutRef = useRef<number | null>(null);
@@ -266,6 +268,12 @@ export function AppShell() {
                   height: workspaceHeight,
                   paddingTop: "0px",
                 }
+              : isEventRoute
+                ? {
+                    height: "100dvh",
+                    paddingTop: "calc(var(--omanote-top-chrome-height, 0px) + 1rem)",
+                    paddingBottom: "calc(var(--omanote-bottom-nav-height, 64px) + 1rem)",
+                  }
               : isExploreRoute || isSettingsRoute
                 ? {
                     height: "100dvh",
@@ -308,6 +316,7 @@ export function AppShell() {
       <FounderNoteModal open={founderNoteOpen} onClose={closeFounderNote} />
       <ComposerSheet />
       <CookieNotice />
+      <SurveyGate />
       <ZoomIndicator percent={zoomPercent} visible={indicatorVisible} />
     </div>
   );

@@ -4,6 +4,16 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.28.3 [July 31, 2026]
+
+> A calendar built for your phone: one day at a time, swipe to move, and a date bar that stays put.
+
+- [Add] Swipe left or right anywhere on the Event calendar to move between days on mobile
+- [Update] The Event calendar now shows a single day on phones — today by default — instead of squeezing all seven into the screen; the arrows move a day at a time there, and a week at a time on desktop
+- [Update] The Event calendar's date bar now stays pinned to the top while you scroll through the hours
+- [Update] The **Uncategorized** notes folder now shows the same created / updated / hashtag / link summary as your other folders
+- [Fix] The notes list no longer scrolls sideways, and long links in a note now wrap instead of pushing the note wider
+
 ### v0.28.2 [July 29, 2026]
 
 > Content zoom, GCal imports get their own folders, and a friendlier mobile date picker.
@@ -588,6 +598,15 @@ All notable changes to omanote are documented here, organized by product.
 See what's planned next: [omanote.com/s/FeUM44Rd](https://omanote.com/s/FeUM44Rd)
 
 ## Desktop Versions
+
+### v0.28.3 [July 31, 2026]
+
+> A calendar that adapts to a narrow window, and a date bar that stays put.
+
+- [Update] The Event calendar's date bar now stays pinned to the top while you scroll through the hours
+- [Update] Narrow the window and the Event calendar now shows a single day — today by default — instead of squeezing all seven in; the arrows move a day at a time there, and a week at a time at full width
+- [Update] The **Uncategorized** notes folder now shows the same created / updated / hashtag / link summary as your other folders
+- [Fix] The notes list no longer scrolls sideways, and long links in a note now wrap instead of pushing the note wider
 
 ### v0.28.2 [July 29, 2026]
 

@@ -331,7 +331,7 @@ export const NoteCard = memo(function NoteCard({
           }}
           className="block w-full cursor-pointer text-left"
         >
-          <div className="text-[15px] leading-6 text-app-ink">
+          <div className="min-w-0 break-words text-[15px] leading-6 text-app-ink">
             <RichTextPreview value={normalizedBody} className="block" paragraphClassName="text-[15px] leading-6 text-app-ink" />
           </div>
           {note.tags.length ? (

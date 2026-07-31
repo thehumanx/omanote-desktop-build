@@ -379,12 +379,19 @@ export function NotesScreen() {
   }, [selectedFolder, state.noteFolders]);
 
   const selectedFolderSummary = useMemo(() => {
-    if (!selectedFolderRecord) return null;
+    // Uncategorized is synthetic — it has no folder record, so its dates come
+    // from the notes inside it instead of from a stored folder row.
+    const isUncategorized = Boolean(selectedFolder) && isUncategorizedFolderName(selectedFolder!);
+    if (!selectedFolderRecord && !isUncategorized) return null;
+    if (isUncategorized && !visibleNotes.length) return null;
+
     const hashtags = new Set<string>();
     const links = new Set<string>();
-    let latestUpdatedAt = selectedFolderRecord.updatedAt;
+    let earliestNoteCreatedAt = Number.POSITIVE_INFINITY;
+    let latestUpdatedAt = selectedFolderRecord?.updatedAt ?? 0;
 
     for (const note of visibleNotes) {
+      earliestNoteCreatedAt = Math.min(earliestNoteCreatedAt, note.createdAt);
       latestUpdatedAt = Math.max(latestUpdatedAt, note.updatedAt);
       for (const tag of note.tags) {
         const normalizedTag = tag.trim().toLowerCase();
@@ -396,12 +403,12 @@ export function NotesScreen() {
     }
 
     return {
-      createdAt: selectedFolderRecord.createdAt,
+      createdAt: selectedFolderRecord?.createdAt ?? earliestNoteCreatedAt,
       updatedAt: latestUpdatedAt,
       hashtagCount: hashtags.size,
       linkCount: links.size,
     };
-  }, [selectedFolderRecord, visibleNotes]);
+  }, [selectedFolder, selectedFolderRecord, visibleNotes]);
 
   const focusNoteId =
     typeof (location.state as { focusNoteId?: unknown } | null)?.focusNoteId === "string"
@@ -691,7 +698,7 @@ export function NotesScreen() {
       </div>
       {visibleNotes.length ? (
         <div
-          className={cn("min-h-0 flex-1 space-y-1.5 overflow-y-auto", isMobileDrawer && "px-4")}
+          className={cn("min-h-0 flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden", isMobileDrawer && "px-4")}
           style={{ overflowAnchor: "none" }}
           onScroll={notifyNotesScroll}
         >
@@ -764,7 +771,7 @@ export function NotesScreen() {
           <div aria-hidden="true" style={{ height: "calc(var(--omanote-bottom-nav-height, 64px) + 1.5rem)", flexShrink: 0 }} />
         </div>
       ) : (
-        <div className={cn("min-h-0 flex-1 overflow-y-auto", isMobileDrawer && "px-4")} onScroll={notifyNotesScroll}>
+        <div className={cn("min-h-0 flex-1 overflow-y-auto overflow-x-hidden", isMobileDrawer && "px-4")} onScroll={notifyNotesScroll}>
           {/* Mobile uses the "+" button (same floating composer sheet as
               every other artifact type) instead of this persistent inline
               row; desktop keeps the inline composer. */}

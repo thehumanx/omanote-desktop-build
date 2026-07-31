@@ -16,6 +16,7 @@ import { TodoEditorModal } from "../components/TodoEditorModal";
 import { BookmarkCard } from "../components/cards";
 import { PageHeader } from "../components/layout/PageHeader";
 import { useTopChrome } from "../components/layout/useTopChrome";
+import { useHorizontalSwipe } from "../lib/useHorizontalSwipe";
 
 function dateKeyToDate(dateKey: string) {
   return new Date(`${dateKey}T12:00:00`);
@@ -57,57 +58,7 @@ export function CanvasScreen() {
   };
 
   // Swipe gesture — attached to window so the full screen (including empty space) is covered
-  const canvasTouchStartRef = useRef<{ x: number; y: number } | null>(null);
-  const canvasSwipeAxisRef = useRef<"horizontal" | "vertical" | null>(null);
-  const navigateCanvasDateRef = useRef(navigateCanvasDate);
-  navigateCanvasDateRef.current = navigateCanvasDate;
-  useEffect(() => {
-    const handleTouchStart = (event: TouchEvent) => {
-      const activeEl = document.activeElement;
-      if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || (activeEl as HTMLElement).isContentEditable)) return;
-      const touch = event.touches[0];
-      if (!touch) return;
-      canvasTouchStartRef.current = { x: touch.clientX, y: touch.clientY };
-      canvasSwipeAxisRef.current = null;
-    };
-    // Lock axis early and cancel vertical scroll for horizontal swipes so the
-    // AppShell scroll handler never sees a Y delta and never shifts the top chrome.
-    const handleTouchMove = (event: TouchEvent) => {
-      if (!canvasTouchStartRef.current) return;
-      if (canvasSwipeAxisRef.current === "horizontal") {
-        event.preventDefault();
-        return;
-      }
-      if (canvasSwipeAxisRef.current === "vertical") return;
-      const touch = event.touches[0];
-      if (!touch) return;
-      const dx = touch.clientX - canvasTouchStartRef.current.x;
-      const dy = touch.clientY - canvasTouchStartRef.current.y;
-      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
-      canvasSwipeAxisRef.current = Math.abs(dx) > Math.abs(dy) ? "horizontal" : "vertical";
-      if (canvasSwipeAxisRef.current === "horizontal") event.preventDefault();
-    };
-    const handleTouchEnd = (event: TouchEvent) => {
-      const start = canvasTouchStartRef.current;
-      canvasTouchStartRef.current = null;
-      canvasSwipeAxisRef.current = null;
-      if (!start) return;
-      const touch = event.changedTouches[0];
-      if (!touch) return;
-      const deltaX = touch.clientX - start.x;
-      const deltaY = touch.clientY - start.y;
-      if (Math.abs(deltaX) < 56 || Math.abs(deltaX) <= Math.abs(deltaY)) return;
-      navigateCanvasDateRef.current(deltaX < 0 ? "next" : "prev");
-    };
-    window.addEventListener("touchstart", handleTouchStart, { passive: true });
-    window.addEventListener("touchmove", handleTouchMove, { passive: false });
-    window.addEventListener("touchend", handleTouchEnd, { passive: true });
-    return () => {
-      window.removeEventListener("touchstart", handleTouchStart);
-      window.removeEventListener("touchmove", handleTouchMove);
-      window.removeEventListener("touchend", handleTouchEnd);
-    };
-  }, []);
+  useHorizontalSwipe(window, navigateCanvasDate);
   const categoryNameById = useMemo(
     () => new Map(state.bookmarkCategories.map((category) => [category.id, category.name] as const)),
     [state.bookmarkCategories],

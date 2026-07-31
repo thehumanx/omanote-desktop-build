@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { addDays, buildDateStripWindow, formatMonthDayRange, listVirtualOccurrencesForDates, parseEventDraftInputForDate, parseVirtualOccurrenceId, toDateKey } from "@omanote/shared";
+import { addDays, buildDateStripWindow, formatCanvasDateLabel, formatMonthDayRange, listVirtualOccurrencesForDates, parseEventDraftInputForDate, parseVirtualOccurrenceId, toDateKey } from "@omanote/shared";
 import type { DateKey, TodoFolder, TodoItem } from "@omanote/shared";
 import { CalendarDays, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, Clock3, List, Plus, Trash2, X } from "lucide-react";
 import { useApp } from "../app/AppProvider";
 import { useIsMobileViewport } from "../lib/mobile";
+import { useHorizontalSwipe } from "../lib/useHorizontalSwipe";
 import { BaseModal } from "../components/BaseModal";
 import { EventEditorModal } from "../components/EventEditorModal";
 import { TodoEditorModal } from "../components/TodoEditorModal";
@@ -661,7 +662,14 @@ export function EventScreen() {
     () => state.events.filter((event) => !event.deletedAt).sort((left, right) => left.loggedAt - right.loggedAt),
     [state.events],
   );
-  const weekDates = useMemo(() => buildDateStripWindow(addDays(today, state.ui.dateWindowOffset)), [state.ui.dateWindowOffset, today]);
+  // Mobile web shows a single day column (today by default); desktop shows the
+  // full week window. The offset is in days either way, so the arrows just step
+  // by a different amount.
+  const dayStep = isMobile ? 1 : 7;
+  const weekDates = useMemo(() => {
+    const anchor = addDays(today, state.ui.dateWindowOffset);
+    return isMobile ? [anchor] : buildDateStripWindow(anchor);
+  }, [isMobile, state.ui.dateWindowOffset, today]);
   const weekDateKeys = useMemo(() => weekDates.map((date) => toDateKey(date)), [weekDates]);
 
   // Scheduled todos for the calendar: plain todos with a due date, plus a
@@ -730,20 +738,49 @@ export function EventScreen() {
   const editingTodo = state.todos.find((todo) => todo.id === editingTodoRealId) ?? null;
 
   const weekRangeLabel = useMemo(() => {
+    if (weekDates.length === 1) return formatCanvasDateLabel(weekDates[0], today);
     const [firstDate] = weekDateKeys;
     const lastDate = weekDateKeys[weekDateKeys.length - 1];
     return formatMonthDayRange(firstDate, lastDate);
-  }, [weekDateKeys]);
+  }, [today, weekDateKeys, weekDates]);
+
+  const calendarGridTemplate = `72px repeat(${weekDates.length}, minmax(0, 1fr))`;
+
+  const stepCalendar = (direction: "prev" | "next") => {
+    dispatch({
+      type: "ui/set-date-window-offset",
+      offset: state.ui.dateWindowOffset + (direction === "next" ? dayStep : -dayStep),
+    });
+  };
+  // Swipe left/right to move the calendar window. Mobile only — wider viewports
+  // keep the 920px grid, where horizontal drags are needed to pan the week.
+  const calendarScrollRef = useRef<HTMLDivElement | null>(null);
+  useHorizontalSwipe(calendarScrollRef, stepCalendar, isMobile && eventView === "week");
+
+  // Slide the calendar in from whichever side it came from. The offset moves in
+  // both directions, so its delta gives the direction regardless of the source
+  // (arrows, swipe, or the "Today" reset).
+  const previousOffsetRef = useRef(state.ui.dateWindowOffset);
+  const [slideDirection, setSlideDirection] = useState<"prev" | "next" | null>(null);
+  useLayoutEffect(() => {
+    if (previousOffsetRef.current === state.ui.dateWindowOffset) return;
+    const direction = state.ui.dateWindowOffset > previousOffsetRef.current ? "next" : "prev";
+    previousOffsetRef.current = state.ui.dateWindowOffset;
+    setSlideDirection(direction);
+  }, [state.ui.dateWindowOffset]);
+  // Applied to the day cells only — the card frame and the hour gutter stay put
+  // while the days slide in.
+  const daySlideClass = slideDirection ? `omanote-week-slide-${slideDirection}` : "";
 
   const topChrome = useMemo(() => <PageHeader stat="events_this_week" />, []);
   useTopChrome(topChrome);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-app-ink-faint">
-            {eventView === "week" ? "Week view" : "Timeline"}
+            {eventView === "week" ? (isMobile ? "Day view" : "Week view") : "Timeline"}
           </p>
           <p className="mt-1 text-sm text-app-ink-muted">
             {eventView === "week"
@@ -766,16 +803,16 @@ export function EventScreen() {
               <Button
                 tone="ghost"
                 className="h-10 w-10 rounded-full p-0"
-                aria-label="Previous week"
-                onClick={() => dispatch({ type: "ui/set-date-window-offset", offset: state.ui.dateWindowOffset - 7 })}
+                aria-label={isMobile ? "Previous day" : "Previous week"}
+                onClick={() => stepCalendar("prev")}
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <Button
                 tone="ghost"
                 className="h-10 w-10 rounded-full p-0"
-                aria-label="Next week"
-                onClick={() => dispatch({ type: "ui/set-date-window-offset", offset: state.ui.dateWindowOffset + 7 })}
+                aria-label={isMobile ? "Next day" : "Next week"}
+                onClick={() => stepCalendar("next")}
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -813,11 +850,18 @@ export function EventScreen() {
       )}
 
       {eventView === "week" && (
-      <div className="min-h-0 flex-1 overflow-hidden rounded-app-dialog border border-app-line bg-app-surface shadow-none">
-        <div className="h-full overflow-auto">
-          <div className="min-w-[920px]">
+      <div
+        className="min-h-0 flex-1 overflow-hidden rounded-app-dialog border border-app-line bg-app-surface shadow-none"
+        onAnimationEnd={(event) => {
+          // animationend bubbles up from the day columns; ignore unrelated
+          // animations from cards inside them.
+          if (event.animationName.startsWith("omanote-week-slide")) setSlideDirection(null);
+        }}
+      >
+        <div ref={calendarScrollRef} className="h-full overflow-auto">
+          <div className={isMobile ? "min-w-0" : "min-w-[920px]"}>
             <div className="sticky top-0 z-20">
-              <div className="grid border-b border-app-line bg-app-surface/95 backdrop-blur" style={{ gridTemplateColumns: "72px repeat(7, minmax(0, 1fr))" }}>
+              <div className="grid border-b border-app-line bg-app-surface/95 backdrop-blur" style={{ gridTemplateColumns: calendarGridTemplate }}>
                 <div className="border-r border-app-line px-3 py-3" />
                 {weekDates.map((date) => {
                   const dateKey = toDateKey(date);
@@ -831,6 +875,7 @@ export function EventScreen() {
                       className={[
                         "border-r border-app-line px-3 py-3 text-left transition last:border-r-0",
                         isToday ? "bg-app-surface" : "bg-app-surface-muted/90",
+                        daySlideClass,
                       ].join(" ")}
                     >
                       <div className="flex items-center justify-between gap-3">
@@ -858,7 +903,7 @@ export function EventScreen() {
               className="relative grid"
               data-testid="week-calendar-grid"
               style={{
-                gridTemplateColumns: "72px repeat(7, minmax(0, 1fr))",
+                gridTemplateColumns: calendarGridTemplate,
                 height: calendarHourLayout.totalHeight,
               }}
             >
@@ -891,6 +936,7 @@ export function EventScreen() {
                     className={[
                       "relative border-r border-app-line last:border-r-0",
                       isToday ? "bg-app-surface" : "bg-app-surface-muted/90",
+                      daySlideClass,
                     ].join(" ")}
                   >
                     <div className="absolute inset-x-0 border-b border-app-line" style={{ top: CALENDAR_TOP_PADDING }} />

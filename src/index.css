@@ -605,6 +605,22 @@ body {
   }
 }
 
+/* Calendar window stepping forward/back (arrows or swipe). */
+.omanote-week-slide-next {
+  animation: omanote-week-slide-next var(--motion-duration-drawer) var(--motion-easing-out) both;
+}
+
+.omanote-week-slide-prev {
+  animation: omanote-week-slide-prev var(--motion-duration-drawer) var(--motion-easing-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .omanote-week-slide-next,
+  .omanote-week-slide-prev {
+    animation-name: omanote-page-fade;
+  }
+}
+
 .omanote-canvas-grid {
   background-image: radial-gradient(circle, rgb(var(--color-canvas-dot)) 1px, transparent 1px);
   background-size: 16px 16px;
@@ -916,4 +932,84 @@ body {
 
 .omanote-toast-exit {
   animation: omanote-toast-exit-to-top 180ms var(--motion-easing-out, ease-out) forwards;
+}
+
+/* ─── In-app survey ───────────────────────────────────────────────────────── */
+
+@keyframes omanote-survey-step-in-next {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes omanote-survey-step-in-prev {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.omanote-survey-step-next {
+  animation: omanote-survey-step-in-next 220ms var(--motion-easing-out, ease-out) both;
+}
+
+.omanote-survey-step-prev {
+  animation: omanote-survey-step-in-prev 220ms var(--motion-easing-out, ease-out) both;
+}
+
+/* Thank-you confirmation: the ring pops in, then the tick draws itself. */
+@keyframes omanote-survey-check-ring {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes omanote-survey-check-draw {
+  from {
+    stroke-dashoffset: 30;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.omanote-survey-check-ring {
+  animation: omanote-survey-check-ring 420ms var(--motion-easing-out, ease-out) both;
+}
+
+.omanote-survey-check-path {
+  stroke-dasharray: 30;
+  stroke-dashoffset: 30;
+  animation: omanote-survey-check-draw 340ms var(--motion-easing-out, ease-out) 260ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .omanote-survey-step-next,
+  .omanote-survey-step-prev,
+  .omanote-survey-check-ring {
+    animation: none;
+  }
+
+  .omanote-survey-check-path {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
 }

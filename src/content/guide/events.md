@@ -8,9 +8,13 @@ Use `/event` in the canvas composer, then write what happened in plain language,
 
 To log an event for a day other than today, navigate the canvas to that day first, then use the composer — the Event view's own "Log your event" button only logs for today. To edit an event already on the canvas, click it on desktop; on mobile, long-press it (or tap the time chip) to open the editor.
 
-## The timeline
+## The calendar and the timeline
 
-The **Event** view shows your events as a chronological timeline. It's a quiet way to see what your days have actually contained over time.
+The **Event** view has two modes, switched with the pill in the top right.
+
+The **calendar** lays your events and scheduled todos out by time of day. On desktop it shows a full week; on phones it shows one day at a time, starting on today. Move around with the `‹` `›` arrows — a week at a time on desktop, a day at a time on mobile — or swipe left and right on the calendar itself on a phone. **Today** brings you back.
+
+The **timeline** shows the same events as one chronological list. It's a quiet way to see what your days have actually contained over time.
 
 ## Completed todos become events
 
