@@ -4,6 +4,7 @@ import { twMerge } from "tailwind-merge";
 import { clsx } from "clsx";
 import { Check as CheckIcon } from "lucide-react";
 import { useMeasuredHighlight } from "../hooks/useMeasuredHighlight";
+import { OmanoteMark } from "./OmanoteMark";
 
 export function cn(...inputs: Array<string | undefined | false | null>) {
   return twMerge(clsx(inputs));
@@ -34,14 +35,17 @@ export function Button(props: React.ButtonHTMLAttributes<HTMLButtonElement> & { 
   );
 }
 
+/**
+ * The omanote mark drawing and undrawing itself. The wrapper keeps the sizing
+ * classes callers already pass (`h-4 w-4`, `h-5 w-5`) while the mark fills it,
+ * and it runs faster than the standalone reveal because spinner-sized motion
+ * needs a shorter cycle to read as activity.
+ */
 export function LoadingSpinner({ className, ...props }: React.HTMLAttributes<HTMLSpanElement>) {
   return (
-    <span
-      role="status"
-      aria-label="Loading"
-      className={cn("inline-block h-5 w-5 rounded-full border-2 border-app-line border-t-success-solid animate-spin", className)}
-      {...props}
-    />
+    <span role="status" aria-label="Loading" className={cn("inline-block h-5 w-5 text-success-solid", className)} {...props}>
+      <OmanoteMark size="100%" variant="loop" speed={1.6} />
+    </span>
   );
 }
 

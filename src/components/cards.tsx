@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import type { BookmarkItem, NoteItem, EventEntry, TodoItem } from "@omanote/shared";
 import { useApp } from "../app/AppProvider";
-import { Badge, Button, Chip, cn, TodoCheckmark } from "./ui";
+import { Badge, Button, Chip, cn, LoadingSpinner, TodoCheckmark } from "./ui";
 import { formatCompletedLabel, formatDueChip, formatLongDateKey } from "@omanote/shared";
 import { RichTextPreview } from "./rich-text";
 import { parseHashtags } from "../lib/hashtags";
@@ -605,7 +605,7 @@ export const BookmarkCard = memo(function BookmarkCard({
               {isOffline ? (
                 <WifiOff className="h-4 w-4 text-app-ink-faint" />
               ) : (
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-app-line-strong border-t-zinc-900" />
+                <LoadingSpinner className="h-4 w-4 text-app-ink" />
               )}
             </div>
             <div className="min-w-0 flex-1">

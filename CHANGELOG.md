@@ -4,6 +4,12 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.28.4 [August 3, 2026]
+
+> A friendlier first run: customize before you commit, and lock it down last.
+
+- [Add] New signup flow — pick your theme, font, and nav style, optionally connect Google Calendar or RSS, a quick tip on where to find the guide and send feedback, then set your passphrase last
+
 ### v0.28.3 [July 31, 2026]
 
 > A calendar built for your phone: one day at a time, swipe to move, and a date bar that stays put.

@@ -1758,7 +1758,7 @@ export function LandingScreen() {
                   {
                     icon: LayoutDashboard,
                     title: "Already structured",
-                    body: "Everything's already in place. Open it, start typing. No setup, no decisions, no tutorial to skip.",
+                    body: "A quick, one-time setup and everything's in place. From then on: open it, start typing.",
                   },
                   {
                     icon: Zap,
@@ -1959,7 +1959,7 @@ export function LandingScreen() {
               already in one place.
             </h2>
             <p className="mt-4 max-w-[400px] mx-auto leading-relaxed text-[15px] text-app-ink-muted">
-              No setup. No onboarding. Just your day, handled.
+              A minute to set up. Then just your day, handled.
             </p>
             <div className="mt-8 flex justify-center">
               <JournalCta label="Start dumping →" />

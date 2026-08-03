@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { useEncryption } from "../contexts/EncryptionContext";
+import { OnboardingWizard } from "./onboarding/OnboardingWizard";
+import { OnboardingLogoReveal } from "./onboarding/OnboardingLogoReveal";
 import { Button } from "./ui";
 
 // ---------------------------------------------------------------------------
@@ -112,36 +114,6 @@ function PassphraseForm({
 }
 
 // ---------------------------------------------------------------------------
-// Setup screen (first time)
-// ---------------------------------------------------------------------------
-
-function SetupScreen() {
-  const { setup, error } = useEncryption();
-  return (
-    <PassphraseForm
-      heading="Protect your notes"
-      description={
-        <>
-          Choose an <strong>encryption passphrase</strong>. Your notes, todos, bookmarks, and
-          events will be encrypted with this passphrase before being stored. Even the server
-          cannot read them.{" "}
-          <span className="text-danger-ink">
-            We will also download a recovery key file. Keep it safe so you can unlock data if you
-            forget your passphrase.
-          </span>
-        </>
-      }
-      confirmLabel="Enable encryption"
-      requireConfirm
-      secretLabel="Encryption passphrase"
-      secretPlaceholder="Choose your passphrase…"
-      onSubmit={setup}
-      error={error}
-    />
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Unlock screen (every session)
 // ---------------------------------------------------------------------------
 
@@ -246,9 +218,33 @@ function LoadingScreen() {
 export function EncryptionGate({ children }: { children: React.ReactNode }) {
   const { isSetup, isLocked, isRestoringSession, needsPassphraseReset } = useEncryption();
 
+  // Tracks the *previous* render's isSetup so we can tell "just finished the
+  // onboarding wizard" apart from "isSetup was already true on every other
+  // page load" — only the former gets the logo reveal + fade-in below.
+  //
+  // Both pieces of state are updated during render (React's documented
+  // "adjust state while rendering" pattern — see
+  // react.dev/reference/react/useState#storing-information-from-previous-renders)
+  // rather than via a ref mutated mid-render plus a useEffect: a ref written
+  // during render doesn't survive React StrictMode's double-render in dev
+  // (the throwaway render already clobbers it before the committed render
+  // reads it), and driving the phase change from an effect adds a one-frame
+  // flash of the bare app before the logo reveal appears. Updating both
+  // during render keeps everything resolved within the same render pass.
+  const [prevIsSetup, setPrevIsSetup] = useState(isSetup);
+  const [postOnboardingPhase, setPostOnboardingPhase] = useState<"logo" | "reveal" | null>(null);
+  if (prevIsSetup !== isSetup) {
+    if (prevIsSetup === false && isSetup === true) setPostOnboardingPhase("logo");
+    setPrevIsSetup(isSetup);
+  }
+
   if (isSetup === null || isRestoringSession) return <LoadingScreen />;
-  if (!isSetup) return <SetupScreen />;
+  if (!isSetup) return <OnboardingWizard />;
   if (isLocked) return <UnlockScreen />;
   if (needsPassphraseReset) return <ResetPassphraseScreen />;
+  if (postOnboardingPhase === "logo") {
+    return <OnboardingLogoReveal onDone={() => setPostOnboardingPhase("reveal")} />;
+  }
+  if (postOnboardingPhase === "reveal") return <div className="omanote-onboarding-reveal">{children}</div>;
   return <>{children}</>;
 }

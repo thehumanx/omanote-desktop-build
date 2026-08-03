@@ -13,7 +13,7 @@ const founderNoteParagraphs = [
   "I didn't build this because the world needed another note-taking app (spoiler: it didn't 😅). And honestly? Not just to flex that I could build one either (okay, maybe a little; vibe-coding is real and it's fun). I built omanote because no existing app quite matched the way my brain actually works.",
   "Here's the thing: my mind is chaotic. Beautifully, exhaustingly chaotic. Throughout the day, thoughts appear out of nowhere. A task I'd have completely forgotten a second later. A moment I want to hold onto. An article worth saving for future-me. A random idea in the middle of something else that feels important.",
   "There are apps for all of this. Many, and better, actually. But they're scattered and setting each of them up meticulously is a work on its own. I just wanted one place to drop everything, right at the moment it happens.",
-  "For me, that's omanote. No setup, no learning curve. Just type.",
+  "For me, that's omanote. Once you're in, there's no learning curve. Just type.",
   "I call it a canvas: your day's mental dumping ground (the good kind). Everything you capture lands here: notes, todos, bookmarks, events — I call them artifacts. Each type has its own tidy home, but they all live on one canvas. Want to connect things across? Use #hashtags — they're the threads that tie your thinking together.",
   "So it is opinionated, very much on purpose to work just the way I am. And should you choose to customize, there are handful of settings to make it feel more like you.",
   "Oh — and there's a browser extension too. Save anything from any tab, right into your canvas. No friction. And everything stays completely private. Always.",
@@ -77,8 +77,12 @@ export function FounderNoteModal({ open, onClose }: FounderNoteModalProps) {
     >
       <div
         className={[
-          "founder-note-card relative flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-black/5 shadow-[0_24px_60px_rgba(0,0,0,0.16)] transition-[transform,opacity] duration-app-slow ease-app-in-out dark:border-white/10 dark:shadow-[0_24px_60px_rgba(0,0,0,0.42)]",
-          isEntered ? "translate-y-0 scale-100 opacity-100" : "translate-y-4 scale-[0.98] opacity-0",
+          "founder-note-card relative flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-black/5 shadow-[0_24px_60px_rgba(0,0,0,0.16)] dark:border-white/10 dark:shadow-[0_24px_60px_rgba(0,0,0,0.42)]",
+          isEntered
+            ? prefersReducedMotion
+              ? "opacity-100"
+              : "omanote-founder-note-crt-in"
+            : "opacity-0",
         ].join(" ")}
         onClick={(event) => event.stopPropagation()}
       >

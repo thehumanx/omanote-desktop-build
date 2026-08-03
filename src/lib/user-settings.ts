@@ -8,6 +8,7 @@ export type NewlineShortcut = "enter" | "shift_enter";
 export type ReminderLeadMinutes = 0 | 5 | 10 | 15;
 export type DefaultSnoozeMinutes = 5 | 10 | 15 | 30;
 export type ReminderToastDurationSeconds = 10 | 20 | 30 | 60;
+export type OnboardingStep = 0 | 1 | 2 | 3 | 4;
 
 export interface UserSettings {
   saveShortcut: SaveShortcut;
@@ -25,6 +26,9 @@ export interface UserSettings {
   canvasDotGrid: boolean;
   founderNoteSeen: boolean;
   rssReaderEnabled: boolean;
+  onboardingCompleted: boolean;
+  /** Resume marker for the post-signup wizard; meaningless once onboardingCompleted is true. */
+  onboardingStep: OnboardingStep;
 }
 
 /** Write type — sent to the Convex mutation. Only current valid values. */
@@ -44,6 +48,8 @@ export interface UserSettingsPatch {
   canvasDotGrid?: boolean;
   founderNoteSeen?: boolean;
   rssReaderEnabled?: boolean;
+  onboardingCompleted?: boolean;
+  onboardingStep?: OnboardingStep;
 }
 
 export const THEME_MODES = ["system", "light", "dark"] as const satisfies readonly ThemeMode[];
@@ -81,6 +87,8 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   canvasDotGrid: true,
   founderNoteSeen: false,
   rssReaderEnabled: false,
+  onboardingCompleted: false,
+  onboardingStep: 0,
 };
 
 function isThemeMode(value: unknown): value is ThemeMode {
@@ -129,6 +137,10 @@ function isReminderToastDurationSeconds(value: unknown): value is ReminderToastD
   return typeof value === "number" && (REMINDER_TOAST_DURATION_SECONDS as readonly number[]).includes(value);
 }
 
+function isOnboardingStep(value: unknown): value is OnboardingStep {
+  return value === 0 || value === 1 || value === 2 || value === 3 || value === 4;
+}
+
 export function normalizeUserSettings(input: Record<string, unknown> | null | undefined): UserSettings {
   const source = input ?? {};
   const merged: UserSettings = {
@@ -161,6 +173,10 @@ export function normalizeUserSettings(input: Record<string, unknown> | null | un
     canvasDotGrid: isBoolean(source.canvasDotGrid) ? source.canvasDotGrid : DEFAULT_USER_SETTINGS.canvasDotGrid,
     founderNoteSeen: isBoolean(source.founderNoteSeen) ? source.founderNoteSeen : DEFAULT_USER_SETTINGS.founderNoteSeen,
     rssReaderEnabled: isBoolean(source.rssReaderEnabled) ? source.rssReaderEnabled : DEFAULT_USER_SETTINGS.rssReaderEnabled,
+    onboardingCompleted: isBoolean(source.onboardingCompleted)
+      ? source.onboardingCompleted
+      : DEFAULT_USER_SETTINGS.onboardingCompleted,
+    onboardingStep: isOnboardingStep(source.onboardingStep) ? source.onboardingStep : DEFAULT_USER_SETTINGS.onboardingStep,
   };
 
   if (merged.saveShortcut === "enter" && merged.newlineShortcut === "enter") {

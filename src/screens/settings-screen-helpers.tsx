@@ -21,6 +21,7 @@ import type {
   ReminderToastDurationSeconds,
   ThemeMode,
 } from "../lib/user-settings";
+import { cn } from "../components/ui";
 
 export type AppearanceDraft = {
   themeMode: ThemeMode;
@@ -40,6 +41,69 @@ export type NotificationDraft = {
 export type BrowserPermissionState = NotificationPermission | "unsupported";
 
 export type CategoryId = "appearance" | "notifications" | "security" | "devices" | "data" | "account" | "features";
+
+const FONT_FAMILY_OPTIONS: readonly {
+  value: FontFamily;
+  label: string;
+  sub: string;
+  fontFamily: string;
+}[] = [
+  { value: "sans", label: "Sans", sub: "Lato", fontFamily: '"Lato", ui-sans-serif, system-ui, sans-serif' },
+  { value: "serif", label: "Serif", sub: "Aleo", fontFamily: '"Aleo", Georgia, ui-serif, serif' },
+];
+
+/**
+ * Font picker used by both the persistent Settings screen (which shows a
+ * dot for the currently-saved value separate from an unsaved draft) and the
+ * onboarding wizard (which has no draft — every click commits immediately,
+ * so `currentValue` is simply omitted).
+ */
+export function FontFamilyPicker({
+  value,
+  currentValue,
+  onSelect,
+}: {
+  value: FontFamily;
+  currentValue?: FontFamily;
+  onSelect: (value: FontFamily) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {FONT_FAMILY_OPTIONS.map((option) => {
+        const selected = value === option.value;
+        const current = currentValue !== undefined && currentValue === option.value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onSelect(option.value)}
+            className={cn(
+              "relative flex flex-col items-start gap-1.5 rounded-app-panel border px-4 py-3.5 text-left transition-[background-color,border-color] duration-app-fast",
+              selected
+                ? "border-app-line-strong bg-app-surface-muted"
+                : "border-app-line bg-app-surface hover:bg-app-surface-hover",
+            )}
+          >
+            {current && !selected && (
+              <span className="absolute right-3 top-3 h-1.5 w-1.5 rounded-full bg-app-ink-faint" aria-hidden="true" />
+            )}
+            <span
+              className={cn("text-2xl leading-none", selected ? "text-app-ink" : "text-app-ink-muted")}
+              style={{ fontFamily: option.fontFamily }}
+              aria-hidden="true"
+            >
+              Aa
+            </span>
+            <span className={cn("text-sm font-bold", selected ? "text-app-ink" : "text-app-ink-muted")}>
+              {option.label}
+            </span>
+            <span className="text-xs text-app-ink-faint">{option.sub}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 const NAV_PREVIEW_TABS = [
   { label: "Canvas", Icon: SquarePen },
@@ -61,7 +125,7 @@ export const CATEGORIES: { id: CategoryId; label: string; Icon: React.ElementTyp
 
 export function NavLabelPreview({ style }: { style: NavLabelStyle }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-xl border border-app-line bg-app-surface-muted px-6 py-5">
+    <div className="flex flex-col items-center gap-3 px-6 py-5">
       <p className="text-[11px] font-medium uppercase tracking-widest text-app-ink-faint">Preview</p>
       <div className="inline-flex items-center gap-1.5 rounded-full border border-app-line bg-app-surface px-3 py-2 shadow-sm">
         {NAV_PREVIEW_TABS.map((tab, i) => {

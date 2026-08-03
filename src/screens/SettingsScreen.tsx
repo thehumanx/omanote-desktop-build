@@ -42,6 +42,7 @@ import { detectWebClientType, getCurrentDeviceMetadata } from "../lib/device-inf
 import { useDrawerDrag } from "../lib/useDrawerDrag";
 import {
   CATEGORIES,
+  FontFamilyPicker,
   NavLabelPreview,
   appearanceDraftsMatch,
   clientTypeLabel,
@@ -689,47 +690,15 @@ export function SettingsScreen() {
                 <p className="mt-0.5 text-xs text-app-ink-faint">Choose the font style used across the app.</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                {([
-                  { value: "sans" as FontFamily, label: "Sans", sub: "Lato", fontFamily: '"Lato", ui-sans-serif, system-ui, sans-serif' },
-                  { value: "serif" as FontFamily, label: "Serif", sub: "Aleo", fontFamily: '"Aleo", Georgia, ui-serif, serif' },
-                ] as const).map((option) => {
-                  const selected = appearanceDraft.fontFamily === option.value;
-                  const current = appearanceSettingsDraft.fontFamily === option.value;
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => {
-                        cancelWaitingAppearanceContextSync();
-                        setAppearanceSaveError(null);
-                        setAppearanceDraft((cur) => ({ ...cur, fontFamily: option.value }));
-                      }}
-                      className={cn(
-                        "relative flex flex-col items-start gap-1.5 rounded-app-panel border px-4 py-3.5 text-left transition-[background-color,border-color] duration-app-fast",
-                        selected
-                          ? "border-app-line-strong bg-app-surface-muted"
-                          : "border-app-line bg-app-surface hover:bg-app-surface-hover",
-                      )}
-                    >
-                      {current && !selected && (
-                        <span className="absolute right-3 top-3 h-1.5 w-1.5 rounded-full bg-app-ink-faint" aria-hidden="true" />
-                      )}
-                      <span
-                        className={cn("text-2xl leading-none", selected ? "text-app-ink" : "text-app-ink-muted")}
-                        style={{ fontFamily: option.fontFamily }}
-                        aria-hidden="true"
-                      >
-                        Aa
-                      </span>
-                      <span className={cn("text-sm font-bold", selected ? "text-app-ink" : "text-app-ink-muted")}>
-                        {option.label}
-                      </span>
-                      <span className="text-xs text-app-ink-faint">{option.sub}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              <FontFamilyPicker
+                value={appearanceDraft.fontFamily}
+                currentValue={appearanceSettingsDraft.fontFamily}
+                onSelect={(value) => {
+                  cancelWaitingAppearanceContextSync();
+                  setAppearanceSaveError(null);
+                  setAppearanceDraft((cur) => ({ ...cur, fontFamily: value }));
+                }}
+              />
             </div>
 
             <div className="space-y-2">

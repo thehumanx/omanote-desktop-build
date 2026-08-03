@@ -1,6 +1,7 @@
 import React, { lazy, Suspense } from "react";
 import { Link, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
-import { useConvexAuth } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
+import { api } from "../convex/_generated/api";
 import { LandingScreen } from "./screens/LandingScreen";
 import { LandingScreen as LandingScreenV2 } from "./screens/LandingScreen.v2";
 import { useUserSettings } from "./contexts/UserSettingsContext";
@@ -85,6 +86,9 @@ const ReaderScreen = lazy(() =>
 const NotFoundPage = lazy(() =>
   import("./screens/NotFoundPage").then((module) => ({ default: module.NotFoundPage })),
 );
+const AdminDashboardScreen = lazy(() =>
+  import("./screens/AdminDashboardScreen").then((module) => ({ default: module.AdminDashboardScreen })),
+);
 
 export function getAuthenticatedLayoutKind(pathname: string) {
   void pathname;
@@ -112,6 +116,23 @@ function RootRoute() {
   }
 
   return <AuthenticatedAppLayout />;
+}
+
+/**
+ * The real gate is server-side in `convex/adminMetrics.ts` — this only decides
+ * whether to render the route or bounce to the canvas, so non-admins never see
+ * an error boundary.
+ *
+ * Web-only by design: the desktop shell loads the same production site, so
+ * without the `isTauri()` check this route would show up there for free. It's a
+ * wide, table-heavy analysis screen meant for a browser.
+ */
+export function AdminGuard({ children }: { children: React.ReactNode }) {
+  const isAdmin = useQuery(api.adminMetrics.isAdmin, {});
+  if (isTauri()) return <Navigate to="/canvas" replace />;
+  if (isAdmin === undefined) return null;
+  if (!isAdmin) return <Navigate to="/canvas" replace />;
+  return <>{children}</>;
 }
 
 function ReaderGuard({ children }: { children: React.ReactNode }) {
@@ -174,6 +195,7 @@ export default function App() {
           <Route path="guide" element={<GuideScreen />} />
           <Route path="guide/:topic" element={<GuideScreen />} />
           <Route path="insights" element={<InsightsScreen />} />
+          <Route path="admin" element={<AdminGuard><AdminDashboardScreen /></AdminGuard>} />
           <Route path="reader" element={<ReaderGuard><ReaderScreen /></ReaderGuard>} />
           <Route path="reader/saved" element={<ReaderGuard><ReaderScreen savedView /></ReaderGuard>} />
         </Route>

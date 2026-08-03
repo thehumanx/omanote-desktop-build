@@ -1001,14 +1001,226 @@ body {
   animation: omanote-survey-check-draw 340ms var(--motion-easing-out, ease-out) 260ms both;
 }
 
+/* ─── Onboarding wizard ────────────────────────────────────────────────────── */
+
+@keyframes omanote-wizard-step-in-next {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes omanote-wizard-step-in-prev {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.omanote-wizard-step-next {
+  animation: omanote-wizard-step-in-next 220ms var(--motion-easing-out, ease-out) both;
+}
+
+.omanote-wizard-step-prev {
+  animation: omanote-wizard-step-in-prev 220ms var(--motion-easing-out, ease-out) both;
+}
+
+@keyframes omanote-onboarding-reveal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.omanote-onboarding-reveal {
+  animation: omanote-onboarding-reveal-in 420ms var(--motion-easing-out, ease-out) both;
+}
+
+/* ─── Founder note: CRT power-on entrance ─────────────────────────────────── */
+
+@keyframes omanote-crt-on {
+  0% {
+    transform: scale(1.02, 0.01);
+    opacity: 0.6;
+  }
+  55% {
+    transform: scale(1, 0.04);
+    opacity: 1;
+  }
+  80% {
+    transform: scale(1, 0.7);
+  }
+  100% {
+    transform: scale(1, 1);
+    opacity: 1;
+  }
+}
+
+.omanote-founder-note-crt-in {
+  animation: omanote-crt-on 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ─── Animated logo mark ───────────────────────────────────────────────────── */
+/* The mark is three constant-width strokes on a 96x96 box centred at 48,48:
+   inner ring r=21.05 (length 132.264), the 45° diagonal (57.799) and outer
+   ring r=40.09 (251.892). Every dash value below is one of those three
+   lengths, so keep them in sync with OmanoteMark.tsx if the geometry moves. */
+
+.omanote-mark-stroke {
+  stroke-dashoffset: 0;
+}
+
+/* Reveal: inner ring draws, the diagonal grows out through the centre, pauses
+   as it clears the ring, then reaches the outer ring and that closes. */
+@keyframes omanote-mark-reveal-inner {
+  0% {
+    stroke-dashoffset: 132.264;
+  }
+  35%,
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes omanote-mark-reveal-diagonal {
+  0%,
+  30% {
+    stroke-dashoffset: 57.799;
+  }
+  /* 19.04 is where the diagonal clears the inner ring — the beat before it reaches out. */
+  50% {
+    stroke-dashoffset: 19.04;
+  }
+  62%,
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes omanote-mark-reveal-outer {
+  0%,
+  60% {
+    stroke-dashoffset: 251.892;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Loop: one continuous ribbon. The head draws inner → diagonal → outer and the
+   tail erases in the same order, but the outer ring's erase deliberately spans
+   the cycle boundary so it is still unwinding while the next inner ring draws.
+   Without that overlap every cycle passes through a fully blank frame, which at
+   spinner sizes reads as a broken element rather than a pause.
+   These need linear timing to stay rate-consistent across the wrap. */
+@keyframes omanote-mark-loop-inner {
+  0% {
+    stroke-dashoffset: 132.264;
+  }
+  18%,
+  70% {
+    stroke-dashoffset: 0;
+  }
+  78%,
+  100% {
+    stroke-dashoffset: -132.264;
+  }
+}
+
+@keyframes omanote-mark-loop-diagonal {
+  0%,
+  16% {
+    stroke-dashoffset: 57.799;
+  }
+  30%,
+  74% {
+    stroke-dashoffset: 0;
+  }
+  82%,
+  100% {
+    stroke-dashoffset: -57.799;
+  }
+}
+
+@keyframes omanote-mark-loop-outer {
+  /* Starts mid-erase, carrying the previous cycle's ring. The jump at 20% is
+     from -251.892 to 251.892 — both mean "fully hidden", so it is invisible. */
+  0% {
+    stroke-dashoffset: -125.946;
+  }
+  20% {
+    stroke-dashoffset: -251.892;
+  }
+  20.01%,
+  40% {
+    stroke-dashoffset: 251.892;
+  }
+  /* Completes at 58%, while the inner ring and diagonal are still up, so the
+     whole mark is legible for a beat before the tail starts unwinding. */
+  58%,
+  80% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -125.946;
+  }
+}
+
+.omanote-mark--reveal .omanote-mark-inner {
+  animation: omanote-mark-reveal-inner var(--omanote-mark-duration, 1750ms) cubic-bezier(0.5, 0, 0.2, 1) backwards;
+}
+
+.omanote-mark--reveal .omanote-mark-diagonal {
+  animation: omanote-mark-reveal-diagonal var(--omanote-mark-duration, 1750ms) linear backwards;
+}
+
+.omanote-mark--reveal .omanote-mark-outer {
+  animation: omanote-mark-reveal-outer var(--omanote-mark-duration, 1750ms) cubic-bezier(0.4, 0, 0.15, 1) backwards;
+}
+
+.omanote-mark--loop .omanote-mark-inner {
+  animation: omanote-mark-loop-inner var(--omanote-mark-duration, 3000ms) linear infinite;
+}
+
+.omanote-mark--loop .omanote-mark-diagonal {
+  animation: omanote-mark-loop-diagonal var(--omanote-mark-duration, 3000ms) linear infinite;
+}
+
+.omanote-mark--loop .omanote-mark-outer {
+  animation: omanote-mark-loop-outer var(--omanote-mark-duration, 3000ms) linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .omanote-survey-step-next,
   .omanote-survey-step-prev,
-  .omanote-survey-check-ring {
+  .omanote-survey-check-ring,
+  .omanote-wizard-step-next,
+  .omanote-wizard-step-prev,
+  .omanote-onboarding-reveal,
+  .omanote-founder-note-crt-in {
     animation: none;
   }
 
   .omanote-survey-check-path {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+
+  /* Both variants settle on the finished mark rather than animating. Callers
+     using the loop as a spinner should pair it with a text status. */
+  .omanote-mark-stroke {
     animation: none;
     stroke-dashoffset: 0;
   }

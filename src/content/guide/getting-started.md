@@ -19,7 +19,7 @@ The canvas always shows one day. Use the date strip at the top to move backward 
 
 ## Your passphrase keeps everything private
 
-Everything you write is **encrypted on your device** before it's saved to the cloud. That means only you can read your content — but it also means your passphrase matters. When you sign up, omanote gives you a **recovery key**. Save it somewhere safe: if you forget your passphrase and don't have the recovery key, your encrypted content cannot be recovered by anyone, including us.
+Everything you write is **encrypted on your device** before it's saved to the cloud. That means only you can read your content — but it also means your passphrase matters. During setup, omanote gives you a **recovery key**. Save it somewhere safe: if you forget your passphrase and don't have the recovery key, your encrypted content cannot be recovered by anyone, including us.
 
 ## Use it everywhere
 

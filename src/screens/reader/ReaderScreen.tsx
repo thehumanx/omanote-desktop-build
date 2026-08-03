@@ -15,7 +15,6 @@ import {
   Ellipsis,
   ExternalLink,
   GripHorizontal,
-  Loader2,
   Pencil,
   Plus,
   RefreshCw,
@@ -603,7 +602,7 @@ export function ReaderScreen({ savedView = false }: { savedView?: boolean }) {
           }
           actionIcon={
             fetchingFeedNow ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <LoadingSpinner className="h-4 w-4" />
             ) : (
               <RefreshCw className="h-4 w-4" />
             )
@@ -661,7 +660,7 @@ export function ReaderScreen({ savedView = false }: { savedView?: boolean }) {
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink disabled:opacity-50"
                 >
                   {fetchingFeedNow ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <LoadingSpinner className="h-4 w-4" />
                   ) : (
                     <RefreshCw className="h-4 w-4" />
                   )}
@@ -1541,7 +1540,7 @@ function SelectedFeedBar({
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink disabled:opacity-50"
         >
           {isRefreshing ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <LoadingSpinner className="h-4 w-4" />
           ) : (
             <RefreshCw className="h-4 w-4" />
           )}
@@ -2284,7 +2283,7 @@ function AddFeedModal({
           />
           <Button onClick={() => void discover()} disabled={discovering || !url.trim()}>
             <span className="inline-flex items-center gap-1.5">
-              {discovering ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {discovering ? <LoadingSpinner className="h-4 w-4" /> : null}
               Find
             </span>
           </Button>
@@ -2310,7 +2309,7 @@ function AddFeedModal({
               <CategoryCombobox categories={categories} value={categoryName} onChange={setCategoryName} />
               <Button className="h-11" onClick={() => void confirm()} disabled={subscribing}>
                 <span className="inline-flex items-center gap-1.5">
-                  {subscribing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  {subscribing ? <LoadingSpinner className="h-4 w-4" /> : null}
                   Subscribe
                 </span>
               </Button>

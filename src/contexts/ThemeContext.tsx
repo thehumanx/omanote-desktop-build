@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import type { ThemeMode, UserSettings, UserSettingsPatch } from "../lib/user-settings";
+import type { ThemeMode } from "../lib/user-settings";
 import { applyResolvedTheme, applyTypographySettings, resolveThemeMode, setStoredThemeMode, type ResolvedTheme } from "../design-system/theme";
+import { useUserSettings } from "./UserSettingsContext";
 
 type ThemeContextValue = {
   themeMode: ThemeMode;
@@ -10,17 +11,8 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-export function ThemeProvider({
-  children,
-  settings,
-  updateSettings,
-  loading,
-}: {
-  children: React.ReactNode;
-  settings: UserSettings;
-  updateSettings: (updates: UserSettingsPatch) => Promise<void>;
-  loading: boolean;
-}) {
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const { settings, updateSettings, loading } = useUserSettings();
   const [systemPrefersDark, setSystemPrefersDark] = useState(() => getSystemPrefersDark());
   const [pendingThemeMode, setPendingThemeMode] = useState<ThemeMode | null>(null);
   const themeMode = pendingThemeMode ?? settings.themeMode;
