@@ -131,7 +131,7 @@ export function ExtensionAuthScreen() {
               {isRefresh ? "Refreshing your omanote extension session." : "Authorizing your omanote extension."} This tab will close automatically.
             </p>
             <div className="mt-6 flex justify-center">
-              <LoadingSpinner />
+              <LoadingSpinner className="text-app-ink-faint" />
             </div>
           </>
         )}

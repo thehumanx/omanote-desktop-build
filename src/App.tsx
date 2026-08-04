@@ -3,7 +3,6 @@ import { Link, Navigate, Outlet, Route, Routes, useLocation } from "react-router
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { LandingScreen } from "./screens/LandingScreen";
-import { LandingScreen as LandingScreenV2 } from "./screens/LandingScreen.v2";
 import { useUserSettings } from "./contexts/UserSettingsContext";
 import { isTauri } from "./lib/desktop";
 import { DesktopAuthListener } from "./components/desktop/DesktopAuthListener";

@@ -4,6 +4,18 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.28.5 [August 4, 2026]
+
+> A tidier mobile top bar and a few things that were quietly broken underneath it.
+
+- [Update] Write/Read toggle now lives in the mobile top bar instead of its own row underneath
+- [Update] Removed the rainbow emoji from the rotating daily greetings — it read oddly sitting alone next to just a name
+- [Fix] Mobile top bar no longer overlaps canvas content when RSS is off
+- [Fix] Folder picker dropdown is now visible when creating or editing a note on mobile
+- [Fix] Long-pressing a note, todo, or event to edit it no longer triggers the browser's text-selection toolbar
+- [Fix] The reader's empty state no longer renders underneath the top bar
+- [Fix] Loading spinners across the reader (feed refresh, empty states, "Add a feed" dialog) and sign-in screens no longer show a mismatched green — they now match their surrounding icon and text color
+
 ### v0.28.4 [August 3, 2026]
 
 > A friendlier first run: customize before you commit, and lock it down last.
@@ -604,6 +616,23 @@ All notable changes to omanote are documented here, organized by product.
 See what's planned next: [omanote.com/s/FeUM44Rd](https://omanote.com/s/FeUM44Rd)
 
 ## Desktop Versions
+
+### v0.28.5 [August 4, 2026]
+
+> A tidier top bar in narrow windows, and a few things that were quietly broken underneath it.
+
+- [Update] Write/Read toggle now lives in the top bar instead of its own row underneath when the window is narrow
+- [Update] Removed the rainbow emoji from the rotating daily greetings — it read oddly sitting alone next to just a name
+- [Fix] Top bar no longer overlaps canvas content in a narrow window when RSS is off
+- [Fix] Folder picker dropdown is now visible when creating or editing a note in a narrow window
+- [Fix] The reader's empty state no longer renders underneath the top bar
+- [Fix] Loading spinners across the reader (feed refresh, empty states, "Add a feed" dialog) and sign-in screens no longer show a mismatched green — they now match their surrounding icon and text color
+
+### v0.28.4 [August 3, 2026]
+
+> A friendlier first run: customize before you commit, and lock it down last.
+
+- [Add] New signup flow — pick your theme, font, and nav style, optionally connect Google Calendar or RSS, a quick tip on where to find the guide and send feedback, then set your passphrase last
 
 ### v0.28.3 [July 31, 2026]
 

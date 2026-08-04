@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type TouchEvent as ReactTouchEvent } from "react";
+import { ModeSwitch } from "./ModeSwitch";
 import { Bookmark, BookmarkCheck, BookOpen, Check, CheckSquare, ChevronLeft, ChevronRight, Compass, Download, ExternalLink, FileText, GripHorizontal, Info, LogOut, CalendarDays, MessageSquare, Monitor, Moon, Plus, Rss, ScrollText, Settings, Shield, Puzzle, Sparkles, SquarePen, Sun, X } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useApp } from "../../app/AppProvider";
@@ -572,7 +573,7 @@ function FullBottomNav({ hidden = false, forceHidden = false, onOpenAbout }: { h
         ref={mobileTopBarRef}
         style={keyboardOpen ? { display: "none" } : undefined}
         className={[
-          "fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between px-4 transform-gpu md:hidden",
+          "fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between px-4 bg-app-canvas transform-gpu md:hidden",
           forceHidden ? "transition-none" : "transition-transform duration-app-slow ease-app-in-out",
           shouldHide ? "-translate-y-[calc(100%+0.5rem)] pointer-events-none" : "translate-y-0",
         ].join(" ")}
@@ -588,6 +589,11 @@ function FullBottomNav({ hidden = false, forceHidden = false, onOpenAbout }: { h
         ) : (
           <div className="h-10 w-10 shrink-0" />
         )}
+        {settings.rssReaderEnabled ? (
+          <div className="absolute left-1/2 -translate-x-1/2">
+            <ModeSwitch />
+          </div>
+        ) : null}
         <button
           className="relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full border border-app-line bg-app-surface p-0 shadow-soft transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-app-surface-hover active:translate-y-px active:scale-[0.98]"
           onClick={handleProfileClick}

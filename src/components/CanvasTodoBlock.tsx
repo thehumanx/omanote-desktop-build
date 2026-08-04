@@ -105,7 +105,11 @@ function CanvasTodoBlockComponent({
   return (
     <div
       data-testid="canvas-todo-block"
-      className="group relative -ml-3 -mr-2 -my-1 w-full rounded-xl px-2 py-1 pl-3 transition-[transform,opacity,background-color,box-shadow] duration-200 ease-out hover:bg-app-surface-hover focus-within:bg-app-surface-muted focus-within:ring-1 focus-within:ring-app-focus/15 before:pointer-events-none before:absolute before:inset-y-2 before:left-0 before:w-px before:rounded-full before:bg-transparent focus-within:before:bg-app-line-strong"
+      className={
+        isMobile
+          ? "group relative -ml-3 -mr-2 -my-1 w-full select-none rounded-xl px-2 py-1 pl-3 transition-[transform,opacity,background-color,box-shadow] duration-200 ease-out hover:bg-app-surface-hover focus-within:bg-app-surface-muted focus-within:ring-1 focus-within:ring-app-focus/15 before:pointer-events-none before:absolute before:inset-y-2 before:left-0 before:w-px before:rounded-full before:bg-transparent focus-within:before:bg-app-line-strong [-webkit-touch-callout:none]"
+          : "group relative -ml-3 -mr-2 -my-1 w-full rounded-xl px-2 py-1 pl-3 transition-[transform,opacity,background-color,box-shadow] duration-200 ease-out hover:bg-app-surface-hover focus-within:bg-app-surface-muted focus-within:ring-1 focus-within:ring-app-focus/15 before:pointer-events-none before:absolute before:inset-y-2 before:left-0 before:w-px before:rounded-full before:bg-transparent focus-within:before:bg-app-line-strong"
+      }
       onDoubleClick={() => onOpenEditor(todo)}
       onTouchStart={isMobile ? handleTouchStart : undefined}
       onTouchMove={isMobile ? handleTouchMove : undefined}

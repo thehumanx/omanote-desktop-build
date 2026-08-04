@@ -60,7 +60,7 @@ export function DesktopAuthScreen() {
 
         {!isLoaded && (
           <div className="mt-6 flex justify-center">
-            <LoadingSpinner />
+            <LoadingSpinner className="text-app-ink-faint" />
           </div>
         )}
 
@@ -92,7 +92,7 @@ export function DesktopAuthScreen() {
               Authorizing your omanote desktop app.
             </p>
             <div className="mt-6 flex justify-center">
-              <LoadingSpinner />
+              <LoadingSpinner className="text-app-ink-faint" />
             </div>
           </>
         )}

@@ -172,7 +172,7 @@ export function NoteFolderPicker({
             <div
               ref={menuRef}
               data-omanote-ignore-outside-click="true"
-              className="fixed z-app-modal overflow-y-auto rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
+              className="fixed z-app-menu overflow-y-auto rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
               style={menuStyle}
             >
               {menuItems.map((item, index) => (

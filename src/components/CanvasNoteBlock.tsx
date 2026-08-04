@@ -208,7 +208,11 @@ function CanvasNoteBlockComponent({ note, pendingSync, dispatch, noteFolders }: 
     <div
       role={isEditing ? undefined : "button"}
       tabIndex={isEditing ? undefined : 0}
-      className="block w-full text-left"
+      className={
+        isEditing || !isMobile
+          ? "block w-full text-left"
+          : "block w-full select-none text-left [-webkit-touch-callout:none]"
+      }
       onClick={isEditing ? undefined : startEditingFromClick}
       onDoubleClick={isEditing ? undefined : startEditingFromClick}
       onTouchStart={isEditing || !isMobile ? undefined : handleTouchStart}

@@ -586,7 +586,7 @@ export function ReaderScreen({ savedView = false }: { savedView?: boolean }) {
   const articleList = (isMobileDrawer: boolean) =>
     items === undefined ? (
       <div className="flex items-center justify-center py-24">
-        <LoadingSpinner className="h-5 w-5" />
+        <LoadingSpinner className="h-5 w-5 text-app-ink-faint" />
       </div>
     ) : items.length === 0 ? (
       <>
@@ -602,7 +602,7 @@ export function ReaderScreen({ savedView = false }: { savedView?: boolean }) {
           }
           actionIcon={
             fetchingFeedNow ? (
-              <LoadingSpinner className="h-4 w-4" />
+              <LoadingSpinner className="h-4 w-4 text-action-primary-ink" />
             ) : (
               <RefreshCw className="h-4 w-4" />
             )
@@ -660,7 +660,7 @@ export function ReaderScreen({ savedView = false }: { savedView?: boolean }) {
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink disabled:opacity-50"
                 >
                   {fetchingFeedNow ? (
-                    <LoadingSpinner className="h-4 w-4" />
+                    <LoadingSpinner className="h-4 w-4 text-app-ink-faint" />
                   ) : (
                     <RefreshCw className="h-4 w-4" />
                   )}
@@ -777,7 +777,7 @@ export function ReaderScreen({ savedView = false }: { savedView?: boolean }) {
         <div className="h-full min-h-0 overflow-y-auto pt-4 pb-8">
           {items === undefined ? (
             <div className="flex items-center justify-center py-24">
-              <LoadingSpinner className="h-5 w-5" />
+              <LoadingSpinner className="h-5 w-5 text-app-ink-faint" />
             </div>
           ) : items.length === 0 ? (
             <EmptyState
@@ -807,7 +807,7 @@ export function ReaderScreen({ savedView = false }: { savedView?: boolean }) {
   if (subscriptions === undefined) {
     return (
       <div className="flex flex-1 items-center justify-center py-24">
-        <LoadingSpinner className="h-5 w-5" />
+        <LoadingSpinner className="h-5 w-5 text-app-ink-faint" />
       </div>
     );
   }
@@ -815,13 +815,18 @@ export function ReaderScreen({ savedView = false }: { savedView?: boolean }) {
   if (subscriptions.length === 0) {
     return (
       <>
-        <EmptyState
-          title="Your reading room is empty"
-          description="Subscribe to blogs, newspapers, and newsletters by their RSS feed — new articles appear here, ready to read without leaving omanote."
-          actionLabel="Add your first feed"
-          actionIcon={<Rss className="h-4 w-4" />}
-          onAction={() => setAddOpen(true)}
-        />
+        <div
+          className="fixed left-0 right-0 z-0 mx-auto flex min-h-0 flex-1 flex-col overflow-hidden md:px-4"
+          style={{ top: "var(--omanote-top-chrome-height, 0px)", bottom: "0px", maxWidth: "1200px" }}
+        >
+          <EmptyState
+            title="Your reading room is empty"
+            description="Subscribe to blogs, newspapers, and newsletters by their RSS feed — new articles appear here, ready to read without leaving omanote."
+            actionLabel="Add your first feed"
+            actionIcon={<Rss className="h-4 w-4" />}
+            onAction={() => setAddOpen(true)}
+          />
+        </div>
         {addOpen ? <AddFeedModal categories={categories ?? []} onClose={() => setAddOpen(false)} /> : null}
       </>
     );
@@ -1540,7 +1545,7 @@ function SelectedFeedBar({
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink disabled:opacity-50"
         >
           {isRefreshing ? (
-            <LoadingSpinner className="h-4 w-4" />
+            <LoadingSpinner className="h-4 w-4 text-app-ink-faint" />
           ) : (
             <RefreshCw className="h-4 w-4" />
           )}
@@ -2283,7 +2288,7 @@ function AddFeedModal({
           />
           <Button onClick={() => void discover()} disabled={discovering || !url.trim()}>
             <span className="inline-flex items-center gap-1.5">
-              {discovering ? <LoadingSpinner className="h-4 w-4" /> : null}
+              {discovering ? <LoadingSpinner className="h-4 w-4 text-action-primary-ink" /> : null}
               Find
             </span>
           </Button>
@@ -2309,7 +2314,7 @@ function AddFeedModal({
               <CategoryCombobox categories={categories} value={categoryName} onChange={setCategoryName} />
               <Button className="h-11" onClick={() => void confirm()} disabled={subscribing}>
                 <span className="inline-flex items-center gap-1.5">
-                  {subscribing ? <LoadingSpinner className="h-4 w-4" /> : null}
+                  {subscribing ? <LoadingSpinner className="h-4 w-4 text-action-primary-ink" /> : null}
                   Subscribe
                 </span>
               </Button>

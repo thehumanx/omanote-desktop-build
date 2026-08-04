@@ -263,7 +263,11 @@ function CanvasEventBlockComponent({ event, pendingSync, dispatch }: CanvasEvent
     <div
       role={isReadOnly || isEditing ? undefined : "button"}
       tabIndex={isReadOnly || isEditing ? undefined : 0}
-      className="flex w-full items-start gap-2 text-left outline-none"
+      className={
+        isReadOnly || isEditing || !isMobile
+          ? "flex w-full items-start gap-2 text-left outline-none"
+          : "flex w-full select-none items-start gap-2 text-left outline-none [-webkit-touch-callout:none]"
+      }
       onClick={(event) => {
         if (isReadOnly || isEditing || isPopoverEvent(event)) return;
         setFocusTarget("label");

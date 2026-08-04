@@ -96,7 +96,7 @@ export function DesktopOnboardingScreen() {
             {phase === "waiting" && (
               <div className="space-y-3">
                 <div className="flex items-center justify-center gap-2.5 text-sm text-app-ink-muted">
-                  <LoadingSpinner />
+                  <LoadingSpinner className="text-app-ink-muted" />
                   <span>Finish signing in using your browser…</span>
                 </div>
                 <button
@@ -111,7 +111,7 @@ export function DesktopOnboardingScreen() {
 
             {phase === "signing-in" && (
               <div className="flex items-center justify-center gap-2.5 text-sm text-app-ink-muted">
-                <LoadingSpinner />
+                <LoadingSpinner className="text-app-ink-muted" />
                 <span>Signing you in…</span>
               </div>
             )}

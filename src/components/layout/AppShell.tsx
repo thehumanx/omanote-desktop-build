@@ -234,7 +234,7 @@ export function AppShell() {
             </div>
           ) : null}
           {settings.rssReaderEnabled ? (
-            <div data-tauri-drag-region className="mx-auto flex w-full max-w-[1152px] justify-center px-4 pt-2">
+            <div data-tauri-drag-region className="mx-auto hidden w-full max-w-[1152px] justify-center px-4 pt-2 md:flex">
               <ModeSwitch />
             </div>
           ) : null}
