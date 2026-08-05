@@ -336,6 +336,68 @@ const activationFunnelRule: Rule = (data) => {
   };
 };
 
+const sessionGapRule: Rule = (data) => {
+  const { trueActiveLast7, writeActiveLast7, readOnlyLast7 } = data.sessionActivity;
+  if (trueActiveLast7 === 0) return null;
+  const gap = pct(readOnlyLast7, trueActiveLast7);
+  if (gap < 15) {
+    return {
+      id: "session-gap",
+      severity: "ok",
+      title: "Write-based activity tracks session-based activity closely",
+      detail: `${trueActiveLast7} users opened the app in the last 7 days; ${writeActiveLast7} of them also wrote something (${100 - gap}% overlap).`,
+      suggestion: "activityHistory alone is a reasonable proxy for active users right now.",
+    };
+  }
+  return {
+    id: "session-gap",
+    severity: gap >= 35 ? "warning" : "info",
+    title: "A meaningful slice of active users never shows up in write-based metrics",
+    detail: `${readOnlyLast7} of ${trueActiveLast7} users active in the last 7 days (${gap}%) opened the app but wrote nothing — every other chart above misses them entirely.`,
+    suggestion:
+      "Treat write-based retention numbers as a floor, not the full picture. Ask a few of these read-only users what they're doing in the app if it isn't editing.",
+  };
+};
+
+const pmfBehaviorMismatchRule: Rule = (data) => {
+  const very = data.pmfSegments.find((s) => s.bucket === "very_disappointed");
+  const not = data.pmfSegments.find((s) => s.bucket === "not_disappointed");
+  if (!very || !not || very.users < 5 || not.users < 5) return null;
+  const gap = very.retainedPast30 - not.retainedPast30;
+  if (gap >= 15) {
+    return {
+      id: "pmf-behavior-match",
+      severity: "ok",
+      title: "The Sean Ellis answer tracks real behavior",
+      detail: `"Very disappointed" respondents retain past day 30 at ${very.retainedPast30}% vs. ${not.retainedPast30}% for "not disappointed" respondents.`,
+      suggestion: "The survey signal is trustworthy. Keep segmenting product decisions by this answer.",
+    };
+  }
+  return {
+    id: "pmf-behavior-match",
+    severity: "warning",
+    title: "Survey PMF score doesn't line up with actual retention",
+    detail: `"Very disappointed" respondents retain past day 30 at only ${very.retainedPast30}% — barely different from ${not.retainedPast30}% for "not disappointed" respondents.`,
+    suggestion:
+      "Small sample or social-desirability bias is more likely than a real signal here. Don't make roadmap calls off the Sean Ellis score alone until this gap closes.",
+  };
+};
+
+const declaredVsActualGapRule: Rule = (data) => {
+  const total = data.declaredGoalsBreakdown.reduce((sum, g) => sum + g.declared, 0);
+  if (total < 10) return null;
+  const worst = [...data.declaredGoalsBreakdown].sort((a, b) => a.activationRate - b.activationRate)[0];
+  if (!worst || worst.activationRate >= 50) return null;
+  return {
+    id: "declared-vs-actual",
+    severity: worst.activationRate < 25 ? "warning" : "info",
+    title: `Users who said "${worst.goal}" mostly never acted on it`,
+    detail: `${worst.declared} users declared this at onboarding, but only ${worst.activationRate}% went on to create anything at all.`,
+    suggestion:
+      "This is intent that never became behavior — either the feature for this use case is hard to find, or the stated goal doesn't match what the product actually delivers for it.",
+  };
+};
+
 const surveySampleRule: Rule = (data) => {
   const active = totalActiveUsers(data);
   if (data.survey.started >= Math.max(10, active * 0.3)) return null;
@@ -363,6 +425,9 @@ const RULES: Rule[] = [
   organicAcquisitionRule,
   monetizationRule,
   surveySampleRule,
+  sessionGapRule,
+  pmfBehaviorMismatchRule,
+  declaredVsActualGapRule,
 ];
 
 export function deriveInsights(data: PmfDashboard): Insight[] {

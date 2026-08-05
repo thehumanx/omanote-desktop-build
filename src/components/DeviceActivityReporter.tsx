@@ -10,9 +10,21 @@ const DEVICE_TOUCH_INTERVAL_MS = 5 * 60 * 1000;
 
 export function DeviceActivityReporter() {
   const touchDevice = useMutation(api.devices.touchDevice);
+  const recordOpen = useMutation(api.appSessions.recordOpen);
   const device = useMemo(() => getCurrentDeviceMetadata(detectWebClientType()), []);
   const { lock } = useEncryption();
   const { signOut } = useAuth();
+
+  // Fire-and-forget, once per mount — recordOpen is idempotent per user per
+  // UTC day server-side, so this doesn't need its own throttling here. This
+  // closes the PMF dashboard's biggest blind spot: activityHistory only
+  // records writes, so a read-only session was previously invisible.
+  useEffect(() => {
+    recordOpen({ clientType: device.clientType }).catch(() => {
+      // Session pings are diagnostic, not a blocking app feature.
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

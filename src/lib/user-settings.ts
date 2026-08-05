@@ -29,6 +29,9 @@ export interface UserSettings {
   onboardingCompleted: boolean;
   /** Resume marker for the post-signup wizard; meaningless once onboardingCompleted is true. */
   onboardingStep: OnboardingStep;
+  /** Declared "what are you here for" chips from the Welcome step. Optional, never re-asked. */
+  onboardingGoals: string[];
+  onboardingGoalsOther: string;
 }
 
 /** Write type — sent to the Convex mutation. Only current valid values. */
@@ -50,6 +53,8 @@ export interface UserSettingsPatch {
   rssReaderEnabled?: boolean;
   onboardingCompleted?: boolean;
   onboardingStep?: OnboardingStep;
+  onboardingGoals?: string[];
+  onboardingGoalsOther?: string;
 }
 
 export const THEME_MODES = ["system", "light", "dark"] as const satisfies readonly ThemeMode[];
@@ -89,6 +94,8 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   rssReaderEnabled: false,
   onboardingCompleted: false,
   onboardingStep: 0,
+  onboardingGoals: [],
+  onboardingGoalsOther: "",
 };
 
 function isThemeMode(value: unknown): value is ThemeMode {
@@ -177,6 +184,11 @@ export function normalizeUserSettings(input: Record<string, unknown> | null | un
       ? source.onboardingCompleted
       : DEFAULT_USER_SETTINGS.onboardingCompleted,
     onboardingStep: isOnboardingStep(source.onboardingStep) ? source.onboardingStep : DEFAULT_USER_SETTINGS.onboardingStep,
+    onboardingGoals: Array.isArray(source.onboardingGoals)
+      ? source.onboardingGoals.filter((g): g is string => typeof g === "string")
+      : DEFAULT_USER_SETTINGS.onboardingGoals,
+    onboardingGoalsOther:
+      typeof source.onboardingGoalsOther === "string" ? source.onboardingGoalsOther : DEFAULT_USER_SETTINGS.onboardingGoalsOther,
   };
 
   if (merged.saveShortcut === "enter" && merged.newlineShortcut === "enter") {

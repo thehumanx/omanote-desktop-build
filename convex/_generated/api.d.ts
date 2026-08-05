@@ -13,6 +13,7 @@ import type * as actions_linkPreview from "../actions/linkPreview.js";
 import type * as actions_rssFetch from "../actions/rssFetch.js";
 import type * as admin from "../admin.js";
 import type * as adminMetrics from "../adminMetrics.js";
+import type * as appSessions from "../appSessions.js";
 import type * as bookmarks from "../bookmarks.js";
 import type * as canvas from "../canvas.js";
 import type * as crons from "../crons.js";
@@ -63,6 +64,7 @@ declare const fullApi: ApiFromModules<{
   "actions/rssFetch": typeof actions_rssFetch;
   admin: typeof admin;
   adminMetrics: typeof adminMetrics;
+  appSessions: typeof appSessions;
   bookmarks: typeof bookmarks;
   canvas: typeof canvas;
   crons: typeof crons;

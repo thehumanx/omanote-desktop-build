@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useAction, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { AlertTriangle, CheckCircle2, Info, Lightbulb, XCircle } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { cn } from "../components/ui";
@@ -450,6 +450,165 @@ function SurveySection({ data }: { data: PmfDashboard }) {
   );
 }
 
+function ModuleConversionTable({ data }: { data: PmfDashboard }) {
+  if (data.moduleConversion.length === 0) {
+    return <p className="text-xs text-app-ink-faint">Not enough data yet.</p>;
+  }
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[420px] border-collapse">
+        <thead>
+          <tr>
+            <Th>Started with</Th>
+            <Th>Also touched</Th>
+            <Th align="right">Eligible</Th>
+            <Th align="right">Converted</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.moduleConversion.map((row) => {
+            const share = pct(row.converted, row.eligible);
+            return (
+              <tr key={`${row.from}-${row.to}`}>
+                <Td className="capitalize">{row.from}</Td>
+                <Td className="capitalize">{row.to}</Td>
+                <Td align="right">{row.eligible}</Td>
+                <Td align="right" className={share < 20 ? "text-red-600" : undefined}>
+                  {row.converted} ({share}%)
+                </Td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function PmfSegmentsTable({ data }: { data: PmfDashboard }) {
+  const totalRespondents = data.pmfSegments.reduce((sum, s) => sum + s.users, 0);
+  if (totalRespondents === 0) {
+    return <p className="text-xs text-app-ink-faint">No PMF survey answers yet.</p>;
+  }
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[520px] border-collapse">
+        <thead>
+          <tr>
+            <Th>If omanote disappeared…</Th>
+            <Th align="right">Respondents</Th>
+            <Th align="right">Avg days active</Th>
+            <Th align="right">Todo close rate</Th>
+            <Th align="right">Retained past D30</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.pmfSegments.map((s) => (
+            <tr key={s.bucket}>
+              <Td>{s.label}</Td>
+              <Td align="right">{s.users}</Td>
+              <Td align="right">{s.avgDaysActive}</Td>
+              <Td align="right">{s.todoCloseRate}%</Td>
+              <Td align="right">{s.retainedPast30}%</Td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function DeclaredGoalsTable({ data }: { data: PmfDashboard }) {
+  if (data.declaredGoalsBreakdown.length === 0) {
+    return <p className="text-xs text-app-ink-faint">No declared onboarding goals yet.</p>;
+  }
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[480px] border-collapse">
+        <thead>
+          <tr>
+            <Th>Declared goal</Th>
+            <Th align="right">Users</Th>
+            <Th align="right">Activation rate</Th>
+            <Th align="right">Retention past D30</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.declaredGoalsBreakdown.map((g) => (
+            <tr key={g.goal}>
+              <Td>{humanizeChoice(g.goal)}</Td>
+              <Td align="right">{g.declared}</Td>
+              <Td align="right" className={g.activationRate < 50 ? "text-red-600" : undefined}>
+                {g.activationRate}%
+              </Td>
+              <Td align="right">{g.retentionRate}%</Td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+const FEEDBACK_STATUSES = ["new", "planned", "done", "declined"] as const;
+
+function FeedbackList({ data }: { data: PmfDashboard }) {
+  const updateStatus = useMutation(api.feedback.updateStatus);
+
+  if (data.feedback.length === 0) {
+    return <p className="text-xs text-app-ink-faint">No feedback submitted yet.</p>;
+  }
+
+  const themeCounts = new Map<string, number>();
+  for (const f of data.feedback) {
+    if (f.theme) themeCounts.set(f.theme, (themeCounts.get(f.theme) ?? 0) + 1);
+  }
+  const openCount = data.feedback.filter((f) => f.status === "new").length;
+
+  return (
+    <div>
+      <p className="mb-2 text-[11px] text-app-ink-faint">
+        {openCount} untriaged
+        {themeCounts.size > 0 &&
+          ` · ${[...themeCounts.entries()].map(([theme, count]) => `${theme} (${count})`).join(", ")}`}
+      </p>
+      <ul className="space-y-2">
+        {data.feedback.map((f) => (
+          <li key={f.id} className="rounded-app-card border border-app-line bg-app-surface p-3">
+            <div className="flex flex-wrap items-center gap-2 text-[11px] text-app-ink-faint">
+              <span className="rounded bg-app-surface-muted px-1.5 py-0.5 font-medium">{f.type}</span>
+              <span>{formatDate(f.createdAt)}</span>
+              {f.appVersion && <span>· {f.appVersion}</span>}
+              <select
+                value={f.status}
+                onChange={(e) => void updateStatus({ feedbackId: f.id, status: e.target.value as (typeof FEEDBACK_STATUSES)[number] })}
+                className="ml-auto rounded border border-app-line bg-app-surface px-1.5 py-0.5 text-[11px] text-app-ink"
+              >
+                {FEEDBACK_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="text"
+                defaultValue={f.theme ?? ""}
+                placeholder="theme…"
+                onBlur={(e) => {
+                  const theme = e.target.value.trim();
+                  if (theme !== (f.theme ?? "")) void updateStatus({ feedbackId: f.id, theme });
+                }}
+                className="w-24 rounded border border-app-line bg-app-surface px-1.5 py-0.5 text-[11px] text-app-ink"
+              />
+            </div>
+            <p className="mt-1.5 text-xs leading-relaxed text-app-ink">{f.message}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export function AdminDashboardScreen() {
@@ -503,6 +662,22 @@ export function AdminDashboardScreen() {
             label="Dormant 30d+"
             value={data.funnel.dormant30Plus}
             tone={data.funnel.dormant30Plus > active / 2 ? "bad" : "neutral"}
+          />
+        </div>
+      </Section>
+
+      <Section
+        title="Session activity (reads + writes)"
+        hint="Everything else on this page is derived from activityHistory, which only records writes. This section comes from appSessions instead, so it also counts users who opened the app and read without editing."
+      >
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <StatCard label="True active 7d" value={data.sessionActivity.trueActiveLast7} sub="opened the app at all" />
+          <StatCard label="Write-active 7d" value={data.sessionActivity.writeActiveLast7} sub="created/edited something" />
+          <StatCard
+            label="Read-only 7d"
+            value={data.sessionActivity.readOnlyLast7}
+            sub="opened, wrote nothing"
+            tone={data.sessionActivity.readOnlyLast7 > data.sessionActivity.trueActiveLast7 / 3 ? "bad" : "neutral"}
           />
         </div>
       </Section>
@@ -612,6 +787,25 @@ export function AdminDashboardScreen() {
           />
           <StatCard label="Paying users" value={data.funnel.paying} tone={data.funnel.paying === 0 ? "bad" : "good"} />
         </div>
+
+        <p className="mb-2 mt-6 text-[11px] font-medium uppercase tracking-wide text-app-ink-faint">
+          Module conversion — touched module A in first 7 days, also touched module B within 14 days of that
+        </p>
+        <ModuleConversionTable data={data} />
+      </Section>
+
+      <Section
+        title="PMF answer vs. actual behavior"
+        hint="Cross-tabs the Sean Ellis survey question against real retention and todo close rate — the point isn't the survey score alone, it's whether the score predicts anything."
+      >
+        <PmfSegmentsTable data={data} />
+      </Section>
+
+      <Section
+        title="Declared goals vs. actual usage"
+        hint="What people said they came for (Welcome step, optional) versus whether they ever created anything at all."
+      >
+        <DeclaredGoalsTable data={data} />
       </Section>
 
       <Section title={`Survey — ${data.survey.completed} of ${data.survey.started} completed`}>
@@ -619,22 +813,7 @@ export function AdminDashboardScreen() {
       </Section>
 
       <Section title={`Feedback (${data.feedback.length})`}>
-        {data.feedback.length === 0 ? (
-          <p className="text-xs text-app-ink-faint">No feedback submitted yet.</p>
-        ) : (
-          <ul className="space-y-2">
-            {data.feedback.map((f, i) => (
-              <li key={i} className="rounded-app-card border border-app-line bg-app-surface p-3">
-                <div className="flex items-center gap-2 text-[11px] text-app-ink-faint">
-                  <span className="rounded bg-app-surface-muted px-1.5 py-0.5 font-medium">{f.type}</span>
-                  <span>{formatDate(f.createdAt)}</span>
-                  {f.appVersion && <span>· {f.appVersion}</span>}
-                </div>
-                <p className="mt-1.5 text-xs leading-relaxed text-app-ink">{f.message}</p>
-              </li>
-            ))}
-          </ul>
-        )}
+        <FeedbackList data={data} />
       </Section>
 
       <Section

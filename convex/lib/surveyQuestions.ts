@@ -239,6 +239,15 @@ export const SURVEY_QUESTIONS: readonly SurveyQuestion[] = [
 
 export const SURVEY_QUESTION_COUNT = SURVEY_QUESTIONS.length;
 
+/**
+ * Same option set as the `use_cases` question, re-exported for the onboarding
+ * wizard's "what are you here for" chips (Welcome step) — captured at signup
+ * instead of waiting for the survey, which only fires 3+ days in. Sharing the
+ * constant instead of duplicating the list keeps the two from drifting apart.
+ */
+export const ONBOARDING_GOAL_OPTIONS: readonly SurveyOption[] =
+  SURVEY_QUESTIONS.find((q) => q.id === "use_cases")?.options ?? [];
+
 /** Max characters accepted for a `text` answer or a user-added option. */
 export const SURVEY_TEXT_MAX_LENGTH = 1000;
 export const SURVEY_OTHER_MAX_LENGTH = 80;
