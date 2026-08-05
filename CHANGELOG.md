@@ -4,6 +4,12 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.28.6 [August 5, 2026]
+
+> One extra optional question on the way in.
+
+- [Add] Optional "What are you hoping to use omanote for?" chip-select on the Welcome step of onboarding
+
 ### v0.28.5 [August 4, 2026]
 
 > A tidier mobile top bar and a few things that were quietly broken underneath it.
