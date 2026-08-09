@@ -639,6 +639,12 @@ See what's planned next: [omanote.com/s/FeUM44Rd](https://omanote.com/s/FeUM44Rd
 - [Fix] Loading feeds now requires being signed in. Before this, anyone who knew the address could use omanote to go fetch things for them
 - [Update] Big workspaces feel noticeably quicker. omanote used to re-unlock every note you'd ever written each time you saved one — now it only does that work for what actually changed
 
+### v0.28.6 [August 5, 2026]
+
+> One extra optional question on the way in.
+
+- [Add] Optional "What are you hoping to use omanote for?" chip-select on the Welcome step of onboarding
+
 ### v0.28.5 [August 4, 2026]
 
 > A tidier top bar in narrow windows, and a few things that were quietly broken underneath it.
