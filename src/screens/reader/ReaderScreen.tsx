@@ -216,7 +216,7 @@ const EMPTY_CATS: ReaderCategory[] = [];
 const EMPTY_ITEMS: ReaderItem[] = [];
 
 export function ReaderScreen({ savedView = false }: { savedView?: boolean }) {
-  const { user } = useAuth();
+  const { user, getSessionToken } = useAuth();
   const { scheduleSync } = useApp();
   const [selectedFeedId, setSelectedFeedId] = useState<Id<"rssFeeds"> | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<Id<"rssCategories"> | null>(null);
@@ -403,7 +403,7 @@ export function ReaderScreen({ savedView = false }: { savedView?: boolean }) {
       );
       if (!subscription?.feedUrl) return;
 
-      const feed = await fetchFeedForDisplay(subscription.feedUrl);
+      const feed = await fetchFeedForDisplay(subscription.feedUrl, getSessionToken);
 
       // Store items directly in Dexie — no Convex write needed.
       const feedId = String(selectedFeedId);
@@ -2166,6 +2166,7 @@ function AddFeedModal({
   onClose: () => void;
 }) {
   const { scheduleSync } = useApp();
+  const { getSessionToken } = useAuth();
   const subscribe = useMutation(api.rss.subscribe);
   const createCategory = useMutation(api.rss.createCategory);
   const discoverFeed = useAction(api.actions.rssFetch.discoverFeed);
@@ -2224,7 +2225,7 @@ function AddFeedModal({
 
       // Fetch articles immediately so the user sees content right away.
       try {
-        const feed = await fetchFeedForDisplay(result.feedUrl);
+        const feed = await fetchFeedForDisplay(result.feedUrl, getSessionToken);
         const feedIdStr = String(feedId);
         const now = Date.now();
         const items = feed.items.map((item) => ({

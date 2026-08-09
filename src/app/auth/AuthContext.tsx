@@ -11,12 +11,20 @@ interface AuthContextValue {
   } | null;
   signOut: () => void;
   deleteAccount: () => Promise<void>;
+  /**
+   * Clerk session JWT for services that authenticate outside Convex — today
+   * just the RSS proxy worker, which verifies it against Clerk's JWKS.
+   *
+   * Uses the same "convex" template as the rest of the app so there's one
+   * audience to configure. Returns null when signed out.
+   */
+  getSessionToken: () => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { isSignedIn, signOut } = useClerkAuth();
+  const { isSignedIn, signOut, getToken } = useClerkAuth();
   const { user } = useUser();
 
   const value = useMemo<AuthContextValue>(
@@ -37,8 +45,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         await user.delete();
       },
+      getSessionToken: () => getToken({ template: "convex" }),
     }),
-    [isSignedIn, signOut, user],
+    [getToken, isSignedIn, signOut, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

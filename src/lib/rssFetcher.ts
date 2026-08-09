@@ -15,11 +15,26 @@ export class RssFetchError extends Error {
 }
 
 /**
+ * Produces a Clerk session JWT for the proxy. Pass
+ * `() => getToken({ template: "convex" })` from `useAuth()`.
+ */
+export type ProxyTokenGetter = () => Promise<string | null>;
+
+/**
  * Fetches and parses an RSS/Atom feed via the CORS proxy.
+ *
+ * `getToken` is required, not optional: the proxy authenticates callers by
+ * Clerk JWT, and making it optional would let a call site silently omit it and
+ * get 401s at runtime instead of a type error here.
+ *
  * @param feedUrl - The URL of the RSS/Atom feed
+ * @param getToken - Supplies the caller's Clerk session token
  * @returns Parsed feed with title, description, and items
  */
-export async function fetchRssFeed(feedUrl: string): Promise<ParsedFeed> {
+export async function fetchRssFeed(
+  feedUrl: string,
+  getToken: ProxyTokenGetter,
+): Promise<ParsedFeed> {
   if (!feedUrl?.trim()) {
     throw new RssFetchError("Feed URL is required", "unknown");
   }
@@ -27,12 +42,20 @@ export async function fetchRssFeed(feedUrl: string): Promise<ParsedFeed> {
   const trimmedUrl = feedUrl.trim();
   const proxyUrl = `${PROXY_URL}/proxy?url=${encodeURIComponent(trimmedUrl)}`;
 
+  const token = await getToken();
+  if (!token) {
+    throw new RssFetchError("You need to be signed in to load feeds", "network");
+  }
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
   let response: Response;
   try {
-    response = await fetch(proxyUrl, { signal: controller.signal });
+    response = await fetch(proxyUrl, {
+      signal: controller.signal,
+      headers: { Authorization: `Bearer ${token}` },
+    });
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
       throw new RssFetchError("Request timed out", "network");
@@ -103,8 +126,8 @@ export async function fetchRssFeed(feedUrl: string): Promise<ParsedFeed> {
 /**
  * Fetches a feed and returns it with metadata for display.
  */
-export async function fetchFeedForDisplay(feedUrl: string) {
-  const feed = await fetchRssFeed(feedUrl);
+export async function fetchFeedForDisplay(feedUrl: string, getToken: ProxyTokenGetter) {
+  const feed = await fetchRssFeed(feedUrl, getToken);
   return {
     feedUrl,
     title: feed.title,

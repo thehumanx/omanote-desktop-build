@@ -4,6 +4,14 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.28.7 [August 9, 2026]
+
+> Deleting your account actually deletes everything, and the app stops re-reading your whole workspace every time you save.
+
+- [Fix] Deleting your account now clears everything it should. Your Google connection is handed back to Google properly, reminders can't keep arriving on devices you've signed out of, and your reading history and survey answers leave with the rest
+- [Fix] Loading feeds now requires being signed in. Before this, anyone who knew the address could use omanote to go fetch things for them
+- [Update] Big workspaces feel noticeably quicker. omanote used to re-unlock every note you'd ever written each time you saved one — now it only does that work for what actually changed
+
 ### v0.28.6 [August 5, 2026]
 
 > One extra optional question on the way in.
@@ -622,6 +630,14 @@ All notable changes to omanote are documented here, organized by product.
 See what's planned next: [omanote.com/s/FeUM44Rd](https://omanote.com/s/FeUM44Rd)
 
 ## Desktop Versions
+
+### v0.28.7 [August 9, 2026]
+
+> Deleting your account actually deletes everything, and the app stops re-reading your whole workspace every time you save.
+
+- [Fix] Deleting your account now clears everything it should. Your Google connection is handed back to Google properly, reminders can't keep arriving on devices you've signed out of, and your reading history and survey answers leave with the rest
+- [Fix] Loading feeds now requires being signed in. Before this, anyone who knew the address could use omanote to go fetch things for them
+- [Update] Big workspaces feel noticeably quicker. omanote used to re-unlock every note you'd ever written each time you saved one — now it only does that work for what actually changed
 
 ### v0.28.5 [August 4, 2026]
 

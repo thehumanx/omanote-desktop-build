@@ -18,11 +18,13 @@ import {
   generateContentKey,
   generateRecoveryKey,
   generateSalt,
+  isEncrypted,
   persistSessionContentKey,
   readSessionContentKey,
   unwrapContentKey,
   wrapContentKey,
 } from "../lib/crypto";
+import { DecryptionCache } from "../lib/decryption-cache";
 import { friendlyErrorMessage } from "../lib/errors";
 
 // ---------------------------------------------------------------------------
@@ -95,6 +97,21 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
 
   // The decrypted CryptoKey lives only in memory (never serialised).
   const keyRef = useRef<CryptoKey | null>(null);
+  // Holds plaintext, so its lifetime is tied to the key's — see forgetContentKey.
+  const decryptionCacheRef = useRef(new DecryptionCache());
+
+  /**
+   * The one way to drop the content key. Three separate paths need to do this
+   * (sign-out, the key record disappearing, and an explicit `lock()`), and the
+   * cache holds decrypted plaintext — so any path that forgets to clear it
+   * would leave content readable after locking. Funnelling them through here
+   * makes that impossible to get wrong.
+   */
+  const forgetContentKey = useCallback(() => {
+    keyRef.current = null;
+    decryptionCacheRef.current.clear();
+  }, []);
+
   const [isLocked, setIsLocked] = useState(true);
   const [isRestoringSession, setIsRestoringSession] = useState(false);
   const [needsPassphraseReset, setNeedsPassphraseReset] = useState(false);
@@ -112,7 +129,7 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
   // When the user signs out, clear the cached key and lock in-memory state.
   useEffect(() => {
     if (!isSignedIn) {
-      keyRef.current = null;
+      forgetContentKey();
       setIsLocked(true);
       setIsRestoringSession(false);
       setNeedsPassphraseReset(false);
@@ -125,12 +142,12 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
       return;
     }
     previousUserSessionKeyRef.current = userSessionKey;
-  }, [isSignedIn, userSessionKey]);
+  }, [forgetContentKey, isSignedIn, userSessionKey]);
 
   // When the key record disappears, re-lock and clear the cached key.
   useEffect(() => {
     if (keyRecord === null) {
-      keyRef.current = null;
+      forgetContentKey();
       setIsLocked(true);
       setIsRestoringSession(false);
       setNeedsPassphraseReset(false);
@@ -139,7 +156,7 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
         void clearSessionContentKey(userSessionKey);
       }
     }
-  }, [keyRecord, userSessionKey]);
+  }, [forgetContentKey, keyRecord, userSessionKey]);
 
   // Try to restore the unlocked key from browser storage to avoid re-prompting
   // on page reloads within the same signed-in browser session.
@@ -199,6 +216,11 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
         const recoveryWrappingKey = await deriveWrappingKey(recoveryKey, recoverySalt);
         const wrappedRecoveryKey = await wrapContentKey(contentKey, recoveryWrappingKey);
         await saveKey({ wrappedKey, salt, wrappedRecoveryKey, recoverySalt });
+        // The only path that installs a *different* content key — the unlock
+        // and recovery paths all re-install the same one, so their cached
+        // entries stay valid. Clearing here keeps the cache's invariant simple:
+        // it only ever holds plaintext for the key currently in keyRef.
+        decryptionCacheRef.current.clear();
         keyRef.current = contentKey;
         if (userSessionKey && contentKey.extractable) {
           void persistSessionContentKey(userSessionKey, contentKey);
@@ -396,14 +418,14 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
   // lock
   // ---------------------------------------------------------------------------
   const lock = useCallback(() => {
-    keyRef.current = null;
+    forgetContentKey();
     setIsRestoringSession(false);
     restoreAttemptedForRef.current = null;
     if (userSessionKey) {
       void clearSessionContentKey(userSessionKey);
     }
     setIsLocked(true);
-  }, [userSessionKey]);
+  }, [forgetContentKey, userSessionKey]);
 
   // ---------------------------------------------------------------------------
   // encrypt / decrypt helpers — stable refs, read key from ref internally
@@ -414,8 +436,11 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const decrypt = useCallback(async (text: string): Promise<string> => {
-    if (!keyRef.current) throw new Error("Encryption key not available");
-    return decryptString(text, keyRef.current);
+    const key = keyRef.current;
+    if (!key) throw new Error("Encryption key not available");
+    // Plaintext passthrough (pre-encryption rows) costs nothing to "decrypt",
+    // so it skips the cache rather than taking up an entry.
+    return decryptionCacheRef.current.resolve(text, (value) => decryptString(value, key), isEncrypted(text));
   }, []);
 
   const encryptOptional = useCallback(
