@@ -983,7 +983,7 @@ export function ReaderScreen({ savedView = false }: { savedView?: boolean }) {
         ? createPortal(
             <div
               ref={drawerMenuContainerRef}
-              className="fixed z-[200] min-w-[148px] rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
+              className="fixed z-app-menu min-w-[148px] rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
               style={{ top: drawerMenuPos.top, left: drawerMenuPos.left }}
             >
               <button
@@ -1021,7 +1021,7 @@ export function ReaderScreen({ savedView = false }: { savedView?: boolean }) {
         ? createPortal(
             <div
               ref={drawerFeedMenuRef}
-              className="fixed z-[200] min-w-[180px] rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
+              className="fixed z-app-menu min-w-[180px] rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
               style={{ top: drawerFeedMenuPos.top, left: drawerFeedMenuPos.left }}
             >
               {showDrawerFolderPicker ? (
@@ -1231,7 +1231,7 @@ function FeedNavRow({
             ? createPortal(
                 <div
                   ref={menuRef}
-                  className="fixed z-[200] min-w-[180px] rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
+                  className="fixed z-app-menu min-w-[180px] rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
                   style={{ top: menuPos.top, left: menuPos.left }}
                 >
                   {showFolderPicker ? (
@@ -1458,7 +1458,7 @@ function RssCategoryNavRow({
         ? createPortal(
             <div
               ref={categoryMenuRef}
-              className="fixed z-[200] min-w-[148px] rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
+              className="fixed z-app-menu min-w-[148px] rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
               style={{ top: menuPos.top, left: menuPos.left }}
             >
               <button

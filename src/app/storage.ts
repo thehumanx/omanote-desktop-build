@@ -15,5 +15,18 @@ export function readStorage<T>(key: string, fallback: T): T {
 
 export function writeStorage<T>(key: string, value: T) {
   if (typeof window === "undefined") return;
-  window.sessionStorage.setItem(key, JSON.stringify(value));
+  try {
+    window.sessionStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Ignore storage failures, same as readStorage.
+  }
+}
+
+export function removeStorage(key: string) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(key);
+  } catch {
+    // Ignore storage failures, same as readStorage/writeStorage.
+  }
 }

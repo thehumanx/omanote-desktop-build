@@ -32,13 +32,37 @@ export interface SurveyQuestion {
   scaleLabels?: { low: string; high: string };
 }
 
+/**
+ * Order matters: `pmf` and `blocker` come first, ahead of every warm-up
+ * question, because they're the only two answers that carry real signal on
+ * their own. A respondent who abandons at question 3 under the old ordering
+ * gave nothing usable; under this one they've already answered both. See
+ * docs/hardening-audit.md §6.1.
+ *
+ * `frequency` follows immediately after — it's the cheapest possible
+ * cross-check on how much weight to give the `pmf` answer (someone who says
+ * "very disappointed" but uses the app "rarely" is answering a different
+ * question than someone using it daily).
+ */
 export const SURVEY_QUESTIONS: readonly SurveyQuestion[] = [
   {
-    id: "enjoyment",
-    kind: "likert",
-    section: "The basics",
-    prompt: "How are you enjoying omanote?",
-    scaleLabels: { low: "Not much", high: "Love it" },
+    id: "pmf",
+    kind: "single",
+    section: "The honest bit",
+    prompt: "How would you feel if omanote disappeared tomorrow?",
+    options: [
+      { value: "very_disappointed", label: "Very disappointed" },
+      { value: "somewhat_disappointed", label: "Somewhat disappointed" },
+      { value: "not_disappointed", label: "Not disappointed" },
+    ],
+  },
+  {
+    id: "blocker",
+    kind: "text",
+    section: "The honest bit",
+    prompt: "What stops you from using omanote every day?",
+    hint: "Optional, but this one is the most useful answer you can give.",
+    placeholder: "Nothing, or… it's missing something I need, it's slow on my phone…",
   },
   {
     id: "frequency",
@@ -51,6 +75,13 @@ export const SURVEY_QUESTIONS: readonly SurveyQuestion[] = [
       { value: "rarely", label: "Rarely" },
       { value: "not_at_all", label: "Not at all" },
     ],
+  },
+  {
+    id: "enjoyment",
+    kind: "likert",
+    section: "The basics",
+    prompt: "How are you enjoying omanote?",
+    scaleLabels: { low: "Not much", high: "Love it" },
   },
   {
     id: "devices",
@@ -163,20 +194,9 @@ export const SURVEY_QUESTIONS: readonly SurveyQuestion[] = [
     ],
   },
   {
-    id: "pmf",
-    kind: "single",
-    section: "The honest bit",
-    prompt: "How would you feel if omanote disappeared tomorrow?",
-    options: [
-      { value: "very_disappointed", label: "Very disappointed" },
-      { value: "somewhat_disappointed", label: "Somewhat disappointed" },
-      { value: "not_disappointed", label: "Not disappointed" },
-    ],
-  },
-  {
     id: "discovery",
     kind: "single",
-    section: "The honest bit",
+    section: "A bit more",
     prompt: "How did you hear about omanote?",
     options: [
       { value: "founder", label: "Founder himself" },
@@ -187,17 +207,9 @@ export const SURVEY_QUESTIONS: readonly SurveyQuestion[] = [
     allowOther: true,
   },
   {
-    id: "blocker",
-    kind: "text",
-    section: "The honest bit",
-    prompt: "What stops you from using omanote every day?",
-    hint: "Optional, but this one is the most useful answer you can give.",
-    placeholder: "Nothing, or… it's missing something I need, it's slow on my phone…",
-  },
-  {
     id: "improvement",
     kind: "text",
-    section: "The honest bit",
+    section: "A bit more",
     prompt: "What would you improve in omanote?",
     placeholder: "Anything at all — big rewrites and tiny nitpicks both welcome.",
   },

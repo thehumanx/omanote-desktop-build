@@ -4,6 +4,16 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.28.8 [August 11, 2026]
+
+> Public links now say exactly what they do, and the survey and update prompts share one spot.
+
+- [Add] Share dialogs now explain the trade-off: a public page has to be readable without your passphrase, so that one folder is stored unencrypted while the link is on. Everything you haven't shared stays encrypted
+- [Update] The "help us improve" survey prompt now appears bottom-center, in the same spot as the update notification
+- [Update] The update notification now offers "Refresh to update" and "Dismiss" buttons directly, instead of a click-to-open card
+- [Fix] Turning a public link off now deletes that unencrypted copy. Before, it only took the page down and left the copy behind
+- [Fix] Feeds load in the desktop app again
+
 ### v0.28.7 [August 9, 2026]
 
 > Deleting your account actually deletes everything, and the app stops re-reading your whole workspace every time you save.
@@ -630,6 +640,16 @@ All notable changes to omanote are documented here, organized by product.
 See what's planned next: [omanote.com/s/FeUM44Rd](https://omanote.com/s/FeUM44Rd)
 
 ## Desktop Versions
+
+### v0.28.8 [August 11, 2026]
+
+> Public links now say exactly what they do, feeds load again, and the survey and update prompts share one spot.
+
+- [Add] Share dialogs now explain the trade-off: a public page has to be readable without your passphrase, so that one folder is stored unencrypted while the link is on. Everything you haven't shared stays encrypted
+- [Update] The "help us improve" survey prompt now appears bottom-center, in the same spot as the update notification
+- [Update] The update notification now offers "Refresh to update" and "Dismiss" buttons directly, instead of a click-to-open card
+- [Fix] Turning a public link off now deletes that unencrypted copy. Before, it only took the page down and left the copy behind
+- [Fix] Feeds now load in the reader again — the app was being turned away by omanote's own feed service
 
 ### v0.28.7 [August 9, 2026]
 

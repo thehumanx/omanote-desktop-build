@@ -1,3 +1,5 @@
+import { readLocalStorageOptional, stringCodec, writeLocalStorage } from "./local-storage";
+
 const LAST_SEEN_VERSION_KEY = "omanote:last-seen-version";
 
 export function maskEmail(email: string): string {
@@ -75,17 +77,9 @@ export function getUnseenVersions(versions: VersionInfo[], lastSeen: string | nu
 }
 
 export function getLastSeenVersion(): string | null {
-  try {
-    return localStorage.getItem(LAST_SEEN_VERSION_KEY);
-  } catch {
-    return null;
-  }
+  return readLocalStorageOptional(LAST_SEEN_VERSION_KEY, stringCodec) ?? null;
 }
 
 export function markVersionSeen(version: string): void {
-  try {
-    localStorage.setItem(LAST_SEEN_VERSION_KEY, version);
-  } catch {
-    // ignore storage errors
-  }
+  writeLocalStorage(LAST_SEEN_VERSION_KEY, stringCodec, version);
 }

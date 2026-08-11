@@ -4,7 +4,7 @@ import { Bookmark, BookmarkCheck, BookOpen, Check, CheckSquare, ChevronLeft, Che
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useApp } from "../../app/AppProvider";
 import { useAuth } from "../../app/auth/AuthContext";
-import { storageKeys } from "../../app/storage";
+import { removeStorage, storageKeys } from "../../app/storage";
 import { Button, cn, Input, MenuItem, SegmentedHighlight, SegmentedItem, SegmentedItemLabel, SegmentedShell, segmentedItemClass } from "../ui";
 import { useUpdate } from "../../contexts/UpdateContext";
 import { maskEmail } from "../../lib/update-checker";
@@ -553,7 +553,7 @@ function FullBottomNav({ hidden = false, forceHidden = false, onOpenAbout }: { h
       <div className="my-2 h-px bg-app-line" />
       <MenuItem
         onClick={() => {
-          window.localStorage.removeItem(storageKeys.uiState);
+          removeStorage(storageKeys.uiState);
           signOut();
           window.location.assign("/");
           closeProfileOptions();

@@ -16,10 +16,6 @@ Hover a todo and click the pencil icon (or just double-click it) to open the ful
 - **Reminders:** when a todo's time arrives, omanote shows an in-app toast and (if you allow it) a browser or device notification. You can snooze or complete right from the reminder.
 - **Priority:** mark a todo high-priority to make it stand out.
 
-## Checklists
-
-Every todo can hold a checklist of sub-steps. Tick them off as you go — useful for a task with several parts you don't want to forget.
-
 ## The four views
 
 The Todos view groups your tasks so you always know what needs attention:

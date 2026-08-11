@@ -1,3 +1,5 @@
+import { readLocalStorageOptional, stringCodec, writeLocalStorage } from "./local-storage";
+
 const SHARE_VIEWER_TOKEN_KEY = "omanote_public_share_viewer_token";
 
 function createViewerToken() {
@@ -8,16 +10,10 @@ function createViewerToken() {
 }
 
 export function getShareViewerToken() {
-  if (typeof window === "undefined") return createViewerToken();
+  const existing = readLocalStorageOptional(SHARE_VIEWER_TOKEN_KEY, stringCodec);
+  if (existing) return existing;
 
-  try {
-    const existing = window.localStorage.getItem(SHARE_VIEWER_TOKEN_KEY);
-    if (existing) return existing;
-
-    const next = createViewerToken();
-    window.localStorage.setItem(SHARE_VIEWER_TOKEN_KEY, next);
-    return next;
-  } catch {
-    return createViewerToken();
-  }
+  const next = createViewerToken();
+  writeLocalStorage(SHARE_VIEWER_TOKEN_KEY, stringCodec, next);
+  return next;
 }

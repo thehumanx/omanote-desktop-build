@@ -1,26 +1,22 @@
-const STORAGE_KEY = "omanote.canvas-drafts";
+import { jsonCodec, readLocalStorage, writeLocalStorage } from "../lib/local-storage";
 
-type DraftMap = Record<string, unknown>;
+// Exported so canvas-outbox.ts's clearCanvasDraftForKey can read/write the
+// same map without re-declaring the key as a second string literal — the two
+// modules going out of sync on that string was the actual bug risk, not the
+// try/catch boilerplate around it.
+export const CANVAS_DRAFTS_STORAGE_KEY = "omanote.canvas-drafts";
+
+export type DraftMap = Record<string, unknown>;
+
+const isDraftMap = (value: unknown): value is DraftMap => value !== null && typeof value === "object";
+export const draftMapCodec = jsonCodec(isDraftMap);
 
 function readAllDrafts(): DraftMap {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as DraftMap;
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
+  return readLocalStorage(CANVAS_DRAFTS_STORAGE_KEY, draftMapCodec, {});
 }
 
 function writeAllDrafts(drafts: DraftMap) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(drafts));
-  } catch {
-    // Ignore storage quota and privacy mode failures.
-  }
+  writeLocalStorage(CANVAS_DRAFTS_STORAGE_KEY, draftMapCodec, drafts);
 }
 
 export function readCanvasDraft<T>(key: string, fallback: T): T {

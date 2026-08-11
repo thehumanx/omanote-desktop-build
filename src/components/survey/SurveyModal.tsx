@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, X } from "lucide-react";
 import { useMutation } from "convex/react";
 import { ConvexError } from "convex/values";
 import { api } from "../../../convex/_generated/api";
@@ -296,11 +296,12 @@ export function SurveyModal({ initialAnswers, onClose, onCompleted }: SurveyModa
               ) : (
                 <Button
                   tone={answeredCurrent ? "default" : "soft"}
-                  className="min-w-[7rem] py-2 text-[13px]"
+                  className="min-w-[7rem] gap-1.5 py-2 text-[13px]"
                   onClick={() => goTo(index + 1, "next")}
                   disabled={status === "submitting"}
                 >
                   {answeredCurrent ? "Next" : "Skip"}
+                  <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
                 </Button>
               )}
             </div>

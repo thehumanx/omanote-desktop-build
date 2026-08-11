@@ -69,7 +69,7 @@ export function DesktopOnboardingScreen() {
           <img
             src="/android-chrome-192x192.png"
             alt=""
-            className="mx-auto mb-6 block h-20 w-20 rounded-[22px] shadow-soft"
+            className="mx-auto mb-6 block h-20 w-20 rounded-app-icon shadow-soft"
           />
           <h1 className="text-3xl font-black tracking-tight">Welcome to omanote</h1>
           <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-app-ink-muted">

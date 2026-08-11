@@ -36,6 +36,7 @@ import type * as lib_googleErrors from "../lib/googleErrors.js";
 import type * as lib_googleRecurrence from "../lib/googleRecurrence.js";
 import type * as lib_recurrenceValidator from "../lib/recurrenceValidator.js";
 import type * as lib_rssParser from "../lib/rssParser.js";
+import type * as lib_shareSnapshots from "../lib/shareSnapshots.js";
 import type * as lib_surveyQuestions from "../lib/surveyQuestions.js";
 import type * as notes from "../notes.js";
 import type * as plans from "../plans.js";
@@ -87,6 +88,7 @@ declare const fullApi: ApiFromModules<{
   "lib/googleRecurrence": typeof lib_googleRecurrence;
   "lib/recurrenceValidator": typeof lib_recurrenceValidator;
   "lib/rssParser": typeof lib_rssParser;
+  "lib/shareSnapshots": typeof lib_shareSnapshots;
   "lib/surveyQuestions": typeof lib_surveyQuestions;
   notes: typeof notes;
   plans: typeof plans;

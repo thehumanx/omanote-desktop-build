@@ -4,6 +4,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { Check, Copy, Eye, Link, X, LayoutList, LayoutGrid } from "lucide-react";
 import { BaseModal } from "./BaseModal";
+import { ShareEncryptionNotice } from "./ShareEncryptionNotice";
 import { cn } from "./ui";
 import { useApp } from "../app/AppProvider";
 
@@ -295,6 +296,8 @@ export function ShareFolderModal({
                   Turn on public link to share this folder with anyone.
                 </p>
               )}
+
+              <ShareEncryptionNotice noun={isTodo ? "todos" : "links"} className="mt-3" />
             </>
           )}
 

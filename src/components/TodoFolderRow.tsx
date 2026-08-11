@@ -165,6 +165,49 @@ export function TodoFolderCountBadge({
   );
 }
 
+/**
+ * Gallery-view card for a todo folder. Used to be inlined directly in
+ * TodosScreen.tsx (the only one of the three gallery cards that was) — pulled
+ * out to match `FolderCard`/`CategoryCard`, so a `key={folder.id}` mapping is
+ * no longer the only thing marking it as a distinct, reusable unit. Extracted
+ * verbatim: the icon isn't clickable and there's no action-menu overlay here,
+ * unlike `FolderCard`/`CategoryCard` which support both — that's an existing
+ * difference in what todo folders' gallery view can do, not something this
+ * extraction changes. See docs/hardening-audit.md §1.1.
+ */
+export function TodoFolderCard({
+  folder,
+  completedCount,
+  totalCount,
+  selected,
+  onClick,
+}: {
+  folder: TodoFolder;
+  completedCount: number;
+  totalCount: number;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <div
+      className={cn(
+        "group relative flex flex-col items-center gap-2 rounded-xl border p-3 transition-[background-color,border-color] duration-app-base ease-app-in-out",
+        selected
+          ? "border-app-line bg-app-surface-muted text-app-ink"
+          : "border-app-line bg-app-surface text-app-ink-muted hover:border-app-line hover:bg-app-surface-hover",
+      )}
+    >
+      <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-app-surface-muted text-app-ink-faint">
+        <CategoryIconView icon={folder.icon} size="md" />
+      </span>
+      <button type="button" onClick={onClick} className="flex w-full items-center justify-center gap-1">
+        <span className="min-w-0 truncate text-[13px] font-bold leading-tight">{folder.name}</span>
+        <TodoFolderCountBadge completedCount={completedCount} totalCount={totalCount} />
+      </button>
+    </div>
+  );
+}
+
 export const TodoFolderRow = memo(function TodoFolderRow({
   folder,
   completedCount,

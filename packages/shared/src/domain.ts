@@ -59,17 +59,6 @@ export interface TodoFolder {
   updatedAt: number;
 }
 
-export interface TodoChecklistItem {
-  id: string;
-  todoId: string;
-  clientKey?: string;
-  text: string;
-  checked: boolean;
-  position: number;
-  createdAt: number;
-  updatedAt: number;
-}
-
 export interface NoteItem {
   id: string;
   clientKey?: string;

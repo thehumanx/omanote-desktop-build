@@ -93,7 +93,7 @@ export const guideCategories: GuideCategory[] = [
     title: "Todos",
     icon: CheckSquare,
     topics: [
-      { slug: "todos", title: "Todos", description: "Due dates, checklists, folders, and priorities.", body: todos },
+      { slug: "todos", title: "Todos", description: "Due dates, folders, and priorities.", body: todos },
       {
         slug: "recurring-todos",
         title: "Recurring todos & reminders",

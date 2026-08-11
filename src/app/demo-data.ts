@@ -43,26 +43,6 @@ export function createInitialState(): AppState {
       },
     ],
     todoFolders: [],
-    checklistItems: [
-      {
-        id: "checklist-1",
-        todoId: "todo-1",
-        text: "Plan weekly groceries",
-        checked: false,
-        position: 0,
-        createdAt: Date.now() - 86_400_000,
-        updatedAt: Date.now() - 86_400_000,
-      },
-      {
-        id: "checklist-2",
-        todoId: "todo-2",
-        text: "Clean my room",
-        checked: false,
-        position: 0,
-        createdAt: Date.now() - 3_600_000,
-        updatedAt: Date.now() - 3_600_000,
-      },
-    ],
     notes: [
       {
         id: "note-1",

@@ -1,31 +1,37 @@
 import { useRef, useState } from "react";
 import { AlertTriangle, FileJson, Upload, X } from "lucide-react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { useApp } from "../app/AppProvider";
-import type { DateKey } from "@omanote/shared";
+import type { DateKey, RecurrenceRule } from "@omanote/shared";
 import { BaseModal } from "./BaseModal";
 import { Button } from "./ui";
 
-type ImportCat = "todos" | "notes" | "bookmarks" | "events";
+type ImportCat = "todos" | "notes" | "bookmarks" | "events" | "rss";
 
-const CATS: ImportCat[] = ["todos", "notes", "bookmarks", "events"];
+const CATS: ImportCat[] = ["todos", "notes", "bookmarks", "events", "rss"];
 const CAT_LABELS: Record<ImportCat, string> = {
   todos: "Todos",
   notes: "Notes",
   bookmarks: "Bookmarks",
   events: "Events",
+  rss: "RSS subscriptions",
 };
 
 type ExportedTodo = {
   title: string;
   notes: string | null;
   folderName?: string | null;
+  folderIcon?: string | null;
   dueDateKey: string | null;
   dueTime: string | null;
   priority: "normal" | "high";
   status: "open" | "done";
   createdDateKey: string;
   createdAt: number;
-  checklistItems?: { text: string; checked: boolean; position: number }[];
+  recurrence?: RecurrenceRule | null;
+  reminderEveryMinutes?: number | null;
+  reminderUntil?: number | null;
 };
 
 type ExportedNote = {
@@ -33,6 +39,7 @@ type ExportedNote = {
   body: string;
   tags: string[];
   folderName: string | null;
+  folderIcon?: string | null;
   createdDateKey: string;
   createdAt: number;
 };
@@ -45,6 +52,7 @@ type ExportedBookmark = {
   thumbnailUrl: string | null;
   faviconUrl: string | null;
   categoryName: string | null;
+  categoryIcon?: string | null;
   createdDateKey: string;
   createdAt: number;
 };
@@ -57,6 +65,16 @@ type ExportedEvent = {
   createdAt: number;
 };
 
+type ExportedRssSubscription = {
+  title: string;
+  feedUrl: string;
+  siteUrl: string | null;
+  description: string | null;
+  faviconUrl: string | null;
+  categoryName: string | null;
+  categoryIcon?: string | null;
+};
+
 type ExportPayload = {
   version: number;
   app: string;
@@ -65,7 +83,15 @@ type ExportPayload = {
   bookmarks?: ExportedBookmark[];
   events?: ExportedEvent[];
   routines?: ExportedEvent[];
+  rssSubscriptions?: ExportedRssSubscription[];
 };
+
+function countForCat(payload: ExportPayload | null, cat: ImportCat): number {
+  if (!payload) return 0;
+  if (cat === "events") return (payload.events?.length ?? 0) + (payload.routines?.length ?? 0);
+  if (cat === "rss") return payload.rssSubscriptions?.length ?? 0;
+  return payload[cat]?.length ?? 0;
+}
 
 function parseFile(text: string): ExportPayload {
   let data: unknown;
@@ -83,7 +109,10 @@ function parseFile(text: string): ExportPayload {
 }
 
 export function ImportDataPanel() {
-  const { dispatch } = useApp();
+  const { state, dispatch } = useApp();
+  const rssCategories = useQuery(api.rss.listCategories);
+  const createRssCategory = useMutation(api.rss.createCategory);
+  const subscribeToRssFeed = useMutation(api.rss.subscribe);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [dragging, setDragging] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -95,16 +124,17 @@ export function ImportDataPanel() {
   const [done, setDone] = useState(false);
 
   const counts: Record<ImportCat, number> = {
-    todos: parsed?.todos?.length ?? 0,
-    notes: parsed?.notes?.length ?? 0,
-    bookmarks: parsed?.bookmarks?.length ?? 0,
-    events: (parsed?.events?.length ?? 0) + (parsed?.routines?.length ?? 0),
+    todos: countForCat(parsed, "todos"),
+    notes: countForCat(parsed, "notes"),
+    bookmarks: countForCat(parsed, "bookmarks"),
+    events: countForCat(parsed, "events"),
+    rss: countForCat(parsed, "rss"),
   };
   const presentCats = CATS.filter((c) => counts[c] > 0);
   const allChecked = presentCats.length > 0 && presentCats.every((c) => selected.has(c));
   const anyChecked = CATS.some((c) => selected.has(c));
   const totalSelected = CATS.filter((c) => selected.has(c)).reduce((s, c) => s + counts[c], 0);
-  const hasTodoNotes = parsed?.todos?.some((t) => t.notes || t.checklistItems?.length) ?? false;
+  const hasTodoNotes = parsed?.todos?.some((t) => t.notes) ?? false;
 
   const loadFile = (file: File) => {
     setParseError(null);
@@ -115,9 +145,7 @@ export function ImportDataPanel() {
       try {
         const result = parseFile(e.target?.result as string);
         setParsed(result);
-        const present = new Set<ImportCat>(
-          CATS.filter((c) => c === "events" ? ((result.events?.length ?? 0) + (result.routines?.length ?? 0)) > 0 : (result[c]?.length ?? 0) > 0),
-        );
+        const present = new Set<ImportCat>(CATS.filter((c) => countForCat(result, c) > 0));
         setSelected(present);
       } catch (err) {
         setParseError(err instanceof Error ? err.message : "Could not parse file");
@@ -160,12 +188,28 @@ export function ImportDataPanel() {
             dueDateKey: t.dueDateKey ? (t.dueDateKey as DateKey) : undefined,
             dueTime: t.dueTime ?? undefined,
             folderName: t.folderName ?? undefined,
+            folderIcon: t.folderIcon ?? undefined,
+            recurrence: t.recurrence ?? undefined,
+            reminderEveryMinutes: t.reminderEveryMinutes ?? undefined,
+            reminderUntil: t.reminderUntil ?? undefined,
           });
           count++;
         }
       }
       if (selected.has("notes") && parsed.notes) {
+        // Notes carry their folder as a name, not a real folder id (see
+        // note-folder-utils.ts) — pre-create any named folder that isn't
+        // already known locally so its icon is restored too. Firing this
+        // and moving on without waiting for it is fine: NotesScreen groups
+        // notes by folder *name*, not by a required folderId match.
+        const existingNoteFolderNames = new Set(state.noteFolders.map((f) => f.name.toLowerCase()));
+        const seenNoteFolderNames = new Set<string>();
         for (const n of parsed.notes) {
+          const folderName = n.folderName?.trim();
+          if (folderName && n.folderIcon && !existingNoteFolderNames.has(folderName.toLowerCase()) && !seenNoteFolderNames.has(folderName.toLowerCase())) {
+            seenNoteFolderNames.add(folderName.toLowerCase());
+            dispatch({ type: "note-folder/create", name: folderName, icon: n.folderIcon });
+          }
           dispatch({
             type: "note/create",
             body: n.body,
@@ -185,6 +229,7 @@ export function ImportDataPanel() {
             dateKey: b.createdDateKey as DateKey,
             title: b.title,
             categoryName: b.categoryName ?? undefined,
+            categoryIcon: b.categoryIcon ?? undefined,
             siteName: b.siteName ?? undefined,
             description: b.description ?? undefined,
             thumbnailUrl: b.thumbnailUrl ?? undefined,
@@ -201,6 +246,34 @@ export function ImportDataPanel() {
             dateKey: r.createdDateKey as DateKey,
             loggedAt: r.loggedAt,
             notes: r.notes ?? undefined,
+          });
+          count++;
+        }
+      }
+      if (selected.has("rss") && parsed.rssSubscriptions) {
+        const categoryByName = new Map<string, { _id: string; name: string }>(
+          (rssCategories ?? []).map((c) => [c.name.toLowerCase(), { _id: c._id, name: c.name }]),
+        );
+        for (const sub of parsed.rssSubscriptions) {
+          let categoryId: string | undefined;
+          const categoryName = sub.categoryName?.trim();
+          if (categoryName) {
+            const existing = categoryByName.get(categoryName.toLowerCase());
+            if (existing) {
+              categoryId = existing._id;
+            } else {
+              const createdId = await createRssCategory({ name: categoryName, icon: sub.categoryIcon ?? undefined });
+              categoryId = createdId;
+              categoryByName.set(categoryName.toLowerCase(), { _id: createdId, name: categoryName });
+            }
+          }
+          await subscribeToRssFeed({
+            feedUrl: sub.feedUrl,
+            title: sub.title,
+            siteUrl: sub.siteUrl ?? undefined,
+            description: sub.description ?? undefined,
+            faviconUrl: sub.faviconUrl ?? undefined,
+            categoryId: categoryId as any,
           });
           count++;
         }
@@ -296,7 +369,7 @@ export function ImportDataPanel() {
           {hasTodoNotes && (
             <p className="flex items-start gap-1.5 rounded-xl bg-warning-surface px-3 py-2 text-xs text-warning-ink">
               <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" />
-              Todo notes and checklist items are not imported in this version.
+              Todo notes are not imported in this version.
             </p>
           )}
 

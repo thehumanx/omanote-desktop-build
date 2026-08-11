@@ -115,7 +115,7 @@ export const FAQ_ITEMS = [
   {
     question: "Can I share my bookmarks or notes with someone?",
     answer:
-      "Yes. Bookmark folders and note folders can each be turned into a public link — just toggle it on in the folder settings. Visitors get a clean, read-only page. Your encrypted workspace stays private.",
+      "Yes. Bookmark folders, note folders, and todo folders can each be turned into a public link — just toggle it on in the folder settings. Visitors get a clean, read-only page. One honest caveat: a public page has to be readable without your passphrase, so that one folder is stored unencrypted while the link is on. Switch it off and that copy is deleted. Everything you haven't shared stays encrypted.",
   },
   {
     question: "Can I share todo folders too?",
@@ -172,3 +172,36 @@ export function getModeFromText(text: string): string {
   if (text.startsWith("/bookmark")) return "bookmark";
   return "note";
 }
+
+// ─── Mockup artwork ───────────────────────────────────────────────────────────
+
+/**
+ * Decorative gradients for the landing-page mockups: fake article thumbnails,
+ * bookmark card images, and app-icon art.
+ *
+ * These are illustration, not UI colour — nothing else in the app references
+ * them and they have no light/dark variants — so they are named constants here
+ * rather than design tokens. `landing-data.ts` is on the design-token audit's
+ * approved list for exactly this reason; keeping the raw hex inline in
+ * `LandingScreen.tsx` made the audit noisy enough that people stopped reading
+ * it. Add new mockup art here, not in the screen.
+ */
+export const MOCKUP_GRADIENT = {
+  articleIndigo: "bg-[linear-gradient(135deg,#111827,#312e81)]",
+  articleStone: "bg-[linear-gradient(135deg,#f5f5f4,#d6d3d1)]",
+  articleSlate: "bg-[linear-gradient(135deg,#111827,#9ca3af)]",
+  articleMint: "bg-[linear-gradient(135deg,#f8fafc,#bbf7d0)]",
+  articleAmber: "bg-[linear-gradient(135deg,#020617,#f59e0b)]",
+  articleLime: "bg-[linear-gradient(135deg,#fff7ed,#bef264)]",
+  /** Extension mockup's app-icon tile. */
+  appIconStripe:
+    "bg-[linear-gradient(135deg,#111827_0%,#111827_38%,#f97316_39%,#f97316_74%,#d6d3d1_75%)]",
+  /** Note source-card thumbnail. */
+  noteThumbnail:
+    "bg-[linear-gradient(135deg,#d7d7d7_0%,#f7f7f7_38%,#bdbdbd_38%,#bdbdbd_50%,#f2f2f2_50%,#f2f2f2_100%)]",
+  bookmarkOrange:
+    "bg-[linear-gradient(135deg,#d8d8d8_0%,#949494_48%,#ff6b12_48%,#ff6b12_70%,#1f2937_70%)]",
+  bookmarkDark:
+    "bg-[linear-gradient(135deg,#0d1117_0%,#0d1117_54%,#444_55%,#151515_72%,#020617_72%)]",
+  bookmarkCoral: "bg-[linear-gradient(90deg,#262626,#262626),linear-gradient(135deg,#ff8a65,#ff8a65)]",
+} as const;

@@ -1,3 +1,6 @@
+import { readLocalStorage, stringCodec, writeLocalStorage } from "./local-storage";
+import { NOTE_LAST_FOLDER_KEY } from "@omanote/shared";
+
 export {
   NOTE_LAST_FOLDER_KEY,
   UNCATEGORIZED_FOLDER_LABEL,
@@ -8,19 +11,9 @@ export {
 } from "@omanote/shared";
 
 export function readLastNoteFolder() {
-  if (typeof window === "undefined") return "";
-  try {
-    return window.localStorage.getItem("omanote.note-last-folder") ?? "";
-  } catch {
-    return "";
-  }
+  return readLocalStorage(NOTE_LAST_FOLDER_KEY, stringCodec, "");
 }
 
 export function writeLastNoteFolder(value: string) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem("omanote.note-last-folder", value);
-  } catch {
-    // Ignore storage failures.
-  }
+  writeLocalStorage(NOTE_LAST_FOLDER_KEY, stringCodec, value);
 }

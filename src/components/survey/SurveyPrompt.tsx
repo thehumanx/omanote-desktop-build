@@ -9,7 +9,7 @@ interface SurveyPromptProps {
 }
 
 /**
- * Deliberately unobtrusive: bottom-right card, no backdrop, no overlay, nothing
+ * Deliberately unobtrusive: bottom-center card, no backdrop, no overlay, nothing
  * blocked. It sits above the bottom nav so it never covers navigation on mobile.
  */
 export function SurveyPrompt({ onTakeSurvey, onNotNow, resuming }: SurveyPromptProps) {
@@ -32,15 +32,12 @@ export function SurveyPrompt({ onTakeSurvey, onNotNow, resuming }: SurveyPromptP
   }, []);
 
   return (
-    <div
-      className="pointer-events-none fixed inset-x-0 z-app-toast flex justify-center px-4 sm:inset-x-auto sm:right-5 sm:justify-end sm:px-0"
-      style={{ bottom: "calc(var(--omanote-bottom-nav-height, 64px) + 1rem)" }}
-    >
+    <div className="fixed bottom-[88px] left-1/2 z-app-toast w-[min(92vw,352px)] -translate-x-1/2 transform-gpu">
       <div
         role="dialog"
         aria-label="omanote survey invitation"
         className={[
-          "pointer-events-auto w-full max-w-[22rem] transform-gpu rounded-app-card border border-app-line bg-app-surface p-4 shadow-app-dialog transition-[transform,opacity] duration-app-slow ease-app-out",
+          "w-full transform-gpu rounded-app-card border border-app-line bg-app-surface p-4 shadow-app-dialog transition-[transform,opacity] duration-app-slow ease-app-out",
           isEntered ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0",
         ].join(" ")}
       >

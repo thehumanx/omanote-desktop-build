@@ -14,7 +14,7 @@ import { useTopChrome } from "../components/layout/useTopChrome";
 import { PageHeader } from "../components/layout/PageHeader";
 import { ModalPortal } from "../components/ModalPortal";
 import { TodoEditorModal } from "../components/TodoEditorModal";
-import { TodoFolderCountBadge, TodoFolderRow } from "../components/TodoFolderRow";
+import { TodoFolderCard, TodoFolderCountBadge, TodoFolderRow } from "../components/TodoFolderRow";
 import { TodoListRow } from "../components/TodoListRow";
 import { Button, cn, SegmentedPill } from "../components/ui";
 import { formatCompletedLabel, formatRelativeGroupHeading, getSeriesListBucket, isClosedSeriesMaster, type TodoListBucket } from "@omanote/shared";
@@ -23,6 +23,7 @@ import { useMeasuredHighlight } from "../hooks/useMeasuredHighlight";
 import { parseHashtags } from "../lib/hashtags";
 import { useOutsideClick } from "../lib/useOutsideClick";
 import { CategoryIconView } from "../lib/bookmark-category-icon";
+import { useIsDesktop, usePersistedFolderSort, usePersistedFolderViewMode } from "../hooks/useFolderNavigation";
 
 function normalizeTodoFolderName(name: string) {
   return name.trim().toLowerCase();
@@ -58,26 +59,8 @@ function writeLastSelectedTodoFolder(value: string) {
 }
 
 const TODOS_FOLDER_VIEW_MODE_KEY = "omanote.todo-folder-view-mode";
-
-function readSavedTodoFolderViewMode(): "list" | "gallery" {
-  if (typeof window === "undefined") return "list";
-  try {
-    const raw = localStorage.getItem(TODOS_FOLDER_VIEW_MODE_KEY);
-    if (raw === "gallery" || raw === "list") return raw;
-  } catch {
-    /* ignore */
-  }
-  return "list";
-}
-
-function writeSavedTodoFolderViewMode(value: "list" | "gallery") {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(TODOS_FOLDER_VIEW_MODE_KEY, value);
-  } catch {
-    /* ignore */
-  }
-}
+const TODOS_FOLDER_SORT_KEY = "omanote.todo-folder-sort";
+const TODO_FOLDER_SORT_KEYS = ["alphabetical", "lastUpdated", "totalTodos"] as const;
 
 type CompletionFilterByTodoId = Partial<Record<string, TodoFilter>>;
 type CompletedLabelByTodoId = Partial<Record<string, string>>;
@@ -295,17 +278,11 @@ export function TodosScreen() {
   const [directIconFolderId, setDirectIconFolderId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; count: number } | null>(null);
   const [shareFolderModal, setShareFolderModal] = useState<{ folderId: string; folderName: string; folderIcon?: string } | null>(null);
-  const [folderSort, setFolderSort] = useState<{ key: FolderSortKey; direction: "asc" | "desc" }>(() => {
-    try {
-      const saved = localStorage.getItem("omanote.todo-folder-sort");
-      if (saved) {
-        const [key, direction] = saved.split(":");
-        if (key && direction) return { key: key as FolderSortKey, direction: direction as "asc" | "desc" };
-      }
-    } catch { /* ignore */ }
-    return { key: "lastUpdated", direction: "desc" };
+  const [folderSort, setFolderSort] = usePersistedFolderSort(TODOS_FOLDER_SORT_KEY, TODO_FOLDER_SORT_KEYS, {
+    key: "lastUpdated",
+    direction: "desc",
   });
-  const [folderViewMode, setFolderViewMode] = useState<"list" | "gallery">(() => readSavedTodoFolderViewMode());
+  const [folderViewMode, setFolderViewMode] = usePersistedFolderViewMode(TODOS_FOLDER_VIEW_MODE_KEY);
   const [folderMenuOpenId, setFolderMenuOpenId] = useState<string | null>(null);
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [folderSortMenuOpen, setFolderSortMenuOpen] = useState(false);
@@ -315,7 +292,7 @@ export function TodosScreen() {
   useOutsideClick(folderMenuRef, Boolean(folderMenuOpenId), () => setFolderMenuOpenId(null));
   const todayKey = useMemo(() => toDateKey(new Date()), []);
 
-  const isDesktop = typeof window !== "undefined" ? window.matchMedia("(min-width: 1024px)").matches : true;
+  const isDesktop = useIsDesktop();
   const [mobileTodosOpen, setMobileTodosOpen] = useState(false);
   const [drawerRenaming, setDrawerRenaming] = useState(false);
   const [drawerFolderMenuOpen, setDrawerFolderMenuOpen] = useState(false);
@@ -574,16 +551,6 @@ export function TodosScreen() {
       uncompletionExitTimersRef.current.clear();
     };
   }, []);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("omanote.todo-folder-sort", `${folderSort.key}:${folderSort.direction}`);
-    } catch { /* ignore */ }
-  }, [folderSort]);
-
-  useEffect(() => {
-    writeSavedTodoFolderViewMode(folderViewMode);
-  }, [folderViewMode]);
 
   useEffect(() => {
     if (!folderSortMenuOpen) return;
@@ -1058,34 +1025,18 @@ export function TodosScreen() {
                         />
                       </div>
                     ) : (
-                      <div
+                      <TodoFolderCard
                         key={folder.id}
-                        className={cn(
-                          "group relative flex flex-col items-center gap-2 rounded-xl border p-3 transition-[background-color,border-color] duration-app-base ease-app-in-out",
-                          selectedFolder?.id === folder.id
-                            ? "border-app-line bg-app-surface-muted text-app-ink"
-                            : "border-app-line bg-app-surface text-app-ink-muted hover:border-app-line hover:bg-app-surface-hover",
-                        )}
-                      >
-                        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-app-surface-muted text-app-ink-faint">
-                          <CategoryIconView icon={folder.icon} size="md" />
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedFolderId(folder.id);
-                            writeLastSelectedTodoFolder(folder.id);
-                            if (!isDesktop) setMobileTodosOpen(true);
-                          }}
-                          className="flex w-full items-center justify-center gap-1"
-                        >
-                          <span className="min-w-0 truncate text-[13px] font-bold leading-tight">{folder.name}</span>
-                          <TodoFolderCountBadge
-                            completedCount={folderCompletedCounts.get(folder.id) ?? 0}
-                            totalCount={folderCounts.get(folder.id) ?? 0}
-                          />
-                        </button>
-                      </div>
+                        folder={folder}
+                        completedCount={folderCompletedCounts.get(folder.id) ?? 0}
+                        totalCount={folderCounts.get(folder.id) ?? 0}
+                        selected={selectedFolder?.id === folder.id}
+                        onClick={() => {
+                          setSelectedFolderId(folder.id);
+                          writeLastSelectedTodoFolder(folder.id);
+                          if (!isDesktop) setMobileTodosOpen(true);
+                        }}
+                      />
                     )
                   ))}
                 </div>

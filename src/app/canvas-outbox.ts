@@ -1,6 +1,8 @@
 import type { DateKey, RecurrenceRule } from "@omanote/shared";
 import { prefixedRandomId } from "@omanote/shared";
 import { ConvexError } from "convex/values";
+import { CANVAS_DRAFTS_STORAGE_KEY, draftMapCodec } from "./canvas-drafts";
+import { jsonCodec, readLocalStorage, writeLocalStorage } from "../lib/local-storage";
 
 const STORAGE_KEY = "omanote.canvas-outbox";
 
@@ -132,36 +134,6 @@ type TodoMarkFiredPayload = {
   timestamp: number;
 };
 
-type TodoChecklistEnsurePayload = {
-  todoId: string;
-  text: string;
-  clientKey?: string;
-};
-
-type TodoChecklistCreatePayload = {
-  todoId: string;
-  text: string;
-  afterItemId?: string;
-  clientKey?: string;
-};
-
-type TodoChecklistUpdatePayload = {
-  itemId: string;
-  text: string;
-  checked: boolean;
-  clientKey?: string;
-};
-
-type TodoChecklistDeletePayload = {
-  itemId: string;
-  clientKey?: string;
-};
-
-type TodoChecklistTogglePayload = {
-  itemId: string;
-  clientKey?: string;
-};
-
 type BookmarkCreatePayload = {
   clientKey?: string;
   categoryId?: string;
@@ -231,11 +203,6 @@ type CanvasPayloadMap = {
   "todo/uncomplete-occurrence": TodoUncompleteOccurrencePayload;
   "todo/snooze": TodoSnoozePayload;
   "todo/mark-fired": TodoMarkFiredPayload;
-  "todo/checklist/ensure": TodoChecklistEnsurePayload;
-  "todo/checklist/create": TodoChecklistCreatePayload;
-  "todo/checklist/update": TodoChecklistUpdatePayload;
-  "todo/checklist/delete": TodoChecklistDeletePayload;
-  "todo/checklist/toggle": TodoChecklistTogglePayload;
   "bookmark/create": BookmarkCreatePayload;
   "bookmark/update": BookmarkUpdatePayload;
   "google/event-push": GoogleEventPushPayload;
@@ -266,25 +233,17 @@ function newId() {
   return prefixedRandomId("outbox");
 }
 
+// Not deep-validated item-by-item, matching the original behavior — only the
+// top-level shape (an array) is checked; a malformed individual item would
+// only surface later, wherever it's actually consumed.
+const outboxCodec = jsonCodec((value: unknown): value is OutboxItem[] => Array.isArray(value));
+
 function readOutbox(): OutboxItem[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as OutboxItem[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+  return readLocalStorage(STORAGE_KEY, outboxCodec, []);
 }
 
 function writeOutbox(items: OutboxItem[]) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-  } catch {
-    // Ignore quota and privacy mode failures.
-  }
+  writeLocalStorage(STORAGE_KEY, outboxCodec, items);
 }
 
 export function enqueueCanvasMutation<K extends CanvasKind>(kind: K, payload: CanvasPayloadMap[K], delayMs = 0) {
@@ -380,12 +339,14 @@ export async function flushCanvasOutbox(handlers: HandlerMap) {
 
 export function clearCanvasDraftForKey(draftKey?: string) {
   if (!draftKey || typeof window === "undefined") return;
-  const draftsKey = "omanote.canvas-drafts";
   try {
-    const raw = window.localStorage.getItem(draftsKey);
+    // Bails out without writing if nothing was ever stored, same as before —
+    // deleting keys from (and re-writing) an empty map would be a harmless
+    // no-op, but there's no reason to do the write at all in that case.
+    const raw = window.localStorage.getItem(CANVAS_DRAFTS_STORAGE_KEY);
     if (!raw) return;
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    if (!parsed || typeof parsed !== "object") return;
+    const parsed = draftMapCodec.decode(raw);
+    if (!parsed) return;
     delete parsed[`${draftKey}:body`];
     delete parsed[`${draftKey}:title`];
     delete parsed[`${draftKey}:tags`];
@@ -398,7 +359,7 @@ export function clearCanvasDraftForKey(draftKey?: string) {
     delete parsed[`${draftKey}:text`];
     delete parsed[`${draftKey}:checked`];
     delete parsed[`${draftKey}:notes`];
-    window.localStorage.setItem(draftsKey, JSON.stringify(parsed));
+    writeLocalStorage(CANVAS_DRAFTS_STORAGE_KEY, draftMapCodec, parsed);
   } catch {
     // Ignore storage failures.
   }

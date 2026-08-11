@@ -4,6 +4,7 @@ import { AlertTriangle, CheckCircle2, Info, Lightbulb, XCircle } from "lucide-re
 import { api } from "../../convex/_generated/api";
 import { cn } from "../components/ui";
 import {
+  activationFunnel,
   deriveInsights,
   deriveVerdict,
   pct,
@@ -550,6 +551,47 @@ function DeclaredGoalsTable({ data }: { data: PmfDashboard }) {
   );
 }
 
+function GoalReconciliationTable({ data }: { data: PmfDashboard }) {
+  if (data.goalReconciliation.length === 0) {
+    return (
+      <p className="text-xs text-app-ink-faint">
+        No one has both declared an onboarding goal and answered the later survey's "what do you use it for" question
+        yet.
+      </p>
+    );
+  }
+  return (
+    <div className="overflow-x-auto">
+      <p className="mb-2 text-xs text-app-ink-faint">
+        Based on {data.usersWithBothGoalAnswers} user{data.usersWithBothGoalAnswers === 1 ? "" : "s"} who answered
+        both questions.
+      </p>
+      <table className="w-full min-w-[560px] border-collapse">
+        <thead>
+          <tr>
+            <Th>Goal</Th>
+            <Th align="right">Declared at onboarding</Th>
+            <Th align="right">Still true later</Th>
+            <Th align="right">Mentioned later, not declared</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.goalReconciliation.map((g) => (
+            <tr key={g.goal}>
+              <Td>{humanizeChoice(g.goal)}</Td>
+              <Td align="right">{g.declaredAtOnboarding > 0 ? g.declaredAtOnboarding : "—"}</Td>
+              <Td align="right" className={g.declaredAtOnboarding > 0 && g.confirmationRate < 50 ? "text-red-600" : undefined}>
+                {g.declaredAtOnboarding > 0 ? `${g.confirmedLater} (${g.confirmationRate}%)` : "—"}
+              </Td>
+              <Td align="right">{g.newlyMentioned > 0 ? g.newlyMentioned : "—"}</Td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 const FEEDBACK_STATUSES = ["new", "planned", "done", "declined"] as const;
 
 function FeedbackList({ data }: { data: PmfDashboard }) {
@@ -628,6 +670,17 @@ export function AdminDashboardScreen() {
   const maxFeatureUsers = Math.max(1, ...data.featureAdoption.map((f) => f.users));
   const verdictStyle = verdict ? SEVERITY_STYLE[verdict.tone] : null;
 
+  // Signups (the true top of the funnel) only exist in Clerk — see
+  // activationFunnel()'s doc comment for why `getDashboard` can't compute this
+  // itself. Falls back to null while the directory action is still loading or
+  // failed, which activationFunnel() turns into "don't render this section"
+  // rather than a fabricated top stage.
+  const adminSubjects = new Set(data.adminUserIds.map(clerkSubject));
+  const signups = directory
+    ? [...directory.keys()].filter((subject) => !adminSubjects.has(subject)).length
+    : null;
+  const funnelStages = activationFunnel(data, signups);
+
   return (
     <div className="mx-auto max-w-[1000px] px-4 py-6 sm:px-6">
       <header>
@@ -638,6 +691,18 @@ export function AdminDashboardScreen() {
         </p>
       </header>
 
+      {data.scaleFuse.nearLimit && (
+        <div className="mt-5 rounded-app-card border border-amber-300 bg-amber-50 p-4 text-amber-900">
+          <p className="text-[11px] font-medium uppercase tracking-wide opacity-80">Scale warning</p>
+          <p className="mt-0.5 text-sm">
+            This dashboard reads whole tables (`.collect()`), and `{data.scaleFuse.largestTable}` is at{" "}
+            {data.scaleFuse.rowCount.toLocaleString()} rows — past the {data.scaleFuse.warnAt.toLocaleString()}-row
+            warning line. It'll keep working for a while, but this is the point to move the underlying query to a
+            rolled-up table before it silently gets slow.
+          </p>
+        </div>
+      )}
+
       {verdict && verdictStyle && (
         <div className={cn("mt-5 rounded-app-card border p-4", verdictStyle.className)}>
           <p className="text-[11px] font-medium uppercase tracking-wide opacity-80">Verdict</p>
@@ -645,6 +710,31 @@ export function AdminDashboardScreen() {
           <p className="mt-1 text-xs leading-relaxed text-app-ink-muted">{verdict.summary}</p>
         </div>
       )}
+
+      <Section
+        title="Activation funnel"
+        hint={
+          funnelStages
+            ? "Signups come from Clerk (the true top of the funnel); the rest come from Convex. Biggest drop-off is the stage to watch."
+            : directoryError
+              ? `Signup count unavailable — could not load user identities from Clerk: ${directoryError}`
+              : "Loading signup count from Clerk…"
+        }
+      >
+        {funnelStages && (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {funnelStages.map((stage, index) => (
+              <StatCard
+                key={stage.id}
+                label={stage.label}
+                value={stage.value}
+                sub={index === 0 ? undefined : `${stage.pctOfPrevious}% of previous · ${stage.pctOfSignups}% of signups`}
+                tone={index > 0 && stage.pctOfPrevious !== null && stage.pctOfPrevious < 50 ? "bad" : "neutral"}
+              />
+            ))}
+          </div>
+        )}
+      </Section>
 
       <Section title="Headline" hint="Onboarded means the user completed end-to-end encryption setup.">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -806,6 +896,13 @@ export function AdminDashboardScreen() {
         hint="What people said they came for (Welcome step, optional) versus whether they ever created anything at all."
       >
         <DeclaredGoalsTable data={data} />
+      </Section>
+
+      <Section
+        title="What they came for vs. what they say they use it for"
+        hint="Reconciles the Welcome step's declared goal against the same options re-asked in the later survey — a low confirmation rate means the pitch and the product are drifting apart for that use case."
+      >
+        <GoalReconciliationTable data={data} />
       </Section>
 
       <Section title={`Survey — ${data.survey.completed} of ${data.survey.started} completed`}>

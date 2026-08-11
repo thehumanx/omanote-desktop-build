@@ -17,6 +17,7 @@ import { NoteCanvasEditor } from "./NoteCanvasEditor";
 import { useMobileKeyboardState } from "./layout/useMobileKeyboardState";
 import { HashtagPickerDropdown, useHashtagPicker } from "./HashtagPicker";
 import { EmojiPickerDropdown, useEmojiPicker } from "./EmojiPicker";
+import { readLocalStorage, stringCodec, writeLocalStorage } from "../lib/local-storage";
 
 const commands: Array<{ key: DraftMode; label: string }> = [
   { key: "todo", label: "todo" },
@@ -163,41 +164,23 @@ function MobileArtifactTypeSwitcher({
 const BOOKMARK_LAST_CATEGORY_KEY = "omanote.bookmark-last-category";
 
 function readLastBookmarkCategory() {
-  if (typeof window === "undefined") return "";
-  try {
-    return window.localStorage.getItem(BOOKMARK_LAST_CATEGORY_KEY) ?? "";
-  } catch {
-    return "";
-  }
+  return readLocalStorage(BOOKMARK_LAST_CATEGORY_KEY, stringCodec, "");
 }
 
 function writeLastBookmarkCategory(value: string) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(BOOKMARK_LAST_CATEGORY_KEY, value);
-  } catch {
-    // Ignore storage failures.
-  }
+  writeLocalStorage(BOOKMARK_LAST_CATEGORY_KEY, stringCodec, value);
 }
 
 const TODO_LAST_FOLDER_KEY = "omanote.todo-last-folder";
 
 function readLastTodoFolder() {
-  if (typeof window === "undefined") return "Others";
-  try {
-    return window.localStorage.getItem(TODO_LAST_FOLDER_KEY) || "Others";
-  } catch {
-    return "Others";
-  }
+  // `|| "Others"`, not `??`: a previously-stored empty string should also
+  // fall back to the default folder, not read back as "no folder".
+  return readLocalStorage(TODO_LAST_FOLDER_KEY, stringCodec, "Others") || "Others";
 }
 
 function writeLastTodoFolder(value: string) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(TODO_LAST_FOLDER_KEY, value);
-  } catch {
-    // Ignore storage failures.
-  }
+  writeLocalStorage(TODO_LAST_FOLDER_KEY, stringCodec, value);
 }
 
 export type CanvasDraftBlockHandle = {
@@ -1738,7 +1721,7 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
       ? createPortal(
           <div
             data-omanote-ignore-outside-click="true"
-            className="fixed z-[200] overflow-y-auto rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
+            className="fixed z-app-menu overflow-y-auto rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
             style={{ top: categoryMenuPos.top, left: categoryMenuPos.left, width: categoryMenuPos.width, maxHeight: categoryMenuPos.maxHeight }}
             onMouseDown={(event) => event.preventDefault()}
           >

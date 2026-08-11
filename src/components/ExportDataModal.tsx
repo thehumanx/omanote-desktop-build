@@ -1,17 +1,20 @@
 import { useState } from "react";
 import { Download, X } from "lucide-react";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { useApp } from "../app/AppProvider";
 import { BaseModal } from "./BaseModal";
 import { Button, CheckboxField } from "./ui";
 
-type ExportCat = "todos" | "notes" | "bookmarks" | "events";
+type ExportCat = "todos" | "notes" | "bookmarks" | "events" | "rss";
 
-const CATS: ExportCat[] = ["todos", "notes", "bookmarks", "events"];
+const CATS: ExportCat[] = ["todos", "notes", "bookmarks", "events", "rss"];
 const CAT_LABELS: Record<ExportCat, string> = {
   todos: "Todos",
   notes: "Notes",
   bookmarks: "Bookmarks",
   events: "Events",
+  rss: "RSS subscriptions",
 };
 
 function downloadJson(data: unknown, filename: string) {
@@ -26,6 +29,8 @@ function downloadJson(data: unknown, filename: string) {
 
 export function ExportDataPanel() {
   const { state } = useApp();
+  const rssSubscriptions = useQuery(api.rss.listSubscriptions);
+  const rssCategories = useQuery(api.rss.listCategories);
   const [selected, setSelected] = useState<Set<ExportCat>>(new Set(CATS));
   const [loading, setLoading] = useState(false);
   const [exported, setExported] = useState(false);
@@ -35,6 +40,7 @@ export function ExportDataPanel() {
     notes: state.notes.length,
     bookmarks: state.bookmarks.length,
     events: state.events.filter((r) => !r.deletedAt).length,
+    rss: rssSubscriptions?.length ?? 0,
   };
   const totalAll = CATS.reduce((s, c) => s + counts[c], 0);
   const totalSelected = CATS.filter((c) => selected.has(c)).reduce((s, c) => s + counts[c], 0);
@@ -60,53 +66,64 @@ export function ExportDataPanel() {
       };
 
       if (selected.has("todos")) {
-        const todoFolderById = new Map(state.todoFolders.map((folder) => [folder.id, folder.name]));
+        const todoFolderById = new Map(state.todoFolders.map((folder) => [folder.id, folder]));
         payload.todos = state.todos
           .filter((t) => !t.deletedAt)
-          .map((t) => ({
-            title: t.title,
-            notes: t.notes ?? null,
-            folderName: t.folderId ? (todoFolderById.get(t.folderId) ?? t.folderName ?? null) : (t.folderName ?? null),
-            dueDateKey: t.dueDateKey ?? null,
-            dueTime: t.dueTime ?? null,
-            priority: t.priority,
-            status: t.status,
-            createdDateKey: t.createdDateKey,
-            createdAt: t.createdAt,
-            checklistItems: state.checklistItems
-              .filter((ci) => ci.todoId === t.id)
-              .sort((a, b) => a.position - b.position)
-              .map((ci) => ({ text: ci.text, checked: ci.checked, position: ci.position })),
-          }));
+          .map((t) => {
+            const folder = t.folderId ? todoFolderById.get(t.folderId) : undefined;
+            return {
+              title: t.title,
+              notes: t.notes ?? null,
+              folderName: folder?.name ?? t.folderName ?? null,
+              folderIcon: folder?.icon ?? null,
+              dueDateKey: t.dueDateKey ?? null,
+              dueTime: t.dueTime ?? null,
+              priority: t.priority,
+              status: t.status,
+              createdDateKey: t.createdDateKey,
+              createdAt: t.createdAt,
+              recurrence: t.recurrence ?? null,
+              reminderEveryMinutes: t.reminderEveryMinutes ?? null,
+              reminderUntil: t.reminderUntil ?? null,
+            };
+          });
       }
 
       if (selected.has("notes")) {
-        const folderById = new Map(state.noteFolders.map((f) => [f.id, f.name]));
+        const folderById = new Map(state.noteFolders.map((f) => [f.id, f]));
         payload.notes = state.notes
-          .map((n) => ({
-            title: n.title ?? null,
-            body: n.body,
-            tags: n.tags,
-            folderName: n.folderId ? (folderById.get(n.folderId) ?? n.folderName ?? null) : (n.folderName ?? null),
-            createdDateKey: n.createdDateKey,
-            createdAt: n.createdAt,
-          }));
+          .map((n) => {
+            const folder = n.folderId ? folderById.get(n.folderId) : undefined;
+            return {
+              title: n.title ?? null,
+              body: n.body,
+              tags: n.tags,
+              folderName: folder?.name ?? n.folderName ?? null,
+              folderIcon: folder?.icon ?? null,
+              createdDateKey: n.createdDateKey,
+              createdAt: n.createdAt,
+            };
+          });
       }
 
       if (selected.has("bookmarks")) {
-        const catById = new Map(state.bookmarkCategories.map((c) => [c.id, c.name]));
+        const catById = new Map(state.bookmarkCategories.map((c) => [c.id, c]));
         payload.bookmarks = state.bookmarks
-          .map((b) => ({
-            url: b.url,
-            title: b.title,
-            siteName: b.siteName ?? null,
-            description: b.description ?? null,
-            thumbnailUrl: b.thumbnailUrl ?? null,
-            faviconUrl: b.faviconUrl ?? null,
-            categoryName: catById.get(b.categoryId) ?? null,
-            createdDateKey: b.createdDateKey,
-            createdAt: b.createdAt,
-          }));
+          .map((b) => {
+            const category = catById.get(b.categoryId);
+            return {
+              url: b.url,
+              title: b.title,
+              siteName: b.siteName ?? null,
+              description: b.description ?? null,
+              thumbnailUrl: b.thumbnailUrl ?? null,
+              faviconUrl: b.faviconUrl ?? null,
+              categoryName: category?.name ?? null,
+              categoryIcon: category?.icon ?? null,
+              createdDateKey: b.createdDateKey,
+              createdAt: b.createdAt,
+            };
+          });
       }
 
       if (selected.has("events")) {
@@ -119,6 +136,22 @@ export function ExportDataPanel() {
             createdDateKey: r.createdDateKey,
             createdAt: r.createdAt,
           }));
+      }
+
+      if (selected.has("rss") && rssSubscriptions) {
+        const categoryById = new Map((rssCategories ?? []).map((c) => [c._id, c]));
+        payload.rssSubscriptions = rssSubscriptions.map((sub) => {
+          const category = sub.categoryId ? categoryById.get(sub.categoryId) : undefined;
+          return {
+            title: sub.title,
+            feedUrl: sub.feedUrl,
+            siteUrl: sub.siteUrl ?? null,
+            description: sub.description ?? null,
+            faviconUrl: sub.faviconUrl ?? null,
+            categoryName: category?.name ?? null,
+            categoryIcon: category?.icon ?? null,
+          };
+        });
       }
 
       const date = new Date().toISOString().slice(0, 10);
@@ -163,7 +196,7 @@ export function ExportDataPanel() {
         <Button
           className="gap-2"
           onClick={() => void handleExport()}
-          disabled={loading || selected.size === 0}
+          disabled={loading || selected.size === 0 || (selected.has("rss") && rssSubscriptions === undefined)}
         >
           <Download className="h-4 w-4" />
           {loading ? "Preparing…" : `Export ${totalSelected} item${totalSelected !== 1 ? "s" : ""}`}

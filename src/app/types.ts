@@ -3,7 +3,6 @@ import type {
   BookmarkCategory,
   BookmarkItem,
   DateKey,
-  TodoChecklistItem,
   TodoFolder,
   HabitDefinition,
   NoteFolder,
@@ -57,7 +56,6 @@ export interface AppState {
   };
   todos: TodoItem[];
   todoFolders: TodoFolder[];
-  checklistItems: TodoChecklistItem[];
   notes: NoteItem[];
   deletedNotes: NoteItem[];
   noteFolders: NoteFolder[];
@@ -89,7 +87,7 @@ export type AppAction =
   | { type: "ui/set-notes-drawer-open"; open: boolean }
   | { type: "ui/open-composer"; mode?: DraftMode }
   | { type: "ui/close-composer" }
-  | { type: "todo/create"; title: string; dateKey: DateKey; dueDateKey?: DateKey; dueTime?: string; hashtags?: string[]; fromReminder?: boolean; folderId?: string; folderName?: string; recurrence?: RecurrenceRule; reminderEveryMinutes?: number; reminderUntil?: number }
+  | { type: "todo/create"; title: string; dateKey: DateKey; dueDateKey?: DateKey; dueTime?: string; hashtags?: string[]; fromReminder?: boolean; folderId?: string; folderName?: string; folderIcon?: string; recurrence?: RecurrenceRule; reminderEveryMinutes?: number; reminderUntil?: number }
   | { type: "todo/toggle"; todoId: string; completedAt?: number }
   | { type: "todo/delete"; todoId: string }
   | { type: "todo/delete-series"; todoId: string }
@@ -101,7 +99,7 @@ export type AppAction =
   | { type: "todo/update"; todoId: string; title: string; dueDateKey?: DateKey; dueTime?: string; hashtags?: string[]; folderId?: string; folderName?: string; recurrence?: RecurrenceRule | null; reminderEveryMinutes?: number | null; reminderUntil?: number | null }
   | { type: "todo/snooze"; todoId: string; minutes: number }
   | { type: "todo/mark-fired"; todoId: string; timestamp: number }
-  | { type: "note/create"; body: string; dateKey: DateKey; title?: string; tags?: string[]; hashtags?: string[]; folderName?: string; folderId?: string }
+  | { type: "note/create"; body: string; dateKey: DateKey; title?: string; tags?: string[]; hashtags?: string[]; folderName?: string; folderId?: string; folderIcon?: string }
   | { type: "note/update"; noteId: string; title?: string; body: string; tags: string[]; hashtags?: string[]; folderName?: string; folderId?: string }
   | { type: "note/delete"; noteId: string }
   | { type: "note/restore"; noteId: string }
@@ -119,6 +117,7 @@ export type AppAction =
     dateKey: DateKey;
     categoryId?: string;
     categoryName?: string;
+    categoryIcon?: string;
       title?: string;
       siteName?: string;
       description?: string;

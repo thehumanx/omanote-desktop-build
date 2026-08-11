@@ -85,9 +85,30 @@ export const color = {
   warning: "#f59e0b",       // amber-500
   warningBg: "#fffbeb",     // amber-50
 
-  // Brand accents used on public/marketing surfaces.
-  brandCta: "#5A8B16",
+  // Brand accents used on public/marketing and onboarding surfaces.
+  //
+  // Deliberately flat hex rather than themed CSS vars: like a logo, these stay
+  // the same green in light and dark. That is why they are consumed as imported
+  // constants (see CTA_BG in LandingScreen) instead of Tailwind `app-*` classes.
+  // There used to be a second, separately-picked green (#5A8B16) on the
+  // landing CTA. It and this one were 1.21 ΔE apart — below the threshold
+  // where the two are distinguishable side by side — so they were collapsed
+  // into this single brand green.
+  brandCta: "#578910",
+  /**
+   * Darker shade for the CTA's border and hover state. Kept from when the base
+   * was #5A8B16; re-deriving it against the new base lands on #48700D, a
+   * smaller shift than the one it would be correcting.
+   */
   brandCtaHover: "#4a7212",
+  /** Text on the filled CTA, and the surface of the inverted one. */
+  brandCtaInk: "#ffffff",
+  /** Hairline border on the inverted CTA. */
+  brandCtaHairline: "rgba(0,0,0,0.08)",
+  /** Onboarding "connected" pill background. */
+  brandCtaTint: "#EEF4E4",
+  /** Landing closing-CTA section background. */
+  brandCtaWash: "#F7FCF1",
 } as const;
 
 // ─── Typography ───────────────────────────────────────────────────────────────
@@ -175,6 +196,13 @@ export const radius = {
     card: "1rem",
     dialog: "1rem",
     drawer: "1rem",
+    /**
+     * Squircle corner for the app icon rendered at 80px (desktop onboarding).
+     * Deliberately its own value rather than reusing `card` — matching the
+     * platform icon mask is what makes it read as an app icon rather than a
+     * rounded picture.
+     */
+    appIcon: "1.375rem",
     full: "9999px",
   },
 

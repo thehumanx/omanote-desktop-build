@@ -1,26 +1,18 @@
+import { readLocalStorage, removeLocalStorage, stringCodec, writeLocalStorage } from "./local-storage";
+
 export const NOTIFICATION_BANNER_DISMISSED_KEY = "omanote:notification-permission-dismissed";
 
-function getStorage() {
-  if (typeof window === "undefined") return null;
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
-
 export function isNotificationBannerDismissed() {
-  const storage = getStorage();
-  if (!storage) return false;
-  return storage.getItem(NOTIFICATION_BANNER_DISMISSED_KEY) === "true";
+  return readLocalStorage(NOTIFICATION_BANNER_DISMISSED_KEY, stringCodec, "") === "true";
 }
 
 export function setNotificationBannerDismissed(value: boolean) {
-  const storage = getStorage();
-  if (!storage) return;
   if (value) {
-    storage.setItem(NOTIFICATION_BANNER_DISMISSED_KEY, "true");
+    writeLocalStorage(NOTIFICATION_BANNER_DISMISSED_KEY, stringCodec, "true");
     return;
   }
-  storage.removeItem(NOTIFICATION_BANNER_DISMISSED_KEY);
+  // Removed rather than written as "false" — this banner can be reset back to
+  // "not yet dismissed" (e.g. if permission is later revoked), unlike the
+  // one-shot dismissible banners elsewhere.
+  removeLocalStorage(NOTIFICATION_BANNER_DISMISSED_KEY);
 }

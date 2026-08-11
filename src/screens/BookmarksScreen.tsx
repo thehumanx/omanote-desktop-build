@@ -27,6 +27,7 @@ import {
   isLinkedArtifactBookmarkId,
   type LinkedArtifactReference,
 } from "../lib/linked-artifact-bookmarks";
+import { useIsDesktop, usePersistedEnum, usePersistedFolderSort, usePersistedFolderViewMode } from "../hooks/useFolderNavigation";
 
 type BookmarkSortDirection = "asc" | "desc";
 type CategorySortKey = "alphabetical" | "lastUpdated" | "totalBookmarks";
@@ -58,79 +59,8 @@ function writeLastSelectedBookmarkCategory(value: string) {
   }
 }
 
-function isCategorySortKey(value: string): value is CategorySortKey {
-  return value === "alphabetical" || value === "lastUpdated" || value === "totalBookmarks";
-}
-
-function isBookmarkSortDirection(value: string): value is BookmarkSortDirection {
-  return value === "asc" || value === "desc";
-}
-
-function isCategoryViewMode(value: string): value is CategoryViewMode {
-  return value === "list" || value === "gallery";
-}
-
-function readSavedCategorySort() {
-  if (typeof window === "undefined") return DEFAULT_CATEGORY_SORT;
-  try {
-    const raw = window.localStorage.getItem(BOOKMARKS_CATEGORY_SORT_KEY);
-    if (!raw) return DEFAULT_CATEGORY_SORT;
-    const [key, direction] = raw.split(":");
-    if (!isCategorySortKey(key) || !isBookmarkSortDirection(direction)) return DEFAULT_CATEGORY_SORT;
-    return { key, direction };
-  } catch {
-    return DEFAULT_CATEGORY_SORT;
-  }
-}
-
-function writeSavedCategorySort(value: { key: CategorySortKey; direction: BookmarkSortDirection }) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(BOOKMARKS_CATEGORY_SORT_KEY, `${value.key}:${value.direction}`);
-  } catch {
-    // Ignore storage failures.
-  }
-}
-
-function readSavedBookmarkSortDirection() {
-  if (typeof window === "undefined") return DEFAULT_BOOKMARK_SORT_DIRECTION;
-  try {
-    const raw = window.localStorage.getItem(BOOKMARKS_ITEM_SORT_DIRECTION_KEY);
-    if (!raw || !isBookmarkSortDirection(raw)) return DEFAULT_BOOKMARK_SORT_DIRECTION;
-    return raw;
-  } catch {
-    return DEFAULT_BOOKMARK_SORT_DIRECTION;
-  }
-}
-
-function writeSavedBookmarkSortDirection(value: BookmarkSortDirection) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(BOOKMARKS_ITEM_SORT_DIRECTION_KEY, value);
-  } catch {
-    // Ignore storage failures.
-  }
-}
-
-function readSavedCategoryViewMode() {
-  if (typeof window === "undefined") return DEFAULT_CATEGORY_VIEW_MODE;
-  try {
-    const raw = window.localStorage.getItem(BOOKMARKS_CATEGORY_VIEW_MODE_KEY);
-    if (!raw || !isCategoryViewMode(raw)) return DEFAULT_CATEGORY_VIEW_MODE;
-    return raw;
-  } catch {
-    return DEFAULT_CATEGORY_VIEW_MODE;
-  }
-}
-
-function writeSavedCategoryViewMode(value: CategoryViewMode) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(BOOKMARKS_CATEGORY_VIEW_MODE_KEY, value);
-  } catch {
-    // Ignore storage failures.
-  }
-}
+const CATEGORY_SORT_KEYS = ["alphabetical", "lastUpdated", "totalBookmarks"] as const;
+const BOOKMARK_SORT_DIRECTIONS = ["asc", "desc"] as const;
 
 function normalizeCategoryName(name: string) {
   return name.trim().toLowerCase();
@@ -176,13 +106,7 @@ export function BookmarksScreen() {
   const iconPickerAnchorRef = useRef<HTMLButtonElement | null>(null);
   const [directIconCategoryId, setDirectIconCategoryId] = useState<string | null>(null);
   const drawerDirectIconButtonRef = useRef<HTMLButtonElement>(null);
-  const [isDesktop, setIsDesktop] = useState(() => window.matchMedia("(min-width: 1024px)").matches);
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)");
-    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
+  const isDesktop = useIsDesktop();
   const [editingBookmarkId, setEditingBookmarkId] = useState<string | null>(null);
   const [focusedBookmarkId, setFocusedBookmarkId] = useState<string | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(() => readLastSelectedBookmarkCategory() || null);
@@ -194,9 +118,13 @@ export function BookmarksScreen() {
   const [drawerRenaming, setDrawerRenaming] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; count: number } | null>(null);
   const [shareFolderModal, setShareFolderModal] = useState<{ categoryId: string; categoryName: string; categoryIcon?: string } | null>(null);
-  const [categorySort, setCategorySort] = useState<{ key: CategorySortKey; direction: BookmarkSortDirection }>(() => readSavedCategorySort());
-  const [bookmarkSortDirection, setBookmarkSortDirection] = useState<BookmarkSortDirection>(() => readSavedBookmarkSortDirection());
-  const [categoryViewMode, setCategoryViewMode] = useState<CategoryViewMode>(() => readSavedCategoryViewMode());
+  const [categorySort, setCategorySort] = usePersistedFolderSort(BOOKMARKS_CATEGORY_SORT_KEY, CATEGORY_SORT_KEYS, DEFAULT_CATEGORY_SORT);
+  const [bookmarkSortDirection, setBookmarkSortDirection] = usePersistedEnum(
+    BOOKMARKS_ITEM_SORT_DIRECTION_KEY,
+    BOOKMARK_SORT_DIRECTIONS,
+    DEFAULT_BOOKMARK_SORT_DIRECTION,
+  );
+  const [categoryViewMode, setCategoryViewMode] = usePersistedFolderViewMode(BOOKMARKS_CATEGORY_VIEW_MODE_KEY, DEFAULT_CATEGORY_VIEW_MODE);
   const effectiveCategoryViewMode: CategoryViewMode =
     typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches ? "list" : categoryViewMode;
   const newCategoryInputRef = useRef<HTMLInputElement | null>(null);
@@ -508,18 +436,6 @@ export function BookmarksScreen() {
     if (!selectedCategoryId) return;
     writeLastSelectedBookmarkCategory(selectedCategoryId);
   }, [selectedCategoryId]);
-
-  useEffect(() => {
-    writeSavedCategorySort(categorySort);
-  }, [categorySort]);
-
-  useEffect(() => {
-    writeSavedBookmarkSortDirection(bookmarkSortDirection);
-  }, [bookmarkSortDirection]);
-
-  useEffect(() => {
-    writeSavedCategoryViewMode(categoryViewMode);
-  }, [categoryViewMode]);
 
   useEffect(() => {
     const pendingName = pendingCategorySelectRef.current;

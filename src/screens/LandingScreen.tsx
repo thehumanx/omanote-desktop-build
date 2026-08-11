@@ -6,6 +6,7 @@ import { Bookmark, CheckCheck, CheckSquare, Clock3, Compass, FileText, CalendarD
 import changelogMarkdown from "../../CHANGELOG.md?raw";
 import { SeoHead } from "../seo/SeoHead";
 import { color } from "../design-system/tokens";
+import { readDismissedFlag, writeDismissedFlag } from "../lib/local-storage";
 import { parseLatestVersion } from "../lib/update-checker";
 import { useOutsideClick } from "../lib/useOutsideClick";
 import { SegmentedPill, TodoCheckmark } from "../components/ui";
@@ -15,11 +16,15 @@ import {
   EXPLORE_TAGS,
   FAQ_ITEMS,
   getModeFromText,
+  MOCKUP_GRADIENT,
   tagColor,
 } from "./landing-data";
 
 const CTA_BG = color.brandCta;
 const CTA_BORDER = color.brandCtaHover;
+const CTA_INK = color.brandCtaInk;
+const CTA_HAIRLINE = color.brandCtaHairline;
+const CLOSING_SECTION_BG = color.brandCtaWash;
 const desktopAppReleaseUrl = "https://github.com/thehumanx/omanote-releases/releases/latest";
 
 const NAV_TABS = [
@@ -146,7 +151,7 @@ const READER_ARTICLES: ReaderArticlePreview[] = [
     title: "The organizational cost of low taste",
     summary: "When taste is weak, organizations don't fail in strategy. They fail in decisions. This is what happens when an organization loses a shared sense of quality.",
     unread: true,
-    thumb: "bg-[linear-gradient(135deg,#111827,#312e81)]",
+    thumb: MOCKUP_GRADIENT.articleIndigo,
   },
   {
     feed: "UX Collective - Medium",
@@ -154,28 +159,28 @@ const READER_ARTICLES: ReaderArticlePreview[] = [
     title: "Better search, worse web",
     summary: "Every number says Google AI Search is better. None of them can see the cost. Continue reading on UX Collective.",
     unread: true,
-    thumb: "bg-[linear-gradient(135deg,#f5f5f4,#d6d3d1)]",
+    thumb: MOCKUP_GRADIENT.articleStone,
   },
   {
     feed: "UX Collective - Medium",
     age: "2d",
     title: "Access is not mastery, the polymath UX architect, A2UI under the hood",
     summary: "Weekly curated resources for designers, thinkers and makers. I've seen PMs and sales teams build working prototypes with AI tools that genuinely work.",
-    thumb: "bg-[linear-gradient(135deg,#111827,#9ca3af)]",
+    thumb: MOCKUP_GRADIENT.articleSlate,
   },
   {
     feed: "UX Collective - Medium",
     age: "2d",
     title: "What sits on the engawa",
     summary: "On designing for wishes we cannot yet wish alone. Continue reading on UX Collective.",
-    thumb: "bg-[linear-gradient(135deg,#f8fafc,#bbf7d0)]",
+    thumb: MOCKUP_GRADIENT.articleMint,
   },
   {
     feed: "UX Collective - Medium",
     age: "2d",
     title: "The Magic 8-Ball vs. Gen AI: a surprisingly interesting comparison",
     summary: "Two products. Both fortune-tellers. Wildly different operating costs.",
-    thumb: "bg-[linear-gradient(135deg,#020617,#f59e0b)]",
+    thumb: MOCKUP_GRADIENT.articleAmber,
   },
   {
     feed: "UX Collective - Medium",
@@ -183,7 +188,7 @@ const READER_ARTICLES: ReaderArticlePreview[] = [
     title: "Why the best part of the flow isn't the end",
     summary: "Strip out the transaction and what's left still works, which should tell us something about the product.",
     unread: true,
-    thumb: "bg-[linear-gradient(135deg,#fff7ed,#bef264)]",
+    thumb: MOCKUP_GRADIENT.articleLime,
   },
 ] as const;
 
@@ -390,7 +395,7 @@ function CanvasView({
           className="ml-0 flex w-full max-w-[720px] items-start gap-3 rounded-xl border border-app-line bg-app-surface px-3 py-3 text-left transition hover:bg-app-surface-hover md:ml-1"
         >
           <div className="h-[58px] w-[92px] shrink-0 overflow-hidden rounded-md border border-app-line bg-app-surface-muted">
-            <div className="h-full w-full bg-[linear-gradient(135deg,#111827_0%,#111827_38%,#f97316_39%,#f97316_74%,#d6d3d1_75%)]" />
+            <div className={`h-full w-full ${MOCKUP_GRADIENT.appIconStripe}`} />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
@@ -527,7 +532,18 @@ const TODO_MOCKUP_TABS = [
   { key: "completed", label: "Completed", count: 2 },
 ] as const;
 
-const TODO_MOCKUP_SECTIONS = [
+// Explicitly typed rather than left to inference: `as const` on a heterogeneous
+// array widens to a union of literal shapes, so reading an optional field that
+// only some entries carry (`tag`, `completedLabel`) fails to typecheck. Same
+// reason the other mockup constants below are annotated.
+type TodoMockupRow = {
+  title: string;
+  tag?: string;
+  due?: string;
+  completedLabel?: string;
+};
+
+const TODO_MOCKUP_SECTIONS: readonly TodoMockupRow[] = [
   { title: "Launch mobile apps", due: "10AM, Today" },
   { title: "Add recurring todos", due: "Tue, Jun 30" },
   { title: "Read Atomic Habits ch.5", tag: "#books", due: "Fri, Jul 3" },
@@ -543,7 +559,10 @@ function MockTodoRow({
   done = false,
 }: {
   title: string;
-  tag: string;
+  // Optional in practice — most mockup rows have no tag, and the body already
+  // guards on it. It was only declared required because inference on the old
+  // `as const` array happened to hide the undefined case.
+  tag?: string;
   due?: string;
   completedLabel?: string;
   done?: boolean;
@@ -635,7 +654,7 @@ function MockFolderRow({
       type="button"
       onClick={onClick}
       className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition ${
-        selected ? "bg-app-surface-hover text-app-ink shadow-[0_1px_0_rgba(15,23,42,0.02)]" : "hover:bg-app-surface-hover/70"
+        selected ? "bg-app-surface-hover text-app-ink" : "hover:bg-app-surface-hover/70"
       }`}
     >
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-app-surface-muted text-base text-app-ink-faint">
@@ -715,7 +734,14 @@ function TodosView() {
   );
 }
 
-const NOTES_MOCKUP_FOLDERS = [
+type FolderMockupRow = {
+  name: string;
+  icon: React.ReactNode;
+  count: number;
+  selected?: boolean;
+};
+
+const NOTES_MOCKUP_FOLDERS: readonly FolderMockupRow[] = [
   { name: "random", icon: "📁", count: 8 },
   { name: "Blog", icon: "📁", count: 1 },
   { name: "Happy Customer", icon: "✨", count: 4 },
@@ -729,7 +755,18 @@ const NOTES_MOCKUP_FOLDERS = [
   { name: "THG", icon: "📁", count: 2 },
 ] as const;
 
-const NOTES_MOCKUP_ARTICLES = [
+type NotesMockupArticle = {
+  meta: string;
+  title: string;
+  sourceLabel: string;
+  sourceDomain: string;
+  sourceTitle: string;
+  sourceSummary: string;
+  body: string;
+  bodySummary?: string;
+};
+
+const NOTES_MOCKUP_ARTICLES: readonly NotesMockupArticle[] = [
   {
     meta: "Created May 8, 2026 · Updated Jun 4, 2026 · 0 hashtags · 6 links",
     title: "When life gives you a Mac Mini, make Lemon",
@@ -763,7 +800,7 @@ function NotesSourceCard({
 }) {
   return (
     <div className="flex items-start gap-3 rounded-xl border border-app-line bg-app-surface px-3 py-2.5 shadow-sm">
-      <div className="h-16 w-16 shrink-0 rounded-lg bg-app-surface-muted bg-[linear-gradient(135deg,#d7d7d7_0%,#f7f7f7_38%,#bdbdbd_38%,#bdbdbd_50%,#f2f2f2_50%,#f2f2f2_100%)]" />
+      <div className={`h-16 w-16 shrink-0 rounded-lg bg-app-surface-muted ${MOCKUP_GRADIENT.noteThumbnail}`} />
       <div className="min-w-0 flex-1">
         <div className="mb-1 flex items-center gap-2 text-[13px] leading-5 text-app-ink-muted">
           <span className="h-4 w-4 rounded-full bg-app-ink text-[9px] leading-4 text-app-surface text-center">◌</span>
@@ -824,7 +861,7 @@ function NotesView() {
   );
 }
 
-const BOOKMARK_MOCKUP_FOLDERS = [
+const BOOKMARK_MOCKUP_FOLDERS: readonly FolderMockupRow[] = [
   { name: "Design Eng.", icon: <Folder className="h-4 w-4" />, count: 4, selected: true },
   { name: "Saved", icon: <Folder className="h-4 w-4" />, count: 34 },
   { name: "UX", icon: <Folder className="h-4 w-4" />, count: 7 },
@@ -845,7 +882,7 @@ const BOOKMARK_MOCKUP_CARDS = [
     summary: "On designing finger-friendly interactions",
     domain: "aresluna.org",
     favicon: <Bookmark className="h-4 w-4" />,
-    imageClass: "bg-[linear-gradient(135deg,#d8d8d8_0%,#949494_48%,#ff6b12_48%,#ff6b12_70%,#1f2937_70%)]",
+    imageClass: MOCKUP_GRADIENT.bookmarkOrange,
   },
   {
     title: "Addy Osmani",
@@ -859,14 +896,14 @@ const BOOKMARK_MOCKUP_CARDS = [
     summary: "A deeper look at how design an...",
     domain: "yannglt.com",
     favicon: "╬",
-    imageClass: "bg-[linear-gradient(135deg,#0d1117_0%,#0d1117_54%,#444_55%,#151515_72%,#020617_72%)]",
+    imageClass: MOCKUP_GRADIENT.bookmarkDark,
   },
   {
     title: "Why UI designers should understand Flexbox and CSS...",
     summary: "CSS for UI Designer Why UI...",
     domain: "Medium",
     favicon: "M",
-    imageClass: "bg-[linear-gradient(90deg,#262626,#262626),linear-gradient(135deg,#ff8a65,#ff8a65)]",
+    imageClass: MOCKUP_GRADIENT.bookmarkCoral,
   },
 ] as const;
 
@@ -1405,19 +1442,11 @@ function RssBanner() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    try {
-      if (!localStorage.getItem(RSS_BANNER_KEY)) setVisible(true);
-    } catch {
-      // localStorage unavailable — don't show the banner
-    }
+    if (!readDismissedFlag(RSS_BANNER_KEY)) setVisible(true);
   }, []);
 
   function dismiss() {
-    try {
-      localStorage.setItem(RSS_BANNER_KEY, "1");
-    } catch {
-      // ignore
-    }
+    writeDismissedFlag(RSS_BANNER_KEY);
     setVisible(false);
   }
 
@@ -1626,15 +1655,15 @@ function JournalCta({ label = "Start your daily workspace", inverted }: { label?
       <button
         className="relative inline-flex items-center overflow-hidden rounded-xl px-5 py-2.5 text-sm font-bold cursor-pointer transition-[transform,filter] duration-app-fast ease-app-out hover:brightness-110 active:translate-y-px active:scale-[0.98]"
         style={inverted ? {
-          backgroundColor: "#fff",
-          border: "1px solid rgba(0,0,0,0.08)",
+          backgroundColor: CTA_INK,
+          border: `1px solid ${CTA_HAIRLINE}`,
           boxShadow: "0px 1px 4px 0px rgba(0,0,0,0.35)",
           color: CTA_BG,
         } : {
           backgroundColor: CTA_BG,
           border: `1px solid ${CTA_BORDER}`,
           boxShadow: "0px 1px 4px 0px rgba(0,0,0,0.35)",
-          color: "#fff",
+          color: CTA_INK,
         }}
       >
         <div
@@ -1951,7 +1980,7 @@ export function LandingScreen() {
         {/* Closing CTA */}
         <section className="border-t border-app-line">
           <div
-            className="max-w-[1136px] mx-auto px-4 sm:px-6 py-12 sm:py-16 lg:py-20 text-center rounded-3xl my-8 sm:my-12" style={{ backgroundColor: "#F7FCF1" }}
+            className="max-w-[1136px] mx-auto px-4 sm:px-6 py-12 sm:py-16 lg:py-20 text-center rounded-3xl my-8 sm:my-12" style={{ backgroundColor: CLOSING_SECTION_BG }}
           >
             <h2 className="font-serif-heading font-serif-heading-smooth text-3xl sm:text-4xl font-black tracking-[-0.025em] max-w-[440px] mx-auto leading-tight text-app-ink">
               Everything you capture,

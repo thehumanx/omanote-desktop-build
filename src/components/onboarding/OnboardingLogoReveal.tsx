@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { OmanoteMark } from "../OmanoteMark";
+import { color } from "../../design-system/tokens";
 import { cn } from "../ui";
 
 const DISPLAY_MS = 2000;
@@ -49,7 +50,7 @@ export function OnboardingLogoReveal({ onDone }: { onDone: () => void }) {
         visible ? "opacity-100" : "opacity-0",
       )}
     >
-      <OmanoteMark size={72} variant="reveal" speed={1750 / DISPLAY_MS} color="#578910" />
+      <OmanoteMark size={72} variant="reveal" speed={1750 / DISPLAY_MS} color={color.brandCta} />
     </div>
   );
 }

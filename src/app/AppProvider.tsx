@@ -10,12 +10,9 @@ import {
   parseVirtualOccurrenceId,
   toDateKey,
 } from "@omanote/shared";
-import type { ActivityItem, BookmarkCategory, BookmarkItem, DateKey, NoteFolder, NoteItem, EventEntry, TodoChecklistItem, TodoFolder, TodoItem } from "@omanote/shared";
+import type { ActivityItem, BookmarkCategory, BookmarkItem, DateKey, NoteFolder, NoteItem, EventEntry, TodoFolder, TodoItem } from "@omanote/shared";
 import { useEncryption } from "../contexts/EncryptionContext";
 import { useUserSettings } from "../contexts/UserSettingsContext";
-
-// Convex stores DateKey fields as plain strings; cast to the branded type.
-function asDateKey(value: string): DateKey { return value as DateKey; }
 
 // Prepend https:// to bare domains (e.g. "facebook.com" → "https://facebook.com").
 // URLs that already have a protocol are returned unchanged.
@@ -39,8 +36,10 @@ import { db } from "./db";
 import { useAuth } from "./auth/AuthContext";
 import { parseHashtags } from "../lib/hashtags";
 import { detectWebClientType, getCurrentDeviceMetadata } from "../lib/device-info";
+import { readLocalStorage, readLocalStorageOptional, stringCodec, writeLocalStorage } from "../lib/local-storage";
 import type { AppAction, AppState, DraftMode, RecurringDeletePrompt, ToastItem } from "./types";
 import { prefixedRandomId, randomId } from "@omanote/shared";
+import { mapActivity, mapBookmark, mapBookmarkCategory, mapEvent, mapNote, mapNoteFolder, mapTodo, mapTodoFolder } from "./mappers";
 
 // Stable empty array used as the fallback for not-yet-loaded Dexie queries.
 // A plain `useLiveQuery(...) ?? []` creates a new array reference on every
@@ -339,46 +338,6 @@ function localReducer(state: LocalState, action: LocalAction): LocalState {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Mapper functions — typed against Convex Doc shapes so field access is safe.
-// ---------------------------------------------------------------------------
-
-function mapTodo(todo: Doc<"todos">): TodoItem {
-  return {
-    id: String(todo._id),
-    clientKey: todo.clientKey ?? undefined,
-    title: todo.title,
-    notes: todo.notes ?? undefined,
-    dueDateKey: todo.dueDateKey ? asDateKey(todo.dueDateKey) : undefined,
-    dueTime: todo.dueTime ?? undefined,
-    priority: todo.priority,
-    status: todo.status,
-    completedAt: todo.completedAt ?? undefined,
-    deletedAt: todo.deletedAt ?? undefined,
-    createdAt: todo.createdAt,
-    updatedAt: todo.updatedAt,
-    createdDateKey: asDateKey(todo.createdDateKey),
-    sourceNoteId: todo.sourceNoteId ? String(todo.sourceNoteId) : undefined,
-    reminderFiredAt: todo.reminderFiredAt ?? undefined,
-    folderId: todo.folderId ? String(todo.folderId) : undefined,
-    folderName: todo.folderName ?? undefined,
-    recurrence: (todo.recurrence as TodoItem["recurrence"]) ?? undefined,
-    recurringSourceId: todo.recurringSourceId ? String(todo.recurringSourceId) : undefined,
-    reminderEveryMinutes: todo.reminderEveryMinutes ?? undefined,
-    reminderUntil: todo.reminderUntil ?? undefined,
-  };
-}
-
-function mapTodoFolder(folder: Doc<"todoFolders">): TodoFolder {
-  return {
-    id: String(folder._id),
-    name: folder.name,
-    icon: folder.icon ?? undefined,
-    createdAt: folder.createdAt,
-    updatedAt: folder.updatedAt,
-  };
-}
-
 function normalizeTodoDueInput(args: { dueDateKey?: DateKey; dueTime?: string }): { dueDateKey: DateKey; dueTime?: string } {
   return {
     dueDateKey: args.dueDateKey ?? toDateKey(new Date()),
@@ -454,101 +413,6 @@ export function shouldSyncRss({
   return rssReaderEnabled || pathname === "/reader" || pathname.startsWith("/reader/");
 }
 
-function mapNote(note: Doc<"notes">) {
-  return {
-    id: String(note._id),
-    clientKey: note.clientKey ?? undefined,
-    title: note.title ?? undefined,
-    body: note.body,
-    tags: note.tags ?? [],
-    folderId: note.folderId ? String(note.folderId) : undefined,
-    folderName: note.folderName ?? undefined,
-    deletedAt: note.deletedAt ?? undefined,
-    createdAt: note.createdAt,
-    updatedAt: note.updatedAt,
-    createdDateKey: asDateKey(note.createdDateKey),
-  };
-}
-
-function mapNoteFolder(folder: Doc<"noteFolders">): NoteFolder {
-  return {
-    id: String(folder._id),
-    name: folder.name,
-    icon: folder.icon ?? undefined,
-    createdAt: folder.createdAt,
-    updatedAt: folder.updatedAt,
-  };
-}
-
-function mapBookmark(bookmark: Doc<"bookmarks">) {
-  return {
-    id: String(bookmark._id),
-    clientKey: bookmark.clientKey ?? undefined,
-    categoryId: String(bookmark.categoryId),
-    url: bookmark.url,
-    title: bookmark.title,
-    siteName: bookmark.siteName ?? undefined,
-    description: bookmark.description ?? undefined,
-    thumbnailUrl: bookmark.thumbnailUrl ?? undefined,
-    faviconUrl: bookmark.faviconUrl ?? undefined,
-    previewState: undefined,
-    deletedAt: bookmark.deletedAt ?? undefined,
-    createdAt: bookmark.createdAt,
-    createdDateKey: asDateKey(bookmark.createdDateKey),
-  };
-}
-
-function mapBookmarkCategory(category: Doc<"bookmarkCategories">) {
-  return {
-    id: String(category._id),
-    name: category.name,
-    icon: category.icon ?? undefined,
-    createdAt: category.createdAt,
-  };
-}
-
-function mapEvent(event: Doc<"eventEntries">) {
-  return {
-    id: String(event._id),
-    clientKey: event.clientKey ?? undefined,
-    label: event.label,
-    loggedAt: event.loggedAt,
-    notes: event.notes ?? undefined,
-    habitId: event.habitId ? String(event.habitId) : undefined,
-    sourceType: event.sourceType ?? "manual",
-    sourceTodoId: event.sourceTodoId ? String(event.sourceTodoId) : undefined,
-    deletedAt: event.deletedAt ?? undefined,
-    createdAt: event.createdAt,
-    createdDateKey: asDateKey(event.createdDateKey),
-  };
-}
-
-function mapChecklistItem(item: Doc<"todoChecklistItems">): TodoChecklistItem {
-  return {
-    id: String(item._id),
-    todoId: String(item.todoId),
-    clientKey: item.clientKey ?? undefined,
-    text: item.text,
-    checked: item.checked,
-    position: item.position,
-    createdAt: item.createdAt,
-    updatedAt: item.updatedAt,
-  };
-}
-
-function mapActivity(item: Doc<"activityHistory">) {
-  return {
-    id: String(item._id),
-    module: item.module === "routine" ? "event" : item.module,
-    action: item.action,
-    itemId: item.itemId,
-    itemTitle: item.itemTitle,
-    diff: item.diff ?? undefined,
-    restorable: item.restorable,
-    timestamp: item.timestamp,
-  };
-}
-
 // ---------------------------------------------------------------------------
 // Provider
 // ---------------------------------------------------------------------------
@@ -585,17 +449,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const clerkUserId = authUser?.id ?? null;
     if (!clerkUserId) return;
-    const stored = (() => { try { return localStorage.getItem("omanote.dexie-user"); } catch { return null; } })();
+    const stored = readLocalStorageOptional("omanote.dexie-user", stringCodec);
     const clear = stored && stored !== clerkUserId;
     if (clear) {
       void Promise.all([
-        db.todos.clear(), db.todoFolders.clear(), db.todoChecklistItems.clear(), db.notes.clear(),
+        db.todos.clear(), db.todoFolders.clear(), db.notes.clear(),
         db.noteFolders.clear(), db.bookmarks.clear(), db.bookmarkCategories.clear(),
         db.events.clear(), db.activityHistory.clear(),
         db.syncCursors.clear(),
-      ]).then(() => { try { localStorage.setItem("omanote.dexie-user", clerkUserId); } catch {} });
+      ]).then(() => writeLocalStorage("omanote.dexie-user", stringCodec, clerkUserId));
     } else {
-      try { localStorage.setItem("omanote.dexie-user", clerkUserId); } catch {}
+      writeLocalStorage("omanote.dexie-user", stringCodec, clerkUserId);
     }
   }, [authUser?.id]);
 
@@ -615,7 +479,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     () => db.todos.filter(t => !t.deletedAt).toArray().then(rows => rows.sort((a, b) => b.createdAt - a.createdAt)),
   ) ?? EMPTY;
   const serverTodoIds = useMemo(() => new Set(serverTodos.map((todo) => String(todo._id))), [serverTodos]);
-  const rawChecklistItems = useLiveQuery(() => db.todoChecklistItems.toArray()) ?? EMPTY;
   const rawTodoFolders = useLiveQuery(
     () => db.todoFolders.toArray().then(rows => rows.sort((a, b) => b.createdAt - a.createdAt)),
   ) ?? EMPTY;
@@ -655,7 +518,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Decrypted copies of each query result (populated asynchronously).
   const [decryptedTodos, setDecryptedTodos] = useState<TodoItem[]>([]);
   const [decryptedTodoFolders, setDecryptedTodoFolders] = useState<TodoFolder[]>([]);
-  const [decryptedChecklistItems, setDecryptedChecklistItems] = useState<TodoChecklistItem[]>([]);
   const [decryptedNotes, setDecryptedNotes] = useState<NoteItem[]>([]);
   const [decryptedDeletedNotes, setDecryptedDeletedNotes] = useState<NoteItem[]>([]);
   const [decryptedNoteFolders, setDecryptedNoteFolders] = useState<NoteFolder[]>([]);
@@ -692,19 +554,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     })();
     return () => { cancelled = true; };
   }, [rawTodoFolders, isLocked, decrypt]);
-
-  useEffect(() => {
-    if (isLocked) { setDecryptedChecklistItems([]); return; }
-    let cancelled = false;
-    void (async () => {
-      const result = await Promise.all(rawChecklistItems.map(async (item) => ({
-        ...mapChecklistItem(item),
-        text: await decrypt(item.text),
-      })));
-      if (!cancelled) setDecryptedChecklistItems(result);
-    })();
-    return () => { cancelled = true; };
-  }, [rawChecklistItems, isLocked, decrypt]);
 
   useEffect(() => {
     const confirmedDeletes = localState.deletingTodoIds.filter((todoId) => !serverTodoIds.has(todoId));
@@ -898,11 +747,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const deleteGoogleEventForEventEntry = useAction(api.googleCalendar.deleteGoogleEventForEventEntry);
   const snoozeTodo = useMutation(api.todos.snoozeTodo);
   const markFired = useMutation(api.todos.markFired);
-  const ensureChecklistItem = useMutation(api.todos.ensureTodoChecklistItem);
-  const createChecklistItem = useMutation(api.todos.createTodoChecklistItem);
-  const updateChecklistItem = useMutation(api.todos.updateTodoChecklistItem);
-  const deleteChecklistItem = useMutation(api.todos.deleteTodoChecklistItem);
-  const toggleChecklistItem = useMutation(api.todos.toggleTodoChecklistItem);
   const createNote = useMutation(api.notes.createNote);
   const backfillNoteFolderIds = useMutation(api.notes.backfillNoteFolderIds);
   const createNoteFolder = useMutation(api.notes.createNoteFolder);
@@ -974,10 +818,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (hashtagBackfillRequestedRef.current) return;
     if (!serverTodos.length && !rawEvents.length) return;
     // Skip expensive full-table scan if this migration already ran in a prior session.
-    try { if (window.localStorage.getItem("omanote.hashtag-backfill-v1") === "1") return; } catch {}
+    // A storage read failure (private browsing, quota) falls back to "", not "1",
+    // so it's treated the same as never-migrated -- the scan just runs again this
+    // session, which is safe since it's a perf optimization, not a correctness one.
+    if (readLocalStorage("omanote.hashtag-backfill-v1", stringCodec, "") === "1") return;
     hashtagBackfillRequestedRef.current = true;
     void backfillUsageCount({})
-      .then(() => { try { window.localStorage.setItem("omanote.hashtag-backfill-v1", "1"); } catch {} })
+      .then(() => writeLocalStorage("omanote.hashtag-backfill-v1", stringCodec, "1"))
       .catch(() => { hashtagBackfillRequestedRef.current = false; });
   }, [backfillUsageCount, serverTodos, rawEvents]);
 
@@ -1508,7 +1355,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   ]);
 
   const resolveTodoFolderInput = useCallback(
-    async (folderId?: string, folderName?: string) => {
+    async (folderId?: string, folderName?: string, folderIcon?: string) => {
       if (folderId) return { folderId, folderName };
       const folders = decryptedTodoFoldersRef.current;
       const trimmed = folderName?.trim() || "Others";
@@ -1519,7 +1366,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (inflight) return inflight;
       const promise = (async () => {
         try {
-          const createdFolderId = (await createTodoFolder({ name: await encrypt(trimmed) })) as string;
+          const createdFolderId = (await createTodoFolder({ name: await encrypt(trimmed), icon: folderIcon })) as string;
           return { folderId: createdFolderId, folderName: trimmed };
         } finally {
           inflightFolderCreationsRef.current.delete(cacheKey);
@@ -1544,7 +1391,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const resolveBookmarkCategoryId = useCallback(
-    async (categoryId?: string, categoryName?: string) => {
+    async (categoryId?: string, categoryName?: string, categoryIcon?: string) => {
       if (categoryId) return categoryId;
       const categories = decryptedBookmarkCategoriesRef.current;
       if (categoryName?.trim()) {
@@ -1552,7 +1399,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // Match against decrypted names in the app state.
         const existing = categories.find((c) => c.name.toLowerCase() === trimmed.toLowerCase());
         if (existing) return String(existing.id);
-        return (await createBookmarkCategory({ name: await encrypt(trimmed) })) as string;
+        return (await createBookmarkCategory({ name: await encrypt(trimmed), icon: categoryIcon })) as string;
       }
       const fallbackName = "Uncategorized";
       const existingFallback = categories.find((c) => c.name.toLowerCase() === fallbackName.toLowerCase());
@@ -1567,6 +1414,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       clientKey?: string;
       categoryId?: string;
       categoryName?: string;
+      categoryIcon?: string;
       dateKey: UiState["selectedDateKey"];
       url: string;
       title?: string;
@@ -1600,7 +1448,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       });
 
       try {
-        const resolvedCategoryId = await resolveBookmarkCategoryId(action.categoryId, action.categoryName);
+        const resolvedCategoryId = await resolveBookmarkCategoryId(action.categoryId, action.categoryName, action.categoryIcon);
         const needsPreview = !action.title || !action.siteName || !action.description || !action.thumbnailUrl || !action.faviconUrl;
         const preview = needsPreview && isOnline && normalizedUrl.startsWith("http")
           ? await fetchLinkPreview({ url: normalizedUrl }).catch(() => null)
@@ -1768,25 +1616,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           reminderUntil: payload.reminderUntil,
         });
       },
-      "todo/checklist/ensure": async (payload) => {
-        await ensureChecklistItem({ todoId: payload.todoId as any, text: payload.text });
-      },
-      "todo/checklist/create": async (payload) => {
-        await createChecklistItem({ todoId: payload.todoId as any, text: payload.text, afterItemId: payload.afterItemId as any, clientKey: payload.clientKey });
-        clearCanvasDraftForKey(payload.clientKey);
-      },
-      "todo/checklist/update": async (payload) => {
-        await updateChecklistItem({ itemId: payload.itemId as any, text: payload.text, checked: payload.checked });
-        clearCanvasDraftForKey(payload.clientKey);
-      },
-      "todo/checklist/delete": async (payload) => {
-        await deleteChecklistItem({ itemId: payload.itemId as any });
-        clearCanvasDraftForKey(payload.clientKey);
-      },
-      "todo/checklist/toggle": async (payload) => {
-        await toggleChecklistItem({ itemId: payload.itemId as any });
-        clearCanvasDraftForKey(payload.clientKey);
-      },
       "google/event-push": async (payload) => {
         await pushEventForTodo({
           todoId: payload.todoId as any,
@@ -1814,15 +1643,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     completeRecurringOccurrence,
     deleteRecurringOccurrence,
     truncateRecurringSeries,
-    createChecklistItem,
     createTodo,
     createNote,
     createEventEntry,
-    deleteChecklistItem,
     uncompleteRecurringOccurrence,
     deleteNote,
     deleteEventEntry,
-    ensureChecklistItem,
     markFired,
     pushEventForTodo,
     deleteGoogleEventForTodo,
@@ -1831,8 +1657,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     saveBookmarkCreate,
     saveBookmarkUpdate,
     snoozeTodo,
-    toggleChecklistItem,
-    updateChecklistItem,
     updateTodo,
     updateNote,
     updateEventEntry,
@@ -1938,7 +1762,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         localDispatch({ type: "todo/add-optimistic", todo: optimisticTodo });
         void (async () => {
           const encTitle = await encrypt(action.title);
-          const resolvedFolder = await resolveTodoFolderInput(action.folderId, action.folderName);
+          const resolvedFolder = await resolveTodoFolderInput(action.folderId, action.folderName, action.folderIcon);
           try {
             const todoId = (await createTodo({
               title: encTitle,
@@ -2942,7 +2766,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         deletingTodoIds: localState.deletingTodoIds,
       }),
       todoFolders: decryptedTodoFolders,
-      checklistItems: decryptedChecklistItems,
       notes: [
         ...decryptedNotes.filter((note) => !localState.deletingNoteIds.includes(note.id)),
         ...localState.optimisticNotes.filter(
@@ -2988,7 +2811,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       decryptedBookmarkCategories,
       decryptedBookmarks,
       decryptedDeletedBookmarks,
-      decryptedChecklistItems,
       decryptedTodoFolders,
       decryptedNotes,
       decryptedDeletedNotes,

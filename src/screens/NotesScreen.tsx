@@ -24,6 +24,7 @@ import { UNCATEGORIZED_FOLDER_LABEL, isUncategorizedFolderName, normalizeNoteFol
 import { extractAllPreviewableUrls } from "../lib/attachment-link-preview";
 import { captureScrollSnapshot, restoreScrollForNextFrames } from "../lib/preserve-focus-scroll";
 import { resolveRichTextSourceOffsetFromPoint } from "../lib/rich-text-caret";
+import { useIsDesktop, usePersistedFolderSort, usePersistedFolderViewMode } from "../hooks/useFolderNavigation";
 
 type FolderSortKey = "alphabetical" | "lastUpdated" | "totalNotes";
 type FolderSortDirection = "asc" | "desc";
@@ -52,59 +53,7 @@ function writeLastSelectedNotesFolder(value: string) {
   }
 }
 
-function isFolderSortKey(value: string): value is FolderSortKey {
-  return value === "alphabetical" || value === "lastUpdated" || value === "totalNotes";
-}
-
-function isSortDirection(value: string): value is FolderSortDirection {
-  return value === "asc" || value === "desc";
-}
-
-function readSavedFolderSort() {
-  if (typeof window === "undefined") return DEFAULT_FOLDER_SORT;
-  try {
-    const raw = window.localStorage.getItem(NOTES_FOLDER_SORT_KEY);
-    if (!raw) return DEFAULT_FOLDER_SORT;
-    const [key, direction] = raw.split(":");
-    if (!isFolderSortKey(key) || !isSortDirection(direction)) return DEFAULT_FOLDER_SORT;
-    return { key, direction };
-  } catch {
-    return DEFAULT_FOLDER_SORT;
-  }
-}
-
-function writeSavedFolderSort(value: { key: FolderSortKey; direction: FolderSortDirection }) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(NOTES_FOLDER_SORT_KEY, `${value.key}:${value.direction}`);
-  } catch {
-    // Ignore storage failures.
-  }
-}
-
-function isFolderViewMode(value: string): value is FolderViewMode {
-  return value === "list" || value === "gallery";
-}
-
-function readSavedFolderViewMode() {
-  if (typeof window === "undefined") return DEFAULT_FOLDER_VIEW_MODE;
-  try {
-    const raw = window.localStorage.getItem(NOTES_FOLDER_VIEW_MODE_KEY);
-    if (!raw || !isFolderViewMode(raw)) return DEFAULT_FOLDER_VIEW_MODE;
-    return raw;
-  } catch {
-    return DEFAULT_FOLDER_VIEW_MODE;
-  }
-}
-
-function writeSavedFolderViewMode(value: FolderViewMode) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(NOTES_FOLDER_VIEW_MODE_KEY, value);
-  } catch {
-    // Ignore storage failures.
-  }
-}
+const NOTES_FOLDER_SORT_KEYS = ["alphabetical", "lastUpdated", "totalNotes"] as const;
 
 function noteFolderName(note: NoteItem, folderNameById: Map<string, string>) {
   if (note.folderId && folderNameById.has(note.folderId)) {
@@ -145,13 +94,7 @@ export function NotesScreen() {
   const iconPickerAnchorRef = useRef<HTMLButtonElement | null>(null);
   const [directIconFolderId, setDirectIconFolderId] = useState<string | null>(null);
   const drawerDirectIconButtonRef = useRef<HTMLButtonElement>(null);
-  const [isDesktop, setIsDesktop] = useState(() => window.matchMedia("(min-width: 1024px)").matches);
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)");
-    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
+  const isDesktop = useIsDesktop();
   const [newFolderName, setNewFolderName] = useState("");
   const [newFolderError, setNewFolderError] = useState<string | null>(null);
   const [folderMenuOpenId, setFolderMenuOpenId] = useState<string | null>(null);
@@ -159,8 +102,8 @@ export function NotesScreen() {
   const [drawerRenaming, setDrawerRenaming] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; count: number } | null>(null);
   const [shareTarget, setShareTarget] = useState<{ id: string; name: string; icon?: string } | null>(null);
-  const [folderSort, setFolderSort] = useState<{ key: FolderSortKey; direction: FolderSortDirection }>(() => readSavedFolderSort());
-  const [folderViewMode, setFolderViewMode] = useState<FolderViewMode>(() => readSavedFolderViewMode());
+  const [folderSort, setFolderSort] = usePersistedFolderSort(NOTES_FOLDER_SORT_KEY, NOTES_FOLDER_SORT_KEYS, DEFAULT_FOLDER_SORT);
+  const [folderViewMode, setFolderViewMode] = usePersistedFolderViewMode(NOTES_FOLDER_VIEW_MODE_KEY, DEFAULT_FOLDER_VIEW_MODE);
   const effectiveFolderViewMode: FolderViewMode =
     typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches ? "list" : folderViewMode;
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
@@ -352,14 +295,6 @@ export function NotesScreen() {
     if (!selectedFolder) return;
     writeLastSelectedNotesFolder(selectedFolder);
   }, [selectedFolder]);
-
-  useEffect(() => {
-    writeSavedFolderSort(folderSort);
-  }, [folderSort]);
-
-  useEffect(() => {
-    writeSavedFolderViewMode(folderViewMode);
-  }, [folderViewMode]);
 
   const visibleNotes = useMemo(() => {
     if (!selectedFolder) return [];

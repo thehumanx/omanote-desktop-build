@@ -22,8 +22,11 @@ import { isNewlineShortcutEvent, isSaveShortcutEvent } from "../lib/editor-short
 import { SaveShortcutHint } from "../components/settings/SaveShortcutHint";
 import { HashtagPickerDropdown, useHashtagPicker } from "../components/HashtagPicker";
 import { EmojiPickerDropdown, useEmojiPicker } from "../components/EmojiPicker";
+import { enumCodec, readLocalStorage, writeLocalStorage } from "../lib/local-storage";
 
 type EventView = "week" | "timeline";
+const EVENT_VIEW_KEY = "event-view";
+const eventViewCodec = enumCodec<EventView>(["week", "timeline"]);
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 const HOUR_ROW_HEIGHT = 72;
@@ -631,12 +634,11 @@ export function EventScreen() {
   const [activeCluster, setActiveCluster] = useState<CalendarEntry[] | null>(null);
   const [createState, setCreateState] = useState<{ dateKey: DateKey; startedAt: number } | null>(null);
   const [focusedEventId, setFocusedEventId] = useState<string | null>(null);
-  const [eventView, setEventView] = useState<EventView>(() => {
-    const saved = localStorage.getItem("event-view");
-    return saved === "timeline" ? "timeline" : "week";
-  });
+  const [eventView, setEventView] = useState<EventView>(() =>
+    readLocalStorage(EVENT_VIEW_KEY, eventViewCodec, "week"),
+  );
   const changeEventView = (view: EventView) => {
-    localStorage.setItem("event-view", view);
+    writeLocalStorage(EVENT_VIEW_KEY, eventViewCodec, view);
     setEventView(view);
   };
 
@@ -645,7 +647,7 @@ export function EventScreen() {
     if (!focusId) return;
     window.history.replaceState({}, "");
     setEventView("timeline");
-    localStorage.setItem("event-view", "timeline");
+    writeLocalStorage(EVENT_VIEW_KEY, eventViewCodec, "timeline");
     setFocusedEventId(focusId);
     requestAnimationFrame(() => {
       const el = document.querySelector(`[data-event-row-id="${focusId}"]`);

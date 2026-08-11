@@ -5,7 +5,12 @@ import { api } from "../../../../convex/_generated/api";
 import { useUserSettings } from "../../../contexts/UserSettingsContext";
 import { friendlyErrorMessage } from "../../../lib/errors";
 import { Button, Switch, cn } from "../../ui";
+import { color } from "../../../design-system/tokens";
 import { OnboardingFooter } from "../OnboardingChrome";
+
+// Flat brand accents, not themed surfaces — see the brand block in tokens.ts.
+const CONNECTED_PILL_BG = color.brandCtaTint;
+const CONNECTED_DOT_BG = color.brandCta;
 
 const EXAMPLE_FEED_URL = "iambishistha.com";
 const CONFIG_COUNT = 2;
@@ -130,8 +135,10 @@ export function ConnectEnableStep({ onNext, onBack }: { onNext: () => void; onBa
                 Keep todos and events flowing both ways with your Google Calendar.
               </p>
               {googleConnected ? (
-                <div className="mt-3 inline-flex items-center gap-1.5 rounded-app-button bg-[#EEF4E4] px-app-field-x py-app-field-y text-sm font-bold text-app-ink">
-                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#578910]">
+                <div className="mt-3 inline-flex items-center gap-1.5 rounded-app-button px-app-field-x py-app-field-y text-sm font-bold text-app-ink"
+                  style={{ backgroundColor: CONNECTED_PILL_BG }}>
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full"
+                    style={{ backgroundColor: CONNECTED_DOT_BG }}>
                     <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />
                   </span>
                   Connected
@@ -165,8 +172,10 @@ export function ConnectEnableStep({ onNext, onBack }: { onNext: () => void; onBa
               {settings.rssReaderEnabled && (
                 <div className="mt-3 border-t border-app-line pt-3">
                   {feedState === "added" ? (
-                    <div className="flex items-center gap-1.5 rounded-app-field border border-app-line bg-[#EEF4E4] px-3 py-1.5 text-xs font-medium text-app-ink">
-                      <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#578910]">
+                    <div className="flex items-center gap-1.5 rounded-app-field border border-app-line px-3 py-1.5 text-xs font-medium text-app-ink"
+                      style={{ backgroundColor: CONNECTED_PILL_BG }}>
+                      <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full"
+                        style={{ backgroundColor: CONNECTED_DOT_BG }}>
                         <Check className="h-2 w-2 text-white" strokeWidth={3} />
                       </span>
                       Added {EXAMPLE_FEED_URL}

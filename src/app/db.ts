@@ -68,7 +68,6 @@ class OmanoteDB extends Dexie {
   syncCursors!: Table<SyncCursor, string>;
   todos!: Table<Doc<"todos">, string>;
   todoFolders!: Table<Doc<"todoFolders">, string>;
-  todoChecklistItems!: Table<Doc<"todoChecklistItems">, string>;
   notes!: Table<Doc<"notes">, string>;
   noteFolders!: Table<Doc<"noteFolders">, string>;
   bookmarks!: Table<Doc<"bookmarks">, string>;
@@ -143,6 +142,12 @@ class OmanoteDB extends Dexie {
       rssCategories:        "_id, userId, updatedAt",
       rssItems:             "_id, feedId, publishedAt",
       rssReadState:         "_id, userId, itemId, feedId, updatedAt",
+    });
+    // Todo checklist items were fully wired end-to-end (schema, sync, decrypt)
+    // but never had a UI — dead weight with zero user-visible effect. See
+    // docs/hardening-audit.md's implementation checklist entry.
+    this.version(5).stores({
+      todoChecklistItems: null,
     });
   }
 }

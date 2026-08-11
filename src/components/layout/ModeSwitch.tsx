@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { BookOpen, PenLine } from "lucide-react";
+import { readLocalStorageOptional, stringCodec, writeLocalStorage } from "../../lib/local-storage";
 import { SegmentedPill } from "../ui";
 
 const LAST_WRITE_PATH_KEY = "omanote.lastWritePath";
@@ -24,19 +25,11 @@ function isNeutralPath(pathname: string) {
 }
 
 function readStoredPath(key: string): string | null {
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
+  return readLocalStorageOptional(key, stringCodec) ?? null;
 }
 
 function storePath(key: string, value: string) {
-  try {
-    window.localStorage.setItem(key, value);
-  } catch {
-    // Private mode — losing the remembered path is fine.
-  }
+  writeLocalStorage(key, stringCodec, value);
 }
 
 // Not a "place" worth returning to when the Write button is pressed.

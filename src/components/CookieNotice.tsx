@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { readDismissedFlag, writeDismissedFlag } from "../lib/local-storage";
 
 const STORAGE_KEY = "omanote_cookie_notice_dismissed";
 
@@ -7,19 +8,11 @@ export function CookieNotice() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    try {
-      if (!localStorage.getItem(STORAGE_KEY)) setVisible(true);
-    } catch {
-      // localStorage unavailable — don't show the banner
-    }
+    if (!readDismissedFlag(STORAGE_KEY)) setVisible(true);
   }, []);
 
   function dismiss() {
-    try {
-      localStorage.setItem(STORAGE_KEY, "1");
-    } catch {
-      // ignore
-    }
+    writeDismissedFlag(STORAGE_KEY);
     setVisible(false);
   }
 

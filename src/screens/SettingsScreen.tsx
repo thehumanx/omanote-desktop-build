@@ -12,7 +12,7 @@ import { ModalPortal } from "../components/ModalPortal";
 import { BaseModal } from "../components/BaseModal";
 import { useTopChrome } from "../components/layout/useTopChrome";
 import { useAuth } from "../app/auth/AuthContext";
-import { storageKeys } from "../app/storage";
+import { removeStorage, storageKeys } from "../app/storage";
 import { useUserSettings } from "../contexts/UserSettingsContext";
 import { useTheme } from "../contexts/ThemeContext";
 import { useEncryption } from "../contexts/EncryptionContext";
@@ -509,7 +509,7 @@ export function SettingsScreen() {
           if (isCurrentDevice) {
             lock();
             signOut();
-            window.localStorage.removeItem(storageKeys.uiState);
+            removeStorage(storageKeys.uiState);
           }
         } finally {
           setRemovingDeviceId(null);
@@ -531,7 +531,7 @@ export function SettingsScreen() {
         try {
           await deleteMyData({});
           await deleteAccount();
-          window.localStorage.removeItem(storageKeys.uiState);
+          removeStorage(storageKeys.uiState);
           window.location.assign("/");
         } catch (error) {
           setDeleteError(friendlyErrorMessage(error, "Could not delete your account."));

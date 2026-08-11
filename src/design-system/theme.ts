@@ -1,10 +1,12 @@
 import type { FontFamily } from "../lib/user-settings";
+import { enumCodec, readLocalStorageOptional, writeLocalStorage } from "../lib/local-storage";
 
 export const THEME_MODES = ["system", "light", "dark"] as const;
 export type ThemeMode = (typeof THEME_MODES)[number];
 export type ResolvedTheme = "light" | "dark";
 
 export const themeModeStorageKey = "omanote:theme-mode";
+const themeModeCodec = enumCodec(THEME_MODES);
 
 export function isThemeMode(value: unknown): value is ThemeMode {
   return typeof value === "string" && (THEME_MODES as readonly string[]).includes(value);
@@ -21,28 +23,12 @@ export function applyResolvedTheme(theme: ResolvedTheme, root: HTMLElement = doc
   root.style.colorScheme = theme;
 }
 
-export function getStoredThemeMode(storage: Storage | undefined = safeStorage()): ThemeMode | null {
-  if (!storage) return null;
-  try {
-    const value = storage.getItem(themeModeStorageKey);
-    return isThemeMode(value) ? value : null;
-  } catch {
-    return null;
-  }
+export function getStoredThemeMode(): ThemeMode | null {
+  return readLocalStorageOptional(themeModeStorageKey, themeModeCodec) ?? null;
 }
 
-export function setStoredThemeMode(mode: ThemeMode, storage: Storage | undefined = safeStorage()) {
-  if (!storage) return;
-  try {
-    storage.setItem(themeModeStorageKey, mode);
-  } catch {
-    // Storage can be unavailable in private windows or locked-down browsers.
-  }
-}
-
-function safeStorage() {
-  if (typeof window === "undefined") return undefined;
-  return window.localStorage;
+export function setStoredThemeMode(mode: ThemeMode) {
+  writeLocalStorage(themeModeStorageKey, themeModeCodec, mode);
 }
 
 export function applyTypographySettings(

@@ -67,6 +67,57 @@ export function totalActiveUsers(data: PmfDashboard): number {
   return data.funnel.everCreated;
 }
 
+// ─── Activation funnel ────────────────────────────────────────────────────────
+//
+// See docs/hardening-audit.md §6.3: `getDashboard` measures activity among
+// users who reached Convex, not activation from the moment someone signs up.
+// `funnel.onboarded` is really "set a passphrase" — every user in `data.users`
+// comes from either an `activityHistory` row or a `userEncryptionKeys` row, so
+// someone who created a Clerk account and abandoned before finishing
+// `PassphraseStep` never appears in that data at all.
+//
+// The true signup count lives only in Clerk, which is why it can't be added to
+// `getDashboard` (a query — it can't make the network call). It comes from
+// `adminMetrics.getUserDirectory`, an action the dashboard already fetches for
+// names/emails; `signups` here is that action's result count, non-admin.
+
+export type ActivationStage = {
+  id: "signups" | "onboarded" | "everCreated" | "returnedDay2";
+  label: string;
+  value: number;
+  /** Percentage of `signups`, the top of the funnel. Null for the top stage itself. */
+  pctOfSignups: number | null;
+  /** Percentage of the immediately preceding stage — where the biggest drop is. */
+  pctOfPrevious: number | null;
+};
+
+/**
+ * Builds the four-stage activation funnel: signups → passphrase set → first
+ * artifact created → returned a second day.
+ *
+ * `signups` must be counted by the caller (non-admin entries from
+ * `getUserDirectory`) and passed in, since it isn't part of `PmfDashboard`.
+ * Returns null while that count isn't available yet (the directory action is
+ * still loading or failed) rather than rendering a funnel with a fabricated
+ * top stage.
+ */
+export function activationFunnel(data: PmfDashboard, signups: number | null): ActivationStage[] | null {
+  if (signups === null) return null;
+
+  const stages: Array<{ id: ActivationStage["id"]; label: string; value: number }> = [
+    { id: "signups", label: "Signed up", value: signups },
+    { id: "onboarded", label: "Set a passphrase", value: data.funnel.onboarded },
+    { id: "everCreated", label: "Created something", value: data.funnel.everCreated },
+    { id: "returnedDay2", label: "Returned a 2nd day", value: data.funnel.returnedDay2 },
+  ];
+
+  return stages.map((stage, index) => ({
+    ...stage,
+    pctOfSignups: index === 0 ? null : pct(stage.value, signups),
+    pctOfPrevious: index === 0 ? null : pct(stage.value, stages[index - 1]!.value),
+  }));
+}
+
 // ─── Insight rules ────────────────────────────────────────────────────────────
 //
 // Each rule reads the dashboard payload and returns an insight or null. They
