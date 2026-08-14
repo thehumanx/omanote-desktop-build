@@ -10,11 +10,8 @@ import { ReminderMonitor } from "../ReminderMonitor";
 import { PushSubscriptionSync } from "../PushSubscriptionSync";
 import { NotificationPermissionBanner } from "../NotificationPermissionBanner";
 import { FaviconBadgeSync } from "../FaviconBadgeSync";
-import { UpdateNotificationBanner } from "../UpdateNotificationBanner";
-import { UpdateModal } from "../UpdateModal";
 import { RecurringDeleteModal } from "../RecurringDeleteModal";
 import { FounderNoteModal } from "../FounderNoteModal";
-import { SurveyGate } from "../survey/SurveyGate";
 import { OfflineStatusBanner } from "../OfflineStatusBanner";
 import { CookieNotice } from "../CookieNotice";
 import { useMobileKeyboardState } from "./useMobileKeyboardState";
@@ -33,6 +30,16 @@ export function AppShell() {
   } = useApp();
   const { settings, loading, updateSettings } = useUserSettings();
   const isCanvasRoute = location.pathname === "/canvas";
+  // These four screens dropped `PageHeader` (greeting + weekly stat) in
+  // favor of owning their own layout entirely, same as Canvas already did —
+  // so the shared top-chrome bar has nothing left to show on them and
+  // collapses away instead of rendering an empty, bordered strip.
+  const isPageHeaderlessRoute =
+    location.pathname === "/todos" ||
+    location.pathname.startsWith("/notes") ||
+    location.pathname.startsWith("/bookmarks") ||
+    location.pathname.startsWith("/event");
+  const isChromelessRoute = isCanvasRoute || isPageHeaderlessRoute;
   const isWorkspaceRoute =
     location.pathname.startsWith("/notes") ||
     location.pathname.startsWith("/bookmarks") ||
@@ -69,7 +76,7 @@ export function AppShell() {
   // window is wide enough that the centered 1152px column clears them.
   const desktopShellPlatform = desktopPlatform();
   const titleBarInsetStyle =
-    settings.rssReaderEnabled || !desktopShellPlatform
+    !desktopShellPlatform
       ? undefined
       : desktopShellPlatform === "macos"
         ? { paddingLeft: "max(1rem, calc(88px - max(0px, (100vw - 1184px) / 2)))" }
@@ -223,7 +230,8 @@ export function AppShell() {
           ref={topChromeRef}
           data-tauri-drag-region
           className={[
-            "fixed inset-x-0 z-40 border-b border-app-line bg-app-surface transform-gpu transition-[transform,opacity] duration-app-base ease-app-in-out will-change-transform",
+            "fixed inset-x-0 z-40 bg-app-surface transform-gpu transition-[transform,opacity] duration-app-base ease-app-in-out will-change-transform",
+            isChromelessRoute ? "h-0 overflow-hidden" : "border-b border-app-line",
             topChromeHidden ? "-translate-y-2 opacity-0 pointer-events-none" : "translate-y-0 opacity-100",
           ].join(" ")}
           style={{ top: "var(--omanote-mobile-top-bar-height, 0px)" }}
@@ -233,14 +241,9 @@ export function AppShell() {
               <WindowControls />
             </div>
           ) : null}
-          {settings.rssReaderEnabled ? (
-            <div data-tauri-drag-region className="mx-auto hidden w-full max-w-[1152px] justify-center px-4 pt-2 md:flex">
-              <ModeSwitch />
-            </div>
-          ) : null}
           <div
             data-tauri-drag-region
-            className="mx-auto flex h-[58px] w-full max-w-[1152px] items-center px-4"
+            className={["mx-auto flex w-full max-w-[1152px] items-center px-4", isChromelessRoute ? "h-0 overflow-hidden" : "h-[58px]"].join(" ")}
             style={titleBarInsetStyle}
           >
             {topChromeContent}
@@ -250,8 +253,6 @@ export function AppShell() {
         <PushSubscriptionSync />
         <FaviconBadgeSync />
         <NotificationPermissionBanner />
-        <UpdateNotificationBanner />
-        <UpdateModal />
         <OfflineStatusBanner />
         <main
           className={[
@@ -316,8 +317,12 @@ export function AppShell() {
       <FounderNoteModal open={founderNoteOpen} onClose={closeFounderNote} />
       <ComposerSheet />
       <CookieNotice />
-      <SurveyGate />
       <ZoomIndicator percent={zoomPercent} visible={indicatorVisible} />
+      <div className="pointer-events-none fixed inset-y-0 left-0 z-app-top-bar hidden items-center pl-[max(1rem,env(safe-area-inset-left))] md:flex">
+        <div className="pointer-events-auto">
+          <ModeSwitch showReadOption={settings.rssReaderEnabled} />
+        </div>
+      </div>
     </div>
   );
 }

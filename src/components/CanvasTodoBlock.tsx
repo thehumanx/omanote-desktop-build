@@ -1,8 +1,8 @@
 import { memo, useEffect, useRef } from "react";
 import type { TouchEvent } from "react";
-import { CircleCheckBig, Pencil, Repeat, Trash2, WifiOff } from "lucide-react";
-import type { TodoItem } from "@omanote/shared";
-import { describeRecurrenceRule, formatCompletedLabel, formatDueChip, formatFutureTodoCanvasLabel, isFutureDateKey } from "@omanote/shared";
+import { CalendarClock, CircleCheckBig, Pencil, Repeat, Trash2, WifiOff } from "lucide-react";
+import type { DateKey, TodoItem } from "@omanote/shared";
+import { daysBetweenKeys, describeRecurrenceRule, formatCompletedLabel, formatDueChip, formatFutureTodoCanvasLabel, isFutureDateKey } from "@omanote/shared";
 import { useIsMobileViewport } from "../lib/mobile";
 import { cn, TodoCheckmark } from "./ui";
 import { RichTextPreview } from "./rich-text";
@@ -11,38 +11,47 @@ import { AttachmentLinkPreview } from "./AttachmentLinkPreview";
 export type CanvasTodoBlockProps = {
   todo: TodoItem;
   canvasDateKey: string;
+  /** Reference date for the "overdue Xd" badge — defaults to canvasDateKey. Pass the real today when canvasDateKey is a historical day being browsed, so overdue is always relative to now, not to the day being viewed. */
+  todayKey?: string;
   pendingSync?: boolean;
   onOpenEditor: (todo: TodoItem) => void;
   onInlineTitleEdit: (todo: TodoItem, nextTitle: string) => void;
   onToggle: (todo: TodoItem) => void;
   onDelete: (todo: TodoItem) => void;
-  onSelectDate: (dateKey: string) => void;
+  onBumpToToday?: (todo: TodoItem) => void;
 };
 
 export function areCanvasTodoBlockPropsEqual(previous: CanvasTodoBlockProps, next: CanvasTodoBlockProps) {
   return (
     previous.todo === next.todo &&
     previous.canvasDateKey === next.canvasDateKey &&
+    previous.todayKey === next.todayKey &&
     previous.pendingSync === next.pendingSync &&
     previous.onOpenEditor === next.onOpenEditor &&
     previous.onInlineTitleEdit === next.onInlineTitleEdit &&
     previous.onToggle === next.onToggle &&
     previous.onDelete === next.onDelete &&
-    previous.onSelectDate === next.onSelectDate
+    previous.onBumpToToday === next.onBumpToToday
   );
 }
 
 function CanvasTodoBlockComponent({
   todo,
   canvasDateKey,
+  todayKey,
   pendingSync,
   onOpenEditor,
   onInlineTitleEdit,
   onToggle,
   onDelete,
-  onSelectDate,
+  onBumpToToday,
 }: CanvasTodoBlockProps) {
   const dueChip = formatDueChip(todo.dueDateKey, todo.dueTime, canvasDateKey, todo.createdDateKey);
+  const overdueReferenceKey = todayKey ?? canvasDateKey;
+  const overdueDays =
+    todo.status === "open" && todo.dueDateKey && todo.dueDateKey < overdueReferenceKey
+      ? daysBetweenKeys(todo.dueDateKey, overdueReferenceKey as DateKey)
+      : 0;
   const isFutureTodo = isFutureDateKey(canvasDateKey, todo.dueDateKey);
   const futureCanvasLabel = formatFutureTodoCanvasLabel(todo.dueDateKey, todo.dueTime);
   const completedLabel = todo.status === "done" ? formatCompletedLabel(todo.completedAt ?? todo.updatedAt) : "";
@@ -125,11 +134,10 @@ function CanvasTodoBlockComponent({
         {isFutureTodo ? (
           <button
             type="button"
-            aria-label={`Open todo on ${todo.dueDateKey}`}
+            aria-label={`Open todo due ${todo.dueDateKey}`}
             onClick={(event) => {
               event.stopPropagation();
-              if (!todo.dueDateKey) return;
-              onSelectDate(todo.dueDateKey);
+              onOpenEditor(todo);
             }}
             className="rounded-lg bg-info-surface px-2 py-0.5 text-left text-[15px] font-medium leading-6 text-info-ink transition hover:bg-app-surface-hover"
           >
@@ -180,7 +188,12 @@ function CanvasTodoBlockComponent({
                 {todo.occurrenceState === "missed" ? "missed" : null}
               </span>
             ) : null}
-            {!isFutureTodo && dueChip ? <span className="rounded-md bg-app-surface-muted px-2 py-0.5 text-[11px] text-app-ink-faint">{dueChip}</span> : null}
+            {!isFutureTodo && dueChip ? (
+              <span className="rounded-md bg-app-surface-muted px-2 py-0.5 text-[11px] text-app-ink-faint">
+                {dueChip}
+                {overdueDays > 0 ? <span className="text-warning-ink"> · overdue {overdueDays}d</span> : null}
+              </span>
+            ) : null}
             {completedLabel ? (
               <span className="ml-auto inline-flex items-center gap-1 text-xs text-app-ink-faint">
                 <CircleCheckBig className="h-3 w-3" />
@@ -194,6 +207,20 @@ function CanvasTodoBlockComponent({
       </div>
 
       <div className="absolute right-1 top-1 flex items-center gap-1 opacity-0 transition group-hover:opacity-100 rounded-full group-hover:bg-app-surface group-focus-within:opacity-100">
+        {onBumpToToday ? (
+          <button
+            type="button"
+            aria-label="move todo to today"
+            title="Move to today"
+            onClick={(event) => {
+              event.stopPropagation();
+              onBumpToToday(todo);
+            }}
+            className="rounded-full p-1 text-app-line-strong transition hover:bg-app-surface-hover hover:text-app-ink"
+          >
+            <CalendarClock className="h-4 w-4" />
+          </button>
+        ) : null}
         <button
           type="button"
           aria-label="edit todo details"

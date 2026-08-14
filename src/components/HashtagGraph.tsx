@@ -587,7 +587,6 @@ export function HashtagGraph({
           onInlineTitleEdit={() => undefined}
           onToggle={() => undefined}
           onDelete={() => undefined}
-          onSelectDate={() => undefined}
         />
       );
     }

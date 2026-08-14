@@ -1,27 +1,54 @@
-import { Sparkles } from "lucide-react";
-import { Button } from "./ui";
+import { ArrowRight, Sparkles } from "lucide-react";
+import { Button, cn } from "./ui";
 import { useUpdate } from "../contexts/UpdateContext";
 
-export function UpdateNotificationBanner() {
-  const { isBannerVisible, latestVersion, extraUpdatesCount, dismissBanner, isModalOpen, isTransitioningToModal } =
-    useUpdate();
+export function UpdateNotificationBanner({ inline = false }: { inline?: boolean } = {}) {
+  const {
+    isBannerVisible,
+    latestVersion,
+    extraUpdatesCount,
+    dismissBanner,
+    isModalOpen,
+    isTransitioningToModal,
+    openModal,
+  } = useUpdate();
 
   if (!isBannerVisible || !latestVersion) return null;
+
+  if (inline) {
+    return (
+      <button
+        type="button"
+        aria-label="omanote update available"
+        onClick={openModal}
+        className="group flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition-colors duration-150 hover:bg-app-surface-hover"
+      >
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <span className="flex items-center gap-1.5 text-sm text-app-ink-faint">
+            <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-success-solid" />
+            Update available · {latestVersion.version}
+            {extraUpdatesCount > 0 ? ` (+${extraUpdatesCount} more)` : ""}
+          </span>
+          <span className="text-sm text-app-ink-muted">
+            {latestVersion.summary || "A new version of omanote is ready — take a look at what's new."}
+          </span>
+        </div>
+        <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-app-ink-faint opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
+      </button>
+    );
+  }
 
   const isBannerTransitioning = isModalOpen && isTransitioningToModal;
 
   return (
     <div
-      className={[
-        "fixed bottom-[88px] left-1/2 z-40 w-[min(92vw,352px)] -translate-x-1/2 transform-gpu transition-opacity duration-150 ease-out",
+      className={cn(
+        "fixed bottom-[88px] left-1/2 z-40 w-[min(92vw,352px)] -translate-x-1/2 transform-gpu",
+        "transition-opacity duration-150 ease-out",
         isBannerTransitioning ? "opacity-0 pointer-events-none" : "opacity-100",
-      ].join(" ")}
+      )}
     >
-      <div
-        role="dialog"
-        aria-label="omanote update available"
-        className="w-full rounded-app-card border border-app-line bg-app-surface p-4 shadow-app-dialog"
-      >
+      <div role="dialog" aria-label="omanote update available" className="w-full rounded-app-card border border-app-line bg-app-surface p-4 shadow-app-dialog">
         <div className="flex items-start gap-3">
           <div className="flex-shrink-0">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-app-surface-muted dark:bg-app-line text-app-ink">

@@ -1,5 +1,5 @@
 import { buildRecurringCompletionIndex, getVirtualOccurrenceForDate, toDateKey } from "@omanote/shared";
-import type { ActivityItem, DateKey, TodoItem } from "@omanote/shared";
+import type { ActivityItem, BookmarkItem, DateKey, EventEntry, NoteItem, TodoItem } from "@omanote/shared";
 import { createInitialState } from "./demo-data";
 import type { AppAction, AppState, ToastItem } from "./types";
 import { prefixedRandomId } from "@omanote/shared";
@@ -462,6 +462,36 @@ export function getVisibleCanvasTodos(
     if (isTodoVisibleOnCanvas(todo, dateKey)) visible.push(todo);
   }
   return visible;
+}
+
+export type CanvasArtifactItem =
+  | { kind: "todo"; createdAt: number; data: TodoItem }
+  | { kind: "note"; createdAt: number; data: NoteItem }
+  | { kind: "bookmark"; createdAt: number; data: BookmarkItem }
+  | { kind: "event"; createdAt: number; data: EventEntry };
+
+/** Every artifact (todos, including recurring occurrences, notes, bookmarks, events) created on `dateKey`, sorted by creation time. Shared by the canvas (today) and history (any day) screens. */
+export function buildCanvasDayItems(
+  state: AppState,
+  dateKey: DateKey,
+  completionIndex: Map<string, Set<string>> = buildRecurringCompletionIndex(state.todos),
+): CanvasArtifactItem[] {
+  const todoItems: CanvasArtifactItem[] = getVisibleCanvasTodos(state, dateKey, completionIndex).map((todo) => ({
+    kind: "todo",
+    createdAt: todo.createdAt,
+    data: todo,
+  }));
+  const noteItems: CanvasArtifactItem[] = state.notes
+    .filter((note) => note.createdDateKey === dateKey)
+    .map((note) => ({ kind: "note", createdAt: note.createdAt, data: note }));
+  const bookmarkItems: CanvasArtifactItem[] = state.bookmarks
+    .filter((bookmark) => bookmark.createdDateKey === dateKey)
+    .map((bookmark) => ({ kind: "bookmark", createdAt: bookmark.createdAt, data: bookmark }));
+  const eventItems: CanvasArtifactItem[] = state.events
+    .filter((event) => !event.deletedAt && event.createdDateKey === dateKey)
+    .map((event) => ({ kind: "event", createdAt: event.createdAt, data: event }));
+
+  return [...todoItems, ...noteItems, ...bookmarkItems, ...eventItems].sort((left, right) => left.createdAt - right.createdAt);
 }
 
 export function hydrateState(raw: AppState | null) {

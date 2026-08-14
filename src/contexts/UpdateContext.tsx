@@ -44,7 +44,13 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
 
   const latestVersion = versions[0] ?? null;
   const unseenVersions = useMemo(() => getUnseenVersions(versions, lastSeen), [versions, lastSeen]);
-  const hasUpdate = unseenVersions.length > 0;
+  // Reloading only ever applies whatever the currently-running bundle already
+  // is — if that's already the latest version (e.g. the user just reloaded,
+  // or opened the app fresh right after an update), there's nothing a
+  // further reload would change, so there's nothing to notify about even if
+  // this version was never explicitly marked "seen".
+  const isRunningLatest = Boolean(latestVersion) && latestVersion!.version === bundledVersion.current;
+  const hasUpdate = unseenVersions.length > 0 && !isRunningLatest;
   const extraUpdatesCount = Math.max(unseenVersions.length - 1, 0);
   const shouldShowBanner = hasUpdate || isTransitioningToModal;
   const isBannerVisible = Boolean(latestVersion) && !isBannerDismissed && shouldShowBanner && (!isModalOpen || isTransitioningToModal);

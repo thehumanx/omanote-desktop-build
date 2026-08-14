@@ -1,66 +1,86 @@
-import { useEffect, useState } from "react";
-import { Button } from "../ui";
+import { ArrowRight, X } from "lucide-react";
+import { cn } from "../ui";
+
+export type SurveyPromptStatus = "not-started" | "in-progress" | "completed";
 
 interface SurveyPromptProps {
+  status: SurveyPromptStatus;
   onTakeSurvey: () => void;
-  onNotNow: () => void;
-  /** True once the user has answered at least one question but not submitted. */
-  resuming: boolean;
+  /** Only used when status is "completed" — dismisses the thank-you row. */
+  onDismiss?: () => void;
 }
 
+const STATUS_COPY: Record<SurveyPromptStatus, { label: string; body: string; dot: string }> = {
+  "not-started": {
+    label: "Quick survey",
+    body: "Please help us improve omanote — it only takes a few minutes.",
+    dot: "bg-info-solid",
+  },
+  "in-progress": {
+    label: "Survey in progress",
+    body: "Want to finish your survey? Your answers are saved — pick up right where you left off.",
+    dot: "bg-warning-solid",
+  },
+  completed: {
+    label: "Survey completed",
+    body: "Thanks for sharing your feedback — it genuinely shapes what gets built next.",
+    dot: "bg-success-solid",
+  },
+};
+
 /**
- * Deliberately unobtrusive: bottom-center card, no backdrop, no overlay, nothing
- * blocked. It sits above the bottom nav so it never covers navigation on mobile.
+ * One row within the shared "omanote updates" card (see CanvasSystemNotice).
+ * Not-started/in-progress: whole row opens the survey, arrow reveals on
+ * hover. Completed: a thank-you row that can be dismissed (X on hover)
+ * instead of opening anything — it also disappears on its own next reload.
  */
-export function SurveyPrompt({ onTakeSurvey, onNotNow, resuming }: SurveyPromptProps) {
-  const [isEntered, setIsEntered] = useState(false);
-
-  useEffect(() => {
-    const prefersReducedMotion =
-      typeof window.matchMedia === "function" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    if (prefersReducedMotion) {
-      setIsEntered(true);
-      return;
-    }
-
-    // Slight delay so the card animates in after the page settles rather than
-    // competing with the app's own mount transition.
-    const timer = window.setTimeout(() => setIsEntered(true), 600);
-    return () => window.clearTimeout(timer);
-  }, []);
+export function SurveyPrompt({ status, onTakeSurvey, onDismiss }: SurveyPromptProps) {
+  const { label, body, dot } = STATUS_COPY[status];
+  const isCompleted = status === "completed";
 
   return (
-    <div className="fixed bottom-[88px] left-1/2 z-app-toast w-[min(92vw,352px)] -translate-x-1/2 transform-gpu">
-      <div
-        role="dialog"
-        aria-label="omanote survey invitation"
-        className={[
-          "w-full transform-gpu rounded-app-card border border-app-line bg-app-surface p-4 shadow-app-dialog transition-[transform,opacity] duration-app-slow ease-app-out",
-          isEntered ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0",
-        ].join(" ")}
-      >
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-app-ink-faint">
-          {resuming ? "Survey in progress" : "A small favour"}
-        </p>
-        <p className="mt-1.5 text-sm font-bold leading-snug text-app-ink">
-          {resuming ? "Want to finish your survey?" : "Please help us improve omanote."}
-        </p>
-        <p className="mt-1 text-[13px] leading-relaxed text-app-ink-muted">
-          {resuming
-            ? "Your answers are saved — pick up right where you left off."
-            : "It only takes a few minutes, and it genuinely shapes what gets built next."}
-        </p>
-        <div className="mt-3.5 flex gap-2">
-          <Button tone="default" className="flex-1 py-2 text-[13px]" onClick={onTakeSurvey}>
-            {resuming ? "Continue" : "Take survey"}
-          </Button>
-          <Button tone="ghost" className="flex-1 py-2 text-[13px]" onClick={onNotNow}>
-            Not now
-          </Button>
-        </div>
+    <div
+      role={isCompleted ? undefined : "button"}
+      tabIndex={isCompleted ? undefined : 0}
+      onClick={isCompleted ? undefined : onTakeSurvey}
+      onKeyDown={
+        isCompleted
+          ? undefined
+          : (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onTakeSurvey();
+              }
+            }
+      }
+      aria-label="omanote survey invitation"
+      className={cn(
+        "group flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition-colors duration-150",
+        !isCompleted && "cursor-pointer hover:bg-app-surface-hover",
+      )}
+    >
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <span className="flex items-center gap-1.5 text-sm text-app-ink-faint">
+          <span aria-hidden="true" className={cn("h-1.5 w-1.5 shrink-0 rounded-full", dot)} />
+          {label}
+        </span>
+        <span className="text-sm text-app-ink-muted">{body}</span>
       </div>
+      {isCompleted ? (
+        <button
+          type="button"
+          aria-label="Dismiss"
+          onClick={(event) => {
+            event.stopPropagation();
+            onDismiss?.();
+          }}
+          className="mt-0.5 shrink-0 text-app-ink-faint opacity-0 transition-opacity duration-150 hover:text-app-ink group-hover:opacity-100"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      ) : (
+        <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-app-ink-faint opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
+      )}
     </div>
   );
 }

@@ -11,7 +11,6 @@ import { BookmarkCategoryIconPicker } from "../components/BookmarkCategoryIconPi
 import { ShareFolderModal } from "../components/ShareFolderModal";
 import { EmptyState } from "../components/EmptyState";
 import { useTopChrome } from "../components/layout/useTopChrome";
-import { PageHeader } from "../components/layout/PageHeader";
 import { ModalPortal } from "../components/ModalPortal";
 import { TodoEditorModal } from "../components/TodoEditorModal";
 import { TodoFolderCard, TodoFolderCountBadge, TodoFolderRow } from "../components/TodoFolderRow";
@@ -860,8 +859,7 @@ export function TodosScreen() {
     };
   }, [state.todos, state.todoFolders, activeSharedFolderIds, updateShareSnapshot]);
 
-  const topChrome = useMemo(() => <PageHeader stat="todos_done_this_week" />, []);
-  useTopChrome(topChrome);
+  useTopChrome(null);
 
   return (
     <div
@@ -873,9 +871,9 @@ export function TodosScreen() {
       }}
     >
         <div className="grid h-full min-h-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-4 overflow-hidden lg:grid-cols-[284px_minmax(0,1fr)] lg:grid-rows-1">
-        <aside className="min-h-0 overflow-hidden pt-4 lg:block lg:h-full">
+        <aside className="min-h-0 overflow-hidden pt-4 lg:block lg:h-full lg:pl-8">
           <div className="flex h-full min-h-0 flex-col">
-            <div className="flex items-center justify-between px-2 pb-2">
+            <div className="flex items-center justify-between px-2 pb-2 lg:px-0">
               <button
                 type="button"
                 aria-label="Add folder"

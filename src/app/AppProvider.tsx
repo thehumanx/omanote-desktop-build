@@ -87,6 +87,11 @@ interface AppContextValue {
   redo: () => Promise<void>;
   scheduleSync: () => void;
   googleImportedTodoIds: Set<string>;
+  // True until todos/notes/bookmarks/events have each decrypted at least
+  // once this session — lets a screen show a loading skeleton for the first
+  // paint instead of a misleading "empty" state. Stays true forever after
+  // the first successful pass (a later resync doesn't re-trigger it).
+  isCanvasContentLoading: boolean;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -527,6 +532,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [decryptedEvents, setDecryptedEvents] = useState<EventEntry[]>([]);
   const [decryptedActivity, setDecryptedActivity] = useState<ActivityItem[]>([]);
 
+  // Tracks whether each of the four canvas-relevant categories has finished
+  // its first decrypt pass this session — see isCanvasContentLoading below.
+  const [contentLoadedOnce, setContentLoadedOnce] = useState({ todos: false, notes: false, bookmarks: false, events: false });
+  const markContentLoaded = useCallback((key: keyof typeof contentLoadedOnce) => {
+    setContentLoadedOnce((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
+  }, []);
+
   useEffect(() => {
     if (isLocked) { setDecryptedTodos([]); return; }
     let cancelled = false;
@@ -537,7 +549,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         notes: t.notes ? await decrypt(t.notes) : undefined,
         folderName: t.folderName ? await decrypt(t.folderName) : undefined,
       })));
-      if (!cancelled) setDecryptedTodos(result);
+      if (!cancelled) { setDecryptedTodos(result); markContentLoaded("todos"); }
     })();
     return () => { cancelled = true; };
   }, [serverTodos, isLocked, decrypt]);
@@ -603,7 +615,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         folderName: n.folderName ? await decrypt(n.folderName) : undefined,
       })));
       const result = settled.flatMap((r) => r.status === "fulfilled" ? [r.value] : []);
-      if (!cancelled) setDecryptedNotes(result);
+      if (!cancelled) { setDecryptedNotes(result); markContentLoaded("notes"); }
     })();
     return () => { cancelled = true; };
   }, [rawNotes, isLocked, decrypt, decryptArray]);
@@ -669,6 +681,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setDecryptedBookmarks(
           settled.filter((r): r is PromiseFulfilledResult<ReturnType<typeof mapBookmark> & { url: string; title: string }> => r.status === "fulfilled").map((r) => r.value),
         );
+        markContentLoaded("bookmarks");
       }
     })();
     return () => { cancelled = true; };
@@ -705,7 +718,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         label: await decrypt(r.label).catch(() => ""),
         notes: r.notes ? await decrypt(r.notes) : undefined,
       })));
-      if (!cancelled) setDecryptedEvents(result);
+      if (!cancelled) { setDecryptedEvents(result); markContentLoaded("events"); }
     })();
     return () => { cancelled = true; };
   }, [rawEvents, isLocked, decrypt]);
@@ -2838,8 +2851,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   stateRef.current = state;
 
+  const isCanvasContentLoading =
+    !contentLoadedOnce.todos || !contentLoadedOnce.notes || !contentLoadedOnce.bookmarks || !contentLoadedOnce.events;
+
   return (
-    <AppContext.Provider value={{ state, dispatch, undo, redo, scheduleSync, googleImportedTodoIds }}>
+    <AppContext.Provider value={{ state, dispatch, undo, redo, scheduleSync, googleImportedTodoIds, isCanvasContentLoading }}>
       {children}
     </AppContext.Provider>
   );

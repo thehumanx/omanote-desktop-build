@@ -13,7 +13,6 @@ import { TodoListRow } from "../components/TodoListRow";
 import { AttachmentLinkPreview } from "../components/AttachmentLinkPreview";
 import { RichTextPreview } from "../components/rich-text";
 import { useTopChrome } from "../components/layout/useTopChrome";
-import { PageHeader } from "../components/layout/PageHeader";
 import { DrawerHeaderRow } from "../components/DrawerHeaderRow";
 import { Button, SegmentedPill, TodoCheckmark } from "../components/ui";
 import { handlePasteAsLink } from "../lib/link-utils";
@@ -774,8 +773,7 @@ export function EventScreen() {
   // while the days slide in.
   const daySlideClass = slideDirection ? `omanote-week-slide-${slideDirection}` : "";
 
-  const topChrome = useMemo(() => <PageHeader stat="events_this_week" />, []);
-  useTopChrome(topChrome);
+  useTopChrome(null);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">

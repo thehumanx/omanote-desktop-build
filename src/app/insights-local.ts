@@ -1,8 +1,8 @@
 import { useLiveQuery } from "dexie-react-hooks";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { db } from "./db";
-import type { PageStat } from "../components/layout/PageHeader";
 import type { BookmarkCategory, NoteFolder } from "@omanote/shared";
+import { jsonCodec, readLocalStorageOptional, writeLocalStorage } from "../lib/local-storage";
 
 const DAY_MS = 86_400_000;
 const WEEK_MS = 7 * DAY_MS;
@@ -611,149 +611,82 @@ export function useLocalInsights(
   };
 }
 
-// ─── Header stat hook (used by PageHeader on each screen) ────────────────────
+// ─── Week-at-a-glance hook (used by CanvasWeekAtGlance) ──────────────────────
 
-export function useLocalDashboardStat(stat: PageStat): string | undefined {
-  // Stable week start key — computed once per mount, fine for analytics
+export type WeekAtGlance = {
+  streakDays: number;
+  todosCount: number;
+  notesCount: number;
+  bookmarksCount: number;
+  eventsCount: number;
+};
+
+const WEEK_AT_GLANCE_CACHE_KEY = "omanote:week-at-glance-cache";
+
+function isWeekAtGlance(value: unknown): value is WeekAtGlance {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.streakDays === "number" &&
+    typeof v.todosCount === "number" &&
+    typeof v.notesCount === "number" &&
+    typeof v.bookmarksCount === "number" &&
+    typeof v.eventsCount === "number"
+  );
+}
+
+const weekAtGlanceCodec = jsonCodec(isWeekAtGlance);
+
+// IndexedDB reads are always at least one microtask away, so useLiveQuery's
+// first render is otherwise `undefined` even though the data barely changes
+// between app loads. Seeding it with the last computed result (cached in
+// localStorage, which IS readable synchronously) means the card never has to
+// show a skeleton on a warm reload — it paints the right numbers immediately
+// and silently corrects itself once the live query resolves a moment later.
+export function useWeekAtGlance(): WeekAtGlance | undefined {
   const wStartKey = useMemo(weekStartKey, []);
-  const wStartMs = useMemo(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    const daysFromMonday = d.getDay() === 0 ? 6 : d.getDay() - 1;
-    d.setDate(d.getDate() - daysFromMonday);
-    return d.getTime();
-  }, []);
+  const cachedDefault = useMemo(() => readLocalStorageOptional(WEEK_AT_GLANCE_CACHE_KEY, weekAtGlanceCodec), []);
 
   const result = useLiveQuery(async () => {
     const now = Date.now();
+    const [allTodos, allNotes, allBookmarks, allEvents] = await Promise.all([
+      db.todos.toArray(),
+      db.notes.toArray(),
+      db.bookmarks.toArray(),
+      db.events.toArray(),
+    ]);
 
-    if (stat === "completion_rate") {
-      const all = await db.todos
-        .where("createdDateKey")
-        .aboveOrEqual(wStartKey)
-        .filter((t) => !t.deletedAt)
-        .toArray();
-      const total = all.length;
-      if (total === 0) return "0 done";
-      const done = all.filter((t) => t.status === "done").length;
-      return `${Math.round((done / total) * 100)}%`;
+    // Counted as "created this week" for all four, to keep the counts
+    // consistent with each other.
+    const todosCount = allTodos.filter((t) => !t.deletedAt && t.createdDateKey >= wStartKey).length;
+    const notesCount = allNotes.filter((n) => !n.deletedAt && n.createdDateKey >= wStartKey).length;
+    const bookmarksCount = allBookmarks.filter((b) => !b.deletedAt && b.createdDateKey >= wStartKey).length;
+    const eventsCount = allEvents.filter((e) => !e.deletedAt && e.createdDateKey >= wStartKey).length;
+
+    const ninetyDaysAgoKey = timestampToKey(now - 90 * DAY_MS);
+    const activeDates = new Set<string>();
+    for (const t of allTodos) if (t.createdDateKey >= ninetyDaysAgoKey) activeDates.add(t.createdDateKey);
+    for (const n of allNotes) if (n.createdDateKey >= ninetyDaysAgoKey) activeDates.add(n.createdDateKey);
+    for (const b of allBookmarks) if (b.createdDateKey >= ninetyDaysAgoKey) activeDates.add(b.createdDateKey);
+    for (const e of allEvents) if (e.createdDateKey >= ninetyDaysAgoKey) activeDates.add(e.createdDateKey);
+    const todayKey = timestampToKey(now);
+    // Today always counts, even before anything's been saved yet — a brand
+    // new user opening the app for the first time is on day 1 of their
+    // streak, not day 0. Consecutive prior days extend it further back.
+    let streakDays = 1;
+    const cur = new Date(todayKey + "T12:00:00");
+    cur.setDate(cur.getDate() - 1);
+    while (activeDates.has(timestampToKey(cur.getTime()))) {
+      streakDays++;
+      cur.setDate(cur.getDate() - 1);
     }
 
-    if (stat === "todos_done_today") {
-      const todayStart = (() => {
-        const d = new Date();
-        d.setHours(0, 0, 0, 0);
-        return d.getTime();
-      })();
-      const count = await db.todos
-        .filter(
-          (t) =>
-            !t.deletedAt &&
-            t.completedAt !== undefined &&
-            t.completedAt >= todayStart,
-        )
-        .count();
-      return `✅ ${count} done today`;
-    }
+    return { streakDays, todosCount, notesCount, bookmarksCount, eventsCount };
+  }, [wStartKey], cachedDefault);
 
-    if (stat === "notes_this_week") {
-      const count = await db.notes
-        .where("createdDateKey")
-        .aboveOrEqual(wStartKey)
-        .filter((n) => !n.deletedAt)
-        .count();
-      return `📝 ${count} notes`;
-    }
-
-    if (stat === "bookmarks_this_week") {
-      const count = await db.bookmarks
-        .where("createdDateKey")
-        .aboveOrEqual(wStartKey)
-        .filter((b) => !b.deletedAt)
-        .count();
-      return `🔖 ${count} saved`;
-    }
-
-    if (stat === "todos_done_this_week") {
-      const count = await db.todos
-        .filter(
-          (t) =>
-            !t.deletedAt &&
-            t.completedAt !== undefined &&
-            t.completedAt >= wStartMs,
-        )
-        .count();
-      return `✅ ${count} done`;
-    }
-
-    if (stat === "events_this_week") {
-      const count = await db.events
-        .where("createdDateKey")
-        .aboveOrEqual(wStartKey)
-        .filter((e) => !e.deletedAt)
-        .count();
-      return `📅 ${count} events`;
-    }
-
-    if (stat === "canvas_streak") {
-      const ninetyDaysAgoKey = timestampToKey(now - 90 * DAY_MS);
-      const [allTodos, allNotes, allBookmarks, allEvents] = await Promise.all([
-        db.todos.toArray(),
-        db.notes.toArray(),
-        db.bookmarks.toArray(),
-        db.events.toArray(),
-      ]);
-      const activeDates = new Set<string>();
-      for (const t of allTodos) if (t.createdDateKey >= ninetyDaysAgoKey) activeDates.add(t.createdDateKey);
-      for (const n of allNotes) if (n.createdDateKey >= ninetyDaysAgoKey) activeDates.add(n.createdDateKey);
-      for (const b of allBookmarks) if (b.createdDateKey >= ninetyDaysAgoKey) activeDates.add(b.createdDateKey);
-      for (const e of allEvents) if (e.createdDateKey >= ninetyDaysAgoKey) activeDates.add(e.createdDateKey);
-      const todayKey = timestampToKey(now);
-      const yesterdayKey = timestampToKey(now - DAY_MS);
-      let streak = 0;
-      const startKey = activeDates.has(todayKey)
-        ? todayKey
-        : activeDates.has(yesterdayKey)
-          ? yesterdayKey
-          : null;
-      if (startKey !== null) {
-        const cur = new Date(startKey + "T12:00:00");
-        while (activeDates.has(timestampToKey(cur.getTime()))) {
-          streak++;
-          cur.setDate(cur.getDate() - 1);
-        }
-      }
-      return streak >= 1 ? `🔥 ${streak} days` : "🔥 0 day";
-    }
-
-    // habit_streak: approximate via active-day streak from activityHistory
-    if (stat === "habit_streak") {
-      const ninetyDaysAgo = now - 90 * DAY_MS;
-      const recent = await db.activityHistory
-        .where("timestamp")
-        .aboveOrEqual(ninetyDaysAgo)
-        .toArray();
-      const activeDates = new Set(recent.map((h) => timestampToKey(h.timestamp)));
-      const todayKey = timestampToKey(now);
-      const yesterdayKey = timestampToKey(now - DAY_MS);
-      let streak = 0;
-      const startKey = activeDates.has(todayKey)
-        ? todayKey
-        : activeDates.has(yesterdayKey)
-          ? yesterdayKey
-          : null;
-      if (startKey !== null) {
-        const cur = new Date(startKey + "T12:00:00");
-        while (activeDates.has(timestampToKey(cur.getTime()))) {
-          streak++;
-          cur.setDate(cur.getDate() - 1);
-        }
-      }
-      return streak === 1 ? "1 day streak" : `${streak} day streak`;
-    }
-
-    return undefined;
-  }, [stat, wStartKey, wStartMs]);
+  useEffect(() => {
+    if (result) writeLocalStorage(WEEK_AT_GLANCE_CACHE_KEY, weekAtGlanceCodec, result);
+  }, [result]);
 
   return result ?? undefined;
 }

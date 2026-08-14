@@ -13,7 +13,6 @@ import { BookmarkCategoryIconPicker } from "../components/BookmarkCategoryIconPi
 import { CategoryIconView } from "../lib/bookmark-category-icon";
 import { BookmarkCard } from "../components/cards";
 import { useTopChrome } from "../components/layout/useTopChrome";
-import { PageHeader } from "../components/layout/PageHeader";
 import { Button, cn } from "../components/ui";
 import { BookmarkEditorModal } from "../components/BookmarkEditorModal";
 import { ShareFolderModal } from "../components/ShareFolderModal";
@@ -560,8 +559,7 @@ export function BookmarksScreen() {
     setCategorySortMenuOpen(false);
   };
 
-  const topChrome = useMemo(() => <PageHeader stat="bookmarks_this_week" />, []);
-  useTopChrome(topChrome);
+  useTopChrome(null);
 
   const renderBookmarksPanel = (isMobileDrawer = false) => (
     <div className="flex h-full min-h-0 flex-col">
@@ -735,7 +733,7 @@ export function BookmarksScreen() {
       }}
     >
       <div className="relative grid h-full min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[284px_minmax(0,1fr)]">
-        <aside className="h-full min-h-0 overflow-hidden pt-4">
+        <aside className="h-full min-h-0 overflow-hidden pt-4 lg:pl-8">
           <div className="flex h-full min-h-0 flex-col">
             <div className="mb-3 flex items-center justify-between gap-3">
               <button

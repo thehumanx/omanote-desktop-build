@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { BookOpen, PenLine } from "lucide-react";
 import { readLocalStorageOptional, stringCodec, writeLocalStorage } from "../../lib/local-storage";
-import { SegmentedPill } from "../ui";
+import { SegmentedHighlight, SegmentedItem, SegmentedShell } from "../ui";
+import { useMeasuredHighlight } from "../../hooks/useMeasuredHighlight";
 
 const LAST_WRITE_PATH_KEY = "omanote.lastWritePath";
 const LAST_READ_PATH_KEY = "omanote.lastReadPath";
@@ -52,10 +53,11 @@ function readStoredMode(): Mode {
   return readStoredPath(LAST_MODE_KEY) === "read" ? "read" : "write";
 }
 
-// The Write/Read pill: the app's two sides. Write is the existing omanote
+// The Write/Read rail: the app's two sides. Write is the existing omanote
 // (canvas, todos, notes, bookmarks, events, explore, search); Read is the RSS
-// reader (feed + saved). Navigation-based so back/refresh work.
-export function ModeSwitch() {
+// reader (feed + saved). Navigation-based so back/refresh work. Icon-only,
+// expands on hover to reveal labels.
+export function ModeSwitch({ showReadOption = true }: { showReadOption?: boolean }) {
   const location = useLocation();
   const navigate = useNavigate();
   const path = location.pathname;
@@ -92,15 +94,48 @@ export function ModeSwitch() {
     }
   };
 
+  const items = showReadOption
+    ? [
+        { key: "write" as const, label: "Write", Icon: PenLine },
+        { key: "read" as const, label: "Read", Icon: BookOpen },
+      ]
+    : [{ key: "write" as const, label: "Write", Icon: PenLine }];
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  // ResizeObserver (observeResize defaults to true) watches the container and
+  // every item, so the highlight re-measures itself as items grow on hover —
+  // no need to track hover state in React for that part.
+  const highlightStyle = useMeasuredHighlight({
+    activeKey: activeMode,
+    containerRef,
+    itemRefs,
+  });
+
   return (
-    <SegmentedPill
-      ariaLabel="Write or read mode"
-      activeKey={activeMode}
-      onChange={switchTo}
-      items={[
-        { key: "write", label: "Write", icon: <PenLine className="h-3.5 w-3.5" /> },
-        { key: "read", label: "Read", icon: <BookOpen className="h-3.5 w-3.5" /> },
-      ]}
-    />
+    <SegmentedShell
+      ref={containerRef}
+      aria-label="Write or read mode"
+      className="group w-fit flex-row items-stretch gap-1 overflow-visible rounded-[24px] p-1.5 shadow-nav md:flex-col"
+    >
+      {highlightStyle ? <SegmentedHighlight className="duration-app-base ease-app-out" style={highlightStyle} /> : null}
+      {items.map(({ key, label, Icon }) => (
+        <SegmentedItem
+          key={key}
+          ref={(node) => {
+            itemRefs.current[key] = node;
+          }}
+          aria-label={label}
+          active={key === activeMode}
+          onClick={() => switchTo(key)}
+          className="relative z-10 flex h-9 w-9 items-center gap-2 overflow-hidden whitespace-nowrap px-2.5 text-app-ink-faint transition-[width] duration-app-base ease-app-out group-hover:w-24"
+        >
+          <Icon className="h-4 w-4 flex-shrink-0" />
+          <span className="text-sm opacity-0 transition-opacity duration-app-base ease-app-out group-hover:opacity-100">
+            {label}
+          </span>
+        </SegmentedItem>
+      ))}
+    </SegmentedShell>
   );
 }

@@ -85,3 +85,7 @@ export function isSameDateKey(left?: DateKey, right?: DateKey) {
   return Boolean(left && right && left === right);
 }
 
+export function daysBetweenKeys(fromKey: DateKey, toKey: DateKey): number {
+  return Math.round((fromDateKey(toKey).getTime() - fromDateKey(fromKey).getTime()) / 86_400_000);
+}
+

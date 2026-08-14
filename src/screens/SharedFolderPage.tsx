@@ -6,7 +6,8 @@ import { api } from "../../convex/_generated/api";
 import { getShareViewerToken } from "../lib/share-viewer-token";
 import { cn, TodoCheckmark } from "../components/ui";
 import { RichTextPreview } from "../components/rich-text";
-import { formatCompletedLabel, formatDueChip } from "@omanote/shared";
+import { daysBetweenKeys, formatCompletedLabel, formatDueChip, toDateKey } from "@omanote/shared";
+import type { DateKey } from "@omanote/shared";
 import { Bookmark, CircleCheckBig, ExternalLink } from "lucide-react";
 import { CategoryIconView } from "../lib/bookmark-category-icon";
 
@@ -212,6 +213,7 @@ export function SharedFolderPage() {
 
   if (isTodo) {
     const td = data as unknown as PublicTodoFolder;
+    const sharePageTodayKey = toDateKey(new Date());
     return (
       <>
         <SeoHead
@@ -277,7 +279,7 @@ export function SharedFolderPage() {
               <span className="text-sm text-app-ink-faint">Updated {formatSharedDate(td.snapshotUpdatedAt ?? td.createdAt)}</span>
               <span className="text-app-ink-faint">·</span>
               <span className="text-sm text-app-ink-faint">
-                {td.todos.length === 1 ? "1 todo" : `${td.todos.length} todos`}
+                {td.todos.filter((t) => t.status === "done").length}/{td.todos.length} todos
               </span>
               <span className="text-app-ink-faint">·</span>
               <span className="text-sm text-app-ink-faint">
@@ -298,6 +300,10 @@ export function SharedFolderPage() {
             <div className="flex flex-col">
               {sortTodos(td.todos).map((todo) => {
                 const dueChip = formatDueChip(todo.dueDateKey, todo.dueTime);
+                const overdueDays =
+                  todo.status === "open" && todo.dueDateKey && todo.dueDateKey < sharePageTodayKey
+                    ? daysBetweenKeys(todo.dueDateKey as DateKey, sharePageTodayKey)
+                    : 0;
                 const completedLabel = todo.status === "done" ? formatCompletedLabel(todo.completedAt ?? todo.createdAt) : "";
                 return (
                   <div
@@ -317,6 +323,7 @@ export function SharedFolderPage() {
                         {dueChip ? (
                           <span className="rounded-md bg-app-surface-muted px-2 py-0.5 text-[11px] text-app-ink-faint whitespace-nowrap">
                             {dueChip}
+                            {overdueDays > 0 ? <span className="text-warning-ink"> · overdue {overdueDays}d</span> : null}
                           </span>
                         ) : null}
                         {completedLabel ? (

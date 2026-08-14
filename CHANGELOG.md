@@ -4,6 +4,17 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.30.0 [August 15, 2026]
+
+> Canvas redesigned: today stays put, History is one click away, and the top bar is gone for good.
+
+- [Update] Canvas now stays fixed on today — a "Your week at glance" card, a combined updates-and-survey card, and an overdue-todos section all live above your day's notes, todos, and bookmarks
+- [Add] Browsing past days moved into a dedicated in-place History view: click the date label and open a scrollable date list beside that day's content, no page navigation involved
+- [Update] The Write/Read switch is now a small floating rail on the left edge instead of a top-bar pill
+- [Fix] The update notice stops asking you to reload once you're already on the latest version
+- [Fix] Publicly shared todo folders now show "x/y completed" instead of just the total count
+- [Remove] The top bar is gone from every page — check your stats from the glance card on canvas instead
+
 ### v0.28.8 [August 11, 2026]
 
 > Public links now say exactly what they do, and the survey and update prompts share one spot.

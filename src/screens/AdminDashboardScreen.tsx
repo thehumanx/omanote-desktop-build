@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { AlertTriangle, CheckCircle2, Info, Lightbulb, XCircle } from "lucide-react";
 import { api } from "../../convex/_generated/api";
-import { cn } from "../components/ui";
+import { BaseModal } from "../components/BaseModal";
+import { Button, cn } from "../components/ui";
 import {
   activationFunnel,
   deriveInsights,
@@ -311,13 +312,15 @@ function MonthlyTable({ data }: { data: PmfDashboard }) {
 function UsersTable({
   data,
   directory,
+  onRequestDelete,
 }: {
   data: PmfDashboard;
   directory: Map<string, DirectoryEntry> | null;
+  onRequestDelete: (user: PmfDashboard["users"][number]) => void;
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[820px] border-collapse">
+      <table className="w-full min-w-[880px] border-collapse">
         <thead>
           <tr>
             <Th>User</Th>
@@ -329,6 +332,7 @@ function UsersTable({
             <Th align="right">Modules</Th>
             <Th>Todos</Th>
             <Th>Clients</Th>
+            <Th>{null}</Th>
           </tr>
         </thead>
         <tbody>
@@ -392,12 +396,112 @@ function UsersTable({
               <Td>
                 <span className="text-[11px] text-app-ink-faint">{u.devices.join(", ") || "—"}</span>
               </Td>
+              <Td align="right">
+                {!u.isAdmin && (
+                  <button
+                    type="button"
+                    className="text-[11px] font-medium text-danger-ink hover:underline"
+                    onClick={() => onRequestDelete(u)}
+                  >
+                    Delete…
+                  </button>
+                )}
+              </Td>
             </tr>
             );
           })}
         </tbody>
       </table>
     </div>
+  );
+}
+
+function DeleteUserModal({
+  user,
+  identity,
+  onClose,
+}: {
+  user: PmfDashboard["users"][number];
+  identity: DirectoryEntry | null;
+  onClose: () => void;
+}) {
+  const adminDeleteUser = useAction(api.account.adminDeleteUser);
+  const [confirmation, setConfirmation] = useState("");
+  const [alsoDeleteLogin, setAlsoDeleteLogin] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const canDelete = confirmation.trim() === "DELETE";
+  const label = identity?.name ?? identity?.email ?? shortUserId(user.userId);
+
+  async function handleDelete() {
+    if (!canDelete || submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await adminDeleteUser({ targetUserId: user.userId, alsoDeleteLogin });
+      onClose();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not delete this user.");
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <BaseModal onClose={() => { if (!submitting) onClose(); }}>
+      <div
+        className="w-full max-w-md rounded-app-card border border-app-line bg-app-surface p-5 shadow-app-dialog"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <p className="text-sm font-bold text-app-ink">Delete {label}</p>
+        <p className="mt-1 text-xs leading-relaxed text-app-ink-faint">
+          Wipes all of this account's omanote data — notes, todos, bookmarks, events, encryption keys, everything.
+          This cannot be undone.
+        </p>
+
+        <label className="mt-4 flex items-start gap-2 text-xs leading-relaxed text-app-ink-muted">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={alsoDeleteLogin}
+            onChange={(e) => setAlsoDeleteLogin(e.target.checked)}
+          />
+          <span>
+            Also delete their login. Leave this unchecked for a "forgot passphrase" reset — they keep signing in
+            with the same account and land back in setup to pick a new passphrase.
+          </span>
+        </label>
+
+        <div className="mt-4 rounded-xl border border-danger-line bg-danger-surface p-4">
+          <p className="text-xs leading-relaxed text-danger-ink">
+            Type <span className="font-bold">DELETE</span> to confirm.
+          </p>
+          <input
+            type="text"
+            aria-label="Delete user confirmation"
+            className="mt-2 w-full rounded-md border border-danger-line bg-app-surface px-3 py-2 text-sm text-app-ink outline-none focus:border-danger-ink"
+            value={confirmation}
+            onChange={(e) => setConfirmation(e.target.value)}
+            autoFocus
+          />
+        </div>
+
+        {error && (
+          <p role="alert" className="mt-3 text-xs leading-relaxed text-danger-ink">
+            {error}
+          </p>
+        )}
+
+        <div className="mt-4 flex justify-end gap-2">
+          <Button type="button" tone="ghost" onClick={onClose} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button type="button" tone="danger" onClick={() => void handleDelete()} disabled={!canDelete || submitting}>
+            {submitting ? "Deleting…" : alsoDeleteLogin ? "Delete user" : "Wipe data"}
+          </Button>
+        </div>
+      </div>
+    </BaseModal>
   );
 }
 
@@ -656,6 +760,7 @@ function FeedbackList({ data }: { data: PmfDashboard }) {
 export function AdminDashboardScreen() {
   const data = useQuery(api.adminMetrics.getDashboard, {});
   const { directory, error: directoryError } = useUserDirectory();
+  const [deletingUser, setDeletingUser] = useState<PmfDashboard["users"][number] | null>(null);
 
   const insights = useMemo(() => (data ? deriveInsights(data) : []), [data]);
   const verdict = useMemo(() => (data ? deriveVerdict(data, insights) : null), [data, insights]);
@@ -925,7 +1030,7 @@ export function AdminDashboardScreen() {
         {!directoryError && directory === null && (
           <p className="mb-2 text-xs text-app-ink-faint">Loading names from Clerk…</p>
         )}
-        <UsersTable data={data} directory={directory} />
+        <UsersTable data={data} directory={directory} onRequestDelete={setDeletingUser} />
       </Section>
 
       <p className="mt-10 text-[11px] leading-relaxed text-app-ink-faint">
@@ -933,6 +1038,14 @@ export function AdminDashboardScreen() {
         reads without editing counts as dormant. The last sign-in column is the one exception, and it comes
         from Clerk. Where the two disagree, treat the sign-in as the truth about churn.
       </p>
+
+      {deletingUser && (
+        <DeleteUserModal
+          user={deletingUser}
+          identity={directory?.get(clerkSubject(deletingUser.userId)) ?? null}
+          onClose={() => setDeletingUser(null)}
+        />
+      )}
     </div>
   );
 }
