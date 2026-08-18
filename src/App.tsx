@@ -5,6 +5,8 @@ import { api } from "../convex/_generated/api";
 import { LandingScreen } from "./screens/LandingScreen";
 import { useUserSettings } from "./contexts/UserSettingsContext";
 import { isTauri } from "./lib/desktop";
+import { readLocalStorageOptional, stringCodec } from "./lib/local-storage";
+import { useNetworkStatus } from "./hooks/useNetworkStatus";
 import { DesktopAuthListener } from "./components/desktop/DesktopAuthListener";
 import { DesktopUpdateBanner } from "./components/desktop/DesktopUpdateBanner";
 
@@ -100,10 +102,19 @@ export function getAuthenticatedLayoutKind(pathname: string) {
 function RootRoute() {
   const { isLoading, isAuthenticated } = useConvexAuth();
   const location = useLocation();
+  const { isOffline } = useNetworkStatus();
 
-  if (isLoading) return null;
+  // Convex can't confirm a session with no network, so `isLoading` never
+  // resolves offline — without this the app would render nothing forever on
+  // a device that's already signed in. `omanote.dexie-user` is written on
+  // every successful sign-in (see AppProvider), so its presence is a durable
+  // "this device has signed in before" signal independent of a live Convex
+  // connection. Once connectivity returns, real auth state takes over again.
+  const hasLocalSession = isOffline && !!readLocalStorageOptional("omanote.dexie-user", stringCodec);
 
-  if (!isAuthenticated) {
+  if (isLoading && !hasLocalSession) return null;
+
+  if (!isAuthenticated && !hasLocalSession) {
     // The desktop app behaves like an app, not a website: no landing page,
     // just a first-run onboarding screen that hands sign-in to the browser.
     if (isTauri()) {

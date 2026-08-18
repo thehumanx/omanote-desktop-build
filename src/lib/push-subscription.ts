@@ -2,10 +2,16 @@ import { isTauri } from "./desktop";
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
 
-// Web Push needs a service worker, which the Tauri desktop shell does not
-// support; desktop reminders fire as native OS notifications instead.
+function serviceWorkerUnavailable() {
+  return !("serviceWorker" in navigator);
+}
+
+// Web Push itself needs more than just a service worker (Tauri's webview
+// doesn't support the Push API), so desktop reminders fire as native OS
+// notifications instead — but the service worker is still registered on
+// desktop for app-shell precaching, so this must not gate registration.
 function pushUnavailable() {
-  return isTauri() || !("serviceWorker" in navigator);
+  return isTauri() || serviceWorkerUnavailable();
 }
 
 function urlBase64ToArrayBuffer(base64String: string): ArrayBuffer {
@@ -30,7 +36,7 @@ export function extractSubscriptionKeys(subscription: PushSubscription): { p256d
 }
 
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
-  if (pushUnavailable()) return null;
+  if (serviceWorkerUnavailable()) return null;
   try {
     return await navigator.serviceWorker.register("/sw.js");
   } catch {

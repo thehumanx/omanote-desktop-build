@@ -4,6 +4,7 @@ import { CalendarClock, CircleCheckBig, Pencil, Repeat, Trash2, WifiOff } from "
 import type { DateKey, TodoItem } from "@omanote/shared";
 import { daysBetweenKeys, describeRecurrenceRule, formatCompletedLabel, formatDueChip, formatFutureTodoCanvasLabel, isFutureDateKey } from "@omanote/shared";
 import { useIsMobileViewport } from "../lib/mobile";
+import { useUserSettings } from "../contexts/UserSettingsContext";
 import { cn, TodoCheckmark } from "./ui";
 import { RichTextPreview } from "./rich-text";
 import { AttachmentLinkPreview } from "./AttachmentLinkPreview";
@@ -47,6 +48,8 @@ function CanvasTodoBlockComponent({
   onDelete,
   onReschedule,
 }: CanvasTodoBlockProps) {
+  const { settings } = useUserSettings();
+  const completeOnRowClick = settings.completeTodoOnRowClick;
   const dueChip = formatDueChip(todo.dueDateKey, todo.dueTime, canvasDateKey, todo.createdDateKey);
   const overdueReferenceKey = todayKey ?? canvasDateKey;
   const overdueDays =
@@ -158,12 +161,16 @@ function CanvasTodoBlockComponent({
         )}
 
         <div
-          className="min-w-0 flex-1 cursor-pointer"
-          onClick={(event) => {
-            const target = event.target as HTMLElement;
-            if (target.closest("a")) return;
-            onToggle(todo);
-          }}
+          className={cn("min-w-0 flex-1", completeOnRowClick && "cursor-pointer")}
+          onClick={
+            completeOnRowClick
+              ? (event) => {
+                  const target = event.target as HTMLElement;
+                  if (target.closest("a")) return;
+                  onToggle(todo);
+                }
+              : undefined
+          }
         >
           <div className="flex flex-wrap items-center gap-2">
             <div

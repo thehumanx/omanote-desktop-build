@@ -252,11 +252,13 @@ export function AppShell() {
       <ComposerSheet />
       <CookieNotice />
       <ZoomIndicator percent={zoomPercent} visible={indicatorVisible} />
-      <div className="pointer-events-none fixed inset-y-0 left-0 z-app-top-bar hidden items-center pl-[max(1rem,env(safe-area-inset-left))] md:flex">
-        <div className="pointer-events-auto">
-          <ModeSwitch showReadOption={settings.rssReaderEnabled} />
+      {settings.rssReaderEnabled ? (
+        <div className="pointer-events-none fixed inset-y-0 left-0 z-app-top-bar hidden items-center pl-[max(1rem,env(safe-area-inset-left))] md:flex">
+          <div className="pointer-events-auto">
+            <ModeSwitch />
+          </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }

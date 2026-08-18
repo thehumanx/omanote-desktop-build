@@ -4,6 +4,19 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.31.2 [August 18, 2026]
+
+> Only the checkmark completes a todo now, not the whole row.
+
+- [Update] Tapping a todo no longer completes it by default — only the checkmark circle does. If you liked tapping anywhere, turn "Complete todos by tapping anywhere" back on from Settings → Features
+
+### v0.31.1 [August 18, 2026]
+
+> Fixed offline load, and a stray desktop button gone.
+
+- [Fix] Fixed offline load — omanote now opens and works with no internet connection, on the web app and the desktop app. Previously the app couldn't even open without a connection, even though your notes and todos were already saved on your device
+- [Fix] Removed the floating Write/Read toggle showing up on desktop when the RSS reader isn't turned on — it's only meant to appear once there's a Read side to switch to
+
 ### v0.31.0 [August 18, 2026]
 
 > Reworked how you add anything, on Canvas and everywhere else — quick capture works from wherever you are now.

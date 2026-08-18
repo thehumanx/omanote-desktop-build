@@ -26,6 +26,8 @@ import {
 } from "../lib/crypto";
 import { DecryptionCache } from "../lib/decryption-cache";
 import { friendlyErrorMessage } from "../lib/errors";
+import { readLocalStorageOptional, stringCodec, writeLocalStorage } from "../lib/local-storage";
+import { useNetworkStatus } from "../hooks/useNetworkStatus";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -88,12 +90,17 @@ const EncryptionContext = createContext<EncryptionContextValue | null>(null);
 // Provider
 // ---------------------------------------------------------------------------
 
+function encryptionSetupStorageKey(userSessionKey: string) {
+  return `omanote.encryption-setup:${userSessionKey}`;
+}
+
 export function EncryptionProvider({ children }: { children: React.ReactNode }) {
   const { isSignedIn, userId } = useClerkAuth();
   // Raw wrapped-key record from Convex (null = not set up, undefined = loading).
   const keyRecord = useQuery(api.encryptionKeys.getKey);
   const saveKey = useMutation(api.encryptionKeys.saveKey);
   const userSessionKey = userId ? `clerk:${userId}` : null;
+  const { isOffline } = useNetworkStatus();
 
   // The decrypted CryptoKey lives only in memory (never serialised).
   const keyRef = useRef<CryptoKey | null>(null);
@@ -120,11 +127,30 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
   const restoreAttemptedForRef = useRef<string | null>(null);
 
   // Derive isSetup from the Convex query state.
-  // undefined → still loading → null
+  // undefined → still loading → null (unless a cached "this device is set
+  //             up" flag exists and we're offline — see below)
   // null      → no record    → false
   // object    → record found → true
+  //
+  // Convex can't confirm this with no network, so `keyRecord` stays
+  // `undefined` forever offline. Without a fallback, a device that's already
+  // set up would be stuck showing "loading" indefinitely instead of
+  // proceeding to unlock from the locally cached content key. The flag only
+  // unblocks this loading gate — actual decryption still requires either the
+  // correct passphrase or an already-unlocked key restored from storage, so
+  // this can't expose data on its own.
+  const cachedIsSetup =
+    isOffline && userSessionKey
+      ? readLocalStorageOptional(encryptionSetupStorageKey(userSessionKey), stringCodec) === "true"
+      : false;
   const isSetup: boolean | null =
-    keyRecord === undefined ? null : keyRecord !== null;
+    keyRecord === undefined ? (cachedIsSetup ? true : null) : keyRecord !== null;
+
+  useEffect(() => {
+    if (keyRecord && userSessionKey) {
+      writeLocalStorage(encryptionSetupStorageKey(userSessionKey), stringCodec, "true");
+    }
+  }, [keyRecord, userSessionKey]);
 
   // When the user signs out, clear the cached key and lock in-memory state.
   useEffect(() => {

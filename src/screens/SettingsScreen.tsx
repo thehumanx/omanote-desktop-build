@@ -644,6 +644,33 @@ export function SettingsScreen() {
                   </button>
                 </div>
               </div>
+              <div className="rounded-2xl border border-app-line bg-app-surface p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-app-ink">Complete todos by tapping anywhere</p>
+                    <p className="mt-0.5 text-[13px] leading-5 text-app-ink-faint">
+                      When off (default), only the checkmark circle completes a todo. When on, tapping anywhere on the row does too.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={settings.completeTodoOnRowClick}
+                    onClick={() => void updateSettings({ completeTodoOnRowClick: !settings.completeTodoOnRowClick }).catch(() => {})}
+                    className={cn(
+                      "mt-0.5 flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-focus focus-visible:ring-offset-2",
+                      settings.completeTodoOnRowClick ? "bg-app-ink" : "bg-app-line-strong",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "pointer-events-none block h-4 w-4 rounded-full bg-white shadow-sm ring-0 transition-transform duration-200",
+                        settings.completeTodoOnRowClick ? "translate-x-5" : "translate-x-0",
+                      )}
+                    />
+                  </button>
+                </div>
+              </div>
             </div>
           </section>
         );

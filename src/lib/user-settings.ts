@@ -26,6 +26,8 @@ export interface UserSettings {
   canvasDotGrid: boolean;
   founderNoteSeen: boolean;
   rssReaderEnabled: boolean;
+  /** When false (default), only the checkmark circle toggles a todo complete. When true, clicking anywhere on the row does too. */
+  completeTodoOnRowClick: boolean;
   onboardingCompleted: boolean;
   /** Resume marker for the post-signup wizard; meaningless once onboardingCompleted is true. */
   onboardingStep: OnboardingStep;
@@ -51,6 +53,7 @@ export interface UserSettingsPatch {
   canvasDotGrid?: boolean;
   founderNoteSeen?: boolean;
   rssReaderEnabled?: boolean;
+  completeTodoOnRowClick?: boolean;
   onboardingCompleted?: boolean;
   onboardingStep?: OnboardingStep;
   onboardingGoals?: string[];
@@ -92,6 +95,7 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   canvasDotGrid: true,
   founderNoteSeen: false,
   rssReaderEnabled: false,
+  completeTodoOnRowClick: false,
   onboardingCompleted: false,
   onboardingStep: 0,
   onboardingGoals: [],
@@ -180,6 +184,9 @@ export function normalizeUserSettings(input: Record<string, unknown> | null | un
     canvasDotGrid: isBoolean(source.canvasDotGrid) ? source.canvasDotGrid : DEFAULT_USER_SETTINGS.canvasDotGrid,
     founderNoteSeen: isBoolean(source.founderNoteSeen) ? source.founderNoteSeen : DEFAULT_USER_SETTINGS.founderNoteSeen,
     rssReaderEnabled: isBoolean(source.rssReaderEnabled) ? source.rssReaderEnabled : DEFAULT_USER_SETTINGS.rssReaderEnabled,
+    completeTodoOnRowClick: isBoolean(source.completeTodoOnRowClick)
+      ? source.completeTodoOnRowClick
+      : DEFAULT_USER_SETTINGS.completeTodoOnRowClick,
     onboardingCompleted: isBoolean(source.onboardingCompleted)
       ? source.onboardingCompleted
       : DEFAULT_USER_SETTINGS.onboardingCompleted,

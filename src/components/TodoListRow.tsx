@@ -5,6 +5,7 @@ import { Badge, cn, TodoCheckmark } from "./ui";
 import { describeRecurrenceRule, formatCompletedLabel, formatDueChip } from "@omanote/shared";
 import { RichTextPreview } from "./rich-text";
 import { AttachmentLinkPreview } from "./AttachmentLinkPreview";
+import { useUserSettings } from "../contexts/UserSettingsContext";
 
 export const TodoListRow = memo(function TodoListRow({
   todo,
@@ -32,6 +33,8 @@ export const TodoListRow = memo(function TodoListRow({
   /** Opens the full editor (due date, folder, recurrence, reminders) for this todo. */
   onOpenEditor: (todo: TodoItem) => void;
 }) {
+  const { settings } = useUserSettings();
+  const completeOnRowClick = settings.completeTodoOnRowClick;
   const dueChip = formatDueChip(todo.dueDateKey, todo.dueTime, canvasDateKey, todo.createdDateKey);
   const completedLabel = todo.status === "done" ? formatCompletedLabel(todo.completedAt ?? todo.updatedAt) : (exitingCompletedLabel ?? "");
   const isVisuallyDone = !isUncompleting && (todo.status === "done" || isCompleting);
@@ -57,12 +60,20 @@ export const TodoListRow = memo(function TodoListRow({
         align="text"
       />
       <div
-        className={cn("min-w-0 flex-1 cursor-pointer", completedLabel ? "lg:flex lg:items-start lg:justify-between lg:gap-4" : undefined)}
-        onClick={(event) => {
-          const target = event.target as HTMLElement;
-          if (target.closest("a")) return;
-          onToggle(todo.id);
-        }}
+        className={cn(
+          "min-w-0 flex-1",
+          completeOnRowClick && "cursor-pointer",
+          completedLabel ? "lg:flex lg:items-start lg:justify-between lg:gap-4" : undefined,
+        )}
+        onClick={
+          completeOnRowClick
+            ? (event) => {
+                const target = event.target as HTMLElement;
+                if (target.closest("a")) return;
+                onToggle(todo.id);
+              }
+            : undefined
+        }
       >
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
