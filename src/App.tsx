@@ -88,6 +88,9 @@ const NotFoundPage = lazy(() =>
 const AdminDashboardScreen = lazy(() =>
   import("./screens/AdminDashboardScreen").then((module) => ({ default: module.AdminDashboardScreen })),
 );
+const ComposerPopoutScreen = lazy(() =>
+  import("./screens/ComposerPopoutScreen").then((module) => ({ default: module.ComposerPopoutScreen })),
+);
 
 export function getAuthenticatedLayoutKind(pathname: string) {
   void pathname;
@@ -182,6 +185,12 @@ export default function App() {
         <Route path="/" element={<RootRoute />}>
           <Route index element={<Navigate to="/canvas" replace />} />
           <Route path="canvas" element={<CanvasScreen />} />
+          {/* Chromeless by design — see AppShell's early return for this
+              route — so the pop-out window (see composer-popout.ts) shows
+              only the composer, not the app's nav/header. Still nested
+              under the authenticated tree so it gets the full provider
+              stack (auth, encryption, user settings) for free. */}
+          <Route path="compose-popout" element={<ComposerPopoutScreen />} />
           <Route path="todos" element={<TodosScreen />} />
           <Route path="search" element={<SearchScreen />} />
           <Route path="explore" element={<ExploreScreen />} />

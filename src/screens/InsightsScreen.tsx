@@ -1309,7 +1309,7 @@ export function InsightsScreen() {
 
         </div>
       </div>
-      <div className="pointer-events-none fixed bottom-4 left-1/2 z-40 w-[min(calc(100vw-2rem),1200px)] -translate-x-1/2 transform-gpu">
+      <div className="pointer-events-none fixed bottom-4 left-1/2 z-40 w-[min(calc(100vw-2rem),1024px)] -translate-x-1/2 transform-gpu">
         <div className="flex justify-center">
           <SegmentedPill
             activeKey={period}

@@ -36,7 +36,7 @@ export function ShareEncryptionNotice({
       <p className="text-xs leading-relaxed text-app-ink-muted">
         A public link has to be readable without your passphrase, so these {noun} are stored
         unencrypted while it's on. Turning the link off deletes that copy. The rest of your
-        workspace stays encrypted either way.
+        canvas stays encrypted either way.
       </p>
     </div>
   );

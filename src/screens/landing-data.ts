@@ -73,7 +73,7 @@ export const BOOKMARKS = [
   { domain: "readwise.io", title: "Readwise Reader", category: "Reading", categoryIcon: "📚" },
   { domain: "rss.app", title: "Morning feed digest", category: "News", categoryIcon: "🗞️" },
   { domain: "linear.app", title: "Linear – Issue Tracking", category: "Tools", categoryIcon: "⚙️" },
-  { domain: "insights.omanote", title: "Workspace insights", category: "Metrics", categoryIcon: "📈" },
+  { domain: "insights.omanote", title: "Canvas insights", category: "Metrics", categoryIcon: "📈" },
   { domain: "vercel.com", title: "Vercel – Deploy Instantly", category: "Dev", categoryIcon: "💻" },
 ];
 
@@ -96,11 +96,39 @@ export const EXPLORE_TAGS = [
   { tag: "#ideas", x: 50, y: 80 },
 ];
 
+// Kept in sync by hand with the FAQPage JSON-LD in index.html — that's
+// static markup outside the React build, so it can't import this array
+// directly. If you change a question or answer here, change it there too.
 export const FAQ_ITEMS = [
+  {
+    question: "What is omanote?",
+    answer:
+      "omanote (stylized in smallcase) is an opinionated and personal daily canvas for capturing notes, todos, bookmarks, events, and the small moments of a day in one place.",
+  },
+  {
+    question: "Is omanote an AI note-taking app?",
+    answer:
+      "It's a note-taking app, just not an AI one. omanote is built around simple capture, organization, hashtags, and private daily context — nothing AI-written or AI-summarized in the mix.",
+  },
+  {
+    question: "What is the canvas?",
+    answer:
+      "The canvas is your day-first inbox. It's your daily dumping ground — in the best way. Anything you capture today lands there first, then can also live in Notes, Todos, Bookmarks, or Events.",
+  },
+  {
+    question: "Do I need slash commands?",
+    answer:
+      "No. You can type plain notes, paste links, or use slash commands when you want to create a todo, bookmark, or event entry directly.",
+  },
+  {
+    question: "How are notes, todos, bookmarks, and events connected?",
+    answer:
+      "They are specialist views for the same day. The canvas captures the moment; each view organizes and helps you manage that item later.",
+  },
   {
     question: "Can I organize todos into folders?",
     answer:
-      "Yes. Todos now have folders, can be shared, and can keep a selected folder when you capture from the canvas so you don't have to sort everything twice.",
+      "Yes. Todos have folders, can be shared, and remember your last-used folder when you capture, so you don't have to sort everything twice.",
   },
   {
     question: "Can scheduled todos show up in the calendar?",
@@ -113,14 +141,9 @@ export const FAQ_ITEMS = [
       "Hashtags act like a thread running through related things. Add #work or #health to a note, a todo, and an event, and Explore pulls them all together. It's a surprisingly satisfying way to revisit how your days connect.",
   },
   {
-    question: "Can I share my bookmarks or notes with someone?",
+    question: "Can I share my bookmarks, notes, or todos with someone?",
     answer:
       "Yes. Bookmark folders, note folders, and todo folders can each be turned into a public link — just toggle it on in the folder settings. Visitors get a clean, read-only page. One honest caveat: a public page has to be readable without your passphrase, so that one folder is stored unencrypted while the link is on. Switch it off and that copy is deleted. Everything you haven't shared stays encrypted.",
-  },
-  {
-    question: "Can I share todo folders too?",
-    answer:
-      "Yes. Todo folders can be shared just like note folders and bookmark categories, so the same organized workspace can be shown publicly when you want it to.",
   },
   {
     question: "Does omanote have a dark mode?",
@@ -131,6 +154,11 @@ export const FAQ_ITEMS = [
     question: "Does omanote work offline?",
     answer:
       "Yes. Lose the wifi, keep capturing. Changes save locally and sync when your connection comes back. No dramatic data loss, just a quiet queue.",
+  },
+  {
+    question: "Is my data private?",
+    answer:
+      "User content is encrypted on the client before storage. You unlock it with your passphrase, so the app is designed around private personal use.",
   },
   {
     question: "What if I forget my passphrase?",

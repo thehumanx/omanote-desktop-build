@@ -36,7 +36,7 @@ A GitHub-style 52-week heatmap shows your daily activity at a glance — darker 
 
 ## Content Composition
 
-See how your workspace breaks down by type: total todos, notes, bookmarks, and events, with a source breakdown (captured via the web app vs. the browser extension). Below it, a metric for **canvas density** — how many items per active day you tend to capture.
+See how your canvas breaks down by type: total todos, notes, bookmarks, and events, with a source breakdown (captured via the web app vs. the browser extension). Below it, a metric for **canvas density** — how many items per active day you tend to capture.
 
 ## Top Hashtags
 

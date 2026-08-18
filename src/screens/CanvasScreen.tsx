@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { addDays, buildRecurringCompletionIndex, daysBetweenKeys, parseVirtualOccurrenceId, toDateKey } from "@omanote/shared";
+import { addDays, addDaysToDateKey, buildRecurringCompletionIndex, daysBetweenKeys, parseVirtualOccurrenceId, toDateKey } from "@omanote/shared";
 import type { DateKey } from "@omanote/shared";
 import type { TodoItem } from "@omanote/shared";
 import { api } from "../../convex/_generated/api";
@@ -9,11 +9,11 @@ import { useApp } from "../app/AppProvider";
 import { useAuth } from "../app/auth/AuthContext";
 import { buildCanvasDayItems } from "../app/reducer";
 import { buildDateKeyRangeDescending, buildDatesWithContentSet, earliestDateKeyFromState } from "../app/history";
-import { CanvasDraftBlock } from "../components/CanvasDraftBlock";
 import { CanvasDateRow, formatTodayLabel } from "../components/CanvasDateRow";
 import { CanvasDayArtifacts } from "../components/CanvasDayArtifacts";
 import { CanvasHistoryDateWheel } from "../components/CanvasHistoryDateWheel";
 import { CanvasOverdueSection, type OverdueRecentAction } from "../components/CanvasOverdueSection";
+import type { RescheduleTarget } from "../components/RescheduleMenu";
 import { CanvasSkeleton } from "../components/CanvasSkeleton";
 import { CanvasSystemNotice } from "../components/CanvasSystemNotice";
 import { CanvasWeekAtGlance } from "../components/CanvasWeekAtGlance";
@@ -32,7 +32,6 @@ function formatSelectedHeading(dateKey: DateKey, todayKey: DateKey): string {
 
 export function CanvasScreen() {
   const { state, dispatch, isCanvasContentLoading } = useApp();
-  useTopChrome(null);
   const { user } = useAuth();
   const firstName = useMemo(() => {
     const name = user?.name?.trim();
@@ -80,6 +79,18 @@ export function CanvasScreen() {
       return "today";
     });
   }, [yesterdayKey]);
+
+  // The date row now lives in the shared header bar (see AppShell) instead
+  // of scrolling with the page — same content, just injected up top.
+  // Memoized: useTopChrome's effect keys off this node's identity, and an
+  // unmemoized JSX literal is a new object every render, which would loop
+  // forever (render → new node → setTopChrome → AppShell re-renders →
+  // Canvas re-renders → new node → ...).
+  const dateRowElement = useMemo(
+    () => <CanvasDateRow label={todayLabel} mode={viewMode === "today" ? "enter" : "exit"} onToggle={handleToggleHistory} />,
+    [todayLabel, viewMode, handleToggleHistory],
+  );
+  useTopChrome(dateRowElement);
 
   const handleActivateHistoryDate = useCallback((dateKey: DateKey) => {
     setSelectedHistoryDateKey(dateKey);
@@ -194,13 +205,14 @@ export function CanvasScreen() {
     [dispatch],
   );
 
-  const handleBumpTodoToToday = useCallback(
-    (todo: TodoItem) => {
+  const handleRescheduleTodo = useCallback(
+    (todo: TodoItem, target: RescheduleTarget) => {
+      const dueDateKey = target === "nextWeek" ? addDaysToDateKey(todayKey, 7) : todayKey;
       dispatch({
         type: "todo/update",
         todoId: todo.id,
         title: todo.title,
-        dueDateKey: todayKey,
+        dueDateKey,
         dueTime: todo.dueTime,
       });
       setOverdueRecentAction((prev) => ({
@@ -257,17 +269,12 @@ export function CanvasScreen() {
 
   return (
     <div
-      className="mx-auto flex w-full max-w-4xl flex-1 flex-col pb-24"
+      className="mx-auto flex w-full flex-1 flex-col pb-24"
       style={{
         overflowAnchor: "none",
         minHeight: "calc(100dvh - var(--omanote-top-chrome-height, 0px) - var(--omanote-bottom-nav-height, 64px) - 3rem)",
       }}
     >
-      {/* Hoisted out of both branches below so it's the same DOM node
-          across the toggle — its position never depends on which mode is
-          active, so there's nothing to reposition or animate on switch. */}
-      <CanvasDateRow label={todayLabel} mode={viewMode === "today" ? "enter" : "exit"} onToggle={handleToggleHistory} />
-
       {renderedMode === "today" && isCanvasContentLoading ? (
         <CanvasSkeleton />
       ) : renderedMode === "today" ? (
@@ -298,12 +305,15 @@ export function CanvasScreen() {
               onInlineTitleEdit={handleInlineTodoTitleEdit}
               onToggle={handleToggleOverdueTodo}
               onDelete={handleDeleteTodo}
-              onBumpToToday={handleBumpTodoToToday}
+              onReschedule={handleRescheduleTodo}
             />
           </div>
 
           <div className="flex flex-col gap-4">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-app-ink-faint">Your today</p>
+            <div className="flex items-center gap-3">
+              <p className="shrink-0 text-[11px] font-bold uppercase tracking-[0.16em] text-app-ink-faint">Your today</p>
+              <div aria-hidden="true" className="h-px min-w-4 flex-1 bg-app-line" />
+            </div>
             <CanvasDayArtifacts
               items={canvasItems}
               canvasDateKey={todayKey}
@@ -318,10 +328,6 @@ export function CanvasScreen() {
             />
           </div>
 
-          <div className="hidden md:block">
-            <CanvasDraftBlock />
-          </div>
-
           <div
             aria-hidden="true"
             className="transition-[flex-grow] duration-app-slow ease-app-in-out"
@@ -330,15 +336,14 @@ export function CanvasScreen() {
         </div>
       ) : (
         <div
-          className="mt-4 flex overflow-hidden"
+          className="mt-4 flex min-w-0 overflow-hidden"
           style={{
-            // Mobile: an explicit height (not just a cap) so the date wheel,
-            // which stretches to fill this container, actually gets the full
-            // available space to center itself in instead of shrink-wrapping.
-            // Desktop: a cap only — the content pane shrink-wraps to its own
-            // content and scrolls internally past that cap.
-            [isMobile ? "height" : "maxHeight"]:
-              "calc(100dvh - var(--omanote-top-chrome-height, 0px) - var(--omanote-bottom-nav-height, 64px) - 9rem)",
+            // Explicit height (not just a cap) on both platforms — the date
+            // wheel and the content pane both stretch to fill this
+            // container and use their own internal scroll, matching the
+            // regular Canvas page's always-full-height behavior instead of
+            // shrink-wrapping to whichever column happens to be shorter.
+            height: "calc(100dvh - var(--omanote-top-chrome-height, 0px) - var(--omanote-bottom-nav-height, 64px) - 9rem)",
             animation:
               historyAnim === "opening"
                 ? "omanote-history-reveal var(--motion-duration-drawer) var(--motion-easing-drawer) both"
@@ -360,7 +365,7 @@ export function CanvasScreen() {
               contentAlign="center"
             />
           ) : (
-            <div className="flex flex-1 gap-4 md:gap-6">
+            <div className="flex min-w-0 flex-1 gap-4 md:gap-6">
               <div className="relative shrink-0">
                 <CanvasHistoryDateWheel
                   dateKeys={historyDateKeys}

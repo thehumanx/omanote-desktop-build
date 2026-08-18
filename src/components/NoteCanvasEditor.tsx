@@ -1,9 +1,6 @@
-import { createPortal } from "react-dom";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { NoteFolder } from "@omanote/shared";
 import { normalizeLinkUrl } from "@omanote/shared";
-import { TiptapRichTextToolbar } from "./rich-text";
 import { NoteFolderPicker } from "./NoteFolderPicker";
 import { hasMeaningfulNoteInput, isUncategorizedFolderName, resolveNoteFolderByName, writeLastNoteFolder } from "../lib/note-folder-utils";
 import { MobileSaveButton } from "./MobileSaveButton";
@@ -35,14 +32,6 @@ function findScrollParent(el: HTMLElement): { scrollBy: (delta: number) => void 
   return { scrollBy: (delta) => window.scrollBy({ top: delta }) };
 }
 
-function getToolbarStyle(shellRect: DOMRect, toolbarHeight: number, placement: "above" | "below") {
-  const top =
-    placement === "above"
-      ? Math.max(12, shellRect.top - toolbarHeight - 8)
-      : shellRect.bottom + 8;
-  return { left: shellRect.left, top };
-}
-
 export function NoteCanvasEditor({
   body,
   folderName,
@@ -56,8 +45,6 @@ export function NoteCanvasEditor({
   onCancel,
   onPastePlainText,
   hideFolderPicker = false,
-  suppressToolbar = false,
-  suppressToolbarOnMobile = false,
   // Callers that render their own Save/Cancel elsewhere for mobile (e.g. a
   // shared drawer header) set this so this component's own bottom-row
   // buttons don't also show, duplicating them.
@@ -75,15 +62,11 @@ export function NoteCanvasEditor({
   onCancel?: () => void;
   onPastePlainText?: (url: string) => void;
   hideFolderPicker?: boolean;
-  suppressToolbar?: boolean;
-  suppressToolbarOnMobile?: boolean;
   hideMobileActions?: boolean;
 }) {
   const [bodyFocused, setBodyFocused] = useState(false);
-  const [toolbarStyle, setToolbarStyle] = useState<CSSProperties | null>(null);
   const mobileKeyboard = useMobileKeyboardState();
   const shellRef = useRef<HTMLDivElement | null>(null);
-  const toolbarRef = useRef<HTMLDivElement | null>(null);
   const editorWrapperRef = useRef<HTMLDivElement | null>(null);
   const prevBodyHeightRef = useRef(0);
   useUserSettings();
@@ -234,8 +217,6 @@ export function NoteCanvasEditor({
   const emojiPicker = useTiptapEmojiPicker(editor);
   emojiHandlerRef.current = emojiPicker.handleKeyDown;
 
-  const showToolbar = !suppressToolbar && !(suppressToolbarOnMobile && mobileKeyboard.isMobileViewport) && (bodyFocused || body.trim().length > 0);
-
   // Auto-focus with optional initial selection
   useEffect(() => {
     if (!autoFocus || !editor) return;
@@ -301,48 +282,8 @@ export function NoteCanvasEditor({
     return () => observer.disconnect();
   }, []);
 
-  const updateToolbarPosition = useCallback(() => {
-    if (!showToolbar || !shellRef.current || !toolbarRef.current) return;
-    const shellRect = shellRef.current.getBoundingClientRect();
-    const toolbarHeight = toolbarRef.current.getBoundingClientRect().height;
-    const availableAbove = shellRect.top - 12;
-    const availableBelow = window.innerHeight - shellRect.bottom - 12;
-    const placement = toolbarHeight > availableAbove && availableBelow > availableAbove ? "below" : "above";
-    setToolbarStyle({ ...getToolbarStyle(shellRect, toolbarHeight, placement), visibility: "visible" });
-  }, [showToolbar]);
-
-  useLayoutEffect(() => {
-    if (!showToolbar) { setToolbarStyle(null); return; }
-    setToolbarStyle((current) => current ?? { left: 0, top: 0, visibility: "hidden" });
-    updateToolbarPosition();
-  }, [body, bodyFocused, showToolbar, updateToolbarPosition]);
-
-  useEffect(() => {
-    if (!showToolbar) return;
-    window.addEventListener("scroll", updateToolbarPosition, true);
-    window.addEventListener("resize", updateToolbarPosition);
-    return () => {
-      window.removeEventListener("scroll", updateToolbarPosition, true);
-      window.removeEventListener("resize", updateToolbarPosition);
-    };
-  }, [showToolbar, updateToolbarPosition]);
-
   return (
     <div ref={shellRef} className="relative z-20 overflow-visible">
-      {showToolbar && typeof document !== "undefined"
-        ? createPortal(
-            <div
-              ref={toolbarRef}
-              data-omanote-ignore-outside-click="true"
-              className="fixed z-app-tooltip rounded-full border border-app-line bg-app-surface/95 p-1 shadow-soft backdrop-blur"
-              style={toolbarStyle ?? { left: 0, top: 0, visibility: "hidden" }}
-            >
-              <TiptapRichTextToolbar editor={editor} className="flex-nowrap" />
-            </div>,
-            document.body,
-          )
-        : null}
-
       <div ref={editorWrapperRef} className="relative">
         <EditorContent editor={editor} />
         <TiptapLinkPopover editor={editor} wrapperRef={editorWrapperRef} />

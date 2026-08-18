@@ -1,4 +1,5 @@
 import { ArrowRight, Sparkles } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button, cn } from "./ui";
 import { useUpdate } from "../contexts/UpdateContext";
 
@@ -10,8 +11,10 @@ export function UpdateNotificationBanner({ inline = false }: { inline?: boolean 
     dismissBanner,
     isModalOpen,
     isTransitioningToModal,
+    isRunningLatest,
     openModal,
   } = useUpdate();
+  const navigate = useNavigate();
 
   if (!isBannerVisible || !latestVersion) return null;
 
@@ -75,8 +78,12 @@ export function UpdateNotificationBanner({ inline = false }: { inline?: boolean 
           </div>
         </div>
         <div className="mt-3.5 flex gap-2">
-          <Button tone="default" className="flex-1 py-2 text-[13px]" onClick={() => window.location.reload()}>
-            Refresh to update
+          <Button
+            tone="default"
+            className="flex-1 py-2 text-[13px]"
+            onClick={isRunningLatest ? () => navigate("/updates") : () => window.location.reload()}
+          >
+            {isRunningLatest ? "View all changelogs" : "Refresh to update"}
           </Button>
           <Button tone="ghost" className="flex-1 py-2 text-[13px]" onClick={dismissBanner}>
             Dismiss

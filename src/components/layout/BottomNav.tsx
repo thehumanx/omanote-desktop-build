@@ -1,24 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type TouchEvent as ReactTouchEvent } from "react";
-import { ModeSwitch } from "./ModeSwitch";
-import { Bookmark, BookmarkCheck, BookOpen, Check, CheckSquare, ChevronLeft, ChevronRight, Compass, Download, ExternalLink, FileText, GripHorizontal, Info, LogOut, CalendarDays, MessageSquare, Monitor, Moon, Plus, Rss, ScrollText, Settings, Shield, Puzzle, Sparkles, SquarePen, Sun, X } from "lucide-react";
+import { Bookmark, BookmarkCheck, CalendarDays, CheckSquare, FileText, Plus, Rss, SquarePen, X } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useApp } from "../../app/AppProvider";
-import { useAuth } from "../../app/auth/AuthContext";
-import { removeStorage, storageKeys } from "../../app/storage";
-import { Button, cn, Input, MenuItem, SegmentedHighlight, SegmentedItem, SegmentedItemLabel, SegmentedShell, segmentedItemClass } from "../ui";
-import { useUpdate } from "../../contexts/UpdateContext";
-import { maskEmail } from "../../lib/update-checker";
-import { useDrawerDrag } from "../../lib/useDrawerDrag";
+import { Button, Input, SegmentedHighlight, SegmentedItemLabel, SegmentedShell, segmentedItemClass } from "../ui";
 import { useMeasuredHighlight } from "../../hooks/useMeasuredHighlight";
-import { useOutsideClick } from "../../lib/useOutsideClick";
-import { getNavRouteIndex, getWrappedNavRoutePath } from "./navRoutes";
-import type { DraftMode } from "../../app/types";
-import { isMobileViewport } from "../../lib/mobile";
-import { getExtensionStoreUrl } from "../../lib/device-info";
-import { isTauri } from "../../lib/desktop";
-import { FeedbackModal } from "../FeedbackModal";
-import { ModalPortal } from "../ModalPortal";
-import { useTheme } from "../../contexts/ThemeContext";
+import { getComposerModeForPathname, getNavRouteIndex, getWrappedNavRoutePath } from "./navRoutes";
 import { useUserSettings } from "../../contexts/UserSettingsContext";
 
 const writeTabs = [
@@ -35,29 +21,7 @@ const readerTabs = [
   { to: "/reader/saved", label: "Saved", icon: BookmarkCheck },
 ];
 
-// So the "+" composer opens already set to the kind of artifact each tab is
-// for, instead of always defaulting to a note.
-const composerModeByRoute: Record<string, DraftMode> = {
-  "/canvas": "note",
-  "/todos": "todo",
-  "/notes": "note",
-  "/bookmarks": "bookmark",
-  "/event": "event",
-};
-
-const defaultAvatarSrc =
-  "data:image/svg+xml;utf8," +
-  encodeURIComponent(`
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none">
-      <rect width="40" height="40" rx="20" fill="rgb(var(--color-line))"/>
-      <circle cx="20" cy="15" r="6" fill="rgb(var(--color-ink-faint))"/>
-      <path d="M8 32c2.8-5.2 7-7.8 12-7.8S29.2 26.8 32 32" fill="rgb(var(--color-ink-faint))"/>
-    </svg>
-  `);
-const accountProfileUrl = "https://accounts.omanote.com/user";
-const desktopAppReleaseUrl = "https://github.com/thehumanx/omanote-releases/releases/latest";
-
-export function BottomNav({ hidden = false, forceHidden = false, onOpenAbout = () => {} }: { hidden?: boolean; forceHidden?: boolean; onOpenAbout?: () => void }) {
+export function BottomNav({ hidden = false, forceHidden = false }: { hidden?: boolean; forceHidden?: boolean }) {
   const location = useLocation();
   const isUpdatesRoute = location.pathname.startsWith("/updates");
   const isSettingsRoute = location.pathname.startsWith("/settings");
@@ -75,7 +39,7 @@ export function BottomNav({ hidden = false, forceHidden = false, onOpenAbout = (
     return <SimpleRouteCloseNav forceHidden={forceHidden} hidden={hidden} label={label} />;
   }
 
-  return <FullBottomNav hidden={hidden} forceHidden={forceHidden} onOpenAbout={onOpenAbout} />;
+  return <FullBottomNav hidden={hidden} forceHidden={forceHidden} />;
 }
 
 function SimpleRouteCloseNav({ hidden, forceHidden, label }: { hidden: boolean; forceHidden: boolean; label: string }) {
@@ -122,7 +86,7 @@ function SimpleRouteCloseNav({ hidden, forceHidden, label }: { hidden: boolean; 
     <nav
       ref={navRef}
       className={[
-        "fixed bottom-4 left-1/2 z-50 w-[min(calc(100vw-2rem),1200px)] -translate-x-1/2 transform-gpu pointer-events-none",
+        "fixed bottom-4 left-1/2 z-50 w-[min(calc(100vw-2rem),1024px)] -translate-x-1/2 transform-gpu pointer-events-none",
         forceHidden ? "transition-none" : "transition-transform duration-app-slow ease-app-in-out",
         shouldHide ? "translate-y-[calc(100%+0.5rem)]" : "translate-y-0",
       ].join(" ")}
@@ -142,51 +106,13 @@ function SimpleRouteCloseNav({ hidden, forceHidden, label }: { hidden: boolean; 
   );
 }
 
-const THEME_OPTIONS = [
-  { mode: "system" as const, label: "System", ariaLabel: "Use system theme", Icon: Monitor },
-  { mode: "light" as const, label: "Light", ariaLabel: "Use light theme", Icon: Sun },
-  { mode: "dark" as const, label: "Dark", ariaLabel: "Use dark theme", Icon: Moon },
-];
-
-function ThemeToggle({ themeMode, setThemeMode }: { themeMode: "system" | "light" | "dark"; setThemeMode: (mode: "system" | "light" | "dark") => void }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const itemRefs = useRef<Record<string, HTMLButtonElement | null>>({ system: null, light: null, dark: null });
-  const highlightStyle = useMeasuredHighlight({ activeKey: themeMode, containerRef, itemRefs });
-
-  return (
-    <SegmentedShell
-      ref={containerRef}
-      className="w-full p-1.5"
-    >
-      {highlightStyle && (
-        <SegmentedHighlight style={highlightStyle} />
-      )}
-      {THEME_OPTIONS.map(({ mode, label, ariaLabel, Icon }) => (
-        <SegmentedItem
-          key={mode}
-          ref={(node) => { itemRefs.current[mode] = node; }}
-          aria-label={ariaLabel}
-          active={themeMode === mode}
-          onClick={() => setThemeMode(mode)}
-          className="relative z-10 flex flex-1 items-center justify-center gap-1.5 px-2 py-2 text-xs font-medium text-app-ink-faint transition-colors duration-150 md:py-1.5"
-        >
-          <Icon className="h-3.5 w-3.5 flex-shrink-0" />
-          {label}
-        </SegmentedItem>
-      ))}
-    </SegmentedShell>
-  );
-}
-
-function FullBottomNav({ hidden = false, forceHidden = false, onOpenAbout }: { hidden?: boolean; forceHidden?: boolean; onOpenAbout: () => void }) {
+function FullBottomNav({ hidden = false, forceHidden = false }: { hidden?: boolean; forceHidden?: boolean }) {
   const navRef = useRef<HTMLElement | null>(null);
-  const mobileTopBarRef = useRef<HTMLDivElement | null>(null);
   const mobileTabRowRef = useRef<HTMLDivElement | null>(null);
   const mobileTabRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
   const pillRef = useRef<HTMLDivElement | null>(null);
   const tabRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
   const searchInputRef = useRef<HTMLInputElement | null>(null);
-  const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const pageSwipeStartRef = useRef<{ x: number; y: number } | null>(null);
   const pageSwipeAxisRef = useRef<"horizontal" | "vertical" | null>(null);
   const pageSwipeBlockUntilRef = useRef(0);
@@ -194,17 +120,9 @@ function FullBottomNav({ hidden = false, forceHidden = false, onOpenAbout }: { h
   const location = useLocation();
   const navigate = useNavigate();
   const { state, dispatch } = useApp();
-  const { user, signOut } = useAuth();
-  const { hasUpdate, openModal } = useUpdate();
-  const { themeMode, setThemeMode } = useTheme();
   const { settings } = useUserSettings();
-  const runningInDesktopApp = isTauri();
   const navLabelStyle = settings.navLabelStyle;
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
-  const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
-  const [learnMoreOpen, setLearnMoreOpen] = useState(false);
 
   useEffect(() => {
     const vv = window.visualViewport;
@@ -225,7 +143,7 @@ function FullBottomNav({ hidden = false, forceHidden = false, onOpenAbout }: { h
     }
     return writeTabs[activeTabIndex]?.to ?? null;
   }, [activeTabIndex, isReaderRoute, location.pathname]);
-  const composerModeForActiveTab = (activeTab !== null ? composerModeByRoute[activeTab] : undefined) ?? "note";
+  const composerModeForActiveTab = getComposerModeForPathname(location.pathname);
   const highlightStyle = useMeasuredHighlight({
     activeKey: activeTab,
     containerRef: pillRef,
@@ -247,18 +165,8 @@ function FullBottomNav({ hidden = false, forceHidden = false, onOpenAbout }: { h
 
   currentNavRouteIndexRef.current = activeTabIndex;
 
-  useOutsideClick(profileMenuRef, menuOpen, () => setMenuOpen(false));
-
-  const openExplore = () => {
-    navigate("/explore");
-    setMenuOpen(false);
-    setProfileDrawerOpen(false);
-  };
-
   const closeExplore = () => {
     dispatch({ type: "ui/set-search-query", query: "" });
-    setMenuOpen(false);
-    setProfileDrawerOpen(false);
     if (window.history.length > 1) {
       navigate(-1);
     } else {
@@ -286,52 +194,15 @@ function FullBottomNav({ hidden = false, forceHidden = false, onOpenAbout }: { h
     };
   }, []);
 
-  // Publish the mobile top bar's height as a CSS variable (0 on desktop,
-  // since the bar is display:none there and ResizeObserver reports 0x0).
-  useEffect(() => {
-    if (!mobileTopBarRef.current) return;
-
-    const updateHeight = () => {
-      const height = mobileTopBarRef.current?.getBoundingClientRect().height ?? 0;
-      document.documentElement.style.setProperty("--omanote-mobile-top-bar-height", `${height}px`);
-    };
-
-    updateHeight();
-    const observer = new ResizeObserver(updateHeight);
-    observer.observe(mobileTopBarRef.current);
-    window.addEventListener("resize", updateHeight);
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", updateHeight);
-    };
-  }, []);
-
   // Focus search input when explore mode opens
   useEffect(() => {
     if (!isExploreRoute) return;
-
-    setMenuOpen(false);
-    if (isMobileViewport()) return;
 
     const focusTimer = window.setTimeout(() => searchInputRef.current?.focus(), 320);
     return () => {
       window.clearTimeout(focusTimer);
     };
   }, [isExploreRoute]);
-
-  useEffect(() => {
-    if (!forceHidden) return;
-    setMenuOpen(false);
-    setProfileDrawerOpen(false);
-    setLearnMoreOpen(false);
-  }, [forceHidden]);
-
-  useEffect(() => {
-    setMenuOpen(false);
-    setProfileDrawerOpen(false);
-    setLearnMoreOpen(false);
-  }, [location.pathname]);
 
   const handlePageSwipeTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
     event.stopPropagation();
@@ -406,241 +277,28 @@ function FullBottomNav({ hidden = false, forceHidden = false, onOpenAbout }: { h
     }
   };
 
-  const closeProfileOptions = () => {
-    setMenuOpen(false);
-    setProfileDrawerOpen(false);
-    setLearnMoreOpen(false);
-  };
-
-  const handleProfileClick = () => {
-    if (isMobileViewport()) {
-      setMenuOpen(false);
-      setProfileDrawerOpen((open) => !open);
-      return;
-    }
-    setProfileDrawerOpen(false);
-    setMenuOpen((open) => !open);
-  };
-
-  const renderThemeActions = () => (
-    <div className="px-2 py-1">
-      <ThemeToggle themeMode={themeMode} setThemeMode={setThemeMode} />
-    </div>
-  );
-
-  const renderLearnMoreActions = () => (
-    <>
-      <MenuItem onClick={() => setLearnMoreOpen(false)}>
-        <ChevronLeft className="h-4 w-4" />
-        Learn more
-      </MenuItem>
-      <div className="my-2 h-px bg-app-line" />
-      <MenuItem
-        onClick={() => {
-          navigate("/guide");
-          closeProfileOptions();
-        }}
-      >
-        <BookOpen className="h-4 w-4" />
-        Guide
-      </MenuItem>
-      <MenuItem
-        onClick={() => {
-          onOpenAbout();
-          closeProfileOptions();
-        }}
-      >
-        <Info className="h-4 w-4" />
-        About
-      </MenuItem>
-      <MenuItem
-        onClick={() => {
-          openModal();
-          closeProfileOptions();
-        }}
-      >
-        <Sparkles className="h-4 w-4" />
-        What&apos;s new
-        {hasUpdate && <span className="ml-auto h-2 w-2 flex-shrink-0 rounded-full bg-app-ink" />}
-      </MenuItem>
-      <div className="my-2 h-px bg-app-line" />
-      <MenuItem
-        onClick={() => {
-          closeProfileOptions();
-          window.open("/privacy", "_blank", "noopener,noreferrer");
-        }}
-      >
-        <Shield className="h-4 w-4" />
-        Privacy policy
-        <ExternalLink className="ml-auto h-3.5 w-3.5 text-app-ink-faint" />
-      </MenuItem>
-      <MenuItem
-        onClick={() => {
-          closeProfileOptions();
-          window.open("/terms", "_blank", "noopener,noreferrer");
-        }}
-      >
-        <ScrollText className="h-4 w-4" />
-        Terms of service
-        <ExternalLink className="ml-auto h-3.5 w-3.5 text-app-ink-faint" />
-      </MenuItem>
-    </>
-  );
-
-  const renderProfileActions = ({
-    includeExtension,
-    includeDownloadApp,
-  }: {
-    includeExtension: boolean;
-    includeDownloadApp: boolean;
-  }) => {
-    if (learnMoreOpen) return renderLearnMoreActions();
-
-    return (
-    <>
-      <MenuItem
-        onClick={() => {
-          navigate("/settings");
-          closeProfileOptions();
-        }}
-      >
-        <Settings className="h-4 w-4" />
-        Settings
-      </MenuItem>
-      <MenuItem
-        onClick={() => setLearnMoreOpen(true)}
-      >
-        <Info className="h-4 w-4" />
-        Learn more
-        {hasUpdate && <span className="ml-auto h-2 w-2 flex-shrink-0 rounded-full bg-app-ink" />}
-        <ChevronRight className="h-4 w-4 text-app-ink-faint" />
-      </MenuItem>
-      {includeExtension ? (
-        <MenuItem
-          onClick={() => {
-            closeProfileOptions();
-            window.open(getExtensionStoreUrl(), "_blank", "noopener,noreferrer");
-          }}
-        >
-          <Puzzle className="h-4 w-4" />
-          Download extension
-          <ExternalLink className="ml-auto h-3.5 w-3.5 text-app-ink-faint" />
-        </MenuItem>
-      ) : null}
-      {includeDownloadApp ? (
-        <MenuItem
-          onClick={() => {
-            closeProfileOptions();
-            window.open(desktopAppReleaseUrl, "_blank", "noopener,noreferrer");
-          }}
-        >
-          <Download className="h-4 w-4" />
-          Download app
-          <ExternalLink className="ml-auto h-3.5 w-3.5 text-app-ink-faint" />
-        </MenuItem>
-      ) : null}
-      <MenuItem
-        onClick={() => {
-          closeProfileOptions();
-          setFeedbackModalOpen(true);
-        }}
-      >
-        <MessageSquare className="h-4 w-4" />
-        Share feedback
-      </MenuItem>
-      <div className="my-2 h-px bg-app-line" />
-      {renderThemeActions()}
-      <div className="my-2 h-px bg-app-line" />
-      <MenuItem
-        onClick={() => {
-          removeStorage(storageKeys.uiState);
-          signOut();
-          window.location.assign("/");
-          closeProfileOptions();
-        }}
-      >
-        <LogOut className="h-4 w-4" />
-        Log out
-      </MenuItem>
-    </>
-    );
-  };
-
   return (
-    <>
-    <ModalPortal>
-      <div
-        ref={mobileTopBarRef}
-        style={keyboardOpen ? { display: "none" } : undefined}
-        className={[
-          "fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between px-4 bg-app-canvas transform-gpu md:hidden",
-          forceHidden ? "transition-none" : "transition-transform duration-app-slow ease-app-in-out",
-          shouldHide ? "-translate-y-[calc(100%+0.5rem)] pointer-events-none" : "translate-y-0",
-        ].join(" ")}
-      >
-        {!isReaderRoute ? (
-          <button
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-app-line bg-app-surface p-0 text-app-ink-muted shadow-soft transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-app-surface-hover active:translate-y-px active:scale-[0.98]"
-            aria-label="Open explore"
-            onClick={openExplore}
-          >
-            <Compass className="h-4 w-4" />
-          </button>
-        ) : (
-          <div className="h-10 w-10 shrink-0" />
-        )}
-        {settings.rssReaderEnabled ? (
-          <div className="absolute left-1/2 -translate-x-1/2">
-            <ModeSwitch />
-          </div>
-        ) : null}
-        <button
-          className="relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full border border-app-line bg-app-surface p-0 shadow-soft transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-app-surface-hover active:translate-y-px active:scale-[0.98]"
-          onClick={handleProfileClick}
-          aria-label="Profile menu"
-        >
-          <img
-            src={user?.imageUrl ?? defaultAvatarSrc}
-            alt={user?.name ? `${user.name} profile` : "Profile avatar"}
-            className="absolute inset-0 h-full w-full object-cover"
-          />
-          {hasUpdate && (
-            <span className="pointer-events-none absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-app-surface bg-app-ink" />
-          )}
-        </button>
-      </div>
-    </ModalPortal>
     <nav
       ref={navRef}
       style={keyboardOpen ? { display: "none" } : undefined}
       className={[
-        "fixed bottom-4 left-1/2 z-50 w-[min(calc(100vw-2rem),1200px)] -translate-x-1/2 transform-gpu",
+        // Capped to the same 1024px the page content uses (see AppShell)
+        // so the pill never floats wider than the canvas/todos/notes/etc column.
+        "fixed bottom-4 left-1/2 z-50 w-[min(calc(100vw-2rem),1024px)] -translate-x-1/2 transform-gpu",
         forceHidden ? "transition-none" : "transition-transform duration-app-slow ease-app-in-out",
         shouldHide ? "translate-y-[calc(100%+0.5rem)] pointer-events-none" : "translate-y-0",
-        profileDrawerOpen ? "pointer-events-none" : "",
       ].join(" ")}
     >
       {/* Single-height pill bar */}
-        <div className="relative h-12">
-          {/* ── Layer 1: Normal nav (tabs + profile) ─────────────────────── */}
-          <div className={[
+      <div className="relative h-12">
+        {/* ── Layer 1: Normal nav (tabs + compose) ─────────────────────── */}
+        <div
+          className={[
             "absolute inset-0 transition-[transform,opacity] duration-app-slow ease-app-in-out",
             isExploreRoute ? "pointer-events-none translate-y-2 opacity-0" : "translate-y-0 opacity-100",
-          ].join(" ")}>
-              <div data-testid="desktop-tab-row" className="hidden h-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 md:grid">
-                {/* Compass — hidden in reader view */}
-                {!isReaderRoute ? (
-                  <button
-                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-app-line bg-app-surface p-0 text-app-ink-muted shadow-soft transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-app-surface-hover active:translate-y-px active:scale-[0.98]"
-                    aria-label="Open explore"
-                    onClick={openExplore}
-                  >
-                    <Compass className="h-4 w-4" />
-                  </button>
-                ) : (
-                  <div className="h-12 w-12 shrink-0" />
-                )}
-
+          ].join(" ")}
+        >
+          <div data-testid="desktop-tab-row" className="hidden h-full items-center justify-center gap-2 md:flex">
             {/* Tab pills */}
             <div className="relative flex min-w-0 items-center justify-center">
               <SegmentedShell
@@ -654,9 +312,7 @@ function FullBottomNav({ hidden = false, forceHidden = false, onOpenAbout }: { h
                 style={{ touchAction: "none" }}
                 className="min-w-0 gap-1 p-2 shadow-nav"
               >
-                {highlightStyle ? (
-                  <SegmentedHighlight style={highlightStyle} />
-                ) : null}
+                {highlightStyle ? <SegmentedHighlight style={highlightStyle} /> : null}
                 {tabs.map(({ to, label, icon: Icon }) => (
                   <NavLink
                     key={to}
@@ -695,48 +351,17 @@ function FullBottomNav({ hidden = false, forceHidden = false, onOpenAbout }: { h
               </SegmentedShell>
             </div>
 
-            {/* Profile */}
-            <div ref={profileMenuRef} className="relative justify-self-end shrink-0">
+            {/* "+" compose — sits beside the tab pill, mirroring the mobile layout */}
+            {!isReaderRoute ? (
               <button
-                className="relative flex h-12 w-12 overflow-hidden rounded-full border border-app-line bg-app-surface p-0 shadow-soft transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-app-surface-hover active:translate-y-px active:scale-[0.98]"
-                onClick={handleProfileClick}
-                aria-label="Profile menu"
+                type="button"
+                aria-label="New artifact"
+                onClick={() => dispatch({ type: "ui/open-composer", mode: composerModeForActiveTab })}
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-app-line bg-app-surface p-0 text-app-ink-muted shadow-soft transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-app-surface-hover active:translate-y-px active:scale-[0.98]"
               >
-                <img
-                  src={user?.imageUrl ?? defaultAvatarSrc}
-                  alt={user?.name ? `${user.name} profile` : "Profile avatar"}
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
+                <Plus className="h-5 w-5" />
               </button>
-              {hasUpdate && (
-                <span className="pointer-events-none absolute right-0 top-0 h-3 w-3 rounded-full border-2 border-app-surface bg-app-ink" />
-              )}
-              {menuOpen ? (
-                <div className="absolute bottom-full right-0 z-50 mb-2 w-64 rounded-2xl border border-app-line bg-app-surface-raised p-3 shadow-menu">
-                  <div className="px-1 py-1">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <p className="truncate text-sm font-bold text-app-ink">{user?.name ?? "Guest"}</p>
-                        <p className="truncate text-xs text-app-ink-faint">{user?.email ? maskEmail(user.email) : ""}</p>
-                      </div>
-                      <a
-                        href={accountProfileUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="shrink-0 text-xs font-medium text-app-accent hover:underline"
-                      >
-                        Edit
-                      </a>
-                    </div>
-                  </div>
-                  <div className="my-2 h-px bg-app-line" />
-                  {renderProfileActions({
-                    includeExtension: !runningInDesktopApp,
-                    includeDownloadApp: !runningInDesktopApp && !isMobileViewport(),
-                  })}
-                </div>
-              ) : null}
-            </div>
+            ) : null}
           </div>
 
           {/* Mobile: icon-only tabs hugging their content, centered with a persistent "+" compose button */}
@@ -787,23 +412,25 @@ function FullBottomNav({ hidden = false, forceHidden = false, onOpenAbout }: { h
               </button>
             ) : null}
           </div>
-            </div>
+        </div>
 
-          {/* ── Layer 2: Explore mode (X + search bar) ───────────────────── */}
-          <div className={[
+        {/* ── Layer 2: Explore mode (X + search bar) ───────────────────── */}
+        <div
+          className={[
             "absolute inset-0 transition-[transform,opacity] duration-app-slow ease-app-in-out",
             isExploreRoute ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-2 opacity-0",
-          ].join(" ")}>
-              <div className="flex h-full items-center gap-2">
-                {/* X / close button */}
-                <Button
-                  tone="ghost"
-                  className="h-12 w-12 shrink-0 rounded-full border border-app-line bg-app-surface/80 p-0 text-app-ink shadow-none hover:bg-app-surface"
-                  aria-label="Close explore"
-                  onClick={closeExplore}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+          ].join(" ")}
+        >
+          <div className="flex h-full items-center gap-2">
+            {/* X / close button */}
+            <Button
+              tone="ghost"
+              className="h-12 w-12 shrink-0 rounded-full border border-app-line bg-app-surface/80 p-0 text-app-ink shadow-none hover:bg-app-surface"
+              aria-label="Close explore"
+              onClick={closeExplore}
+            >
+              <X className="h-4 w-4" />
+            </Button>
 
             {/* Search input with inline clear */}
             <div className="relative flex-1">
@@ -834,130 +461,8 @@ function FullBottomNav({ hidden = false, forceHidden = false, onOpenAbout }: { h
               )}
             </div>
           </div>
-            </div>
+        </div>
       </div>
     </nav>
-    <ProfileOptionsDrawer
-      open={profileDrawerOpen}
-      userName={user?.name ?? "Guest"}
-      userEmail={user?.email ? maskEmail(user.email) : ""}
-      userImageUrl={user?.imageUrl ?? defaultAvatarSrc}
-      onClose={closeProfileOptions}
-    >
-      {renderProfileActions({ includeExtension: false, includeDownloadApp: false })}
-    </ProfileOptionsDrawer>
-    {feedbackModalOpen && <FeedbackModal onClose={() => setFeedbackModalOpen(false)} />}
-</>
-  );
-}
-
-function ProfileOptionsDrawer({
-  open,
-  userName,
-  userEmail,
-  userImageUrl,
-  onClose,
-  children,
-}: {
-  open: boolean;
-  userName: string;
-  userEmail: string;
-  userImageUrl: string;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  const { dragOffset, isDragging, dragHandleProps } = useDrawerDrag(onClose);
-  const [isEntered, setIsEntered] = useState(false);
-
-  useEffect(() => {
-    if (!open) {
-      setIsEntered(false);
-      return;
-    }
-
-    let secondFrame: number | null = null;
-    const firstFrame = window.requestAnimationFrame(() => {
-      secondFrame = window.requestAnimationFrame(() => {
-        setIsEntered(true);
-      });
-    });
-
-    return () => {
-      window.cancelAnimationFrame(firstFrame);
-      if (secondFrame !== null) {
-        window.cancelAnimationFrame(secondFrame);
-      }
-    };
-  }, [open]);
-
-  if (!open) return null;
-
-  return (
-    <ModalPortal>
-      <div
-        data-testid="profile-options-backdrop"
-        aria-hidden="true"
-        className="fixed inset-0 z-app-overlay bg-black/65 opacity-100 transition-opacity duration-app-drawer ease-app-drawer md:hidden"
-        onPointerDown={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-        }}
-        onPointerUp={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-        }}
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          onClose();
-        }}
-      />
-      <section
-        role="dialog"
-        aria-label="Profile options"
-        className={[
-          "fixed inset-x-0 bottom-0 z-app-drawer flex max-h-[92dvh] min-h-0 flex-col rounded-t-2xl bg-app-surface-raised shadow-drawer transform-gpu md:hidden",
-          isDragging ? "" : "transition-transform duration-app-drawer ease-app-drawer",
-          isEntered ? "translate-y-0" : "translate-y-full",
-        ].join(" ")}
-        style={isDragging || dragOffset > 0 ? { transform: `translateY(${dragOffset}px)` } : undefined}
-      >
-        <div className="shrink-0 px-4 pt-3 pb-2" {...dragHandleProps} onClick={onClose}>
-          <GripHorizontal className="mx-auto h-5 w-5 text-app-line-strong" />
-        </div>
-        <div
-          data-testid="profile-options-header"
-          className="shrink-0 border-b border-app-line px-5 py-4"
-          onClick={onClose}
-          {...dragHandleProps}
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex flex-1 items-center gap-3">
-              <img
-                src={userImageUrl}
-                alt={userName ? `${userName} profile` : "Profile avatar"}
-                className="h-10 w-10 shrink-0 rounded-full border border-app-line object-cover"
-              />
-              <div className="min-w-0 flex-1">
-                <p className="w-full truncate text-base font-bold text-app-ink">{userName}</p>
-                <p className="mt-1 w-full truncate text-sm text-app-ink-faint">{userEmail}</p>
-              </div>
-            </div>
-            <a
-              href={accountProfileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="shrink-0 text-sm font-medium text-app-accent hover:underline"
-              onClick={(event) => event.stopPropagation()}
-            >
-              Edit
-            </a>
-          </div>
-        </div>
-        <div className="space-y-1 px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
-          {children}
-        </div>
-      </section>
-    </ModalPortal>
   );
 }

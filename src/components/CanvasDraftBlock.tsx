@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { Bookmark, CalendarDays, CheckSquare, Clock3, FileText, Repeat, X } from "lucide-react";
 import { useApp } from "../app/AppProvider";
@@ -18,6 +18,7 @@ import { useMobileKeyboardState } from "./layout/useMobileKeyboardState";
 import { HashtagPickerDropdown, useHashtagPicker } from "./HashtagPicker";
 import { EmojiPickerDropdown, useEmojiPicker } from "./EmojiPicker";
 import { readLocalStorage, stringCodec, writeLocalStorage } from "../lib/local-storage";
+import { readComposerDraft, writeComposerDraft } from "../lib/composer-draft";
 
 const commands: Array<{ key: DraftMode; label: string }> = [
   { key: "todo", label: "todo" },
@@ -186,6 +187,10 @@ function writeLastTodoFolder(value: string) {
 export type CanvasDraftBlockHandle = {
   save: () => void;
   cancel: () => void;
+  /** Close without creating anything and without clearing the draft (Esc). */
+  dismiss: () => void;
+  /** Write the current draft to disk immediately, bypassing the debounce. */
+  flushDraft: () => void;
 };
 
 export type CanvasDraftBlockProps = {
@@ -200,6 +205,11 @@ export type CanvasDraftBlockProps = {
   // so a caller rendering its own Save button (e.g. a shared drawer header)
   // can drive its disabled state.
   onCanSaveChange?: (canSave: boolean) => void;
+  // Reports the currently-visible mode, so a caller rendering its own save
+  // hint (see ComposerSheet's "esc"/save-key row) can show the shortcut
+  // that mode actually saves with — only note mode requires the save
+  // modifier key; todo/event/bookmark all save on a plain Enter.
+  onModeChange?: (mode: DraftMode) => void;
   // When `requestToken` changes (a fresh "open the composer" request, even
   // if `requestedMode`'s value is unchanged from last time), the visible
   // mode switches to `requestedMode`. This never touches the other modes'
@@ -207,27 +217,97 @@ export type CanvasDraftBlockProps = {
   // switching can't lose in-progress text/todos/etc. in the others.
   requestedMode?: DraftMode;
   requestToken?: number;
+  // The "outside" a click has to land to count as dismissing the draft
+  // (see useOutsideClick below). Defaults to this component's own root,
+  // which is right for the standalone inline composer, but a caller that
+  // wraps this in more chrome of its own (buttons, hints — see
+  // ComposerSheet) needs "outside" to mean outside *that whole surface*,
+  // not just outside the input area, or clicking its own header buttons
+  // would look like an outside click and dismiss the draft before the
+  // button's own onClick ever runs.
+  outsideClickContainerRef?: RefObject<HTMLElement | null>;
 };
 
 export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBlockProps>(function CanvasDraftBlock(
-  { embedded = false, onDone, onCanSaveChange, requestedMode, requestToken },
+  { embedded = false, onDone, onCanSaveChange, onModeChange, requestedMode, requestToken, outsideClickContainerRef },
   ref,
 ) {
   const { state, dispatch } = useApp();
   const { settings } = useUserSettings();
-  const [mode, setMode] = useState<DraftMode>("note");
+  // Read once per mount, not per render — this seeds every draft field
+  // below so a fresh page load (a reload, or a genuinely new window/tab —
+  // see composer-popout.ts) picks up wherever the last one left off.
+  const persistedDraftRef = useRef<ReturnType<typeof readComposerDraft>>();
+  if (!persistedDraftRef.current) persistedDraftRef.current = readComposerDraft();
+  const persistedDraft = persistedDraftRef.current;
+  const [mode, setMode] = useState<DraftMode>(() => persistedDraft.mode);
 
   // Re-sync the visible mode on every fresh "open the composer" request
   // (requestToken changing), not on requestedMode's value changing — so
   // reopening from the same screen still resets away from a mode the user
-  // manually switched to last time. requestedMode is read from the render
-  // in which requestToken changes, so it's intentionally left out of deps.
+  // manually switched to last time — UNLESS there's already something
+  // drafted (in any mode): a page's contextual default (e.g. Todos opens
+  // straight into todo mode) should only kick in for a genuinely fresh,
+  // empty composer, never by shoving aside in-progress content the user
+  // hasn't saved yet. requestedMode/hasAnyDraftContent are read from the
+  // render in which requestToken changes, so they're intentionally left
+  // out of deps.
+  const hasHandledInitialRequestTokenRef = useRef(false);
   useEffect(() => {
     if (requestedMode === undefined) return;
-    setMode(requestedMode);
+    const nextMode = hasAnyDraftContent ? mode : requestedMode;
+    setMode(nextMode);
+    // The sheet mounts (with a real requestToken/requestedMode already set)
+    // long before it's ever opened — don't steal focus on that first run,
+    // only on genuine reopens (the "+" button / the "/" shortcut).
+    if (!hasHandledInitialRequestTokenRef.current) {
+      hasHandledInitialRequestTokenRef.current = true;
+      return;
+    }
+    // Todo/event/bookmark modes may not have been rendered yet (this can be
+    // the first time this session the draft is in that mode), so focusing
+    // has to wait for their DOM to actually mount — same pending-ref +
+    // mode-keyed layout-effect pattern selectCommand() below uses, rather
+    // than focusDraftMode()'s direct rAF (which assumes the mode's inputs
+    // already exist, true only when the mode isn't changing).
+    // But when nextMode is the SAME mode as before (reopening into a mode
+    // that was already showing), that DOM already exists and `mode` itself
+    // isn't changing — so the pending-ref's layout effect, keyed on [mode,
+    // ...], never re-fires and focus silently never happens. Skip the
+    // pending-ref dance in that case and focus directly instead.
+    const modeAlreadyMounted = nextMode === mode;
+    if (nextMode === "todo") {
+      if (modeAlreadyMounted) {
+        window.requestAnimationFrame(() => focusTodoInput());
+      } else {
+        todoFocusPendingRef.current = true;
+      }
+    } else if (nextMode === "event") {
+      if (modeAlreadyMounted) {
+        window.requestAnimationFrame(() => focusEventInput());
+      } else {
+        eventFocusPendingRef.current = true;
+      }
+    } else if (nextMode === "bookmark") {
+      if (modeAlreadyMounted) {
+        window.requestAnimationFrame(() => bookmarkUrlInputRef.current?.focus());
+      } else {
+        bookmarkFocusPendingRef.current = true;
+      }
+    } else if (modeAlreadyMounted) {
+      focusNoteComposer();
+    } else {
+      // Switching back to note from todo/event/bookmark unmounts and
+      // remounts NoteCanvasEditor's TipTap instance — a fresh mount whose
+      // `.ProseMirror` element isn't guaranteed to exist yet by the time a
+      // bare rAF fires here. Same pending-ref + mode-keyed layout-effect
+      // wait as the other modes above, so focus fires only once that DOM is
+      // actually there.
+      noteFocusPendingRef.current = true;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestToken]);
-  const [body, setBody] = useState("");
+  const [body, setBody] = useState(() => persistedDraft.body);
   const [noteFolderValue, setNoteFolderValue] = useState(() => readLastNoteFolder());
   const [commandValue, setCommandValue] = useState("");
   const [commandFilter, setCommandFilter] = useState("");
@@ -237,7 +317,9 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
   const allowTodoBlurRef = useRef(false);
   const allowBookmarkBlurRef = useRef(false);
   const allowEventBlurRef = useRef(false);
-  const [todoLines, setTodoLines] = useState<TodoDraftLine[]>(() => [createTodoDraftLine()]);
+  const [todoLines, setTodoLines] = useState<TodoDraftLine[]>(() =>
+    persistedDraft.todoLines.length ? persistedDraft.todoLines.map((text) => createTodoDraftLine(text)) : [createTodoDraftLine()],
+  );
   const [activeTodoLineId, setActiveTodoLineId] = useState<string>(todoLines[0]?.id ?? "");
   const [todoFolderValue, setTodoFolderValue] = useState(() => readLastTodoFolder());
   const [todoFolderOpen, setTodoFolderOpen] = useState(false);
@@ -245,18 +327,46 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
   const todoFolderContainerRef = useRef<HTMLDivElement | null>(null);
   const todoFolderInputRef = useRef<HTMLInputElement | null>(null);
   const todoFocusPendingRef = useRef(false);
-  const [bookmarkUrl, setBookmarkUrl] = useState("");
+  const [bookmarkUrl, setBookmarkUrl] = useState(() => persistedDraft.bookmarkUrl);
   const [bookmarkCategoryValue, setBookmarkCategoryValue] = useState(() => readLastBookmarkCategory());
   const [bookmarkCategoryOpen, setBookmarkCategoryOpen] = useState(false);
   const [bookmarkCategoryActiveIndex, setBookmarkCategoryActiveIndex] = useState(0);
   const bookmarkFocusPendingRef = useRef(false);
   const bookmarkUrlInputRef = useRef<HTMLTextAreaElement | null>(null);
   const bookmarkCategoryInputRef = useRef<HTMLInputElement | null>(null);
-  const [eventLines, setEventLines] = useState<TodoDraftLine[]>(() => [createTodoDraftLine()]);
+  const [eventLines, setEventLines] = useState<TodoDraftLine[]>(() =>
+    persistedDraft.eventLines.length ? persistedDraft.eventLines.map((text) => createTodoDraftLine(text)) : [createTodoDraftLine()],
+  );
   const [activeEventLineId, setActiveEventLineId] = useState<string>(eventLines[0]?.id ?? "");
   const eventFocusPendingRef = useRef(false);
   const eventStartedAtRef = useRef<number>(Date.now());
+  // Whether ANY mode currently has real typed content — used to decide, on
+  // reopen, whether to respect the page's contextual default mode (empty
+  // composer) or keep showing whatever's already drafted (non-empty).
+  const hasAnyDraftContent =
+    body.trim().length > 0 ||
+    bookmarkUrl.trim().length > 0 ||
+    todoLines.some((line) => line.text.trim().length > 0) ||
+    eventLines.some((line) => line.text.trim().length > 0);
+
+  // Debounced so rapid typing doesn't hit localStorage on every keystroke.
+  // Writes the empty shape too once a draft is cleared (e.g. right after a
+  // save) — that's the same as clearing it, no separate "clear" call needed.
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      writeComposerDraft({
+        mode,
+        body,
+        todoLines: todoLines.map((line) => line.text).filter((text) => text.trim().length > 0),
+        eventLines: eventLines.map((line) => line.text).filter((text) => text.trim().length > 0),
+        bookmarkUrl,
+      });
+    }, 300);
+    return () => window.clearTimeout(timeoutId);
+  }, [mode, body, todoLines, eventLines, bookmarkUrl]);
+
   const noteEditorHostRef = useRef<HTMLDivElement | null>(null);
+  const noteFocusPendingRef = useRef(false);
   const todoLineRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
   const activeTodoInputRef = useRef<HTMLTextAreaElement | null>(null);
   const eventLineRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
@@ -455,6 +565,15 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
   }, [mode, todoLines, activeTodoLineId]);
 
   useLayoutEffect(() => {
+    if (!noteFocusPendingRef.current || mode !== "note") return;
+    noteFocusPendingRef.current = false;
+
+    window.requestAnimationFrame(() => {
+      focusNoteComposer();
+    });
+  }, [mode, body]);
+
+  useLayoutEffect(() => {
     if (!bookmarkFocusPendingRef.current || mode !== "bookmark") return;
     bookmarkFocusPendingRef.current = false;
 
@@ -511,6 +630,18 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
   useLayoutEffect(() => {
     if (!showPicker || !shellRef.current || !pickerRef.current) return;
 
+    // Embedded (the "+"/"/" composer sheet) always anchors near the bottom
+    // of the viewport in a short, independently-scrollable drawer — the
+    // below/above math further down is tuned for the old full-page inline
+    // composer and, in the drawer, was picking "above" when there wasn't
+    // actually room there, positioning the menu outside the drawer's own
+    // scroll area where it rendered invisible. The drawer scrolls on its
+    // own, so "below" is always safe there.
+    if (embedded) {
+      setPickerPlacement("below");
+      return;
+    }
+
     const shellRect = shellRef.current.getBoundingClientRect();
     const menuHeight = pickerRef.current.getBoundingClientRect().height;
     const navHeightRaw = getComputedStyle(document.documentElement).getPropertyValue("--omanote-bottom-nav-height");
@@ -523,7 +654,7 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
     } else {
       setPickerPlacement("below");
     }
-  }, [commandFilter, showPicker, editorValue, visibleCommands.length]);
+  }, [commandFilter, showPicker, editorValue, visibleCommands.length, embedded]);
 
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -842,8 +973,17 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
     setBookmarkCategoryOpen(false);
   };
 
-  useOutsideClick(shellRef, mode === "note" || mode === "todo" || mode === "bookmark" || mode === "event", () => {
+  useOutsideClick(outsideClickContainerRef ?? shellRef, mode === "note" || mode === "todo" || mode === "bookmark" || mode === "event", () => {
     if (mobileKeyboard.isMobileViewport) return;
+    // In the composer sheet, clicking away is a dismiss, not a save — the
+    // only thing that saves is the save shortcut (Cmd/Ctrl+Enter) or an
+    // explicit Save action. This used to auto-commit here, which is what
+    // made clicking the backdrop (or anywhere outside the sheet) silently
+    // create whatever was drafted.
+    if (embedded) {
+      dismissDraft();
+      return;
+    }
     if (mode === "note") {
       if (body.trim()) commit({ focusAfter: false });
       return;
@@ -1035,12 +1175,50 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
     if (embedded) onDone?.();
   };
 
-  useImperativeHandle(ref, () => ({ save: handleMobileSave, cancel: handleCancel }), [handleMobileSave, handleCancel]);
+  // Esc in the composer sheet: close without creating anything AND without
+  // clearing whatever's typed — unlike Cancel above, which deliberately
+  // wipes the draft. Blurring is necessary so a later "/" press isn't
+  // swallowed by the global-shortcut's "don't interrupt typing" guard
+  // (the field would otherwise still be focused, just hidden), but blur
+  // alone would trigger the various per-mode "commit on blur" handlers,
+  // so those are suppressed first via the allow*BlurRef flags.
+  const dismissDraft = () => {
+    allowTodoBlurRef.current = true;
+    allowBookmarkBlurRef.current = true;
+    allowEventBlurRef.current = true;
+    (document.activeElement as HTMLElement | null)?.blur();
+    onDone?.();
+  };
+
+  // Bypasses the debounce in the persistence effect above — for callers
+  // (e.g. the pop-out button) that need the *latest* keystrokes on disk
+  // right now, not up to 300ms from now, before reading them back in a
+  // brand new window.
+  const flushDraft = () => {
+    writeComposerDraft({
+      mode,
+      body,
+      todoLines: todoLines.map((line) => line.text).filter((text) => text.trim().length > 0),
+      eventLines: eventLines.map((line) => line.text).filter((text) => text.trim().length > 0),
+      bookmarkUrl,
+    });
+  };
+
+  useImperativeHandle(
+    ref,
+    () => ({ save: handleMobileSave, cancel: handleCancel, dismiss: dismissDraft, flushDraft }),
+    [handleMobileSave, handleCancel, dismissDraft, flushDraft],
+  );
 
   useEffect(() => {
     onCanSaveChange?.(canSaveCurrent);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canSaveCurrent]);
+
+  useEffect(() => {
+    onModeChange?.(mode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
 
   const hasDraftInput = mode !== "note" || body.trim().length > 0;
 
@@ -1113,7 +1291,11 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                 onKeyDown={(event) => {
                   if (event.key === "Escape") {
                     event.preventDefault();
-                    cancelBookmarkDraft();
+                    if (embedded) {
+                      dismissDraft();
+                    } else {
+                      cancelBookmarkDraft();
+                    }
                     return;
                   }
 
@@ -1128,6 +1310,20 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                     event.preventDefault();
                     allowBookmarkBlurRef.current = true;
                     commit();
+                    return;
+                  }
+
+                  // Backspace with nothing left to delete — same "never
+                  // mind, back to note" gesture as todo/event mode.
+                  if (event.key === "Backspace" && bookmarkUrl.length === 0) {
+                    event.preventDefault();
+                    setPickerOpen(false);
+                    setCommandValue("");
+                    setCommandFilter("");
+                    resetBookmarkDraft();
+                    allowBookmarkBlurRef.current = true;
+                    setMode("note");
+                    noteFocusPendingRef.current = true;
                     return;
                   }
                 }}
@@ -1157,7 +1353,11 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                 onKeyDown={(event) => {
                   if (event.key === "Escape") {
                     event.preventDefault();
-                    cancelBookmarkDraft();
+                    if (embedded) {
+                      dismissDraft();
+                    } else {
+                      cancelBookmarkDraft();
+                    }
                     return;
                   }
                   if (isSaveShortcutEvent(event, settings.saveShortcut)) {
@@ -1348,6 +1548,10 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
 
                           if (event.key === "Escape") {
                             event.preventDefault();
+                            if (embedded) {
+                              dismissDraft();
+                              return;
+                            }
                             setPickerOpen(false);
                             setCommandValue("");
                             setCommandFilter("");
@@ -1436,6 +1640,30 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                                 eventLineRefs.current[previousLine.id]?.focus();
                               });
                             }
+                            return;
+                          }
+
+                          // Backspace on the one remaining empty line — same
+                          // "never mind, back to note" gesture bookmark mode
+                          // gets below — switches back to note instead of
+                          // doing nothing (there's nothing left to delete).
+                          if (
+                            event.key === "Backspace" &&
+                            line.text.length === 0 &&
+                            index === 0 &&
+                            (mode === "todo" ? todoLines.length === 1 : eventLines.length === 1)
+                          ) {
+                            event.preventDefault();
+                            if (mode === "todo") {
+                              resetTodoDraft();
+                            } else {
+                              resetEventDraft();
+                            }
+                            allowTodoBlurRef.current = true;
+                            allowEventBlurRef.current = true;
+                            setMode("note");
+                            noteFocusPendingRef.current = true;
+                            return;
                           }
                         }}
                         placeholder={index === 0 ? (mode === "todo" ? "Write your checklist" : "Write your event") : ""}
@@ -1608,6 +1836,7 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
         ) : (
           <div
             ref={noteEditorHostRef}
+            className="relative"
             onKeyDownCapture={(event) => {
               if (!showPicker) return;
               if (event.key === "ArrowDown") {
@@ -1654,8 +1883,6 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
               }}
               onFolderNameChange={setNoteFolderValue}
               onPastePlainText={applyBookmarkFromUrl}
-              suppressToolbar={showPicker}
-              suppressToolbarOnMobile
               onCommit={(payload) => {
                 const trimmed = payload.body.trim();
                 if (!trimmed) return;
@@ -1677,7 +1904,7 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                   suppressSwitcherRef.current = false;
                 });
               }}
-              onCancel={resetNoteDraft}
+              onCancel={embedded ? dismissDraft : resetNoteDraft}
             />
             {showPicker ? (
               <div

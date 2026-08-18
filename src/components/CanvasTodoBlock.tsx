@@ -7,6 +7,7 @@ import { useIsMobileViewport } from "../lib/mobile";
 import { cn, TodoCheckmark } from "./ui";
 import { RichTextPreview } from "./rich-text";
 import { AttachmentLinkPreview } from "./AttachmentLinkPreview";
+import { RescheduleMenu, type RescheduleTarget } from "./RescheduleMenu";
 
 export type CanvasTodoBlockProps = {
   todo: TodoItem;
@@ -18,7 +19,7 @@ export type CanvasTodoBlockProps = {
   onInlineTitleEdit: (todo: TodoItem, nextTitle: string) => void;
   onToggle: (todo: TodoItem) => void;
   onDelete: (todo: TodoItem) => void;
-  onBumpToToday?: (todo: TodoItem) => void;
+  onReschedule?: (todo: TodoItem, target: RescheduleTarget) => void;
 };
 
 export function areCanvasTodoBlockPropsEqual(previous: CanvasTodoBlockProps, next: CanvasTodoBlockProps) {
@@ -31,7 +32,7 @@ export function areCanvasTodoBlockPropsEqual(previous: CanvasTodoBlockProps, nex
     previous.onInlineTitleEdit === next.onInlineTitleEdit &&
     previous.onToggle === next.onToggle &&
     previous.onDelete === next.onDelete &&
-    previous.onBumpToToday === next.onBumpToToday
+    previous.onReschedule === next.onReschedule
   );
 }
 
@@ -44,7 +45,7 @@ function CanvasTodoBlockComponent({
   onInlineTitleEdit,
   onToggle,
   onDelete,
-  onBumpToToday,
+  onReschedule,
 }: CanvasTodoBlockProps) {
   const dueChip = formatDueChip(todo.dueDateKey, todo.dueTime, canvasDateKey, todo.createdDateKey);
   const overdueReferenceKey = todayKey ?? canvasDateKey;
@@ -207,19 +208,13 @@ function CanvasTodoBlockComponent({
       </div>
 
       <div className="absolute right-1 top-1 flex items-center gap-1 opacity-0 transition group-hover:opacity-100 rounded-full group-hover:bg-app-surface group-focus-within:opacity-100">
-        {onBumpToToday ? (
-          <button
-            type="button"
-            aria-label="move todo to today"
-            title="Move to today"
-            onClick={(event) => {
-              event.stopPropagation();
-              onBumpToToday(todo);
-            }}
-            className="rounded-full p-1 text-app-line-strong transition hover:bg-app-surface-hover hover:text-app-ink"
+        {onReschedule ? (
+          <RescheduleMenu
+            triggerLabel="Reschedule todo"
+            onSelect={(target) => onReschedule(todo, target)}
           >
             <CalendarClock className="h-4 w-4" />
-          </button>
+          </RescheduleMenu>
         ) : null}
         <button
           type="button"

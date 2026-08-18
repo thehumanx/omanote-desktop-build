@@ -4,7 +4,7 @@ Notes are for anything you want to write down and keep — a thought, a meeting 
 
 ## Writing
 
-Start a note from the canvas composer (plain text becomes a note) or from the Notes view. The editor supports markdown: headings, **bold**, *italic*, lists, quotes, and links. A few keys to know:
+Start a note from the composer (plain text becomes a note) or from the Notes view. The editor supports markdown: headings, **bold**, *italic*, lists, quotes, and links. A few keys to know:
 
 - **Enter** — new paragraph
 - **Shift + Enter** — a line break within a paragraph

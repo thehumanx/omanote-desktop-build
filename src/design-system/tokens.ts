@@ -167,7 +167,7 @@ export const spacing = {
     itemGap: "0.5rem",
   },
   layout: {
-    contentMaxWidth: "1200px",
+    contentMaxWidth: "1024px",
     settingsMaxWidth: "980px",
     searchMaxWidth: "600px",
   },

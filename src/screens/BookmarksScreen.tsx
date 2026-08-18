@@ -484,9 +484,6 @@ export function BookmarksScreen() {
   const visibleCount = visibleBookmarks.length;
   const selectedCategoryLabel = selectedCategory?.name ?? "Bookmarks";
   const bookmarkSortLabel = bookmarkSortDirection === "asc" ? "Oldest" : "Latest";
-  const notifyBookmarksScroll = () => {
-    window.dispatchEvent(new Event("omanote:notes-scroll"));
-  };
   const openCategoryBookmarks = (categoryId: string) => {
     setSelectedCategoryId(categoryId);
     if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
@@ -676,7 +673,7 @@ export function BookmarksScreen() {
       </div>
 
       {visibleCount ? (
-        <div className={cn("min-h-0 flex-1 overflow-y-auto pb-24 lg:px-0", isMobileDrawer && "px-4")} onScroll={notifyBookmarksScroll}>
+        <div className={cn("min-h-0 flex-1 overflow-y-auto pb-24 lg:px-0", isMobileDrawer && "px-4")}>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {visibleBookmarks.map((bookmark) => {
               const isLinkedArtifactBookmark = isLinkedArtifactBookmarkId(bookmark.id);
@@ -729,11 +726,11 @@ export function BookmarksScreen() {
       style={{
         top: "var(--omanote-top-chrome-height, 0px)",
         bottom: "0px",
-        maxWidth: "1200px",
+        maxWidth: "1024px",
       }}
     >
       <div className="relative grid h-full min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[284px_minmax(0,1fr)]">
-        <aside className="h-full min-h-0 overflow-hidden pt-4 lg:pl-8">
+        <aside className="h-full min-h-0 overflow-hidden pt-4">
           <div className="flex h-full min-h-0 flex-col">
             <div className="mb-3 flex items-center justify-between gap-3">
               <button
@@ -813,7 +810,7 @@ export function BookmarksScreen() {
               </div>
             </div>
 
-            <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto pb-16" onScroll={notifyBookmarksScroll}>
+            <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto pb-16">
               {effectiveCategoryViewMode === "gallery" ? (
                 <div className="grid grid-cols-3 gap-2">
                   {creatingCategory ? (
@@ -1044,7 +1041,7 @@ export function BookmarksScreen() {
           </div>
         </aside>
 
-        <section className="hidden min-h-0 flex-1 flex-col lg:flex lg:border-l lg:border-app-line lg:pl-8 lg:pt-4">
+        <section className="hidden min-h-0 flex-1 flex-col lg:flex lg:border-l lg:border-app-line lg:pl-4 lg:pt-4">
           {renderBookmarksPanel(false)}
         </section>
       </div>

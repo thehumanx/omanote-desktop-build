@@ -1,6 +1,6 @@
 # Public links
 
-Sometimes you want to show someone a set of links, notes, or todos without giving them an account or access to the rest of your workspace. omanote lets you share a **folder** as a public link.
+Sometimes you want to show someone a set of links, notes, or todos without giving them an account or access to the rest of your canvas. omanote lets you share a **folder** as a public link.
 
 ## Sharing a folder
 
@@ -12,7 +12,7 @@ The shared page shows a **snapshot** of the folder's contents, published by you.
 
 ## Privacy of shares
 
-Only the folder you explicitly share is public, and only as the snapshot you pushed. The rest of your workspace stays encrypted and private.
+Only the folder you explicitly share is public, and only as the snapshot you pushed. The rest of your canvas stays encrypted and private.
 
 There is one trade worth knowing about. Everything in omanote is normally encrypted on your device before it's stored, so nobody — including us — can read it without your passphrase. A public link can't work that way: a visitor has no passphrase, so the page would be unreadable. Turning a link on therefore stores that one folder's snapshot **unencrypted**, and only that folder.
 

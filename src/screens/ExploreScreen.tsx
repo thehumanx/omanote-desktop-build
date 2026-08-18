@@ -113,7 +113,7 @@ export function ExploreScreen() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {showSearch ? (
-        <div className="mx-auto min-h-0 w-full max-w-[1200px] flex-1 overflow-y-auto px-4 py-4">
+        <div className="mx-auto min-h-0 w-full max-w-[1024px] flex-1 overflow-y-auto px-4 py-4">
           <SearchResultsList emptyText="No matches found." />
         </div>
       ) : (

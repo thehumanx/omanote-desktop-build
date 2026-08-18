@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { SeoHead } from "../seo/SeoHead";
 
-const LAST_UPDATED = "July 21, 2026";
+const LAST_UPDATED = "August 18, 2026";
 const CONTACT_EMAIL = "omanote@iambishistha.com";
 
 export function PrivacyPolicyScreen() {
@@ -9,7 +9,7 @@ export function PrivacyPolicyScreen() {
     <>
       <SeoHead
         title="Privacy Policy | omanote"
-        description="omanote privacy policy — how we handle your data in this personal daily workspace."
+        description="omanote privacy policy — how we handle your data in this personal daily canvas."
         canonical="https://omanote.com/privacy"
       />
       <div className="public-page min-h-screen flex flex-col bg-app-surface text-app-ink">
@@ -237,6 +237,10 @@ export function PrivacyPolicyScreen() {
                       perm: "alarms",
                       why: "Schedules periodic token refresh in the background so your session remains active without requiring manual re-login.",
                     },
+                    {
+                      perm: "<all_urls> (host permission)",
+                      why: 'Lets the extension inject a small content script on pages you visit (not omanote.com itself) that watches for text selection and shows a quick "Save" bubble. It runs entirely in the page and only checks locally whether text is selected — it does not read the rest of the page, and sends nothing anywhere until you click Save.',
+                    },
                   ].map(({ perm, why }) => (
                     <li key={perm} className="flex items-start gap-3">
                       <code className="shrink-0 rounded-md border border-app-line bg-app-canvas px-2 py-0.5 text-[12px] font-mono text-app-ink-muted mt-0.5">
@@ -247,9 +251,9 @@ export function PrivacyPolicyScreen() {
                   ))}
                 </ul>
                 <p>
-                  The extension does not read browsing history, monitor pages you visit, capture
-                  keystrokes, or transmit any data to parties other than the omanote backend when
-                  you explicitly save content.
+                  Outside of the selection bubble described above, the extension does not read
+                  browsing history, monitor pages you visit, capture keystrokes, or transmit any
+                  data to parties other than the omanote backend when you explicitly save content.
                 </p>
                 <p>
                   All content saved via the extension is encrypted with your omanote passphrase on

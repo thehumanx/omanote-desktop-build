@@ -813,9 +813,6 @@ export function TodosScreen() {
   }, [focusedTodoId, groupedTodos, todaySections, visibleTodos]);
 
   const selectedView = todoViews.find((view) => view.key === state.ui.todoFilter) ?? todoViews[0];
-  const notifyTodosScroll = () => {
-    window.dispatchEvent(new Event("omanote:notes-scroll"));
-  };
 
   const noop = useCallback(() => {}, []);
 
@@ -867,11 +864,11 @@ export function TodosScreen() {
       style={{
         top: "var(--omanote-top-chrome-height, 0px)",
         bottom: "0px",
-        maxWidth: "1200px",
+        maxWidth: "1024px",
       }}
     >
         <div className="grid h-full min-h-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-4 overflow-hidden lg:grid-cols-[284px_minmax(0,1fr)] lg:grid-rows-1">
-        <aside className="min-h-0 overflow-hidden pt-4 lg:block lg:h-full lg:pl-8">
+        <aside className="min-h-0 overflow-hidden pt-4 lg:block lg:h-full">
           <div className="flex h-full min-h-0 flex-col">
             <div className="flex items-center justify-between px-2 pb-2 lg:px-0">
               <button
@@ -952,7 +949,7 @@ export function TodosScreen() {
               </div>
               </div>
             </div>
-            <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto pb-8" onScroll={notifyTodosScroll}>
+            <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto pb-8">
               {folderViewMode === "gallery" ? (
                 <div className="grid grid-cols-3 gap-2 pr-1">
                   {creatingFolder ? (
@@ -1128,9 +1125,9 @@ export function TodosScreen() {
           </div>
         </aside>
 
-        <section className="hidden min-h-0 border-t border-app-line pt-4 lg:block lg:h-full lg:border-l lg:border-t-0 lg:pl-8">
+        <section className="hidden min-h-0 border-t border-app-line pt-4 lg:block lg:h-full lg:border-l lg:border-t-0 lg:pl-4">
           <div className="flex h-full min-h-0 flex-col">
-            <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="mb-3 flex items-start justify-between gap-2">
               <button
                 type="button"
                 aria-label="Add todo"
@@ -1149,10 +1146,7 @@ export function TodosScreen() {
               </div>
             </div>
 
-            <div
-              className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1 pb-24"
-              onScroll={notifyTodosScroll}
-            >
+            <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1 pb-24">
               <div
                 style={{
                   animation: todoViewFading

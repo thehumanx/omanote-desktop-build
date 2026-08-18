@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, BookOpen, MessageSquare } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, MessageSquare, Slash } from "lucide-react";
 import { Button } from "../../ui";
 import { OnboardingFooter } from "../OnboardingChrome";
 
@@ -15,11 +15,23 @@ export function GuideFeedbackStep({ onNext, onBack }: { onNext: () => void; onBa
       <div className="flex flex-col items-center text-center">
         <h1 className="text-2xl font-black text-app-ink">Need a hand later?</h1>
         <p className="mt-2 text-sm leading-6 text-app-ink-muted">
-          Two things worth knowing before you dive in.
+          A few things worth knowing before you dive in.
         </p>
       </div>
 
       <div className="mt-6 space-y-3">
+        <div className="rounded-app-panel border border-app-line bg-app-surface p-4">
+          <div className="flex items-start gap-3">
+            <Slash className="mt-0.5 h-4 w-4 shrink-0 text-app-ink-faint" />
+            <div>
+              <p className="text-sm font-bold text-app-ink">Press / to start typing</p>
+              <p className="mt-1 text-xs leading-relaxed text-app-ink-muted">
+                Hit <strong>/</strong> anywhere in the app — or tap <strong>+</strong> — to open the composer and capture a note, todo, event, or bookmark on the spot.
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div className="rounded-app-panel border border-app-line bg-app-surface p-4">
           <div className="flex items-start gap-3">
             <BookOpen className="mt-0.5 h-4 w-4 shrink-0 text-app-ink-faint" />

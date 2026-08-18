@@ -52,3 +52,12 @@ export function formatSaveShortcutLabel(shortcut: SaveShortcut): string {
   if (shortcut === "shift_enter") return "Shift + Enter";
   return "Cmd/Ctrl + Enter";
 }
+
+// Compact key-chip form (e.g. "⌘ ⏎") for small inline hints, with the
+// mod key resolved to whichever one the current OS actually uses instead
+// of showing both.
+export function formatSaveShortcutKeyLabel(shortcut: SaveShortcut, isMac: boolean): string {
+  if (shortcut === "enter") return "⏎";
+  if (shortcut === "shift_enter") return "Shift ⏎";
+  return isMac ? "⌘ ⏎" : "Ctrl ⏎";
+}

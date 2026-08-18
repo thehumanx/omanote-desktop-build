@@ -4,7 +4,7 @@ Bookmarks are for links you want to keep. Paste a URL and omanote fetches a prev
 
 ## Saving a link
 
-Paste or type a URL into the canvas composer and it becomes a bookmark. omanote fetches the page's **title, site name, description, thumbnail, and favicon** automatically. You can also save links from the browser extension while you're anywhere on the web.
+Paste or type a URL into the composer and it becomes a bookmark. omanote fetches the page's **title, site name, description, thumbnail, and favicon** automatically. You can also save links from the browser extension while you're anywhere on the web.
 
 ## Categories
 

@@ -15,7 +15,7 @@ function isInsideModalScrollArea(target: EventTarget | null) {
 }
 
 export function UpdateModal() {
-  const { isModalOpen, closeModal, latestVersion, modalVersions, isTransitioningToModal, changelogMarkdown } = useUpdate();
+  const { isModalOpen, closeModal, latestVersion, modalVersions, isTransitioningToModal, isRunningLatest, changelogMarkdown } = useUpdate();
   const navigate = useNavigate();
   const [isEntered, setIsEntered] = useState(false);
   const [activeTab, setActiveTab] = useState<ChangelogProduct>("webapp");
@@ -67,6 +67,9 @@ export function UpdateModal() {
   const newestVisibleUpdate = displayedVersions[0];
   const moreUpdatesCount = Math.max(displayedVersions.length - 1, 0);
   const isExtensionTab = activeTab === "extension";
+  // A reload is a no-op if the running bundle is already the latest version
+  // — don't offer an action that does nothing.
+  const showPrimaryAction = isExtensionTab || !isRunningLatest;
 
   const handlePrimaryAction = () => {
     if (isExtensionTab) {
@@ -183,17 +186,21 @@ export function UpdateModal() {
             <p className="mb-3 text-xs text-app-ink-faint">
               {isExtensionTab
                 ? "Open the store listing to make sure your browser has the latest extension."
-                : "Hard refresh the page to make sure you're running the latest version."}
+                : showPrimaryAction
+                  ? "Hard refresh the page to make sure you're running the latest version."
+                  : "You're already running the latest version."}
             </p>
             <div className="flex items-center gap-2">
-              <Button
-                tone="default"
-                className="flex flex-1 items-center justify-center gap-2 py-2 text-sm"
-                onClick={handlePrimaryAction}
-              >
-                {isExtensionTab ? <ExternalLink className="h-3.5 w-3.5" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                {isExtensionTab ? "Update your extension" : "Refresh to update"}
-              </Button>
+              {showPrimaryAction && (
+                <Button
+                  tone="default"
+                  className="flex flex-1 items-center justify-center gap-2 py-2 text-sm"
+                  onClick={handlePrimaryAction}
+                >
+                  {isExtensionTab ? <ExternalLink className="h-3.5 w-3.5" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                  {isExtensionTab ? "Update your extension" : "Refresh to update"}
+                </Button>
+              )}
               <Button
                 tone="ghost"
                 className="flex flex-1 items-center justify-center gap-2 py-2 text-sm"

@@ -1,10 +1,10 @@
 # Getting started
 
-omanote is a quiet workspace built around a single idea: **your day is the unit**. Todos, notes, bookmarks, events, and articles you save all land on one daily **canvas**, so the things you capture live together in the context of when you captured them — not scattered across five different apps.
+omanote is built around a single idea: **your day is the unit**. Todos, notes, bookmarks, events, and articles you save all land on one daily **canvas**, so the things you capture live together in the context of when you captured them — not scattered across five different apps.
 
 ## Capture first, organize later
 
-The fastest way to use omanote is to just start typing on the canvas (on a phone-sized screen, tap **+** in the bottom bar first). The composer figures out what you mean:
+The fastest way to use omanote is to press **+** in the navigation bar, or just hit **/** anywhere in the app, to open the composer. It figures out what you mean:
 
 - Type a thought and press save — it becomes a **note**.
 - Paste a link — it becomes a **bookmark** with a preview.

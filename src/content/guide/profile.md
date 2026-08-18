@@ -4,10 +4,11 @@ Your profile — name, email, and avatar — is managed through your account pro
 
 ## Where to find your profile
 
-Tap your avatar in the top bar (mobile) or the navigation bar (desktop) to open the profile menu. Here you'll see:
+Tap your avatar at the top of any page to open the profile menu — it stays in the same spot everywhere, including while you're scrolling or browsing Canvas history. Here you'll see:
 
 - Your **display name** and **email address**
 - An **Edit** link that opens your account settings
+- **Explore**, Settings, and the rest of the app's menu items
 
 ## Changing your name or avatar
 

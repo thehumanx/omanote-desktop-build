@@ -126,7 +126,7 @@ export const guideCategories: GuideCategory[] = [
     icon: Rss,
     topics: [
       { slug: "rss", title: "RSS reader", description: "Subscribe to feeds and read in omanote.", body: rss },
-      { slug: "write-read-mode", title: "Write & Read mode", description: "Switch between canvas and reader in one workspace.", body: writeReadMode },
+      { slug: "write-read-mode", title: "Write & Read mode", description: "Switch between canvas and reader in one place.", body: writeReadMode },
     ],
   },
   {

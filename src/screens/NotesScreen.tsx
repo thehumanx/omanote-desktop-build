@@ -110,6 +110,17 @@ export function NotesScreen() {
   const folderMenuRef = useRef<HTMLDivElement | null>(null);
   const drawerFolderMenuRef = useRef<HTMLDivElement | null>(null);
   const composerRootRef = useRef<HTMLDivElement | null>(null);
+  // renderNotesPanel() below is called twice — once for the desktop panel,
+  // once for the mobile drawer's bottom sheet — and both stay mounted
+  // simultaneously (CSS `hidden`/`lg:hidden` just visually hides one, it
+  // doesn't unmount it). Since editingNoteId is shared state, BOTH copies
+  // render a NoteInlineEditor for the same note at once. A single shared ref
+  // here would get silently overwritten by whichever copy's wrapper div
+  // mounts last, so useOutsideClick could end up checking the *invisible*
+  // copy's boundary while the user clicks the visible one — one ref per
+  // panel avoids that cross-wiring.
+  const editingNoteRowRefDesktop = useRef<HTMLDivElement | null>(null);
+  const editingNoteRowRefMobile = useRef<HTMLDivElement | null>(null);
   const newFolderInputRef = useRef<HTMLInputElement | null>(null);
   const drawerRenameInputRef = useRef<HTMLInputElement | null>(null);
   const pendingFolderRenameRef = useRef<string | null>(null);
@@ -350,9 +361,6 @@ export function NotesScreen() {
       : null;
   const selectedFolderLabel = selectedFolder ?? UNCATEGORIZED_FOLDER_LABEL;
   const showCreateComposer = creating;
-  const notifyNotesScroll = () => {
-    window.dispatchEvent(new Event("omanote:notes-scroll"));
-  };
   const resetComposerDraft = () => {
     setComposerResetKey((current) => current + 1);
   };
@@ -375,7 +383,7 @@ export function NotesScreen() {
     setEditingNoteId(note.id);
   };
 
-  const renderCreateComposer = (suppressToolbar: boolean) => (
+  const renderCreateComposer = () => (
     <div ref={composerRootRef} className="relative z-20 pt-6">
       <NoteInlineEditor
         key={composerResetKey}
@@ -390,8 +398,8 @@ export function NotesScreen() {
         layout="canvas"
         showTags={false}
         hideFolderPicker
-        suppressToolbar={suppressToolbar}
         saveOnOutsideClick
+        outsideClickContainerRef={composerRootRef}
         persistRecentFolderOnSave
         onCancel={() => {
           resetComposerDraft();
@@ -501,10 +509,8 @@ export function NotesScreen() {
   }, [focusedNoteId, visibleNotes]);
 
   const renderNotesPanel = (isMobileDrawer = false) => {
-    const suppressToolbar = isMobileDrawer ? isDesktop || !mobileNotesOpen : !isDesktop;
-
     return (
-      <div className="flex h-full min-h-0 flex-col lg:pl-8 lg:pt-4">
+      <div className="flex h-full min-h-0 flex-col lg:pl-4 lg:pt-4">
       <div className="flex flex-col lg:hidden" {...dragHandleProps}>
         <div className="flex items-center justify-center px-4 pt-3 pb-2">
           <GripHorizontal className="h-5 w-5 text-app-line-strong" />
@@ -633,7 +639,7 @@ export function NotesScreen() {
         <div
           className={cn("min-h-0 flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden", isMobileDrawer && "px-4")}
           style={{ overflowAnchor: "none" }}
-          onScroll={notifyNotesScroll}
+         
         >
           {visibleNotes.map((note) => (
             <div
@@ -646,7 +652,20 @@ export function NotesScreen() {
               )}
             >
               {editingNoteId === note.id ? (
-                <div className="group relative px-1 py-1">
+                // Same box model as NoteCard's surface="list" wrapper
+                // (-mr-2 -my-1 rounded-xl px-1 py-1, see cards.tsx) —
+                // NoteCard uses negative margins to bleed its hover/click
+                // target slightly outside its own box. If this wrapper
+                // doesn't match, the clickable footprint shrinks the moment
+                // a note switches into edit mode: a second click at the
+                // same spot that would have landed on the view-mode card
+                // now lands just outside the (smaller) edit-mode wrapper,
+                // reading as an outside click and closing/saving on what
+                // looks like a normal click.
+                <div
+                  ref={isMobileDrawer ? editingNoteRowRefMobile : editingNoteRowRefDesktop}
+                  className="group relative -mr-2 -my-1 rounded-xl px-1 py-1"
+                >
                   <NoteInlineEditor
                     note={note}
                     folders={state.noteFolders}
@@ -655,8 +674,16 @@ export function NotesScreen() {
                     initialSelectionStart={editingNoteSelectionStart}
                     layout="canvas"
                     showTags={false}
-                    suppressToolbar={suppressToolbar}
-                    saveOnOutsideClick
+                    // renderNotesPanel() renders both the desktop panel and
+                    // the mobile drawer at once (CSS hides whichever one
+                    // isn't current, it doesn't unmount it — see the ref
+                    // comment above). A click anywhere is always "outside"
+                    // the *other*, hidden copy's boundary, so without this
+                    // gate the hidden copy's own outside-click listener
+                    // would close/save the note out from under the visible
+                    // copy on every single click, anywhere on the page.
+                    saveOnOutsideClick={isMobileDrawer ? !isDesktop : isDesktop}
+                    outsideClickContainerRef={isMobileDrawer ? editingNoteRowRefMobile : editingNoteRowRefDesktop}
                     onCancel={() => {
                       setEditingNoteId(null);
                       setEditingNoteSelectionStart(undefined);
@@ -700,15 +727,15 @@ export function NotesScreen() {
           {/* Mobile uses the "+" button (same floating composer sheet as
               every other artifact type) instead of this persistent inline
               row; desktop keeps the inline composer. */}
-          {!isMobileDrawer ? renderCreateComposer(suppressToolbar) : null}
+          {!isMobileDrawer ? renderCreateComposer() : null}
           <div aria-hidden="true" style={{ height: "calc(var(--omanote-bottom-nav-height, 64px) + 1.5rem)", flexShrink: 0 }} />
         </div>
       ) : (
-        <div className={cn("min-h-0 flex-1 overflow-y-auto overflow-x-hidden", isMobileDrawer && "px-4")} onScroll={notifyNotesScroll}>
+        <div className={cn("min-h-0 flex-1 overflow-y-auto overflow-x-hidden", isMobileDrawer && "px-4")}>
           {/* Mobile uses the "+" button (same floating composer sheet as
               every other artifact type) instead of this persistent inline
               row; desktop keeps the inline composer. */}
-          {!isMobileDrawer ? renderCreateComposer(suppressToolbar) : null}
+          {!isMobileDrawer ? renderCreateComposer() : null}
           <div className="flex min-h-[calc(100%-5rem)] items-center justify-center">
             <EmptyState
               title={selectedFolder ? `No notes in ${selectedFolderLabel}` : "No notes yet"}
@@ -732,11 +759,11 @@ export function NotesScreen() {
       style={{
         top: "var(--omanote-top-chrome-height, 0px)",
         bottom: "0px",
-        maxWidth: "1200px",
+        maxWidth: "1024px",
       }}
     >
       <div className="relative grid h-full min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[284px_minmax(0,1fr)]">
-        <aside className="h-full min-h-0 overflow-hidden pt-4 lg:pl-8">
+        <aside className="h-full min-h-0 overflow-hidden pt-4">
           <div className="flex h-full min-h-0 flex-col">
             <div className="mb-3 flex items-center justify-between">
               <button
@@ -811,7 +838,7 @@ export function NotesScreen() {
               </div>
             </div>
 
-            <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto" onScroll={notifyNotesScroll}>
+            <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto">
               {effectiveFolderViewMode === "gallery" ? (
                 <div className="grid grid-cols-3 gap-2">
                   {creatingFolder ? (

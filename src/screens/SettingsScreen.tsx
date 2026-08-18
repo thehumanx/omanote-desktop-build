@@ -1123,7 +1123,7 @@ export function SettingsScreen() {
           <div>
             <h2 className="text-lg font-bold text-app-ink">Export Data</h2>
             <p className="mt-1 text-sm leading-relaxed text-app-ink-faint">
-              Download your workspace as plaintext JSON. Store the file securely.
+              Download your canvas as plaintext JSON. Store the file securely.
             </p>
             <Suspense fallback={<div className="mt-4 h-24 rounded-xl border border-app-line bg-app-surface-muted" aria-hidden="true" />}>
               <SettingsDataPanels />

@@ -4,7 +4,7 @@ Todos are your task ledger. They're more than checkboxes on the canvas — the *
 
 ## Creating a todo
 
-Make one from the canvas composer (`/todo`, or start a checklist line) or from the Todos view. Add a due date and time in plain language — `pay bills friday 9am` — and omanote sets the schedule for you.
+Make one from the composer (`/todo`, or start a checklist line) or from the Todos view. Add a due date and time in plain language — `pay bills friday 9am` — and omanote sets the schedule for you.
 
 ## Editing a todo
 

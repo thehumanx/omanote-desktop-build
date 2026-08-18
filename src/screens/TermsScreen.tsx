@@ -9,7 +9,7 @@ export function TermsScreen() {
     <>
       <SeoHead
         title="Terms of Service | omanote"
-        description="omanote terms of service — the rules for using this personal daily workspace."
+        description="omanote terms of service — the rules for using this personal daily canvas."
         canonical="https://omanote.com/terms"
       />
       <div className="public-page min-h-screen flex flex-col bg-app-surface text-app-ink">
@@ -40,7 +40,7 @@ export function TermsScreen() {
             <section>
               <h2 className="text-base font-bold text-app-ink mb-3">1. Who this is for</h2>
               <p>
-                omanote is a personal daily workspace built and maintained by{" "}
+                omanote is a personal daily canvas built and maintained by{" "}
                 <a
                   href="https://iambishistha.com"
                   target="_blank"

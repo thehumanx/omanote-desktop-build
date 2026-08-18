@@ -1,6 +1,8 @@
 # Capturing anything
 
-The composer is the single place you put things in — on desktop it sits at the top of the canvas; on a phone-sized screen, tap **+** in the bottom bar to open it. It reads what you type and turns it into the right kind of item, so you rarely have to stop and choose.
+The composer is the single place you put things in. Press **+** in the navigation bar, or hit **/** anywhere in the app, to open it from wherever you are. It reads what you type and turns it into the right kind of item, so you rarely have to stop and choose.
+
+Closing it — pressing **Esc**, or clicking elsewhere — never saves anything. Whatever you'd typed is still there the next time you open the composer, so it's safe to close and come back to it later. Saving itself depends on what you're making: notes save on **Cmd/Ctrl + Enter** (plain Enter adds a new line instead); todos, events, and bookmarks save on a plain **Enter**.
 
 ## It figures out what you mean
 

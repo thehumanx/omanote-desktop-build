@@ -1,6 +1,6 @@
 # Dynamic greetings
 
-When you open omanote, the header greets you with something different depending on the time of day — a small touch that makes the workspace feel alive rather than static.
+When you open omanote, the header greets you with something different depending on the time of day — a small touch that makes the canvas feel alive rather than static.
 
 ## How it works
 

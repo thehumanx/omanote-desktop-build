@@ -27,7 +27,7 @@ The extension adds quick capture to any browser tab without switching windows. I
 
 Once installed, click the toolbar icon or press **Alt+Shift+O** to open quick capture from any page. You can also right-click selected text to save it as a note or bookmark. The extension uses the same encryption as the main app — nothing leaves your device unencrypted.
 
-No account is needed to install the extension. Sign in once to sync with your workspace.
+No account is needed to install the extension. Sign in once to sync with your canvas.
 
 ## Mobile app (Android & iOS)
 

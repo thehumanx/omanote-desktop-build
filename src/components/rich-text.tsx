@@ -5,7 +5,6 @@ import type { ReactNode, RefObject } from "react";
 import { createMarkdownLink, normalizeLinkUrl } from "@omanote/shared";
 import { cn } from "./ui";
 import { HashtagChip } from "./HashtagChip";
-import type { Editor } from "@tiptap/react";
 
 export type RichTextFormat = "bold" | "italic" | "bullet" | "ordered" | "code";
 
@@ -295,7 +294,7 @@ function LinkToken({
   return (
       <span
       ref={spanRef}
-      className="group/link relative inline-flex items-center"
+      className="group/link relative inline-flex min-w-0 max-w-full items-center"
       onMouseEnter={() => {
         cancelClose();
         setOpen(true);
@@ -309,7 +308,7 @@ function LinkToken({
         href={token.href}
         target={token.href.startsWith("http://") || token.href.startsWith("https://") ? "_blank" : undefined}
         rel={token.href.startsWith("http://") || token.href.startsWith("https://") ? "noreferrer" : undefined}
-        className="rounded-sm font-bold text-app-ink underline decoration-2 decoration-zinc-300 underline-offset-2 transition hover:decoration-zinc-900"
+        className="min-w-0 break-words rounded-sm font-bold text-app-ink underline decoration-2 decoration-zinc-300 underline-offset-2 transition hover:decoration-zinc-900"
         onClick={(event) => {
           event.stopPropagation();
         }}
@@ -547,81 +546,6 @@ export function RichTextToolbar({
               const textarea = textareaRef.current;
               if (!textarea) return;
               applyRichTextFormatToTextarea(textarea, button.format, onValueChange);
-            }}
-          >
-            {button.icon}
-          </button>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-export function TiptapRichTextToolbar({
-  editor,
-  className,
-}: {
-  editor: Editor | null;
-  className?: string;
-}) {
-  const buttons: Array<{
-    format: string;
-    label: string;
-    icon: ReactNode;
-    onClick: () => void;
-    isActive: () => boolean;
-  }> = [
-    {
-      format: "bold",
-      label: "Bold",
-      icon: <Bold className="h-3.5 w-3.5" />,
-      onClick: () => editor?.chain().focus().toggleBold().run(),
-      isActive: () => editor?.isActive("bold") ?? false,
-    },
-    {
-      format: "italic",
-      label: "Italic",
-      icon: <Italic className="h-3.5 w-3.5" />,
-      onClick: () => editor?.chain().focus().toggleItalic().run(),
-      isActive: () => editor?.isActive("italic") ?? false,
-    },
-    {
-      format: "bullet",
-      label: "Bullet list",
-      icon: <List className="h-3.5 w-3.5" />,
-      onClick: () => editor?.chain().focus().toggleBulletList().run(),
-      isActive: () => editor?.isActive("bulletList") ?? false,
-    },
-    {
-      format: "ordered",
-      label: "Numbered list",
-      icon: <ListOrdered className="h-3.5 w-3.5" />,
-      onClick: () => editor?.chain().focus().toggleOrderedList().run(),
-      isActive: () => editor?.isActive("orderedList") ?? false,
-    },
-    {
-      format: "code",
-      label: "Code",
-      icon: <Code2 className="h-3.5 w-3.5" />,
-      onClick: () => editor?.chain().focus().toggleCode().run(),
-      isActive: () => editor?.isActive("code") ?? false,
-    },
-  ];
-
-  return (
-    <div className={cn("flex flex-wrap items-center gap-1", className)}>
-      {buttons.map((button) => (
-        <div key={button.format}>
-          <button
-            type="button"
-            aria-label={button.label}
-            className={cn(
-              "flex h-8 w-8 items-center justify-center rounded-full text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink",
-              button.isActive() && "bg-app-surface-muted text-app-ink",
-            )}
-            onMouseDown={(event) => {
-              event.preventDefault();
-              button.onClick();
             }}
           >
             {button.icon}

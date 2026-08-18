@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { SignInButton } from "@clerk/react";
 import { CookieNotice } from "../components/CookieNotice";
-import { Bookmark, CheckCheck, CheckSquare, Clock3, Compass, FileText, CalendarDays, SquarePen, Folder, Link2, List, Settings, Zap, MousePointerClick, Lock, Puzzle, LayoutDashboard, Hash, Share2, Moon, Monitor, Bell, RefreshCw, Download, Rss, BookOpen, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ArrowRight, Bookmark, CheckCheck, CheckSquare, Clock3, Plus, FileText, CalendarDays, SquarePen, Folder, Link2, List, Settings, Zap, MousePointerClick, Lock, Puzzle, LayoutDashboard, Hash, Share2, Moon, Monitor, Bell, RefreshCw, Download, Rss, BookOpen, ChevronDown, X } from "lucide-react";
 import changelogMarkdown from "../../CHANGELOG.md?raw";
 import { SeoHead } from "../seo/SeoHead";
 import { color } from "../design-system/tokens";
@@ -110,6 +110,33 @@ function formatHeroTodayLabel() {
   const month = today.toLocaleDateString("en-US", { month: "short" });
   const day = today.toLocaleDateString("en-US", { day: "numeric" });
   return `Today · ${month} ${day}`;
+}
+
+// Mirrors the bucket boundaries and one representative phrase per bucket
+// from src/components/layout/greetings.ts, without pulling the real
+// (randomized, multi-option) module into the public landing bundle.
+const MOCK_GREETINGS = {
+  early: { emoji: "🌄", text: "Rise and shine" },
+  morning: { emoji: "☀️", text: "Good morning" },
+  afternoon: { emoji: "⛅", text: "Good afternoon" },
+  evening: { emoji: "🌆", text: "Good evening" },
+  night: { emoji: "🌙", text: "Still up" },
+} as const;
+
+function getMockGreeting(name: string) {
+  const hour = new Date().getHours();
+  const bucket =
+    hour >= 4 && hour < 7
+      ? "early"
+      : hour >= 7 && hour < 12
+        ? "morning"
+        : hour >= 12 && hour < 17
+          ? "afternoon"
+          : hour >= 17 && hour < 21
+            ? "evening"
+            : "night";
+  const { emoji, text } = MOCK_GREETINGS[bucket];
+  return { emoji, text: `${text}, ${name}` };
 }
 
 type ReaderFeedGroupPreview = {
@@ -221,18 +248,39 @@ const ARTIFACT_TYPED_TEXT: Record<SlashArtifact, string> = {
   bookmark: "https://readwise.io",
 };
 
+// How long the slide-in/slide-out transition itself takes — matches the
+// duration set on the composer's own transition classes below.
+const COMPOSER_ENTER_EXIT_DURATION = 380;
+
 function useSlashCommandAnimation() {
   const [step, setStep] = useState(0);
+  const [visible, setVisible] = useState(true);
+  const exitTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     const current = SLASH_SEQUENCE[step];
+    // One full slash → picker → editor sequence for a single artifact type
+    // is "one loop" — only slide the composer out once that loop finishes,
+    // not after every individual phase.
+    const isEndOfLoop = current.phase === "editor";
     const timeout = window.setTimeout(() => {
-      setStep((next) => (next + 1) % SLASH_SEQUENCE.length);
+      if (!isEndOfLoop) {
+        setStep((next) => (next + 1) % SLASH_SEQUENCE.length);
+        return;
+      }
+      setVisible(false);
+      exitTimeoutRef.current = window.setTimeout(() => {
+        setStep((next) => (next + 1) % SLASH_SEQUENCE.length);
+        setVisible(true);
+      }, COMPOSER_ENTER_EXIT_DURATION);
     }, current.duration);
-    return () => window.clearTimeout(timeout);
+    return () => {
+      window.clearTimeout(timeout);
+      if (exitTimeoutRef.current !== null) window.clearTimeout(exitTimeoutRef.current);
+    };
   }, [step]);
 
-  return SLASH_SEQUENCE[step];
+  return { ...SLASH_SEQUENCE[step], visible };
 }
 
 function useArtifactTyping(artifact: SlashArtifact, active: boolean) {
@@ -257,8 +305,13 @@ function useArtifactTyping(artifact: SlashArtifact, active: boolean) {
 }
 
 function SlashCommandMenu({ active }: { active: SlashArtifact }) {
+  // Opens upward, not down: the composer overlay sits near the bottom of
+  // the mockup frame, and the frame clips overflow (`h-[440px]
+  // overflow-hidden`) — a downward menu ran off the bottom edge and got cut
+  // off. Real ComposerSheet doesn't have this problem since it's portaled
+  // to the document root, unconstrained by any ancestor's overflow.
   return (
-    <div className="absolute left-0 top-10 z-20 w-48 overflow-hidden rounded-lg border border-app-line bg-app-surface shadow-soft">
+    <div className="absolute bottom-10 left-0 z-20 w-48 overflow-hidden rounded-lg border border-app-line bg-app-surface shadow-soft">
       {SLASH_ARTIFACTS.map((artifact) => (
         <div
           key={artifact.key}
@@ -359,25 +412,52 @@ function CanvasView({
   onNextDay,
   onToggleTodo,
   completedTodos,
-  composerPhase,
-  composerArtifact,
 }: {
   activeDayIndex: number;
   onPrevDay: () => void;
   onNextDay: () => void;
   onToggleTodo: (id: string) => void;
   completedTodos: Set<string>;
-  composerPhase: SlashComposerPhase;
-  composerArtifact: SlashArtifact;
 }) {
   const activeDay = CANVAS_DAYS[activeDayIndex] ?? CANVAS_DAYS[0];
+  const greeting = getMockGreeting("BBK");
 
   return (
-    <div className="mx-auto flex w-full max-w-[880px] flex-1 flex-col gap-9 px-5 py-5 pb-24" aria-label={`${activeDay.subtitle} ${activeDay.label}`}>
-      <SlashCommandComposer phase={composerPhase} artifact={composerArtifact} />
+    <div className="mx-auto flex w-full max-w-[880px] flex-1 flex-col py-5 pb-24" aria-label={`${activeDay.subtitle} ${activeDay.label}`}>
+      <div className="flex flex-col gap-4 px-5">
+        <p className="flex flex-col text-left text-2xl font-bold text-app-ink md:flex-row md:items-baseline md:gap-2">
+          <span>{greeting.emoji}</span>
+          <span>{greeting.text}</span>
+        </p>
+        <div className="group flex items-start justify-between gap-3 rounded-lg border border-app-line bg-app-surface px-4 py-3 text-left">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <span className="text-sm text-app-ink-faint">Your week at glance</span>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-app-ink-muted">
+              <span>🔥 5 days</span>
+              <span className="text-app-line-strong">·</span>
+              <span>✅ 8 todos</span>
+              <span className="text-app-line-strong">·</span>
+              <span>📝 6 notes</span>
+              <span className="text-app-line-strong">·</span>
+              <span>🔖 4 bookmarks</span>
+              <span className="text-app-line-strong">·</span>
+              <span>📅 3 events</span>
+            </div>
+          </div>
+          <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-app-ink-faint" />
+        </div>
+      </div>
 
-      <div className="space-y-3">
-        <div className="grid grid-cols-[minmax(0,1fr)_180px] items-start gap-4">
+      {/* Unpadded on the right so the divider line reaches the true edge —
+          only the label needs the same inset the padded blocks above/below
+          use, not the line itself. */}
+      <div className="mt-4 flex items-center gap-3 pl-5">
+        <p className="shrink-0 text-[11px] font-bold uppercase tracking-[0.16em] text-app-ink-faint">Your today</p>
+        <div aria-hidden="true" className="h-px flex-1 bg-app-line" />
+      </div>
+
+      <div className="mt-9 space-y-3 px-5">
+        <div className="grid grid-cols-1 items-start gap-1 md:grid-cols-[minmax(0,1fr)_180px] md:gap-4">
           <div className="group relative -ml-3 -mr-2 -my-1 w-full rounded-xl px-2 py-1 pl-3 transition hover:bg-app-surface-hover">
             <div className="flex items-start gap-2">
               <TodoCheckmark as="span" aria-hidden="true" checked size="md" align="text" />
@@ -419,7 +499,7 @@ function CanvasView({
           </button>
         </div>
 
-        <div className="grid grid-cols-[minmax(0,1fr)_180px] items-start gap-4">
+        <div className="grid grid-cols-1 items-start gap-1 md:grid-cols-[minmax(0,1fr)_180px] md:gap-4">
           <div className="group relative -ml-3 -mr-2 -my-1 w-full rounded-xl px-2 py-1 pl-3 transition hover:bg-app-surface-hover">
             <div className="flex items-start gap-2">
               <TodoCheckmark
@@ -449,7 +529,7 @@ function CanvasView({
           </button>
         </div>
 
-        <div className="grid grid-cols-[minmax(0,1fr)_180px] items-start gap-4">
+        <div className="grid grid-cols-1 items-start gap-1 md:grid-cols-[minmax(0,1fr)_180px] md:gap-4">
           <div className="group relative -ml-3 -mr-2 -my-1 w-full rounded-xl px-2 py-1 pl-3 transition hover:bg-app-surface-hover">
             <div className="flex items-start gap-2">
               <TodoCheckmark as="span" aria-hidden="true" checked size="md" align="text" />
@@ -471,7 +551,7 @@ function CanvasView({
           </button>
         </div>
 
-        <div className="grid grid-cols-[minmax(0,1fr)_180px] items-start gap-4">
+        <div className="grid grid-cols-1 items-start gap-1 md:grid-cols-[minmax(0,1fr)_180px] md:gap-4">
           <div className="group relative -ml-3 -mr-2 -my-1 w-full rounded-xl px-2 py-1 pl-3 transition hover:bg-app-surface-hover">
             <div className="flex items-start gap-2">
               <TodoCheckmark as="span" aria-hidden="true" checked size="md" align="text" />
@@ -1130,6 +1210,30 @@ function AppMockup() {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-app-line bg-app-surface text-left shadow-app-dialog">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.92),transparent_62%)]" />
+      {/* The real Write/Read pill isn't in the header row at all — it's a
+          separate fixed rail pinned to the left edge of the viewport,
+          vertically centered (see AppShell.tsx's ModeSwitch outside the
+          header). Mirrored here relative to the whole mockup card. */}
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-30 hidden items-center pl-3 md:flex">
+        <div className="pointer-events-auto">
+          <SegmentedPill
+            activeKey={mode}
+            ariaLabel="Write or read mode"
+            onChange={(next) => {
+              const nextMode = next as MockMode;
+              setMode(nextMode);
+              if (nextMode === "write") {
+                setReadTab("reader");
+              }
+            }}
+            className="flex-col bg-app-surface-muted/60 shadow-app-nav"
+            items={[
+              { key: "write", icon: <SquarePen className="h-3.5 w-3.5" />, ariaLabel: "Write" },
+              { key: "read", icon: <BookOpen className="h-3.5 w-3.5" />, ariaLabel: "Read" },
+            ]}
+          />
+        </div>
+      </div>
       <div className="relative">
         <div className="border-b border-app-line bg-app-surface">
           <div className="flex items-center justify-between px-5 py-2.5">
@@ -1138,69 +1242,42 @@ function AppMockup() {
               <div className="h-2.5 w-2.5 rounded-full bg-app-line" />
               <div className="h-2.5 w-2.5 rounded-full bg-app-line" />
             </div>
-            <SegmentedPill
-              activeKey={mode}
-              ariaLabel="Write or read mode"
-              onChange={(next) => {
-                const nextMode = next as MockMode;
-                setMode(nextMode);
-                if (nextMode === "write") {
-                  setReadTab("reader");
-                }
-              }}
-              className="bg-app-surface-muted/60 shadow-none"
-              items={[
-                { key: "write", label: "Write", icon: <SquarePen className="h-3.5 w-3.5" /> },
-                { key: "read", label: "Read", icon: <BookOpen className="h-3.5 w-3.5" /> },
-              ]}
-            />
-            <img src={DUMMY_AVATAR} className="h-7 w-7 rounded-full opacity-60" alt="" />
           </div>
-          <div className="flex h-12 items-center justify-between border-t border-app-line px-5">
-            {showCanvas ? (
-              <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-3">
-                <p className="min-w-0 truncate text-sm text-app-ink-muted">Candlelight productivity, BBK</p>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="flex h-7 w-7 items-center justify-center rounded-full text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-                    aria-label="Previous day preview"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-full px-2 py-1 text-sm font-bold text-app-ink transition hover:bg-app-surface-hover"
-                  >
-                    {todayLabel}
-                  </button>
-                  <button
-                    type="button"
-                    className="flex h-7 w-7 items-center justify-center rounded-full text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-                    aria-label="Next day preview"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
+          {/* One header row: date/stat on the left, avatar on the right —
+              matches the real always-visible AppShell header. Same two-layer
+              padding as the content below: md:pl-12/pr-12 on the outer
+              (clears the floating toggle, keeps border-t spanning the full
+              edge — borders sit at the border-box edge regardless of
+              padding) plus px-5 on the inner content, so this row's content
+              lines up exactly with the canvas content's own inset. */}
+          <div className="flex h-12 items-center border-t border-app-line md:pl-12 md:pr-12">
+            <div className="flex w-full items-center justify-between px-5">
+              {/* Canvas dropped the old greeting/date-nav header bar entirely —
+                  today-only, with a single clickable "Today · <date>" row
+                  (click to expand History) instead of prev/next day arrows. */}
+              {showCanvas ? (
                 <button
                   type="button"
-                  className="justify-self-end rounded-full px-2 py-1 text-sm text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink"
+                  className="group flex items-center gap-1.5 rounded-full px-2 py-1 text-sm font-bold text-app-ink transition hover:bg-app-surface-hover"
                 >
-                  🔥 5 days →
+                  {todayLabel}
+                  <ChevronDown className="h-3.5 w-3.5 text-app-ink-faint transition group-hover:text-app-ink" />
                 </button>
-              </div>
-            ) : (
-              <div className="flex w-full items-center justify-between gap-3">
-                <p className="min-w-0 truncate text-sm text-app-ink-muted">Candlelight productivity, BBK</p>
-                {mockupHeaderStat ? (
-                  <p className="shrink-0 text-sm text-app-ink-faint">{mockupHeaderStat}</p>
-                ) : null}
-              </div>
-            )}
+              ) : mockupHeaderStat ? (
+                <p className="shrink-0 text-sm text-app-ink-faint">{mockupHeaderStat}</p>
+              ) : (
+                <span aria-hidden="true" />
+              )}
+              <img src={DUMMY_AVATAR} className="h-7 w-7 rounded-full opacity-60" alt="" />
+            </div>
           </div>
         </div>
 
-        <div className={`relative h-[440px] overflow-hidden ${showCanvas ? "omanote-canvas-grid bg-app-canvas" : "bg-app-canvas/35"}`}>
+        {/* md:pl-12/pr-12 here too — background-origin defaults to
+            padding-box, so the omanote-canvas-grid dot pattern still paints
+            edge-to-edge; only the child content (CanvasView etc.) actually
+            shifts in on both sides to stay centered and clear the toggle. */}
+        <div className={`relative h-[440px] overflow-hidden md:pl-12 md:pr-12 ${showCanvas ? "omanote-canvas-grid bg-app-canvas" : "bg-app-canvas/35"}`}>
           {mode === "write" && writeTab === "canvas" ? (
             <div className="h-full overflow-y-auto">
               <CanvasView
@@ -1209,9 +1286,37 @@ function AppMockup() {
                 onNextDay={() => {}}
                 onToggleTodo={toggleTodo}
                 completedTodos={completedTodos}
-                composerPhase={slashComposer.phase}
-                composerArtifact={slashComposer.artifact}
               />
+            </div>
+          ) : null}
+          {showCanvas ? (
+            // The composer is an overlay now, not part of the canvas
+            // content — this floats over everything (like a real
+            // ComposerSheet) instead of taking a permanent slot inline
+            // among the day's items, demonstrating "+" / "/" opening it.
+            // Same mx-auto max-w-[880px] px-5 box as CanvasView's own
+            // content column, so the composer's edges line up with the
+            // todo/note items above it instead of floating at an
+            // unrelated fixed width. md:pl-12/pr-12 repeated here (not
+            // inherited from the parent) — position:absolute resolves
+            // inset-x-0 against the padding *box*, which includes the
+            // parent's own padding area, so this would otherwise ignore it.
+            // z-40 (above the nav pill's z-30) so the "/" picker dropdown,
+            // which opens upward, never renders underneath the floating nav.
+            <div className="pointer-events-none absolute inset-x-0 bottom-4 z-40 mx-auto flex w-full max-w-[880px] justify-center px-5 md:pl-12 md:pr-12">
+              <div
+                className={`w-full rounded-2xl border border-app-line bg-app-surface-raised px-4 py-3 shadow-app-dialog transition-[transform,opacity] duration-[380ms] ease-out ${
+                  slashComposer.visible ? "translate-y-0 opacity-100" : "translate-y-[calc(100%+1rem)] opacity-0"
+                }`}
+              >
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="rounded-md border border-app-line px-1.5 py-0.5 text-[11px] font-medium text-app-ink-faint">esc</span>
+                  {/* Todo/event/bookmark all save on a plain Enter — only
+                      note mode needs Cmd/Ctrl+Enter (not shown in this demo). */}
+                  <span className="rounded-md border border-app-line px-1.5 py-0.5 text-[11px] font-medium text-app-ink-faint">⏎</span>
+                </div>
+                <SlashCommandComposer phase={slashComposer.phase} artifact={slashComposer.artifact} />
+              </div>
             </div>
           ) : null}
           {mode === "write" && writeTab === "todos" ? <TodosView /> : null}
@@ -1304,22 +1409,17 @@ function AppMockup() {
           ) : null}
 
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-white to-transparent" />
-        </div>
 
-        <div className="flex h-16 items-center gap-3 border-t border-app-line px-4">
-          <button
-            type="button"
-            aria-label="Preview explore"
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-app-line bg-app-surface text-app-ink-muted shadow-app-nav transition hover:bg-app-canvas"
-          >
-            <Compass size={15} />
-          </button>
-
-          <div className="flex-1 min-w-0 flex justify-center">
+          {/* Matches the real bottom nav: a floating pill + "+" compose
+              button positioned above the canvas content, not a bar sitting
+              in normal flow with its own background/border — no parent
+              chrome here since the pill and button already carry their own
+              surfaces (bg-app-surface-muted/40, shadow-soft / shadow-app-nav). */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-4 z-30 flex items-center justify-center gap-3 px-4">
             <SegmentedPill
               activeKey={mode === "read" ? readTab : writeTab}
               ariaLabel="Preview app tabs"
-              className="gap-2 bg-app-surface-muted/40 px-2 shadow-soft"
+              className="pointer-events-auto gap-2 bg-app-surface-muted/40 px-2 shadow-soft"
               onChange={(key) => {
                 if (mode === "read") {
                   setReadTab(key === "saved" ? "saved" : "reader");
@@ -1345,15 +1445,16 @@ function AppMockup() {
                     }))
               }
             />
+            {mode === "write" ? (
+              <button
+                type="button"
+                aria-label="Preview compose"
+                className="pointer-events-auto flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-app-line bg-app-surface text-app-ink-muted shadow-app-nav transition hover:bg-app-canvas"
+              >
+                <Plus className="h-5 w-5" />
+              </button>
+            ) : null}
           </div>
-
-          <button
-            type="button"
-            aria-label="Profile"
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-app-line bg-app-surface shadow-app-nav"
-          >
-            <img src={DUMMY_AVATAR} className="h-10 w-10 rounded-full opacity-60" alt="" />
-          </button>
         </div>
       </div>
     </div>
@@ -1585,7 +1686,7 @@ function ExtensionSection() {
             </h2>
             <p className="mt-5 text-app-ink-muted leading-relaxed text-[15px]">
               The omanote extension puts quick capture one click away. Save a bookmark, drop a note,
-              or log a todo — one click from any page, straight into your encrypted workspace.
+              or log a todo — one click from any page, straight into your encrypted canvas.
             </p>
 
             <ul className="mt-7 space-y-4">
@@ -1639,7 +1740,7 @@ function ExtensionSection() {
               </a>
             </div>
             <p className="mt-3 text-xs text-app-ink-faint">
-              Free. No account needed to install — sign in to sync with your workspace.
+              Free. No account needed to install — sign in to sync with your canvas.
             </p>
           </div>
         </div>
@@ -1649,7 +1750,7 @@ function ExtensionSection() {
 }
 
 // ─── CTA button ───────────────────────────────────────────────────────────────
-function JournalCta({ label = "Start your daily workspace", inverted }: { label?: string; inverted?: boolean }) {
+function JournalCta({ label = "Start your daily canvas", inverted }: { label?: string; inverted?: boolean }) {
   return (
     <SignInButton mode="modal" fallbackRedirectUrl="/canvas">
       <button
@@ -1685,8 +1786,8 @@ export function LandingScreen() {
   return (
     <>
       <SeoHead
-        title="omanote | Opinionated daily workspace"
-        description="omanote is a personal daily workspace for capturing notes, todos, bookmarks, events, and small moments before the day disappears."
+        title="omanote | Opinionated daily canvas"
+        description="omanote is a personal daily canvas for capturing notes, todos, bookmarks, events, and small moments before the day disappears."
       />
       <div className="public-page min-h-screen flex flex-col bg-app-surface text-app-ink">
       {/* Nav */}
@@ -1711,7 +1812,7 @@ export function LandingScreen() {
         {/* Hero */}
         <section className="relative z-0 mx-auto max-w-[1136px] overflow-hidden px-4 pb-14 pt-16 text-center sm:px-6 sm:pt-20 lg:pt-28">
           <p className="inline-flex items-center rounded-full border border-app-line bg-app-canvas px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-app-ink-muted">
-            Opinionated daily workspace
+            Opinionated daily canvas
           </p>
           <h1 className="font-serif-heading font-serif-heading-smooth mt-6 text-[44px] sm:text-[58px] lg:text-[72px] font-black leading-[1.02] tracking-[-0.035em] max-w-[860px] mx-auto">
             Capture the day
@@ -1752,7 +1853,7 @@ export function LandingScreen() {
                   The name
                 </p>
                 <h2 className="font-serif-heading font-serif-heading-smooth mt-4 text-3xl sm:text-4xl font-black tracking-[-0.025em] leading-tight">
-                  An opinionated daily workspace, already arranged.
+                  An opinionated daily canvas, already arranged.
                 </h2>
                 <p className="mt-5 text-app-ink-muted leading-relaxed text-[15px]">
                   <strong className="text-app-ink">Omakase</strong> (お任せ) is Japanese for "I'll
@@ -1792,7 +1893,7 @@ export function LandingScreen() {
                   {
                     icon: Zap,
                     title: "Low ceremony",
-                    body: "Dump it in. Sort it out later. The workspace won't judge you for figuring things out as you go.",
+                    body: "Dump it in. Sort it out later. The canvas won't judge you for figuring things out as you go.",
                   },
                   {
                     icon: Hash,
@@ -1836,13 +1937,13 @@ export function LandingScreen() {
                 </p>
                 <h2 className="font-serif-heading font-serif-heading-smooth mt-4 text-3xl sm:text-4xl font-black tracking-[-0.025em] leading-tight">
                   Write. Read.
-                  <br className="hidden sm:block" /> Same workspace.
+                  <br className="hidden sm:block" /> Same canvas.
                 </h2>
                 <p className="mt-5 text-app-ink-muted leading-relaxed text-[15px]">
-                  <strong className="text-app-ink">Write mode</strong> — the canvas is where
-                  everything starts. Notes, todos, bookmarks, events, all in one stream tied to
-                  today. Type, paste, or use /slash commands. Sort it out later in the focused
-                  views.
+                  <strong className="text-app-ink">Write mode</strong> — press <strong>/</strong> or{" "}
+                  <strong>+</strong> from anywhere to capture. Notes, todos, bookmarks, and events
+                  all land on the canvas first, in one stream tied to today. Sort it out later in
+                  the focused views.
                 </p>
                 <ul className="mt-5 space-y-3">
                   {[
@@ -1860,7 +1961,7 @@ export function LandingScreen() {
                 </ul>
                 <p className="mt-5 text-app-ink-muted leading-relaxed text-[15px]">
                   <strong className="text-app-ink">Read mode</strong> — subscribe to feeds, read
-                  articles, and save what matters. Full reader sits alongside your workspace — no
+                  articles, and save what matters. Full reader sits alongside your canvas — no
                   context switch needed.
                 </p>
               </div>
@@ -1915,7 +2016,7 @@ export function LandingScreen() {
                 {
                   icon: Share2,
                   title: "Share any folder",
-                  body: "Todo folders, note folders, bookmark categories — each can become a clean, read-only public link. Your encrypted workspace stays private; visitors just see the page.",
+                  body: "Todo folders, note folders, bookmark categories — each can become a clean, read-only public link. Your encrypted canvas stays private; visitors just see the page.",
                 },
                 {
                   icon: Download,

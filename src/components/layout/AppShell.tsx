@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { useApp } from "../../app/AppProvider";
 import { ErrorBoundary } from "../ErrorBoundary";
@@ -15,10 +15,12 @@ import { FounderNoteModal } from "../FounderNoteModal";
 import { OfflineStatusBanner } from "../OfflineStatusBanner";
 import { CookieNotice } from "../CookieNotice";
 import { useMobileKeyboardState } from "./useMobileKeyboardState";
+import { useGlobalCaptureShortcut } from "./useGlobalCaptureShortcut";
+import { ProfileMenuButton } from "./ProfileMenuButton";
 import { useContentZoom } from "../../app/useContentZoom";
 import { ZoomIndicator } from "../ZoomIndicator";
 import { useUserSettings } from "../../contexts/UserSettingsContext";
-import { isTauri, desktopPlatform } from "../../lib/desktop";
+import { desktopPlatform } from "../../lib/desktop";
 import { WindowControls } from "../desktop/WindowControls";
 
 export function AppShell() {
@@ -30,16 +32,6 @@ export function AppShell() {
   } = useApp();
   const { settings, loading, updateSettings } = useUserSettings();
   const isCanvasRoute = location.pathname === "/canvas";
-  // These four screens dropped `PageHeader` (greeting + weekly stat) in
-  // favor of owning their own layout entirely, same as Canvas already did —
-  // so the shared top-chrome bar has nothing left to show on them and
-  // collapses away instead of rendering an empty, bordered strip.
-  const isPageHeaderlessRoute =
-    location.pathname === "/todos" ||
-    location.pathname.startsWith("/notes") ||
-    location.pathname.startsWith("/bookmarks") ||
-    location.pathname.startsWith("/event");
-  const isChromelessRoute = isCanvasRoute || isPageHeaderlessRoute;
   const isWorkspaceRoute =
     location.pathname.startsWith("/notes") ||
     location.pathname.startsWith("/bookmarks") ||
@@ -52,16 +44,16 @@ export function AppShell() {
   const isEventRoute = location.pathname.startsWith("/event");
   const usesViewportShell = isWorkspaceRoute || isExploreRoute || isSettingsRoute || isInsightsRoute || isEventRoute;
   const topChromeRef = useRef<HTMLDivElement | null>(null);
-  const bottomHideTimeoutRef = useRef<number | null>(null);
-  const bottomHideSuppressTimeoutRef = useRef<number | null>(null);
-  const lastScrollYRef = useRef(0);
-  const [topChromeHidden, setTopChromeHidden] = useState(false);
-  const [bottomChromeHidden, setBottomChromeHidden] = useState(false);
   const [topChromeContent, setTopChromeContent] = useState<ReactNode | null>(null);
+  // Stable identity so consuming useOutletContext() doesn't re-render every
+  // route on every AppShell render — setTopChromeContent itself is already
+  // stable, this just stops the wrapping object from being a new reference
+  // each time.
+  const outletContext = useMemo(() => ({ setTopChrome: setTopChromeContent }), []);
   const [founderNoteOpen, setFounderNoteOpen] = useState(false);
   const founderNoteAutoOpenRef = useRef(false);
-  const bottomHideSuppressedRef = useRef(false);
   const mobileKeyboard = useMobileKeyboardState();
+  useGlobalCaptureShortcut();
   const { zoomPercent, indicatorVisible } = useContentZoom();
   const hideBottomNavForKeyboard = mobileKeyboard.isMobileViewport && mobileKeyboard.keyboardOpen;
   const workspaceHeight =
@@ -73,15 +65,15 @@ export function AppShell() {
   // When the Write/Read pill row is absent, the 58px row is the first thing
   // under the native controls, so inset it: left for macOS traffic lights,
   // right for the custom Windows controls. The inset shrinks away once the
-  // window is wide enough that the centered 1152px column clears them.
+  // window is wide enough that the centered 1024px column clears them.
   const desktopShellPlatform = desktopPlatform();
   const titleBarInsetStyle =
     !desktopShellPlatform
       ? undefined
       : desktopShellPlatform === "macos"
-        ? { paddingLeft: "max(1rem, calc(88px - max(0px, (100vw - 1184px) / 2)))" }
+        ? { paddingLeft: "max(1rem, calc(88px - max(0px, (100vw - 1056px) / 2)))" }
         : desktopShellPlatform === "windows"
-          ? { paddingRight: "max(1rem, calc(148px - max(0px, (100vw - 1184px) / 2)))" }
+          ? { paddingRight: "max(1rem, calc(148px - max(0px, (100vw - 1056px) / 2)))" }
           : undefined;
 
   useEffect(() => {
@@ -110,84 +102,6 @@ export function AppShell() {
       window.removeEventListener("resize", updateTopChromeHeight);
     };
   }, []);
-
-  useEffect(() => {
-    const triggerBottomChromeHide = () => {
-      if (!bottomHideSuppressedRef.current) {
-        setBottomChromeHidden(true);
-      }
-      if (bottomHideTimeoutRef.current !== null) {
-        window.clearTimeout(bottomHideTimeoutRef.current);
-      }
-      bottomHideTimeoutRef.current = window.setTimeout(() => {
-        setBottomChromeHidden(false);
-        bottomHideTimeoutRef.current = null;
-      }, 180);
-    };
-
-    if (isWorkspaceRoute) {
-      setTopChromeHidden(false);
-      const handleNotesScroll = () => {
-        triggerBottomChromeHide();
-      };
-
-      window.addEventListener("omanote:notes-scroll", handleNotesScroll);
-      return () => {
-        window.removeEventListener("omanote:notes-scroll", handleNotesScroll);
-        if (bottomHideTimeoutRef.current !== null) {
-          window.clearTimeout(bottomHideTimeoutRef.current);
-        }
-        if (bottomHideSuppressTimeoutRef.current !== null) {
-          window.clearTimeout(bottomHideSuppressTimeoutRef.current);
-        }
-      };
-    }
-
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      const isScrollingUp = currentScrollY < lastScrollYRef.current;
-      const isScrollingDown = currentScrollY > lastScrollYRef.current;
-
-      if (isScrollingDown) {
-        // In the desktop app the top bar stays fixed instead of hiding.
-        if (!isTauri()) {
-          setTopChromeHidden(true);
-        }
-      } else if (isScrollingUp) {
-        setTopChromeHidden(false);
-      }
-
-      triggerBottomChromeHide();
-      lastScrollYRef.current = currentScrollY;
-    };
-
-    lastScrollYRef.current = window.scrollY;
-    window.addEventListener("scroll", handleScroll, { passive: true });
-
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-      if (bottomHideTimeoutRef.current !== null) {
-        window.clearTimeout(bottomHideTimeoutRef.current);
-      }
-      if (bottomHideSuppressTimeoutRef.current !== null) {
-        window.clearTimeout(bottomHideSuppressTimeoutRef.current);
-      }
-    };
-  }, [isWorkspaceRoute]);
-
-  useEffect(() => {
-    bottomHideSuppressedRef.current = true;
-    setBottomChromeHidden(false);
-
-    if (bottomHideSuppressTimeoutRef.current !== null) {
-      window.clearTimeout(bottomHideSuppressTimeoutRef.current);
-    }
-
-    bottomHideSuppressTimeoutRef.current = window.setTimeout(() => {
-      bottomHideSuppressedRef.current = false;
-      bottomHideSuppressTimeoutRef.current = null;
-    }, 250);
-  }, [location.pathname]);
 
   useEffect(() => {
     if (loading) return;
@@ -223,18 +137,32 @@ export function AppShell() {
     };
   }, [isWorkspaceRoute]);
 
+  // The pop-out composer window (see composer-popout.ts) is its own tiny
+  // window — no nav, no header, no second ComposerSheet — but still needs
+  // to be nested here for the provider stack above AppShell (auth,
+  // encryption, user settings) that CanvasDraftBlock depends on.
+  if (location.pathname === "/compose-popout") {
+    return (
+      <Suspense fallback={null}>
+        <ErrorBoundary>
+          <Outlet context={outletContext} />
+        </ErrorBoundary>
+      </Suspense>
+    );
+  }
+
   return (
     <div className={["flex min-h-screen flex-col bg-app-canvas text-app-ink", isCanvasRoute && settings.canvasDotGrid ? "omanote-canvas-grid" : ""].join(" ")}>
       <div>
+        {/* The one header bar for every route — fixed, always visible (no
+            more scroll-driven hide/show), with each page injecting its own
+            left content via useTopChrome and the profile menu always on
+            the right. Width matches whatever <main> uses for that route so
+            nothing here floats wider than the page content below it. */}
         <div
           ref={topChromeRef}
           data-tauri-drag-region
-          className={[
-            "fixed inset-x-0 z-40 bg-app-surface transform-gpu transition-[transform,opacity] duration-app-base ease-app-in-out will-change-transform",
-            isChromelessRoute ? "h-0 overflow-hidden" : "border-b border-app-line",
-            topChromeHidden ? "-translate-y-2 opacity-0 pointer-events-none" : "translate-y-0 opacity-100",
-          ].join(" ")}
-          style={{ top: "var(--omanote-mobile-top-bar-height, 0px)" }}
+          className="fixed inset-x-0 z-40 border-b border-app-line bg-app-surface"
         >
           {desktopShellPlatform === "windows" ? (
             <div className="absolute right-0 top-0 z-10">
@@ -243,10 +171,16 @@ export function AppShell() {
           ) : null}
           <div
             data-tauri-drag-region
-            className={["mx-auto flex w-full max-w-[1152px] items-center px-4", isChromelessRoute ? "h-0 overflow-hidden" : "h-[58px]"].join(" ")}
+            className="relative mx-auto flex h-[58px] w-full max-w-[1024px] items-center justify-between gap-3 px-4"
             style={titleBarInsetStyle}
           >
-            {topChromeContent}
+            {settings.rssReaderEnabled ? (
+              <div className="shrink-0 md:hidden">
+                <ModeSwitch />
+              </div>
+            ) : null}
+            <div className="min-w-0 flex-1">{topChromeContent}</div>
+            <ProfileMenuButton onOpenAbout={openFounderNote} />
           </div>
         </div>
         <ReminderMonitor />
@@ -257,7 +191,11 @@ export function AppShell() {
         <main
           className={[
             "box-border mx-auto flex min-h-0 w-full flex-1 flex-col transform-gpu",
-            isExploreRoute ? "max-w-none px-0" : "max-w-[1152px] px-4",
+            // Every route shares one 1024px content column (Explore opts out
+            // — it manages its own width) — the header bar, bottom nav pill,
+            // and composer drawer are all capped to the same value so
+            // nothing floats wider than the page content.
+            isExploreRoute ? "max-w-none px-0" : "max-w-[1024px] px-4",
             mobileKeyboard.isMobileViewport && mobileKeyboard.keyboardOpen
               ? "transition-none"
               : "transition-opacity duration-[180ms] ease-out",
@@ -301,7 +239,7 @@ export function AppShell() {
                   willChange: "opacity",
                 }}
               >
-                <Outlet context={{ setTopChrome: setTopChromeContent }} />
+                <Outlet context={outletContext} />
               </div>
             </ErrorBoundary>
           </Suspense>
@@ -309,11 +247,7 @@ export function AppShell() {
         <ToastHost />
         <RecurringDeleteModal />
       </div>
-      <BottomNav
-        hidden={bottomChromeHidden || hideBottomNavForKeyboard || notesDrawerOpen}
-        forceHidden={hideBottomNavForKeyboard}
-        onOpenAbout={openFounderNote}
-      />
+      <BottomNav hidden={hideBottomNavForKeyboard || notesDrawerOpen} forceHidden={hideBottomNavForKeyboard} />
       <FounderNoteModal open={founderNoteOpen} onClose={closeFounderNote} />
       <ComposerSheet />
       <CookieNotice />

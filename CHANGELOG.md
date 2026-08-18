@@ -4,6 +4,19 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.31.0 [August 18, 2026]
+
+> Reworked how you add anything, on Canvas and everywhere else — quick capture works from wherever you are now.
+
+- [Add] Press "/" anywhere in the app to open the composer, already set to match whatever page you're on
+- [Update] Closing the composer — Esc, or clicking away — no longer saves whatever you were typing. Only Cmd/Ctrl+Enter does, and your draft is still there next time you open it
+- [Remove] The always-visible note box on the Canvas page is gone — use "+" or "/" to add things instead
+- [Remove] Text formatting (bold, italic, lists, code) is no longer available while writing a note
+- [Add] Desktop now has a persistent "+" button next to the navigation tabs, matching mobile — tap it to open the composer
+- [Update] The overdue-todo "move to today" icon now opens a menu offering "Move to today" or "Move to next week"
+- [Update] Profile moved to the top of every page; Explore moved into the profile menu
+- [Update] The top and bottom bars no longer hide while scrolling — they stay in place
+
 ### v0.30.0 [August 15, 2026]
 
 > Canvas redesigned: today stays put, History is one click away, and the top bar is gone for good.
@@ -651,6 +664,19 @@ All notable changes to omanote are documented here, organized by product.
 See what's planned next: [omanote.com/s/FeUM44Rd](https://omanote.com/s/FeUM44Rd)
 
 ## Desktop Versions
+
+### v0.31.0 [August 18, 2026]
+
+> Reworked how you add anything, on Canvas and everywhere else — quick capture works from wherever you are now.
+
+- [Add] Press "/" anywhere in the app to open the composer, already set to match whatever page you're on
+- [Update] Closing the composer — Esc, or clicking away — no longer saves whatever you were typing. Only Cmd/Ctrl+Enter does, and your draft is still there next time you open it
+- [Remove] The always-visible note box on the Canvas page is gone — use "+" or "/" to add things instead
+- [Remove] Text formatting (bold, italic, lists, code) is no longer available while writing a note
+- [Add] A persistent "+" button now sits next to the navigation tabs, matching the mobile app — tap it to open the composer
+- [Update] The overdue-todo "move to today" icon now opens a menu offering "Move to today" or "Move to next week"
+- [Update] Profile moved to the top of every page; Explore moved into the profile menu
+- [Update] The top and bottom bars no longer hide while scrolling — they stay in place
 
 ### v0.30.0 [August 15, 2026]
 

@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import type { NoteFolder, NoteItem } from "@omanote/shared";
 import { normalizeLinkUrl } from "@omanote/shared";
 import { Button, Input } from "./ui";
-import { TiptapRichTextToolbar } from "./rich-text";
 import { NoteFolderPicker } from "./NoteFolderPicker";
 import { NoteCanvasEditor } from "./NoteCanvasEditor";
 import { hasMeaningfulNoteInput, isUncategorizedFolderName, readLastNoteFolder, resolveNoteFolderByName, writeLastNoteFolder } from "../lib/note-folder-utils";
@@ -11,6 +10,7 @@ import { EmojiPickerDropdown } from "./EmojiPicker";
 import { parseHashtags } from "../lib/hashtags";
 import { useUserSettings } from "../contexts/UserSettingsContext";
 import { isSaveShortcutEvent } from "../lib/editor-shortcuts";
+import { useOutsideClick } from "../lib/useOutsideClick";
 import { SaveShortcutHint } from "./settings/SaveShortcutHint";
 import { BulletAfterBreakExtension, HashtagDecorationExtension, MarkdownNoIndentCodeExtension, buildListAwareMarkdown, useTiptapHashtagPicker, useTiptapEmojiPicker } from "../lib/tiptap-note";
 import { normalizeLegacyNoteBodyForTiptap } from "../lib/note-body-migration";
@@ -44,8 +44,8 @@ export function NoteInlineEditor({
   layout = "card",
   hideFolderPicker = false,
   saveOnOutsideClick = false,
+  outsideClickContainerRef,
   persistRecentFolderOnSave = false,
-  suppressToolbar = false,
   onSave,
   onCancel,
   onDelete,
@@ -60,8 +60,15 @@ export function NoteInlineEditor({
   layout?: "card" | "canvas";
   hideFolderPicker?: boolean;
   saveOnOutsideClick?: boolean;
+  // The "outside" a click has to land to count as dismissing/saving (see
+  // useOutsideClick below). Defaults to this component's own root, which is
+  // right when nothing wraps it, but a caller that renders its own padding
+  // or chrome around this editor (e.g. NotesScreen's row wrapper) needs
+  // "outside" to mean outside *that whole surface* — otherwise a click on
+  // the caller's own wrapper padding (visually still "the note") reads as
+  // an outside click and saves/closes on what looks like a normal click.
+  outsideClickContainerRef?: RefObject<HTMLElement | null>;
   persistRecentFolderOnSave?: boolean;
-  suppressToolbar?: boolean;
   onSave: (payload: { body: string; tags: string[]; hashtags: string[]; folderName?: string; folderId?: string }) => void;
   onCancel?: () => void;
   onDelete?: () => void;
@@ -238,17 +245,17 @@ export function NoteInlineEditor({
     }
   }, [note, resolvedInitialFolderName]);
 
-  const handleCanvasBlur = (event: React.FocusEvent<HTMLDivElement>) => {
-    if (!saveOnOutsideClick) return;
-    const relatedTarget = event.relatedTarget;
-    if (relatedTarget instanceof Node && rootRef.current?.contains(relatedTarget)) return;
-    if (relatedTarget instanceof Element && relatedTarget.closest("[data-omanote-ignore-outside-click='true']")) return;
-    commit();
-  };
+  // Click-based (not blur-based) so a click that lands on a non-focusable
+  // part of the editor's own chrome (padding, the folder-picker footer)
+  // doesn't get misread as "left the editor" — that click never moves focus
+  // anywhere, which used to leave `relatedTarget` null and made the old
+  // blur handler treat it as an outside click, closing and saving on what
+  // was really just a second click on the same note.
+  useOutsideClick(outsideClickContainerRef ?? rootRef, saveOnOutsideClick, commit);
 
   return (
     layout === "canvas" ? (
-      <div ref={rootRef} className="relative z-20" onBlur={handleCanvasBlur}>
+      <div ref={rootRef} className="relative z-20">
         <NoteCanvasEditor
           body={body}
           folderName={folderName}
@@ -260,14 +267,10 @@ export function NoteInlineEditor({
           onCommit={commit}
           onCancel={onCancel}
           hideFolderPicker={hideFolderPicker}
-          suppressToolbar={suppressToolbar}
         />
       </div>
     ) : (
       <div ref={rootRef} className="rounded-xl border border-app-line bg-app-surface">
-        <div className="border-b border-app-line bg-app-surface/95 px-3 py-2 backdrop-blur">
-          <TiptapRichTextToolbar editor={editor} className="flex-nowrap" />
-        </div>
         <div ref={editorWrapperRef} className="relative px-3 py-3">
           <EditorContent editor={editor} />
           <TiptapLinkPopover editor={editor} wrapperRef={editorWrapperRef} />

@@ -18,6 +18,7 @@ type UpdateContextValue = {
   modalVersions: VersionInfo[];
   extraUpdatesCount: number;
   hasUpdate: boolean;
+  isRunningLatest: boolean;
   isBannerVisible: boolean;
   isModalOpen: boolean;
   isTransitioningToModal: boolean;
@@ -50,7 +51,10 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
   // further reload would change, so there's nothing to notify about even if
   // this version was never explicitly marked "seen".
   const isRunningLatest = Boolean(latestVersion) && latestVersion!.version === bundledVersion.current;
-  const hasUpdate = unseenVersions.length > 0 && !isRunningLatest;
+  // Even when the running bundle already is the latest version, there's
+  // still a changelog the user hasn't seen — keep surfacing the notice, just
+  // without a "refresh" action that wouldn't do anything.
+  const hasUpdate = unseenVersions.length > 0;
   const extraUpdatesCount = Math.max(unseenVersions.length - 1, 0);
   const shouldShowBanner = hasUpdate || isTransitioningToModal;
   const isBannerVisible = Boolean(latestVersion) && !isBannerDismissed && shouldShowBanner && (!isModalOpen || isTransitioningToModal);
@@ -171,6 +175,7 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
         modalVersions,
         extraUpdatesCount,
         hasUpdate,
+        isRunningLatest,
         isBannerVisible,
         isModalOpen,
         isTransitioningToModal,

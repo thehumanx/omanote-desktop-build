@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type WheelEvent as ReactWheelEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type WheelEvent as ReactWheelEvent } from "react";
 import type { DateKey } from "@omanote/shared";
 import { cn } from "./ui";
 import { playWheelTick } from "../lib/wheel-tick-sound";
@@ -59,8 +59,10 @@ export function CanvasHistoryDateWheel({
   // When no fixed height is given, the wheel fills its parent via CSS
   // (`h-full`) and we measure the resulting pixel height ourselves — the
   // vertical-centering padding below needs an actual number, CSS alone can't
-  // express "half of my own height."
-  const [measuredHeight, setMeasuredHeight] = useState(DEFAULT_WHEEL_HEIGHT);
+  // express "half of my own height." `null` (rather than a default guess)
+  // until the first real ResizeObserver reading lands, so callers below can
+  // tell "not measured yet" apart from "genuinely this short."
+  const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
   useEffect(() => {
     if (fixedHeight !== undefined) return;
     const container = listRef.current;
@@ -73,10 +75,41 @@ export function CanvasHistoryDateWheel({
     return () => observer.disconnect();
   }, [fixedHeight]);
 
-  const height = fixedHeight ?? measuredHeight;
+  const isHeightReady = fixedHeight !== undefined || measuredHeight !== null;
+  const height = fixedHeight ?? measuredHeight ?? DEFAULT_WHEEL_HEIGHT;
+
+  // Once the wheel has a real (measured) height, jump the initially-selected
+  // date's row to center in one shot — no animation, since this is a layout
+  // correction, not a user-driven navigation. This runs exactly once per
+  // mount: without it, the wheel used to fall back to whatever row landed
+  // near center at scrollTop 0 using the placeholder height, and the
+  // scroll-tracking effect below would report that (wrong) row as selected;
+  // then the real height would arrive, the centering padding would recompute,
+  // and the list would visibly jump.
+  //
+  // `useLayoutEffect` (not `useEffect`) so the scroll happens before the
+  // browser paints the frame where the real height first lands — otherwise
+  // there's still a visible flash of the wrongly-positioned list for that
+  // one frame. `isReady` gates the list's visibility (below) so the very
+  // first paint — with the still-wrong placeholder padding — never renders
+  // at all; the list only becomes visible already centered.
+  const hasCenteredInitialSelectionRef = useRef(false);
+  const [isReady, setIsReady] = useState(false);
+  useLayoutEffect(() => {
+    if (hasCenteredInitialSelectionRef.current || !isHeightReady) return;
+    const row = rowRefs.current[selectedDateKey];
+    if (!row) return;
+    hasCenteredInitialSelectionRef.current = true;
+    row.scrollIntoView({ block: "center", behavior: "instant" });
+    setIsReady(true);
+  }, [isHeightReady, selectedDateKey]);
 
   // Tracks which row is nearest the wheel's vertical center as it scrolls,
-  // similar to a native mobile date-wheel picker.
+  // similar to a native mobile date-wheel picker. Only reacts to actual
+  // scroll events — it used to also run once eagerly on mount, but at that
+  // point the container's height (and therefore the centering padding) was
+  // still the placeholder value above, so it could report the wrong row as
+  // selected before the real height arrived.
   useEffect(() => {
     const container = listRef.current;
     if (!container) return;
@@ -109,7 +142,6 @@ export function CanvasHistoryDateWheel({
     };
 
     container.addEventListener("scroll", onScroll, { passive: true });
-    update();
     return () => {
       container.removeEventListener("scroll", onScroll);
       if (frame !== null) window.cancelAnimationFrame(frame);
@@ -191,6 +223,10 @@ export function CanvasHistoryDateWheel({
         scrollSnapType: "y mandatory",
         maskImage: FADE_MASK,
         WebkitMaskImage: FADE_MASK,
+        // Stays invisible (but still laid out/measurable/scrollable) until
+        // the initial centering above has run, so the wrongly-positioned
+        // placeholder-height layout is never actually shown.
+        visibility: isReady ? "visible" : "hidden",
       }}
     >
       <div style={{ paddingTop: halfHeightPadding, paddingBottom: halfHeightPadding }}>
@@ -207,7 +243,18 @@ export function CanvasHistoryDateWheel({
               role="option"
               aria-selected={isSelected}
               onClick={() => {
-                selectRow(dateKey);
+                // Activating a row (mobile: opens the drawer for that date)
+                // must land on the target immediately — a smooth scroll here
+                // would keep the scroll-tracking effect above reporting
+                // whatever row is passing through center as "selected" for
+                // the animation's duration, flickering the drawer's content
+                // through each intermediate date before settling. Note:
+                // "auto" would NOT do this — the container has CSS
+                // `scroll-behavior: smooth` (the `scroll-smooth` class
+                // below), and per spec `behavior: "auto"` defers to that
+                // CSS value rather than overriding it. Only "instant"
+                // actually bypasses it.
+                selectRow(dateKey, onActivateDateKey ? "instant" : "smooth");
                 onActivateDateKey?.(dateKey);
               }}
               style={{ height: ROW_HEIGHT, scrollSnapAlign: "center", scrollSnapStop: "always", contentVisibility: "auto" }}

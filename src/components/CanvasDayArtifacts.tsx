@@ -42,7 +42,14 @@ export function CanvasDayArtifacts({
   onEditBookmark,
 }: CanvasDayArtifactsProps) {
   return (
-    <div className="space-y-4">
+    // This is a direct flex-item child of a flex-col content pane on the
+    // History page (see CanvasScreen.tsx), which shares width with the date
+    // rail sidebar there — without min-w-0, flex items default to never
+    // shrinking below their content's natural width, so a note/todo
+    // containing a long unbroken run (a URL, a line of underscores from a
+    // pasted email) forces the whole column wider instead of wrapping. The
+    // regular Canvas page has enough width that this never gets exposed.
+    <div className="min-w-0 space-y-4">
       {items.map((item) => (
         <div key={`${item.kind}:${item.data.id}`}>
           {item.kind === "todo" ? (

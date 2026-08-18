@@ -11,7 +11,7 @@ export function LoginScreen() {
     <>
       <SeoHead
         title="Sign in to omanote"
-        description="Sign in to your omanote daily workspace to capture notes, todos, bookmarks, and events."
+        description="Sign in to your omanote daily canvas to capture notes, todos, bookmarks, and events."
         canonical="https://omanote.com/login"
       />
       <div className="public-page flex min-h-screen items-center justify-center bg-app-canvas px-4">
@@ -19,7 +19,7 @@ export function LoginScreen() {
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-app-ink-muted">omanote</p>
         <h1 className="mt-2 text-2xl font-black text-app-ink">Sign in to your canvas</h1>
         <p className="mt-2 text-sm leading-6 text-app-ink-muted">
-          Sign in with Google to continue to your workspace.
+          Sign in with Google to continue to your canvas.
         </p>
         <div className="mt-6 space-y-3">
           <SignInButton mode="modal" fallbackRedirectUrl={from}>
