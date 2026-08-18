@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
+import { VitePWA } from "vite-plugin-pwa";
 import { readFileSync, writeFileSync } from "fs";
 
 function versionJsonPlugin(): Plugin {
@@ -51,7 +52,24 @@ function versionJsonPlugin(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), versionJsonPlugin()],
+  plugins: [
+    react(),
+    versionJsonPlugin(),
+    VitePWA({
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.ts",
+      injectRegister: false,
+      manifest: false,
+      injectManifest: {
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,webmanifest,woff,woff2}"],
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+      },
+      devOptions: {
+        enabled: false,
+      },
+    }),
+  ],
   resolve: {
     dedupe: ["react", "react-dom"],
     alias: {

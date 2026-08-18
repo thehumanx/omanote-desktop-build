@@ -22,5 +22,6 @@
       "@omanote/shared/*": ["packages/shared/src/*"]
     }
   },
-  "include": ["src", "packages/shared/src", "vite.config.ts", "tailwind.config.ts", "vitest.config.ts"]
+  "include": ["src", "packages/shared/src", "vite.config.ts", "tailwind.config.ts", "vitest.config.ts"],
+  "exclude": ["src/sw.ts"]
 }
