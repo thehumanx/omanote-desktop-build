@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useDrawerDrag } from "../lib/useDrawerDrag";
-import { ArrowDown, ArrowUp, ArrowUpDown, Globe, GripHorizontal, LayoutGrid, LayoutList, Plus } from "lucide-react";
+import { useEdgeSwipeBack } from "../lib/useEdgeSwipeBack";
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, Globe, LayoutGrid, LayoutList, MoreHorizontal, Pencil, Plus, Share2, Trash2 } from "lucide-react";
 import type { BookmarkCategory, BookmarkItem } from "@omanote/shared";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
@@ -88,15 +88,11 @@ export function BookmarksScreen() {
   const navigate = useNavigate();
   const location = useLocation();
   const [creating, setCreating] = useState(false);
-  // Mobile uses the same floating composer sheet as every other artifact
-  // type; desktop keeps its own BookmarkEditorModal dialog.
-  const handleCreateBookmark = (isMobileDrawer: boolean) => {
-    if (isMobileDrawer) {
-      dispatch({ type: "ui/open-composer", mode: "bookmark" });
-    } else {
-      setCreating(true);
-    }
-    setMobileBookmarksOpen(false);
+  // Same BookmarkEditorModal on both desktop and mobile, scoped to the
+  // selected category via noteCategoryIdForCreate below — doesn't touch
+  // mobileBookmarksOpen, so the folder panel stays open underneath it.
+  const handleCreateBookmark = () => {
+    setCreating(true);
   };
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [renamingCategoryId, setRenamingCategoryId] = useState<string | null>(null);
@@ -141,6 +137,16 @@ export function BookmarksScreen() {
   );
   const updateShareSnapshot = useMutation(api.sharedFolders.updateShareSnapshot);
   const snapshotDebounceRef = useRef<number | null>(null);
+
+  // Mirrored globally so the "/" shortcut and nav "+" button (route
+  // siblings, not children, of this screen) can default a fresh composer
+  // draft into whichever category is currently open here.
+  useEffect(() => {
+    dispatch({ type: "ui/set-active-bookmark-category", categoryId: selectedCategoryId });
+    return () => {
+      dispatch({ type: "ui/set-active-bookmark-category", categoryId: null });
+    };
+  }, [dispatch, selectedCategoryId]);
 
   // Auto-sync shared folder snapshots whenever bookmarks or categories change.
   // Debounced 2 s so rapid edits only trigger one push.
@@ -202,7 +208,7 @@ export function BookmarksScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const { dragOffset, isDragging, dragHandleProps } = useDrawerDrag(() => setMobileBookmarksOpen(false));
+  const { dragOffset, isDragging, edgeSwipeProps } = useEdgeSwipeBack(() => setMobileBookmarksOpen(false));
 
   useOutsideClick(categorySortMenuRef, categorySortMenuOpen, () => setCategorySortMenuOpen(false));
   useOutsideClick(categoryMenuRef, Boolean(categoryMenuOpenId), () => setCategoryMenuOpenId(null));
@@ -559,13 +565,22 @@ export function BookmarksScreen() {
   useTopChrome(null);
 
   const renderBookmarksPanel = (isMobileDrawer = false) => (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex flex-col lg:hidden" {...dragHandleProps}>
-        <div className="flex items-center justify-center px-4 pt-3 pb-2">
-          <GripHorizontal className="h-5 w-5 text-app-line-strong" />
-        </div>
+    <div className="relative flex h-full min-h-0 flex-col">
+      <div className="flex flex-col pt-[env(safe-area-inset-top)] lg:hidden">
+        {/* Slim invisible hotzone: swiping right from here (not the whole
+            panel) dismisses it, so the rest of the panel keeps native
+            vertical scrolling. */}
+        <div aria-hidden="true" className="absolute inset-y-0 left-0 z-10 w-6" {...edgeSwipeProps} />
         {isMobileDrawer && drawerRenaming ? (
-          <div className="relative mb-3 flex items-center gap-2 border-b border-app-line px-4 pb-3">
+          <div className="relative mb-3 flex items-center gap-2 border-b border-app-line px-4 pb-3 pt-3">
+            <button
+              type="button"
+              aria-label="Back to folders"
+              onClick={() => setMobileBookmarksOpen(false)}
+              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
             <button
               ref={iconPickerAnchorRef}
               type="button"
@@ -593,8 +608,16 @@ export function BookmarksScreen() {
             ) : null}
           </div>
         ) : (
-          <div className="mb-3 flex items-center justify-between gap-2 border-b border-app-line px-4 pb-3">
-            <span className="flex min-w-0 items-center gap-1.5">
+          <div className="mb-3 flex items-center gap-2 border-b border-app-line px-4 pb-3 pt-3">
+            <button
+              type="button"
+              aria-label="Back to folders"
+              onClick={() => setMobileBookmarksOpen(false)}
+              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <span className="flex min-w-0 flex-1 items-center gap-1.5">
               {selectedCategory && managedCategoryIds.has(selectedCategory.id) ? (
                 <button
                   ref={drawerDirectIconButtonRef}
@@ -622,45 +645,77 @@ export function BookmarksScreen() {
               )}
             </span>
             {isMobileDrawer && selectedCategoryId && managedCategoryIds.has(selectedCategoryId) && selectedCategory ? (
-              <CategoryActionMenu
-                categoryId={selectedCategory.id}
-                categoryName={selectedCategory.name}
-                isOpen={drawerCategoryMenuOpen}
-                menuRef={drawerCategoryMenuOpen ? drawerCategoryMenuRef : undefined}
-                size="md"
-                alwaysVisible
-                isShared={sharedCategoryIdSet.has(selectedCategory.id)}
-                onToggle={() => setDrawerCategoryMenuOpen((c) => !c)}
-                onRename={() => {
-                  setRenamingCategoryId(selectedCategory.id);
-                  setNewCategoryName(selectedCategory.name);
-                  setEditingIcon(selectedCategory.icon);
-                  setNewCategoryError(null);
-                  setDrawerCategoryMenuOpen(false);
-                  setDrawerRenaming(true);
-                }}
-                onShare={() => {
-                  setShareFolderModal({ categoryId: selectedCategory.id, categoryName: selectedCategory.name, categoryIcon: selectedCategory.icon });
-                  setDrawerCategoryMenuOpen(false);
-                }}
-                onDelete={() => {
-                  setDeleteTarget({ id: selectedCategory.id, name: selectedCategory.name, count: selectedCategory.count });
-                  setDrawerCategoryMenuOpen(false);
-                }}
-              />
+              <div className="flex flex-shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  aria-label="Share category"
+                  onClick={() => setShareFolderModal({ categoryId: selectedCategory.id, categoryName: selectedCategory.name, categoryIcon: selectedCategory.icon })}
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
+                >
+                  <Share2 className="h-4 w-4" />
+                </button>
+                <div className="relative" ref={drawerCategoryMenuOpen ? drawerCategoryMenuRef : undefined}>
+                  <button
+                    type="button"
+                    aria-label="Category actions"
+                    aria-expanded={drawerCategoryMenuOpen}
+                    onClick={() => setDrawerCategoryMenuOpen((c) => !c)}
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </button>
+                  {drawerCategoryMenuOpen ? (
+                    <div
+                      role="menu"
+                      className="absolute right-0 top-full z-app-menu mt-1 w-44 rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setRenamingCategoryId(selectedCategory.id);
+                          setNewCategoryName(selectedCategory.name);
+                          setEditingIcon(selectedCategory.icon);
+                          setNewCategoryError(null);
+                          setDrawerCategoryMenuOpen(false);
+                          setDrawerRenaming(true);
+                        }}
+                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink"
+                      >
+                        <Pencil className="h-4 w-4" />
+                        Rename
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setDeleteTarget({ id: selectedCategory.id, name: selectedCategory.name, count: selectedCategory.count });
+                          setDrawerCategoryMenuOpen(false);
+                        }}
+                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-danger-ink transition hover:bg-danger-surface"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
             ) : null}
           </div>
         )}
       </div>
-      <div className={cn("mb-3 flex items-center justify-between gap-3 lg:px-0", isMobileDrawer && "px-4")}>
-        <button
-          type="button"
-          aria-label="Add bookmark"
-          onClick={() => handleCreateBookmark(isMobileDrawer)}
-          className="flex h-8 w-8 items-center justify-center rounded-md border border-app-line bg-app-surface text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-        >
-          <Plus className="h-4 w-4" />
-        </button>
+      <div className={cn("mb-3 flex items-center gap-3 lg:px-0", isMobileDrawer ? "justify-end px-4" : "justify-between")}>
+        {!isMobileDrawer ? (
+          <button
+            type="button"
+            aria-label="Add bookmark"
+            onClick={() => handleCreateBookmark()}
+            className="flex h-8 w-8 items-center justify-center rounded-md border border-app-line bg-app-surface text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        ) : null}
         <button
           type="button"
           aria-label="Sort bookmarks"
@@ -704,19 +759,30 @@ export function BookmarksScreen() {
           </div>
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 items-center justify-center">
-          <EmptyState
-            title={selectedCategoryId === null ? "No bookmarks yet" : `No bookmarks in ${selectedCategoryLabel}`}
-            description={
-              selectedCategoryId === null
-                ? "Save a link from the + composer or create a bookmark here."
-                : "Create a bookmark or move an existing one into this category."
-            }
-            actionLabel="Create bookmark"
-            onAction={() => handleCreateBookmark(isMobileDrawer)}
-          />
-        </div>
+        <EmptyState
+          className="h-full"
+          title={selectedCategoryId === null ? "No bookmarks yet" : `No bookmarks in ${selectedCategoryLabel}`}
+          description={
+            selectedCategoryId === null
+              ? "Save a link from the + composer or create a bookmark here."
+              : "Create a bookmark or move an existing one into this category."
+          }
+          actionLabel="Create bookmark"
+          onAction={() => handleCreateBookmark()}
+        />
       )}
+      {isMobileDrawer ? (
+        <div className="pointer-events-auto absolute bottom-4 left-1/2 -translate-x-1/2">
+          <button
+            type="button"
+            aria-label="Add bookmark"
+            onClick={() => handleCreateBookmark()}
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-app-line bg-app-surface p-0 text-app-ink-muted shadow-soft transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-app-surface-hover active:translate-y-px active:scale-[0.98]"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 
@@ -1057,11 +1123,11 @@ export function BookmarksScreen() {
         />
         <section
           className={cn(
-            "fixed inset-x-0 bottom-0 z-app-drawer flex max-h-[92dvh] min-h-0 flex-col rounded-t-2xl bg-app-surface shadow-app-drawer transform-gpu lg:hidden",
+            "fixed inset-0 z-app-drawer flex min-h-0 flex-col bg-app-surface shadow-app-drawer transform-gpu lg:hidden",
             isDragging ? "" : "transition-transform duration-app-drawer ease-app-drawer",
-            mobileBookmarksOpen ? "translate-y-0" : "pointer-events-none translate-y-full",
+            mobileBookmarksOpen ? "translate-x-0" : "pointer-events-none translate-x-full",
           )}
-          style={isDragging || dragOffset > 0 ? { transform: `translateY(${dragOffset}px)` } : undefined}
+          style={isDragging || dragOffset > 0 ? { transform: `translateX(${dragOffset}px)` } : undefined}
         >
           {renderBookmarksPanel(true)}
         </section>

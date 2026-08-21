@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toDateKey, type DateKey, type TodoFilter, type TodoFolder, type TodoItem } from "@omanote/shared";
-import { ArrowDown, ArrowUp, Calendar, CalendarClock, ClockAlert, GripHorizontal, LayoutGrid, LayoutList, ListChecks, MoreHorizontal, Pencil, Plus, Share2, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Calendar, CalendarClock, ChevronLeft, CircleCheck, ClockAlert, LayoutGrid, LayoutList, ListChecks, MoreHorizontal, Pencil, Plus, PartyPopper, Share2, Trash2 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -16,8 +16,8 @@ import { TodoEditorModal } from "../components/TodoEditorModal";
 import { TodoFolderCard, TodoFolderCountBadge, TodoFolderRow } from "../components/TodoFolderRow";
 import { TodoListRow } from "../components/TodoListRow";
 import { Button, cn, SegmentedPill } from "../components/ui";
-import { formatCompletedLabel, formatRelativeGroupHeading, getSeriesListBucket, isClosedSeriesMaster, type TodoListBucket } from "@omanote/shared";
-import { useDrawerDrag } from "../lib/useDrawerDrag";
+import { formatCompletedLabel, formatOverdueGroupHeading, formatRelativeGroupHeading, getSeriesListBucket, isClosedSeriesMaster } from "@omanote/shared";
+import { useEdgeSwipeBack } from "../lib/useEdgeSwipeBack";
 import { useMeasuredHighlight } from "../hooks/useMeasuredHighlight";
 import { parseHashtags } from "../lib/hashtags";
 import { useOutsideClick } from "../lib/useOutsideClick";
@@ -33,6 +33,18 @@ const todoViews: Array<{ key: TodoFilter; label: string; icon: ReactNode }> = [
   { key: "overdue", label: "Overdue", icon: <ClockAlert className="h-4 w-4" /> },
   { key: "upcoming", label: "Later", icon: <CalendarClock className="h-4 w-4" /> },
   { key: "all", label: "All", icon: <ListChecks className="h-4 w-4" /> },
+];
+
+// The desktop panel collapses today/overdue/upcoming into one "Active" view
+// (grouped internally by day) and "all" becomes "Done" (completed only).
+// This reuses state.ui.todoFilter as the underlying store — any non-"all"
+// value maps to "active" — so deep-links via focusFilterForTodo keep working
+// without touching the persisted TodoFilter contract shared with mobile.
+type DesktopTodoTab = "active" | "done";
+
+const desktopTodoViews: Array<{ key: DesktopTodoTab; label: string; icon: ReactNode }> = [
+  { key: "active", label: "Active", icon: <ListChecks className="h-4 w-4" /> },
+  { key: "done", label: "Done", icon: <CircleCheck className="h-4 w-4" /> },
 ];
 
 const TODO_COMPLETION_EXIT_MS = 360;
@@ -113,10 +125,10 @@ function TodoTabStrip({
   counts,
   onChange,
 }: {
-  views: typeof todoViews;
-  active: TodoFilter;
-  counts: Record<TodoFilter, number>;
-  onChange: (key: TodoFilter) => void;
+  views: typeof desktopTodoViews;
+  active: DesktopTodoTab;
+  counts: Record<DesktopTodoTab, number>;
+  onChange: (key: DesktopTodoTab) => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -248,6 +260,21 @@ function TodoSection({
   );
 }
 
+function TodoTodayEmptyCard({ onAdd }: { onAdd: () => void }) {
+  return (
+    <div className="flex flex-col items-start gap-2 rounded-xl border border-dashed border-app-line bg-app-surface-muted/40 px-4 py-4">
+      <p className="text-sm font-bold text-app-ink">Nothing due today</p>
+      <p className="text-sm text-app-ink-faint">Add something to your day, or enjoy the quiet.</p>
+      <Button tone="soft" className="mt-1 h-8 px-3 text-xs" onClick={onAdd}>
+        <span className="inline-flex items-center gap-1.5">
+          <Plus className="h-3.5 w-3.5" />
+          Add todo
+        </span>
+      </Button>
+    </div>
+  );
+}
+
 export function TodosScreen() {
   const { state, dispatch } = useApp();
   const location = useLocation();
@@ -298,8 +325,8 @@ export function TodosScreen() {
   const drawerFolderMenuRef = useRef<HTMLDivElement | null>(null);
   const drawerRenameInputRef = useRef<HTMLInputElement>(null);
   const drawerDirectIconButtonRef = useRef<HTMLButtonElement>(null);
-  const { dragOffset, isDragging, dragHandleProps } = useDrawerDrag(() => setMobileTodosOpen(false));
-  const [drawerFilter, setDrawerFilter] = useState<"pending" | "completed">("pending");
+  const { dragOffset, isDragging, edgeSwipeProps } = useEdgeSwipeBack(() => setMobileTodosOpen(false));
+  const [drawerFilter, setDrawerFilter] = useState<"active" | "done">("active");
   const [drawerMenuOpen, setDrawerMenuOpen] = useState(false);
   const drawerMenuRef = useRef<HTMLDivElement>(null);
   useOutsideClick(drawerMenuRef, drawerMenuOpen, () => setDrawerMenuOpen(false));
@@ -309,6 +336,16 @@ export function TodosScreen() {
     typeof (location.state as { focusTodoId?: unknown } | null)?.focusTodoId === "string"
       ? (location.state as { focusTodoId: string }).focusTodoId
       : null;
+
+  // Mirrored globally so the "/" shortcut and nav "+" button (route
+  // siblings, not children, of this screen) can default a fresh composer
+  // draft into whichever folder is currently open here.
+  useEffect(() => {
+    dispatch({ type: "ui/set-active-todo-folder", folderId: selectedFolderId });
+    return () => {
+      dispatch({ type: "ui/set-active-todo-folder", folderId: null });
+    };
+  }, [dispatch, selectedFolderId]);
 
   useLayoutEffect(() => {
     if (prevTodoFilterRef.current === state.ui.todoFilter) return;
@@ -391,8 +428,8 @@ export function TodosScreen() {
       const deltaY = touch.clientY - start.y;
       if (Math.abs(deltaX) < 56 || Math.abs(deltaX) <= Math.abs(deltaY)) return;
       setDrawerFilter((current) => {
-        if (deltaX < 0) return current === "pending" ? "completed" : "pending";
-        return current === "completed" ? "pending" : "completed";
+        if (deltaX < 0) return current === "active" ? "done" : "active";
+        return current === "done" ? "active" : "done";
       });
     };
     const drawerEl = document.querySelector('[data-drawer-todos-list]');
@@ -657,72 +694,6 @@ export function TodosScreen() {
     dispatch({ type: "todo/toggle", todoId: todo.id });
   };
 
-  const sortedTodos = useMemo(
-    () =>
-      [...folderTodos].sort((left, right) => {
-        const leftStatus = completionFilterByTodoId[left.id] ? "open" : uncompletionFilterByTodoId[left.id] ? "done" : left.status;
-        const rightStatus = completionFilterByTodoId[right.id] ? "open" : uncompletionFilterByTodoId[right.id] ? "done" : right.status;
-
-        if (leftStatus === "done" && rightStatus !== "done") return 1;
-        if (leftStatus !== "done" && rightStatus === "done") return -1;
-
-        const leftDate = toSortableDate(left.dueDateKey);
-        const rightDate = toSortableDate(right.dueDateKey);
-        if (leftDate !== rightDate) return leftDate - rightDate;
-
-        return right.createdAt - left.createdAt;
-      }),
-    [folderTodos, completionFilterByTodoId, uncompletionFilterByTodoId],
-  );
-
-  // Bucketing for the todo filters. Recurring series masters route through
-  // getSeriesListBucket (their dueDateKey tracks the current occurrence);
-  // closed/exhausted masters are hidden since their completion clone already
-  // represents them. Non-recurring todos keep the original date logic.
-  const matchesFilter = useCallback(
-    (todo: TodoItem, filter: TodoFilter): boolean => {
-      if (isClosedSeriesMaster(todo)) return false;
-      if (filter === "all") return true;
-      if (todo.recurrence) return getSeriesListBucket(todo, new Date()) === (filter as TodoListBucket);
-      switch (filter) {
-        case "today":
-          return todo.dueDateKey === todayKey;
-        case "overdue":
-          return Boolean(todo.dueDateKey && todo.dueDateKey < todayKey && todo.status !== "done");
-        case "upcoming":
-          return Boolean(todo.dueDateKey && todo.dueDateKey > todayKey && todo.status !== "done");
-        default:
-          return false;
-      }
-    },
-    [todayKey],
-  );
-
-  const viewCounts = useMemo(
-    () =>
-      ({
-        today: folderTodos.filter((todo) => matchesFilter(todo, "today")).length,
-        overdue: folderTodos.filter((todo) => matchesFilter(todo, "overdue")).length,
-        upcoming: folderTodos.filter((todo) => matchesFilter(todo, "upcoming")).length,
-        all: folderTodos.filter((todo) => matchesFilter(todo, "all")).length,
-      }) satisfies Record<TodoFilter, number>,
-    [folderTodos, matchesFilter],
-  );
-
-  const visibleTodos = useMemo(() => {
-    return sortedTodos.filter((todo) => {
-      if (state.ui.todoFilter !== "all" && completionFilterByTodoId[todo.id] === state.ui.todoFilter) {
-        return true;
-      }
-
-      if (uncompletionFilterByTodoId[todo.id] === state.ui.todoFilter) {
-        return true;
-      }
-
-      return matchesFilter(todo, state.ui.todoFilter);
-    });
-  }, [completionFilterByTodoId, sortedTodos, state.ui.todoFilter, matchesFilter, uncompletionFilterByTodoId]);
-
   const allFolderTodos = useMemo(() => {
     return [...folderTodos].sort((left, right) => {
       const leftStatus = completionFilterByTodoId[left.id] ? "open" : uncompletionFilterByTodoId[left.id] ? "done" : left.status;
@@ -757,36 +728,83 @@ export function TodosScreen() {
       .sort((left, right) => (right.completedAt ?? right.updatedAt) - (left.completedAt ?? left.updatedAt));
   }, [allFolderTodos, completionFilterByTodoId, uncompletionFilterByTodoId]);
 
-  const todaySections = useMemo(() => {
-    if (state.ui.todoFilter !== "today") return null;
+  // The Active tab always shows every open todo, bucketed by day: overdue
+  // groups first (oldest due date — most overdue — first), then today, then
+  // later groups (soonest first). Recurring series masters route through
+  // getSeriesListBucket, since their dueDateKey tracks the current occurrence
+  // and "overdue" depends on time-of-day, not just date.
+  const activeBuckets = useMemo(() => {
+    const overdueGroups = new Map<string, TodoItem[]>();
+    const laterGroups = new Map<string, TodoItem[]>();
+    const todayItems: TodoItem[] = [];
+
+    for (const todo of drawerPendingTodos) {
+      const seriesBucket = todo.recurrence ? getSeriesListBucket(todo, new Date()) : null;
+      const dateKey = todo.dueDateKey ?? todo.createdDateKey;
+      const isOverdue = seriesBucket ? seriesBucket === "overdue" : Boolean(todo.dueDateKey && todo.dueDateKey < todayKey);
+      const isToday = seriesBucket ? seriesBucket === "today" : todo.dueDateKey === todayKey;
+
+      if (isOverdue) {
+        const next = overdueGroups.get(dateKey) ?? [];
+        next.push(todo);
+        overdueGroups.set(dateKey, next);
+      } else if (isToday) {
+        todayItems.push(todo);
+      } else {
+        const next = laterGroups.get(dateKey) ?? [];
+        next.push(todo);
+        laterGroups.set(dateKey, next);
+      }
+    }
+
+    const toGroups = (groups: Map<string, TodoItem[]>, order: "asc" | "desc") =>
+      [...groups.entries()]
+        .sort((left, right) => (order === "asc" ? left[0].localeCompare(right[0]) : right[0].localeCompare(left[0])))
+        .map(([dateKey, items]) => ({
+          dateKey,
+          items: [...items].sort((left, right) => right.createdAt - left.createdAt),
+        }));
+
     return {
-      pending: visibleTodos.filter((todo) => (todo.status !== "done" || completionFilterByTodoId[todo.id] === "today") && uncompletionFilterByTodoId[todo.id] !== "today"),
-      completed: visibleTodos.filter((todo) => (todo.status === "done" && completionFilterByTodoId[todo.id] !== "today") || uncompletionFilterByTodoId[todo.id] === "today"),
+      // Reverse chronological, matching the old "Overdue" tab's convention.
+      overdue: toGroups(overdueGroups, "desc"),
+      today: [...todayItems].sort((left, right) => right.createdAt - left.createdAt),
+      later: toGroups(laterGroups, "asc"),
     };
-  }, [completionFilterByTodoId, state.ui.todoFilter, uncompletionFilterByTodoId, visibleTodos]);
+  }, [drawerPendingTodos, todayKey]);
 
-  const groupedTodos = useMemo(() => {
-    if (state.ui.todoFilter === "today") return [];
+  // Closed/exhausted recurring masters (status "done") already have their
+  // final occurrence represented by a completion clone, so they're hidden
+  // from Done rather than shown as a second, stale entry.
+  const desktopCompletedTodos = useMemo(
+    () => drawerCompletedTodos.filter((todo) => !isClosedSeriesMaster(todo)),
+    [drawerCompletedTodos],
+  );
 
+  const doneGroups = useMemo(() => {
     const groups = new Map<string, TodoItem[]>();
-    for (const todo of visibleTodos) {
+    for (const todo of desktopCompletedTodos) {
       const dateKey = todo.dueDateKey ?? todo.createdDateKey;
       const next = groups.get(dateKey) ?? [];
       next.push(todo);
       groups.set(dateKey, next);
     }
-
     return [...groups.entries()]
-      .sort((left, right) =>
-        state.ui.todoFilter === "upcoming"
-          ? left[0].localeCompare(right[0])
-          : right[0].localeCompare(left[0]),
-      )
+      .sort((left, right) => right[0].localeCompare(left[0]))
       .map(([dateKey, items]) => ({
         dateKey,
-        items: [...items].sort((left, right) => right.createdAt - left.createdAt),
+        items: [...items].sort((left, right) => (right.completedAt ?? right.updatedAt) - (left.completedAt ?? left.updatedAt)),
       }));
-  }, [state.ui.todoFilter, visibleTodos]);
+  }, [desktopCompletedTodos]);
+
+  // Active/Done stays backed by state.ui.todoFilter ("all" == Done, anything
+  // else == Active) so focusFilterForTodo deep-links and the exit-fade
+  // bookkeeping in handleToggleTodo (keyed off the same value) keep working.
+  const desktopTab: DesktopTodoTab = state.ui.todoFilter === "all" ? "done" : "active";
+  const desktopTabCounts: Record<DesktopTodoTab, number> = {
+    active: drawerPendingTodos.length,
+    done: desktopCompletedTodos.length,
+  };
 
   useEffect(() => {
     if (!focusTodoId) return;
@@ -810,9 +828,7 @@ export function TodosScreen() {
       window.clearTimeout(highlightTimeout);
       window.clearTimeout(scrollTimeout);
     };
-  }, [focusedTodoId, groupedTodos, todaySections, visibleTodos]);
-
-  const selectedView = todoViews.find((view) => view.key === state.ui.todoFilter) ?? todoViews[0];
+  }, [focusedTodoId, activeBuckets, doneGroups]);
 
   const noop = useCallback(() => {}, []);
 
@@ -1138,10 +1154,10 @@ export function TodosScreen() {
               </button>
               <div className="scrollbar-hide -mx-app-compact overflow-x-auto px-app-compact">
                 <TodoTabStrip
-                  views={todoViews}
-                  active={state.ui.todoFilter}
-                  counts={viewCounts}
-                  onChange={(key) => dispatch({ type: "ui/set-todo-filter", filter: key })}
+                  views={desktopTodoViews}
+                  active={desktopTab}
+                  counts={desktopTabCounts}
+                  onChange={(key) => dispatch({ type: "ui/set-todo-filter", filter: key === "done" ? "all" : "today" })}
                 />
               </div>
             </div>
@@ -1156,39 +1172,45 @@ export function TodosScreen() {
                 }}
                 onAnimationEnd={() => setTodoViewFading(false)}
               >
-              {visibleTodos.length ? (
-                state.ui.todoFilter === "today" && todaySections ? (
+              {desktopTab === "active" ? (
+                drawerPendingTodos.length ? (
                   <div data-testid="todo-section-stack" className="omanote-todo-section-stack">
-                    <TodoSection
-                      items={todaySections.pending}
-                      focusedTodoId={focusedTodoId}
-                      completionFilterByTodoId={completionFilterByTodoId}
-                      uncompletionFilterByTodoId={uncompletionFilterByTodoId}
-                      uncompletionCompletedLabelByTodoId={uncompletionCompletedLabelByTodoId}
-                      activeFilter={state.ui.todoFilter}
-                      selectedDateKey={todayKey}
-                      onToggle={handleToggleTodo}
-                      dispatch={dispatch}
-                      onOpenEditor={(todo) => setEditingModalTodoId(todo.id)}
-                    />
-                    <TodoSection
-                      items={todaySections.completed}
-                      focusedTodoId={focusedTodoId}
-                      completionFilterByTodoId={completionFilterByTodoId}
-                      uncompletionFilterByTodoId={uncompletionFilterByTodoId}
-                      uncompletionCompletedLabelByTodoId={uncompletionCompletedLabelByTodoId}
-                      activeFilter={state.ui.todoFilter}
-                      selectedDateKey={todayKey}
-                      onToggle={handleToggleTodo}
-                      dispatch={dispatch}
-                      onOpenEditor={(todo) => setEditingModalTodoId(todo.id)}
-                    />
-                  </div>
-                ) : (
-                  <div data-testid="todo-section-stack" className="omanote-todo-section-stack">
-                    {groupedTodos.map((group) => (
+                    {activeBuckets.overdue.map((group) => (
                       <TodoSection
-                        key={group.dateKey}
+                        key={`overdue-${group.dateKey}`}
+                        title={formatOverdueGroupHeading(group.dateKey)}
+                        items={group.items}
+                        focusedTodoId={focusedTodoId}
+                        completionFilterByTodoId={completionFilterByTodoId}
+                        uncompletionFilterByTodoId={uncompletionFilterByTodoId}
+                        uncompletionCompletedLabelByTodoId={uncompletionCompletedLabelByTodoId}
+                        activeFilter={state.ui.todoFilter}
+                        selectedDateKey={state.ui.selectedDateKey}
+                        onToggle={handleToggleTodo}
+                        dispatch={dispatch}
+                        onOpenEditor={(todo) => setEditingModalTodoId(todo.id)}
+                      />
+                    ))}
+                    {activeBuckets.today.length ? (
+                      <TodoSection
+                        title="Today"
+                        items={activeBuckets.today}
+                        focusedTodoId={focusedTodoId}
+                        completionFilterByTodoId={completionFilterByTodoId}
+                        uncompletionFilterByTodoId={uncompletionFilterByTodoId}
+                        uncompletionCompletedLabelByTodoId={uncompletionCompletedLabelByTodoId}
+                        activeFilter={state.ui.todoFilter}
+                        selectedDateKey={todayKey}
+                        onToggle={handleToggleTodo}
+                        dispatch={dispatch}
+                        onOpenEditor={(todo) => setEditingModalTodoId(todo.id)}
+                      />
+                    ) : (
+                      <TodoTodayEmptyCard onAdd={() => setCreating(true)} />
+                    )}
+                    {activeBuckets.later.map((group) => (
+                      <TodoSection
+                        key={`later-${group.dateKey}`}
                         title={formatRelativeGroupHeading(group.dateKey)}
                         items={group.items}
                         focusedTodoId={focusedTodoId}
@@ -1203,25 +1225,38 @@ export function TodosScreen() {
                       />
                     ))}
                   </div>
-                )
-              ) : (
-                <div className="flex min-h-full items-center justify-center">
+                ) : (
                   <EmptyState
-                    title={selectedView.key === "all" ? "No todos yet" : `No ${selectedView.label.toLowerCase()} todos`}
-                    description={
-                      selectedView.key === "today"
-                        ? "Nothing is scheduled for today yet."
-                        : selectedView.key === "overdue"
-                          ? "Your overdue lane is clear."
-                          : selectedView.key === "upcoming"
-                            ? "Nothing scheduled for later yet."
-                            : "Add a todo to get started."
-                    }
-                    actionLabel={selectedView.key === "today" || selectedView.key === "all" ? "Add todo" : undefined}
-                    actionIcon={selectedView.key === "today" || selectedView.key === "all" ? <Plus className="h-4 w-4" /> : undefined}
-                    onAction={selectedView.key === "today" || selectedView.key === "all" ? () => setCreating(true) : undefined}
+                    className="h-full"
+                    icon={<PartyPopper className="h-8 w-8" />}
+                    title="Done and dusted!"
+                    description="Nothing pending right now — enjoy the calm, or add something new for later."
+                    actionLabel="Add todo"
+                    actionIcon={<Plus className="h-4 w-4" />}
+                    onAction={() => setCreating(true)}
                   />
+                )
+              ) : desktopCompletedTodos.length ? (
+                <div data-testid="todo-section-stack" className="omanote-todo-section-stack">
+                  {doneGroups.map((group) => (
+                    <TodoSection
+                      key={group.dateKey}
+                      title={formatRelativeGroupHeading(group.dateKey)}
+                      items={group.items}
+                      focusedTodoId={focusedTodoId}
+                      completionFilterByTodoId={completionFilterByTodoId}
+                      uncompletionFilterByTodoId={uncompletionFilterByTodoId}
+                      uncompletionCompletedLabelByTodoId={uncompletionCompletedLabelByTodoId}
+                      activeFilter={state.ui.todoFilter}
+                      selectedDateKey={state.ui.selectedDateKey}
+                      onToggle={handleToggleTodo}
+                      dispatch={dispatch}
+                      onOpenEditor={(todo) => setEditingModalTodoId(todo.id)}
+                    />
+                  ))}
                 </div>
+              ) : (
+                <EmptyState className="h-full" title="No completed todos" description="Complete a todo to see it here" />
               )}
               </div>
             </div>
@@ -1240,19 +1275,28 @@ export function TodosScreen() {
         />
         <section
           className={cn(
-            "fixed inset-x-0 bottom-0 z-app-drawer flex max-h-[92dvh] min-h-0 flex-col rounded-t-2xl bg-app-surface shadow-app-drawer transform-gpu lg:hidden",
+            "fixed inset-0 z-app-drawer flex min-h-0 flex-col bg-app-surface shadow-app-drawer transform-gpu lg:hidden",
             isDragging ? "" : "transition-transform duration-app-drawer ease-app-drawer",
-            mobileTodosOpen ? "translate-y-0" : "pointer-events-none translate-y-full",
+            mobileTodosOpen ? "translate-x-0" : "pointer-events-none translate-x-full",
           )}
-          style={isDragging || dragOffset > 0 ? { transform: `translateY(${dragOffset}px)` } : undefined}
+          style={isDragging || dragOffset > 0 ? { transform: `translateX(${dragOffset}px)` } : undefined}
         >
           {mobileTodosOpen ? (
             <div className="relative flex h-full min-h-0 flex-col">
-              <div className="flex flex-col" {...dragHandleProps}>
-                <div className="flex items-center justify-center px-4 pt-3 pb-2">
-                  <GripHorizontal className="h-5 w-5 text-app-line-strong" />
-                </div>
-                <div className="mb-3 flex items-center justify-between gap-2 border-b border-app-line px-4 pb-3">
+              {/* Slim invisible hotzone: swiping right from here (not the whole
+                  panel) dismisses it, so the rest of the panel keeps native
+                  vertical scrolling. */}
+              <div aria-hidden="true" className="absolute inset-y-0 left-0 z-10 w-6" {...edgeSwipeProps} />
+              <div className="flex flex-col pt-[env(safe-area-inset-top)]">
+                <div className="mb-3 flex items-center gap-2 border-b border-app-line px-4 pb-3 pt-3">
+                  <button
+                    type="button"
+                    aria-label="Back to folders"
+                    onClick={() => setMobileTodosOpen(false)}
+                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
                   {drawerRenaming ? (
                     <div className="flex min-w-0 flex-1 items-center gap-2">
                       <button
@@ -1296,7 +1340,7 @@ export function TodosScreen() {
                     </div>
                   ) : (
                     <>
-                      <div className="flex min-w-0 items-center gap-2">
+                      <div className="flex min-w-0 flex-1 items-center gap-2">
                         {(() => {
                           const folder = effectiveTodoFolders.find((f) => f.id === selectedFolderId);
                           const isManaged = folder && folder.id !== "__others__";
@@ -1336,63 +1380,61 @@ export function TodosScreen() {
                         const isManaged = folder && folder.id !== "__others__";
                         if (!isManaged) return null;
                         return (
-                          <div className="relative flex-shrink-0" ref={drawerMenuRef}>
+                          <div className="flex flex-shrink-0 items-center gap-1">
                             <button
                               type="button"
-                              aria-label="Folder actions"
-                              aria-expanded={drawerMenuOpen}
-                              onClick={() => setDrawerMenuOpen((c) => !c)}
+                              aria-label="Share folder"
+                              onClick={() => setShareFolderModal({ folderId: folder.id, folderName: folder.name, folderIcon: folder.icon })}
                               className="flex h-7 w-7 items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
                             >
-                              <MoreHorizontal className="h-4 w-4" />
+                              <Share2 className="h-4 w-4" />
                             </button>
-                            {drawerMenuOpen ? (
-                              <div
-                                role="menu"
-                                className="absolute right-0 top-full z-app-menu mt-1 w-44 rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
+                            <div className="relative" ref={drawerMenuRef}>
+                              <button
+                                type="button"
+                                aria-label="Folder actions"
+                                aria-expanded={drawerMenuOpen}
+                                onClick={() => setDrawerMenuOpen((c) => !c)}
+                                className="flex h-7 w-7 items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
                               >
-                                <button
-                                  type="button"
-                                  role="menuitem"
-                                  onClick={() => {
-                                    setRenamingFolderId(folder.id);
-                                    setNewFolderName(folder.name);
-                                    setEditingIcon(folder.icon);
-                                    setNewFolderError(null);
-                                    setDrawerMenuOpen(false);
-                                    setDrawerRenaming(true);
-                                  }}
-                                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink"
+                                <MoreHorizontal className="h-4 w-4" />
+                              </button>
+                              {drawerMenuOpen ? (
+                                <div
+                                  role="menu"
+                                  className="absolute right-0 top-full z-app-menu mt-1 w-44 rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
                                 >
-                                  <Pencil className="h-4 w-4" />
-                                  Edit
-                                </button>
-                                <button
-                                  type="button"
-                                  role="menuitem"
-                                  onClick={() => {
-                                      setShareFolderModal({ folderId: folder.id, folderName: folder.name, folderIcon: folder.icon });
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                      setRenamingFolderId(folder.id);
+                                      setNewFolderName(folder.name);
+                                      setEditingIcon(folder.icon);
+                                      setNewFolderError(null);
                                       setDrawerMenuOpen(false);
-                                  }}
-                                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink"
-                                >
-                                  <Share2 className="h-4 w-4" />
-                                  Share
-                                </button>
-                                <button
-                                  type="button"
-                                  role="menuitem"
-                                  onClick={() => {
-                                    setDeleteTarget({ id: folder.id, name: folder.name, count: folderCounts.get(folder.id) ?? 0 });
-                                    setDrawerMenuOpen(false);
-                                  }}
-                                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-danger-ink transition hover:bg-danger-surface"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                  Delete
-                                </button>
-                              </div>
-                            ) : null}
+                                      setDrawerRenaming(true);
+                                    }}
+                                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink"
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                    Rename
+                                  </button>
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                      setDeleteTarget({ id: folder.id, name: folder.name, count: folderCounts.get(folder.id) ?? 0 });
+                                      setDrawerMenuOpen(false);
+                                    }}
+                                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-danger-ink transition hover:bg-danger-surface"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                    Delete
+                                  </button>
+                                </div>
+                              ) : null}
+                            </div>
                           </div>
                         );
                       })()}
@@ -1400,86 +1442,116 @@ export function TodosScreen() {
                   )}
                 </div>
               </div>
-              <div className="flex items-center justify-start px-4">
-                <button
-                  type="button"
-                  aria-label="Add todo"
-                  onClick={() => setCreating(true)}
-                  className="flex h-8 w-8 flex-none items-center justify-center rounded-md border border-app-line bg-app-surface text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              </div>
               <div className="mt-4 min-h-0 flex-1 overflow-y-auto px-4 pb-16" data-drawer-todos-list>
-                {drawerFilter === "pending" ? (
+                {drawerFilter === "active" ? (
                   drawerPendingTodos.length ? (
-                    drawerPendingTodos.map((todo) => (
-                      <TodoListRow
-                        key={todo.id}
-                        todo={todo}
-                        canvasDateKey={state.ui.selectedDateKey}
-                        onToggle={() => handleToggleTodo(todo)}
-                        onDelete={(todoId) => dispatch({ type: "todo/delete", todoId })}
-                        onSaveEdit={(todoId, payload) => {
-                          dispatch({
-                            type: "todo/update",
-                            todoId,
-                            title: payload.title,
-                            dueDateKey: payload.dueDateKey as DateKey | undefined,
-                            dueTime: payload.dueTime,
-                          });
-                        }}
-                        onOpenEditor={(t) => setEditingModalTodoId(t.id)}
-                      />
-                    ))
+                    <div data-testid="todo-section-stack" className="omanote-todo-section-stack">
+                      {activeBuckets.overdue.map((group) => (
+                        <TodoSection
+                          key={`overdue-${group.dateKey}`}
+                          title={formatOverdueGroupHeading(group.dateKey)}
+                          items={group.items}
+                          focusedTodoId={focusedTodoId}
+                          completionFilterByTodoId={completionFilterByTodoId}
+                          uncompletionFilterByTodoId={uncompletionFilterByTodoId}
+                          uncompletionCompletedLabelByTodoId={uncompletionCompletedLabelByTodoId}
+                          activeFilter={state.ui.todoFilter}
+                          selectedDateKey={state.ui.selectedDateKey}
+                          onToggle={handleToggleTodo}
+                          dispatch={dispatch}
+                          onOpenEditor={(t) => setEditingModalTodoId(t.id)}
+                        />
+                      ))}
+                      {activeBuckets.today.length ? (
+                        <TodoSection
+                          title="Today"
+                          items={activeBuckets.today}
+                          focusedTodoId={focusedTodoId}
+                          completionFilterByTodoId={completionFilterByTodoId}
+                          uncompletionFilterByTodoId={uncompletionFilterByTodoId}
+                          uncompletionCompletedLabelByTodoId={uncompletionCompletedLabelByTodoId}
+                          activeFilter={state.ui.todoFilter}
+                          selectedDateKey={todayKey}
+                          onToggle={handleToggleTodo}
+                          dispatch={dispatch}
+                          onOpenEditor={(t) => setEditingModalTodoId(t.id)}
+                        />
+                      ) : (
+                        <TodoTodayEmptyCard onAdd={() => setCreating(true)} />
+                      )}
+                      {activeBuckets.later.map((group) => (
+                        <TodoSection
+                          key={`later-${group.dateKey}`}
+                          title={formatRelativeGroupHeading(group.dateKey)}
+                          items={group.items}
+                          focusedTodoId={focusedTodoId}
+                          completionFilterByTodoId={completionFilterByTodoId}
+                          uncompletionFilterByTodoId={uncompletionFilterByTodoId}
+                          uncompletionCompletedLabelByTodoId={uncompletionCompletedLabelByTodoId}
+                          activeFilter={state.ui.todoFilter}
+                          selectedDateKey={state.ui.selectedDateKey}
+                          onToggle={handleToggleTodo}
+                          dispatch={dispatch}
+                          onOpenEditor={(t) => setEditingModalTodoId(t.id)}
+                        />
+                      ))}
+                    </div>
                   ) : (
                     <EmptyState
-                      title="No pending todos"
-                      description="All done! Create a new todo to get started"
+                      className="h-full"
+                      icon={<PartyPopper className="h-8 w-8" />}
+                      title="Done and dusted!"
+                      description="Nothing pending right now — enjoy the calm, or add something new for later."
                       actionLabel="Add todo"
                       actionIcon={<Plus className="h-4 w-4" />}
                       onAction={() => setCreating(true)}
                     />
                   )
-                ) : (
-                  drawerCompletedTodos.length ? (
-                    drawerCompletedTodos.map((todo) => (
-                      <TodoListRow
-                        key={todo.id}
-                        todo={todo}
-                        canvasDateKey={state.ui.selectedDateKey}
-                        onToggle={() => handleToggleTodo(todo)}
-                        onDelete={(todoId) => dispatch({ type: "todo/delete", todoId })}
-                        onSaveEdit={(todoId, payload) => {
-                          dispatch({
-                            type: "todo/update",
-                            todoId,
-                            title: payload.title,
-                            dueDateKey: payload.dueDateKey as DateKey | undefined,
-                            dueTime: payload.dueTime,
-                          });
-                        }}
+                ) : desktopCompletedTodos.length ? (
+                  <div data-testid="todo-section-stack" className="omanote-todo-section-stack">
+                    {doneGroups.map((group) => (
+                      <TodoSection
+                        key={group.dateKey}
+                        title={formatRelativeGroupHeading(group.dateKey)}
+                        items={group.items}
+                        focusedTodoId={focusedTodoId}
+                        completionFilterByTodoId={completionFilterByTodoId}
+                        uncompletionFilterByTodoId={uncompletionFilterByTodoId}
+                        uncompletionCompletedLabelByTodoId={uncompletionCompletedLabelByTodoId}
+                        activeFilter={state.ui.todoFilter}
+                        selectedDateKey={state.ui.selectedDateKey}
+                        onToggle={handleToggleTodo}
+                        dispatch={dispatch}
                         onOpenEditor={(t) => setEditingModalTodoId(t.id)}
                       />
-                    ))
-                  ) : (
-                    <EmptyState
-                      title="No completed todos"
-                      description="Complete a todo to see it here"
-                    />
-                  )
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState
+                    className="h-full"
+                    title="No completed todos"
+                    description="Complete a todo to see it here"
+                  />
                 )}
               </div>
-              <div className="pointer-events-auto absolute bottom-4 left-1/2 -translate-x-1/2">
+              <div className="pointer-events-auto absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2">
                 <SegmentedPill
-                  ariaLabel="Pending or completed"
+                  ariaLabel="Active or done"
                   activeKey={drawerFilter}
-                  onChange={(key) => setDrawerFilter(key as "pending" | "completed")}
+                  onChange={(key) => setDrawerFilter(key as "active" | "done")}
                   items={[
-                    { key: "pending", label: "Pending", count: drawerPendingTodos.length },
-                    { key: "completed", label: "Completed", count: drawerCompletedTodos.length },
+                    { key: "active", label: "Active", count: drawerPendingTodos.length },
+                    { key: "done", label: "Done", count: desktopCompletedTodos.length },
                   ]}
                 />
+                <button
+                  type="button"
+                  aria-label="Add todo"
+                  onClick={() => setCreating(true)}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-app-line bg-app-surface p-0 text-app-ink-muted shadow-soft transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-app-surface-hover active:translate-y-px active:scale-[0.98]"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
               </div>
             </div>
           ) : null}

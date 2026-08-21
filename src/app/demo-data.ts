@@ -19,6 +19,9 @@ export function createInitialState(): AppState {
       composerOpen: false,
       composerMode: "note",
       composerOpenToken: 0,
+      activeNoteFolderName: null,
+      activeTodoFolderId: null,
+      activeBookmarkCategoryId: null,
     },
     todos: [
       {

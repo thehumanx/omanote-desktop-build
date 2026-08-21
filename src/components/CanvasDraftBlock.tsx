@@ -226,10 +226,15 @@ export type CanvasDraftBlockProps = {
   // would look like an outside click and dismiss the draft before the
   // button's own onClick ever runs.
   outsideClickContainerRef?: RefObject<HTMLElement | null>;
+  // Suppresses note mode's own built-in mobile Cancel/Save row — for callers
+  // (like ComposerSheet) that render their own header with those same
+  // actions (DrawerHeaderRow) and would otherwise show both. Callers with no
+  // header of their own (e.g. ComposerPopoutScreen) must leave this false.
+  hideMobileActions?: boolean;
 };
 
 export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBlockProps>(function CanvasDraftBlock(
-  { embedded = false, onDone, onCanSaveChange, onModeChange, requestedMode, requestToken, outsideClickContainerRef },
+  { embedded = false, onDone, onCanSaveChange, onModeChange, requestedMode, requestToken, outsideClickContainerRef, hideMobileActions = false },
   ref,
 ) {
   const { state, dispatch } = useApp();
@@ -257,6 +262,23 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
     if (requestedMode === undefined) return;
     const nextMode = hasAnyDraftContent ? mode : requestedMode;
     setMode(nextMode);
+    // A fresh (no existing content) draft defaults into whichever folder the
+    // screen behind the composer currently has open — mirrored into
+    // state.ui by that screen (see NotesScreen/TodosScreen/BookmarksScreen's
+    // "ui/set-active-*" effects) since these screens are route siblings of
+    // this composer, not parents. Never applies when hasAnyDraftContent —
+    // an in-progress draft's own folder choice always wins.
+    if (!hasAnyDraftContent) {
+      if (nextMode === "note" && state.ui.activeNoteFolderName) {
+        setNoteFolderValue(state.ui.activeNoteFolderName);
+      } else if (nextMode === "todo" && state.ui.activeTodoFolderId) {
+        const folder = state.todoFolders.find((f) => f.id === state.ui.activeTodoFolderId);
+        if (folder) setTodoFolderValue(folder.name);
+      } else if (nextMode === "bookmark" && state.ui.activeBookmarkCategoryId) {
+        const category = state.bookmarkCategories.find((c) => c.id === state.ui.activeBookmarkCategoryId);
+        if (category) setBookmarkCategoryValue(category.name);
+      }
+    }
     // The sheet mounts (with a real requestToken/requestedMode already set)
     // long before it's ever opened — don't steal focus on that first run,
     // only on genuine reopens (the "+" button / the "/" shortcut).
@@ -1905,6 +1927,7 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                 });
               }}
               onCancel={embedded ? dismissDraft : resetNoteDraft}
+              hideMobileActions={hideMobileActions}
             />
             {showPicker ? (
               <div

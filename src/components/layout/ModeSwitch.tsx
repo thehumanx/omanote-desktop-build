@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { BookOpen, PenLine } from "lucide-react";
 import { readLocalStorageOptional, stringCodec, writeLocalStorage } from "../../lib/local-storage";
-import { SegmentedHighlight, SegmentedItem, SegmentedShell } from "../ui";
+import { SegmentedHighlight, SegmentedItem, SegmentedPill, SegmentedShell } from "../ui";
 import { useMeasuredHighlight } from "../../hooks/useMeasuredHighlight";
 
 const LAST_WRITE_PATH_KEY = "omanote.lastWritePath";
@@ -53,11 +53,23 @@ function readStoredMode(): Mode {
   return readStoredPath(LAST_MODE_KEY) === "read" ? "read" : "write";
 }
 
-// The Write/Read rail: the app's two sides. Write is the existing omanote
+// The Write/Read switch: the app's two sides. Write is the existing omanote
 // (canvas, todos, notes, bookmarks, events, explore, search); Read is the RSS
-// reader (feed + saved). Navigation-based so back/refresh work. Icon-only,
-// expands on hover to reveal labels.
-export function ModeSwitch({ showReadOption = true }: { showReadOption?: boolean }) {
+// reader (feed + saved). Navigation-based so back/refresh work.
+//
+// Two variants, both sharing the same nav/state logic above:
+// - "rail": desktop's floating left-edge column, icon-only, expands on hover
+//   to reveal labels.
+// - "compact": mobile's inline top-bar pill — a plain icon-only SegmentedPill
+//   (same shape as the Active/Done todo pill), no hover-expand since touch
+//   has no hover state.
+export function ModeSwitch({
+  showReadOption = true,
+  variant = "rail",
+}: {
+  showReadOption?: boolean;
+  variant?: "compact" | "rail";
+}) {
   const location = useLocation();
   const navigate = useNavigate();
   const path = location.pathname;
@@ -105,18 +117,34 @@ export function ModeSwitch({ showReadOption = true }: { showReadOption?: boolean
   const itemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   // ResizeObserver (observeResize defaults to true) watches the container and
   // every item, so the highlight re-measures itself as items grow on hover —
-  // no need to track hover state in React for that part.
+  // no need to track hover state in React for that part. Only relevant to the
+  // "rail" variant below; "compact" uses SegmentedPill's own highlight.
   const highlightStyle = useMeasuredHighlight({
     activeKey: activeMode,
     containerRef,
     itemRefs,
   });
 
+  if (variant === "compact") {
+    return (
+      <SegmentedPill
+        ariaLabel="Write or read mode"
+        activeKey={activeMode}
+        onChange={(key) => switchTo(key)}
+        items={items.map(({ key, label, Icon }) => ({
+          key,
+          icon: <Icon className="h-3.5 w-3.5" />,
+          ariaLabel: label,
+        }))}
+      />
+    );
+  }
+
   return (
     <SegmentedShell
       ref={containerRef}
       aria-label="Write or read mode"
-      className="group w-fit flex-row items-stretch gap-1 overflow-visible rounded-[24px] p-1.5 shadow-nav md:flex-col"
+      className="group w-fit flex-col items-stretch gap-1 overflow-visible rounded-[24px] p-1.5 shadow-nav"
     >
       {highlightStyle ? <SegmentedHighlight className="duration-app-base ease-app-out" style={highlightStyle} /> : null}
       {items.map(({ key, label, Icon }) => (

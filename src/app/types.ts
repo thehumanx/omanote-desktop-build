@@ -53,6 +53,14 @@ export interface AppState {
     // value is unchanged from last time (e.g. reopening from the same tab
     // after manually switching modes inside the sheet).
     composerOpenToken: number;
+    // Whichever folder/category a screen currently has open, mirrored here so
+    // the global composer (a route sibling, not a child, of Notes/Todos/
+    // Bookmarks) can default a fresh draft into it. Each screen sets its own
+    // field on mount/selection-change and clears it back to null on unmount —
+    // see NotesScreen/TodosScreen/BookmarksScreen's "ui/set-active-*" effects.
+    activeNoteFolderName: string | null;
+    activeTodoFolderId: string | null;
+    activeBookmarkCategoryId: string | null;
   };
   todos: TodoItem[];
   todoFolders: TodoFolder[];
@@ -85,6 +93,9 @@ export type AppAction =
   | { type: "ui/set-search-query"; query: string }
   | { type: "ui/set-search-open"; open: boolean }
   | { type: "ui/set-notes-drawer-open"; open: boolean }
+  | { type: "ui/set-active-note-folder"; folderName: string | null }
+  | { type: "ui/set-active-todo-folder"; folderId: string | null }
+  | { type: "ui/set-active-bookmark-category"; categoryId: string | null }
   | { type: "ui/open-composer"; mode?: DraftMode }
   | { type: "ui/close-composer" }
   | { type: "todo/create"; title: string; dateKey: DateKey; dueDateKey?: DateKey; dueTime?: string; hashtags?: string[]; fromReminder?: boolean; folderId?: string; folderName?: string; folderIcon?: string; recurrence?: RecurrenceRule; reminderEveryMinutes?: number; reminderUntil?: number }

@@ -123,8 +123,7 @@ export function GuideScreen() {
   // last-updated badge on the right (mirrors the changelog version on /updates).
   const topChrome = useMemo(
     () => (
-      <div className="flex h-full w-full items-center justify-between gap-3">
-        <h1 className="truncate text-lg font-bold text-app-ink">Guide</h1>
+      <div className="flex h-full w-full items-center justify-end gap-3">
         <span className="inline-flex flex-none rounded-full border border-app-line bg-app-surface px-2.5 py-1 text-xs font-medium text-app-ink-muted">
           Updated {GUIDE_LAST_UPDATED}
         </span>

@@ -1,11 +1,10 @@
 import { useRef } from "react";
 import { useMeasuredHighlight, type HighlightItemRefs } from "../hooks/useMeasuredHighlight";
 
-export type ChangelogProduct = "webapp" | "desktop" | "extension";
+export type ChangelogProduct = "application" | "extension";
 
 export const CHANGELOG_TABS: Array<{ id: ChangelogProduct; label: string; sectionTitle: string }> = [
-  { id: "webapp", label: "Webapp", sectionTitle: "Versions" },
-  { id: "desktop", label: "Desktop", sectionTitle: "Desktop Versions" },
+  { id: "application", label: "Application", sectionTitle: "Versions" },
   { id: "extension", label: "Extension", sectionTitle: "Extension Versions" },
 ];
 
@@ -18,8 +17,7 @@ type ChangelogProductTabsProps = {
 export function ChangelogProductTabs({ activeTab, ariaLabel, onChange }: ChangelogProductTabsProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const tabRefs = useRef<HighlightItemRefs<HTMLButtonElement>>({
-    webapp: null,
-    desktop: null,
+    application: null,
     extension: null,
   });
   const highlightStyle = useMeasuredHighlight({

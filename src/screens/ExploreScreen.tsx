@@ -86,7 +86,6 @@ export function ExploreScreen() {
     () => (
       <div className="flex h-full w-full min-w-0 items-center gap-3">
         <div className="flex min-w-0 items-center gap-2">
-          <h1 className="truncate text-lg font-bold text-app-ink">Explore</h1>
           <button
             type="button"
             onClick={() => setInfoOpen(true)}

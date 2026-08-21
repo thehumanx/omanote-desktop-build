@@ -134,7 +134,7 @@ function renderInline(text: string): ReactNode[] {
 }
 
 export function UpdatesScreen() {
-  const [activeTab, setActiveTab] = useState<ChangelogProduct>("webapp");
+  const [activeTab, setActiveTab] = useState<ChangelogProduct>("application");
   const activeTabConfig = CHANGELOG_TABS.find((tab) => tab.id === activeTab) ?? CHANGELOG_TABS[0];
   const ctx = useContext(UpdateContext);
   const changelogMarkdown = ctx?.changelogMarkdown ?? bundledChangelogMarkdown;

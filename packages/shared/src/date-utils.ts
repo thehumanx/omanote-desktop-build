@@ -279,6 +279,16 @@ export function formatRelativeGroupHeading(dateKey: string): string {
   return diffDays > 0 ? `${diffDays} days later` : `${Math.abs(diffDays)} days ago`;
 }
 
+/** Heading for a group of overdue todos, e.g. "Overdue by 3 days". */
+export function formatOverdueGroupHeading(dateKey: string): string {
+  const target = fromDateKey(dateKey as DateKey);
+  const today = fromDateKey(toDateKey(new Date()));
+  const diffDays = Math.round((today.getTime() - target.getTime()) / (24 * 60 * 60 * 1000));
+
+  if (diffDays <= 0) return "Overdue";
+  return diffDays === 1 ? "Overdue by 1 day" : `Overdue by ${diffDays} days`;
+}
+
 export function combineDateKeyAndTime(dateKey: string, time: string) {
   const [hour, minute] = time.split(":").map(Number);
   return new Date(

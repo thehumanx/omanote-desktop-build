@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useDrawerDrag } from "../lib/useDrawerDrag";
-import { ArrowDown, ArrowUp, ArrowUpDown, GripHorizontal, LayoutGrid, LayoutList, Plus } from "lucide-react";
+import { useEdgeSwipeBack } from "../lib/useEdgeSwipeBack";
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, LayoutGrid, LayoutList, MoreHorizontal, Pencil, Plus, Share2, Trash2 } from "lucide-react";
 import type { NoteItem } from "@omanote/shared";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
@@ -18,6 +18,7 @@ import { useOutsideClick } from "../lib/useOutsideClick";
 import { ModalPortal } from "../components/ModalPortal";
 import { BaseModal } from "../components/BaseModal";
 import { NoteInlineEditor } from "../components/NoteInlineEditor";
+import { NoteEditorModal } from "../components/NoteEditorModal";
 import { ShareNoteFolderModal } from "../components/ShareNoteFolderModal";
 import { UNCATEGORIZED_FOLDER_LABEL, isUncategorizedFolderName, normalizeNoteFolderName } from "../lib/note-folder-utils";
 import { extractAllPreviewableUrls } from "../lib/attachment-link-preview";
@@ -125,7 +126,7 @@ export function NotesScreen() {
   const drawerRenameInputRef = useRef<HTMLInputElement | null>(null);
   const pendingFolderRenameRef = useRef<string | null>(null);
   const restoreNotesEditScrollRef = useRef<(() => void) | null>(null);
-  const { dragOffset, isDragging, dragHandleProps } = useDrawerDrag(() => setMobileNotesOpen(false));
+  const { dragOffset, isDragging, edgeSwipeProps } = useEdgeSwipeBack(() => setMobileNotesOpen(false));
 
   useOutsideClick(sortMenuRef, sortMenuOpen, () => setSortMenuOpen(false));
   useOutsideClick(folderMenuRef, Boolean(folderMenuOpenId), () => setFolderMenuOpenId(null));
@@ -144,6 +145,16 @@ export function NotesScreen() {
       dispatch({ type: "ui/set-notes-drawer-open", open: false });
     };
   }, [dispatch, mobileNotesOpen]);
+
+  // Mirrored globally so the "/" shortcut and nav "+" button (route
+  // siblings, not children, of this screen) can default a fresh composer
+  // draft into whichever folder is currently open here.
+  useEffect(() => {
+    dispatch({ type: "ui/set-active-note-folder", folderName: selectedFolder });
+    return () => {
+      dispatch({ type: "ui/set-active-note-folder", folderName: null });
+    };
+  }, [dispatch, selectedFolder]);
 
   const activeSharedFolderIds = useQuery(api.sharedNoteFolders.listMyActiveFolderIds);
   const sharedFolderIdSet = useMemo(() => new Set(activeSharedFolderIds ?? []), [activeSharedFolderIds]);
@@ -394,17 +405,14 @@ export function NotesScreen() {
             ? state.noteFolders.find((folder) => normalizeNoteFolderName(folder.name) === normalizeNoteFolderName(selectedFolder))?.id ?? null
             : null
         }
-        autoFocus={creating}
+        autoFocus={false}
         layout="canvas"
         showTags={false}
         hideFolderPicker
         saveOnOutsideClick
         outsideClickContainerRef={composerRootRef}
         persistRecentFolderOnSave
-        onCancel={() => {
-          resetComposerDraft();
-          setCreating(false);
-        }}
+        onCancel={resetComposerDraft}
         onSave={(payload) => {
           dispatch({
             type: "note/create",
@@ -416,7 +424,6 @@ export function NotesScreen() {
             dateKey: state.ui.selectedDateKey,
           });
           resetComposerDraft();
-          setCreating(false);
         }}
       />
     </div>
@@ -510,13 +517,22 @@ export function NotesScreen() {
 
   const renderNotesPanel = (isMobileDrawer = false) => {
     return (
-      <div className="flex h-full min-h-0 flex-col lg:pl-4 lg:pt-4">
-      <div className="flex flex-col lg:hidden" {...dragHandleProps}>
-        <div className="flex items-center justify-center px-4 pt-3 pb-2">
-          <GripHorizontal className="h-5 w-5 text-app-line-strong" />
-        </div>
+      <div className="relative flex h-full min-h-0 flex-col lg:pl-4 lg:pt-4">
+      <div className="flex flex-col pt-[env(safe-area-inset-top)] lg:hidden">
+        {/* Slim invisible hotzone: swiping right from here (not the whole
+            panel) dismisses it, so the rest of the panel keeps native
+            vertical scrolling. */}
+        <div aria-hidden="true" className="absolute inset-y-0 left-0 z-10 w-6" {...edgeSwipeProps} />
         {isMobileDrawer && drawerRenaming ? (
-          <div className="relative mb-3 flex items-center gap-2 border-b border-app-line px-4 pb-3">
+          <div className="relative mb-3 flex items-center gap-2 border-b border-app-line px-4 pb-3 pt-3">
+            <button
+              type="button"
+              aria-label="Back to folders"
+              onClick={() => setMobileNotesOpen(false)}
+              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
             <button
               ref={iconPickerAnchorRef}
               type="button"
@@ -544,8 +560,16 @@ export function NotesScreen() {
             ) : null}
           </div>
         ) : (
-          <div className="mb-3 flex items-center justify-between gap-2 border-b border-app-line px-4 pb-3">
-            <div className="flex min-w-0 items-center gap-2">
+          <div className="mb-3 flex items-center gap-2 border-b border-app-line px-4 pb-3 pt-3">
+            <button
+              type="button"
+              aria-label="Back to folders"
+              onClick={() => setMobileNotesOpen(false)}
+              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <div className="flex min-w-0 flex-1 items-center gap-2">
               {(() => {
                 const row = visibleFolderRows.find(
                   (f) => selectedFolder && normalizeNoteFolderName(f.name) === normalizeNoteFolderName(selectedFolder),
@@ -583,32 +607,62 @@ export function NotesScreen() {
               );
               if (!row?.id) return null;
               return (
-                <FolderActionMenu
-                  folderId={row.id}
-                  folderName={row.name}
-                  isOpen={drawerFolderMenuOpen}
-                  menuRef={drawerFolderMenuOpen ? drawerFolderMenuRef : undefined}
-                  size="md"
-                  alwaysVisible
-                  onToggle={() => setDrawerFolderMenuOpen((current) => !current)}
-                  isShared={row.id ? sharedFolderIdSet.has(row.id) : false}
-                  onRename={() => {
-                    setRenamingFolderId(row.id ?? null);
-                    setNewFolderName(row.name);
-                    setEditingIcon(row.id ? folderIconById.get(row.id) : undefined);
-                    setNewFolderError(null);
-                    setDrawerFolderMenuOpen(false);
-                    setDrawerRenaming(true);
-                  }}
-                  onShare={() => {
-                    setShareTarget({ id: row.id ?? "", name: row.name, icon: row.icon });
-                    setDrawerFolderMenuOpen(false);
-                  }}
-                  onDelete={() => {
-                    setDeleteTarget({ id: row.id ?? "", name: row.name, count: row.count });
-                    setDrawerFolderMenuOpen(false);
-                  }}
-                />
+                <div className="flex flex-shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    aria-label="Share folder"
+                    onClick={() => setShareTarget({ id: row.id ?? "", name: row.name, icon: row.icon })}
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
+                  >
+                    <Share2 className="h-4 w-4" />
+                  </button>
+                  <div className="relative" ref={drawerFolderMenuOpen ? drawerFolderMenuRef : undefined}>
+                    <button
+                      type="button"
+                      aria-label="Folder actions"
+                      aria-expanded={drawerFolderMenuOpen}
+                      onClick={() => setDrawerFolderMenuOpen((current) => !current)}
+                      className="flex h-7 w-7 items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </button>
+                    {drawerFolderMenuOpen ? (
+                      <div
+                        role="menu"
+                        className="absolute right-0 top-full z-app-menu mt-1 w-44 rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
+                      >
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setRenamingFolderId(row.id ?? null);
+                            setNewFolderName(row.name);
+                            setEditingIcon(row.id ? folderIconById.get(row.id) : undefined);
+                            setNewFolderError(null);
+                            setDrawerFolderMenuOpen(false);
+                            setDrawerRenaming(true);
+                          }}
+                          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink"
+                        >
+                          <Pencil className="h-4 w-4" />
+                          Rename
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setDeleteTarget({ id: row.id ?? "", name: row.name, count: row.count });
+                            setDrawerFolderMenuOpen(false);
+                          }}
+                          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-danger-ink transition hover:bg-danger-surface"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
               );
             })()}
           </div>
@@ -674,6 +728,7 @@ export function NotesScreen() {
                     initialSelectionStart={editingNoteSelectionStart}
                     layout="canvas"
                     showTags={false}
+                    hideFolderPicker
                     // renderNotesPanel() renders both the desktop panel and
                     // the mobile drawer at once (CSS hides whichever one
                     // isn't current, it doesn't unmount it — see the ref
@@ -749,6 +804,18 @@ export function NotesScreen() {
           <div aria-hidden="true" style={{ height: "calc(var(--omanote-bottom-nav-height, 64px) + 1.5rem)", flexShrink: 0 }} />
         </div>
       )}
+      {isMobileDrawer ? (
+        <div className="pointer-events-auto absolute bottom-4 left-1/2 -translate-x-1/2">
+          <button
+            type="button"
+            aria-label="Add note"
+            onClick={() => setCreating(true)}
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-app-line bg-app-surface p-0 text-app-ink-muted shadow-soft transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-app-surface-hover active:translate-y-px active:scale-[0.98]"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+        </div>
+      ) : null}
     </div>
     );
   };
@@ -1082,15 +1149,40 @@ export function NotesScreen() {
         />
         <section
           className={cn(
-            "fixed inset-x-0 bottom-0 z-app-drawer flex max-h-[92dvh] min-h-0 flex-col rounded-t-2xl bg-app-surface shadow-app-drawer transform-gpu lg:hidden",
+            "fixed inset-0 z-app-drawer flex min-h-0 flex-col bg-app-surface shadow-app-drawer transform-gpu lg:hidden",
             isDragging ? "" : "transition-transform duration-app-drawer ease-app-drawer",
-            mobileNotesOpen ? "translate-y-0" : "pointer-events-none translate-y-full",
+            mobileNotesOpen ? "translate-x-0" : "pointer-events-none translate-x-full",
           )}
-          style={isDragging || dragOffset > 0 ? { transform: `translateY(${dragOffset}px)` } : undefined}
+          style={isDragging || dragOffset > 0 ? { transform: `translateX(${dragOffset}px)` } : undefined}
         >
           {renderNotesPanel(true)}
         </section>
       </ModalPortal>
+
+      {creating ? (
+        <NoteEditorModal
+          folders={state.noteFolders}
+          defaultFolderName={selectedFolder ?? undefined}
+          selectedFolderId={
+            selectedFolder && !isUncategorizedFolderName(selectedFolder)
+              ? state.noteFolders.find((folder) => normalizeNoteFolderName(folder.name) === normalizeNoteFolderName(selectedFolder))?.id ?? null
+              : null
+          }
+          onClose={() => setCreating(false)}
+          onSave={(payload) => {
+            dispatch({
+              type: "note/create",
+              body: payload.body,
+              tags: payload.tags,
+              hashtags: payload.hashtags,
+              folderId: payload.folderId,
+              folderName: payload.folderName,
+              dateKey: state.ui.selectedDateKey,
+            });
+            setCreating(false);
+          }}
+        />
+      ) : null}
 
       {deleteTarget ? (
         <BaseModal onClose={() => setDeleteTarget(null)} zIndex="z-app-dialog">

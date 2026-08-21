@@ -111,6 +111,9 @@ const defaultUiState: UiState = {
   composerOpen: false,
   composerMode: "note",
   composerOpenToken: 0,
+  activeNoteFolderName: null,
+  activeTodoFolderId: null,
+  activeBookmarkCategoryId: null,
 };
 
 type LocalState = {
@@ -142,6 +145,9 @@ type LocalAction =
   | { type: "ui/set-search-query"; query: string }
   | { type: "ui/set-search-open"; open: boolean }
   | { type: "ui/set-notes-drawer-open"; open: boolean }
+  | { type: "ui/set-active-note-folder"; folderName: string | null }
+  | { type: "ui/set-active-todo-folder"; folderId: string | null }
+  | { type: "ui/set-active-bookmark-category"; categoryId: string | null }
   | { type: "ui/open-composer"; mode?: DraftMode }
   | { type: "ui/close-composer" }
   | { type: "toast/add"; toast: ToastItem }
@@ -205,6 +211,14 @@ function localReducer(state: LocalState, action: LocalAction): LocalState {
       return { ...state, ui: { ...state.ui, searchQuery: action.query } };
     case "ui/set-search-open":
       return { ...state, ui: { ...state.ui, searchOpen: action.open } };
+    case "ui/set-notes-drawer-open":
+      return { ...state, ui: { ...state.ui, notesDrawerOpen: action.open } };
+    case "ui/set-active-note-folder":
+      return { ...state, ui: { ...state.ui, activeNoteFolderName: action.folderName } };
+    case "ui/set-active-todo-folder":
+      return { ...state, ui: { ...state.ui, activeTodoFolderId: action.folderId } };
+    case "ui/set-active-bookmark-category":
+      return { ...state, ui: { ...state.ui, activeBookmarkCategoryId: action.categoryId } };
     case "ui/open-composer":
       return {
         ...state,
@@ -2740,6 +2754,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         case "ui/set-search-query":
         case "ui/set-search-open":
         case "ui/set-notes-drawer-open":
+        case "ui/set-active-note-folder":
+        case "ui/set-active-todo-folder":
+        case "ui/set-active-bookmark-category":
         case "ui/open-composer":
         case "ui/close-composer":
         case "toast/add":

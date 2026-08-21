@@ -23,6 +23,9 @@ import { TodoEditorModal } from "../components/TodoEditorModal";
 import { getGreetingForDate } from "../components/layout/greetings";
 import { useIsMobileViewport } from "../lib/mobile";
 import { useTopChrome } from "../components/layout/useTopChrome";
+import { readDismissedFlag, writeDismissedFlag } from "../lib/local-storage";
+
+const CANVAS_WELCOME_SEEN_KEY = "omanote:canvas-welcome-seen";
 
 function formatSelectedHeading(dateKey: DateKey, todayKey: DateKey): string {
   if (dateKey === todayKey) return "Today";
@@ -41,7 +44,17 @@ export function CanvasScreen() {
   const todayKey = useMemo(() => toDateKey(today), [today]);
   // History never lists today — it's already the canvas itself.
   const yesterdayKey = useMemo(() => toDateKey(addDays(today, -1)), [today]);
-  const greeting = useMemo(() => getGreetingForDate(today, firstName), [today, firstName]);
+  // Lazy init captures whether this is the first canvas visit before we mark it seen below.
+  const [isFirstCanvasVisit] = useState(() => !readDismissedFlag(CANVAS_WELCOME_SEEN_KEY));
+  useEffect(() => {
+    if (isFirstCanvasVisit) writeDismissedFlag(CANVAS_WELCOME_SEEN_KEY);
+  }, [isFirstCanvasVisit]);
+  const greeting = useMemo(() => {
+    if (isFirstCanvasVisit) {
+      return { ...getGreetingForDate(today, firstName), text: `Welcome to omanote, ${firstName}`, emoji: "👋" };
+    }
+    return getGreetingForDate(today, firstName);
+  }, [today, firstName, isFirstCanvasVisit]);
   const todayLabel = useMemo(() => formatTodayLabel(today), [today]);
 
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);

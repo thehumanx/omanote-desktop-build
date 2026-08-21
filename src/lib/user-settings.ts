@@ -82,7 +82,7 @@ export const REMINDER_TOAST_DURATION_SECONDS = [10, 20, 30, 60] as const satisfi
 export const DEFAULT_USER_SETTINGS: UserSettings = {
   saveShortcut: "mod_enter",
   newlineShortcut: "enter",
-  showSaveShortcutHints: true,
+  showSaveShortcutHints: false,
   inAppReminderNotifications: true,
   browserReminderNotifications: true,
   reminderLeadMinutes: 0,

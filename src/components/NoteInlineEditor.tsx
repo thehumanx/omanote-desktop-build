@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type RefObject } from "react";
 import type { NoteFolder, NoteItem } from "@omanote/shared";
 import { normalizeLinkUrl } from "@omanote/shared";
 import { Button, Input } from "./ui";
@@ -33,23 +33,9 @@ function tagsFromInput(input: string) {
     .filter(Boolean);
 }
 
-export function NoteInlineEditor({
-  note,
-  folders,
-  selectedFolderId,
-  defaultFolderName,
-  autoFocus = false,
-  initialSelectionStart,
-  showTags = true,
-  layout = "card",
-  hideFolderPicker = false,
-  saveOnOutsideClick = false,
-  outsideClickContainerRef,
-  persistRecentFolderOnSave = false,
-  onSave,
-  onCancel,
-  onDelete,
-}: {
+export type NoteInlineEditorHandle = { commit: () => void };
+
+export const NoteInlineEditor = forwardRef<NoteInlineEditorHandle, {
   note?: NoteItem | null;
   folders: NoteFolder[];
   selectedFolderId?: string | null;
@@ -59,6 +45,10 @@ export function NoteInlineEditor({
   showTags?: boolean;
   layout?: "card" | "canvas";
   hideFolderPicker?: boolean;
+  // Suppresses NoteCanvasEditor's own built-in mobile Cancel/Save row —
+  // for callers (like NoteEditorModal) that render their own header with
+  // those same actions and would otherwise show both.
+  hideMobileActions?: boolean;
   saveOnOutsideClick?: boolean;
   // The "outside" a click has to land to count as dismissing/saving (see
   // useOutsideClick below). Defaults to this component's own root, which is
@@ -72,7 +62,29 @@ export function NoteInlineEditor({
   onSave: (payload: { body: string; tags: string[]; hashtags: string[]; folderName?: string; folderId?: string }) => void;
   onCancel?: () => void;
   onDelete?: () => void;
-}) {
+  // Lets a caller mirror canSave into its own externally-rendered Save
+  // button (see hideMobileActions above) instead of relying on the
+  // built-in one.
+  onCanSaveChange?: (canSave: boolean) => void;
+}>(function NoteInlineEditor({
+  note,
+  folders,
+  selectedFolderId,
+  defaultFolderName,
+  autoFocus = false,
+  initialSelectionStart,
+  showTags = true,
+  layout = "card",
+  hideFolderPicker = false,
+  hideMobileActions = false,
+  saveOnOutsideClick = false,
+  outsideClickContainerRef,
+  persistRecentFolderOnSave = false,
+  onSave,
+  onCancel,
+  onDelete,
+  onCanSaveChange,
+}, ref) {
   const resolvedInitialFolderName = useMemo(() => {
     if (note?.folderId) {
       const folder = folders.find((item) => item.id === note.folderId);
@@ -234,6 +246,12 @@ export function NoteInlineEditor({
   };
   commitRef.current = commit;
 
+  useImperativeHandle(ref, () => ({ commit }), [commit]);
+
+  useEffect(() => {
+    onCanSaveChange?.(canSave);
+  }, [canSave, onCanSaveChange]);
+
   // Sync editor content when note changes (e.g. switching notes)
   useEffect(() => {
     const newBody = normalizeLegacyNoteBodyForTiptap(note?.body ?? "");
@@ -267,6 +285,7 @@ export function NoteInlineEditor({
           onCommit={commit}
           onCancel={onCancel}
           hideFolderPicker={hideFolderPicker}
+          hideMobileActions={hideMobileActions}
         />
       </div>
     ) : (
@@ -323,7 +342,7 @@ export function NoteInlineEditor({
       </div>
     )
   );
-}
+});
 
 // Type import for the ref
 type TiptapHashtagPickerState = ReturnType<typeof useTiptapHashtagPicker>;

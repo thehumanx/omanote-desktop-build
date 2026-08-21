@@ -2,7 +2,9 @@
 
 The composer is the single place you put things in. Press **+** in the navigation bar, or hit **/** anywhere in the app, to open it from wherever you are. It reads what you type and turns it into the right kind of item, so you rarely have to stop and choose.
 
-Closing it — pressing **Esc**, or clicking elsewhere — never saves anything. Whatever you'd typed is still there the next time you open the composer, so it's safe to close and come back to it later. Saving itself depends on what you're making: notes save on **Cmd/Ctrl + Enter** (plain Enter adds a new line instead); todos, events, and bookmarks save on a plain **Enter**.
+Closing it — pressing **Esc**, or clicking elsewhere — never saves anything. Whatever you'd typed is still there the next time you open the composer, so it's safe to close and come back to it later — and if you had something in progress, reopening the composer keeps showing that draft, even if it doesn't match the page you're on. Saving itself depends on what you're making: notes save on **Cmd/Ctrl + Enter** (plain Enter adds a new line instead); todos, events, and bookmarks save on a plain **Enter**.
+
+Otherwise, a fresh composer already matches the page you're on — press **/** on Todos and it opens ready to make a todo, on Bookmarks a bookmark, and so on — and if you have a Todos, Notes, or Bookmarks folder open, it defaults straight into that folder too.
 
 ## It figures out what you mean
 

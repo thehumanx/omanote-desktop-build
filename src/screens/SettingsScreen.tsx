@@ -306,15 +306,7 @@ export function SettingsScreen() {
   const canChangePassphrase = currentPassphrase.length > 0 && nextPassphrase.length > 0 && confirmPassphrase.length > 0;
   const canDeleteAccount = deleteConfirmation.trim() === "DELETE";
 
-  const topChrome = useMemo(
-    () => (
-      <div className="flex h-full w-full items-center">
-        <h1 className="truncate text-lg font-bold text-app-ink">Settings</h1>
-      </div>
-    ),
-    [],
-  );
-  useTopChrome(topChrome);
+  useTopChrome(null);
 
   function cancelWaitingNotificationContextSync() {
     setWaitingForNotificationContextSync(false);
@@ -542,13 +534,17 @@ export function SettingsScreen() {
     });
   }
 
-  function renderContent() {
+  // The mobile drawer already shows the category name in its own header row
+  // (see the drag-handle header below), so each section's own <h2> below
+  // would just repeat it — skip it there. Desktop's panel has no header of
+  // its own, so it still needs the <h2> as its only title.
+  function renderContent(isMobileDrawer = false) {
     switch (selectedCategory) {
       case "features":
         return (
           <section className="space-y-6">
             <div>
-              <h2 className="text-lg font-bold text-app-ink">Features</h2>
+              {!isMobileDrawer ? <h2 className="text-lg font-bold text-app-ink">Features</h2> : null}
               <p className="mt-1 text-sm leading-6 text-app-ink-muted">
                 Turn optional features on or off. Disabled features are hidden from the interface.
               </p>
@@ -678,7 +674,7 @@ export function SettingsScreen() {
         return (
           <section className="space-y-6">
             <div>
-              <h2 className="text-lg font-bold text-app-ink">Look & feel</h2>
+              {!isMobileDrawer ? <h2 className="text-lg font-bold text-app-ink">Look & feel</h2> : null}
               <p className="mt-1 text-sm leading-6 text-app-ink-muted">
                 Customize how omanote looks and behaves on this account.
               </p>
@@ -790,7 +786,7 @@ export function SettingsScreen() {
       case "notifications":
         return (
           <div>
-            <h2 className="text-lg font-bold text-app-ink">Notifications</h2>
+            {!isMobileDrawer ? <h2 className="text-lg font-bold text-app-ink">Notifications</h2> : null}
             <p className="mt-1 text-sm leading-relaxed text-app-ink-faint">
               Control reminder channels, lead time, and snooze behavior across all todos.
             </p>
@@ -995,7 +991,7 @@ export function SettingsScreen() {
       case "security":
         return (
           <div>
-            <h2 className="text-lg font-bold text-app-ink">Security</h2>
+            {!isMobileDrawer ? <h2 className="text-lg font-bold text-app-ink">Security</h2> : null}
             <p className="mt-1 text-sm leading-relaxed text-app-ink-faint">
               Rotate your passphrase and manage recovery access for encrypted content.
             </p>
@@ -1082,7 +1078,7 @@ export function SettingsScreen() {
       case "devices":
         return (
           <div>
-            <h2 className="text-lg font-bold text-app-ink">Devices</h2>
+            {!isMobileDrawer ? <h2 className="text-lg font-bold text-app-ink">Devices</h2> : null}
             <p className="mt-1 text-sm leading-relaxed text-app-ink-faint">
               Manage web, desktop, and extension sessions for your account. Removing a device signs it out.
             </p>
@@ -1148,7 +1144,7 @@ export function SettingsScreen() {
       case "data":
         return (
           <div>
-            <h2 className="text-lg font-bold text-app-ink">Export Data</h2>
+            {!isMobileDrawer ? <h2 className="text-lg font-bold text-app-ink">Export Data</h2> : null}
             <p className="mt-1 text-sm leading-relaxed text-app-ink-faint">
               Download your canvas as plaintext JSON. Store the file securely.
             </p>
@@ -1161,7 +1157,7 @@ export function SettingsScreen() {
       case "account":
         return (
           <div>
-            <h2 className="text-lg font-bold text-app-ink">Account</h2>
+            {!isMobileDrawer ? <h2 className="text-lg font-bold text-app-ink">Account</h2> : null}
             <p className="mt-1 text-sm leading-relaxed text-app-ink-faint">
               Delete your account and all associated omanote data.
             </p>
@@ -1319,19 +1315,12 @@ export function SettingsScreen() {
               <p className="text-sm font-bold text-app-ink">
                 {CATEGORIES.find((c) => c.id === selectedCategory)?.label}
               </p>
-              <button
-                type="button"
-                onClick={() => setMobileOpen(false)}
-                className="rounded-full p-1 text-app-ink-faint hover:bg-app-surface-hover hover:text-app-ink-muted"
-              >
-                <X className="h-4 w-4" />
-              </button>
             </div>
           </div>
 
           {/* Drawer content */}
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 pb-10">
-            {renderContent()}
+            {renderContent(true)}
           </div>
         </div>
       </ModalPortal>

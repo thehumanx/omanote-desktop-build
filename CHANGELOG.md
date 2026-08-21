@@ -4,18 +4,32 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
-### v0.31.2 [August 18, 2026]
+### v0.31.2 [August 21, 2026]
 
-> Only the checkmark completes a todo now, not the whole row.
+> Todos gets Active/Done tabs with day-grouped overdue todos, and every folder page — Todos, Notes, Bookmarks — opens full-screen on mobile now instead of a bottom sheet.
 
-- [Update] Tapping a todo no longer completes it by default — only the checkmark circle does. If you liked tapping anywhere, turn "Complete todos by tapping anywhere" back on from Settings → Features
+- [Update] Opening a folder on mobile (Todos, Notes, Bookmarks) now slides in a full page instead of a bottom sheet — swipe from the left edge or tap the back arrow to return
+- [Update] Todos' four tabs (Today, Overdue, Later, All) are now two: Active and Done. Active groups everything by day — overdue first (labeled "Overdue by N days"), then today, then later — instead of splitting them across separate tabs
+- [Add] An empty Active tab now shows "Done and dusted!" instead of a blank screen, and an empty today slot shows a small "Nothing due today" card instead of nothing
+- [Update] Folder actions on Todos, Notes, and Bookmarks — Share is now its own button instead of living inside the "..." menu, and "Edit" is renamed "Rename"
+- [Add] A floating "+" on Notes and Bookmarks folder pages (mobile) adds directly into that folder, matching Todos
+- [Update] Adding a note from a folder page (mobile) now opens a proper floating composer instead of an inline box at the bottom of the list
+- [Fix] Adding a bookmark from inside a folder (mobile) no longer closes the folder or opens the wrong kind of composer
+- [Remove] Folder selection when editing an existing note — pick the folder once, when you create it
+- [Update] The Write/Read switch on mobile is now a small icon-only pill instead of a large floating one
+- [Update] Opening the composer (+ or /) now defaults to whichever folder you're currently viewing in Todos, Notes, or Bookmarks
+- [Fix] The composer no longer shows two sets of Cancel/Save controls on mobile
+- [Update] The "press Ctrl/Cmd+Enter to save" hint is now off by default — turn it back on from Settings if you want it
+- [Update] Empty states on Todos, Notes, and Bookmarks now fill the available space and center properly instead of leaving a gap underneath
 
 ### v0.31.1 [August 18, 2026]
 
-> Fixed offline load, and a stray desktop button gone.
+> Fixed offline load, a stray desktop button gone, and todos complete from the checkmark now.
 
 - [Fix] Fixed offline load — omanote now opens and works with no internet connection, on the web app and the desktop app. Previously the app couldn't even open without a connection, even though your notes and todos were already saved on your device
 - [Fix] Removed the floating Write/Read toggle showing up on desktop when the RSS reader isn't turned on — it's only meant to appear once there's a Read side to switch to
+- [Update] Tapping a todo no longer completes it by default — only the checkmark circle does. If you liked tapping anywhere, turn "Complete todos by tapping anywhere" back on from Settings → Features
+- [Update] Merged the desktop and web app changelogs into one from this version — web and desktop ship together, so they now share a single version history instead of two separate ones
 
 ### v0.31.0 [August 18, 2026]
 
@@ -105,6 +119,8 @@ All notable changes to omanote are documented here, organized by product.
 - [Fix] Empty todo folders no longer show a "0/0" badge
 - [Fix] Bottom nav's active tab pill no longer overlaps the next tab after zooming
 - [Fix] Wrapped titles in shared folder link lists now align under the first line
+- [Fix] Clicking a bookmark card no longer does nothing — it now opens the link in your system browser
+- [Fix] Update/changelog check no longer fails silently due to a CORS error — the desktop app now fetches it natively instead of through the webview
 
 ### v0.28.1 [July 25, 2026]
 
@@ -260,7 +276,7 @@ All notable changes to omanote are documented here, organized by product.
 
 ### v0.22.0 [June 11, 2026]
 
-> The RSS reader is here. Subscribe to feeds, read in-app, and save articles to your bookmarks — all opt-in from Settings. And some fixes.
+> The RSS reader is here, and the desktop app grew up — it's a real app now, not a website in a window.
 
 - [Add] RSS reader is now a feature you can turn on from Settings → Features. Off by default, so, no change for anyone who doesn't want it. When the RSS reader is on, a Read / Write toggle appears at the top to switch modes.
 - [Add] Subscribe to any RSS or Atom feed by pasting a URL. The app fetches and parses the feed server-side and keeps it fresh automatically.
@@ -271,11 +287,18 @@ All notable changes to omanote are documented here, organized by product.
 - [Fix] Adding a site that hides its feed (like Medium publications) now works — omanote checks the usual feed spots instead of giving up.
 - [Add] Feed looking empty? Hit "Fetch now" to pull the latest articles right away instead of waiting for the next auto-refresh.
 - [Fix] The reader now greets you the same way as the rest of the app — one greeting, everywhere.
+- [Add] The desktop app now ships with the app built in. It opens instantly to a proper welcome screen on first launch — no landing page, no browser feel
+- [Add] Signing in on desktop now happens in your browser: click Sign in, finish in the browser, and you're bounced right back into the app, signed in
+- [Add] The desktop app asks for its own notification permission and has its own notification toggle in Settings → Notifications. Reminders pop as real system notifications — even while the app is open
+- [Add] On Mac, the app's top bar now sits flush with the window controls — the Read/Write switch lives right up in the title bar. On Windows, the app draws its own minimize/maximize/close buttons in the same bar
+- [Add] The desktop app keeps itself fresh: when a new version is out, it offers a one-click "Update & restart" — no manual downloads
+- [Fix] Linux AppImage now bundles without its own Wayland package — it uses the one already on your system
 
 ### v0.21.1 [June 10, 2026]
 
-> Minor fixes here and there.
+> First desktop build — plus minor fixes here and there.
 
+- [Add] First desktop build — omanote desktop apps are now live for Windows, macOS, and Linux. Install standalone on your device for a seamless experience
 - [Fix] Images not loading on publicly shared page is not fixed
 
 ### v0.21.0 [June 9, 2026]
@@ -675,248 +698,6 @@ All notable changes to omanote are documented here, organized by product.
 ## Roadmap
 
 See what's planned next: [omanote.com/s/FeUM44Rd](https://omanote.com/s/FeUM44Rd)
-
-## Desktop Versions
-
-### v0.31.0 [August 18, 2026]
-
-> Reworked how you add anything, on Canvas and everywhere else — quick capture works from wherever you are now.
-
-- [Add] Press "/" anywhere in the app to open the composer, already set to match whatever page you're on
-- [Update] Closing the composer — Esc, or clicking away — no longer saves whatever you were typing. Only Cmd/Ctrl+Enter does, and your draft is still there next time you open it
-- [Remove] The always-visible note box on the Canvas page is gone — use "+" or "/" to add things instead
-- [Remove] Text formatting (bold, italic, lists, code) is no longer available while writing a note
-- [Add] A persistent "+" button now sits next to the navigation tabs, matching the mobile app — tap it to open the composer
-- [Update] The overdue-todo "move to today" icon now opens a menu offering "Move to today" or "Move to next week"
-- [Update] Profile moved to the top of every page; Explore moved into the profile menu
-- [Update] The top and bottom bars no longer hide while scrolling — they stay in place
-
-### v0.30.0 [August 15, 2026]
-
-> Canvas redesigned: today stays put, History is one click away, and the top bar is gone for good.
-
-- [Update] Canvas now stays fixed on today — a "Your week at glance" card, a combined updates-and-survey card, and an overdue-todos section all live above your day's notes, todos, and bookmarks
-- [Add] Browsing past days moved into a dedicated in-place History view: click the date label and open a scrollable date list beside that day's content, no page navigation involved
-- [Update] The Write/Read switch is now a small floating rail on the left edge instead of a top-bar pill
-- [Fix] The update notice stops asking you to reload once you're already on the latest version
-- [Fix] Publicly shared todo folders now show "x/y completed" instead of just the total count
-
-### v0.28.8 [August 11, 2026]
-
-> Public links now say exactly what they do, feeds load again, and the survey and update prompts share one spot.
-
-- [Add] Share dialogs now explain the trade-off: a public page has to be readable without your passphrase, so that one folder is stored unencrypted while the link is on. Everything you haven't shared stays encrypted
-- [Update] The "help us improve" survey prompt now appears bottom-center, in the same spot as the update notification
-- [Update] The update notification now offers "Refresh to update" and "Dismiss" buttons directly, instead of a click-to-open card
-- [Fix] Turning a public link off now deletes that unencrypted copy. Before, it only took the page down and left the copy behind
-- [Fix] Feeds now load in the reader again — the app was being turned away by omanote's own feed service
-
-### v0.28.7 [August 9, 2026]
-
-> Deleting your account actually deletes everything, and the app stops re-reading your whole workspace every time you save.
-
-- [Fix] Deleting your account now clears everything it should. Your Google connection is handed back to Google properly, reminders can't keep arriving on devices you've signed out of, and your reading history and survey answers leave with the rest
-- [Fix] Loading feeds now requires being signed in. Before this, anyone who knew the address could use omanote to go fetch things for them
-- [Update] Big workspaces feel noticeably quicker. omanote used to re-unlock every note you'd ever written each time you saved one — now it only does that work for what actually changed
-
-### v0.28.6 [August 5, 2026]
-
-> One extra optional question on the way in.
-
-- [Add] Optional "What are you hoping to use omanote for?" chip-select on the Welcome step of onboarding
-
-### v0.28.5 [August 4, 2026]
-
-> A tidier top bar in narrow windows, and a few things that were quietly broken underneath it.
-
-- [Update] Write/Read toggle now lives in the top bar instead of its own row underneath when the window is narrow
-- [Update] Removed the rainbow emoji from the rotating daily greetings — it read oddly sitting alone next to just a name
-- [Fix] Top bar no longer overlaps canvas content in a narrow window when RSS is off
-- [Fix] Folder picker dropdown is now visible when creating or editing a note in a narrow window
-- [Fix] The reader's empty state no longer renders underneath the top bar
-- [Fix] Loading spinners across the reader (feed refresh, empty states, "Add a feed" dialog) and sign-in screens no longer show a mismatched green — they now match their surrounding icon and text color
-
-### v0.28.4 [August 3, 2026]
-
-> A friendlier first run: customize before you commit, and lock it down last.
-
-- [Add] New signup flow — pick your theme, font, and nav style, optionally connect Google Calendar or RSS, a quick tip on where to find the guide and send feedback, then set your passphrase last
-
-### v0.28.3 [July 31, 2026]
-
-> A calendar that adapts to a narrow window, and a date bar that stays put.
-
-- [Update] The Event calendar's date bar now stays pinned to the top while you scroll through the hours
-- [Update] Narrow the window and the Event calendar now shows a single day — today by default — instead of squeezing all seven in; the arrows move a day at a time there, and a week at a time at full width
-- [Update] The **Uncategorized** notes folder now shows the same created / updated / hashtag / link summary as your other folders
-- [Fix] The notes list no longer scrolls sideways, and long links in a note now wrap instead of pushing the note wider
-
-### v0.28.2 [July 29, 2026]
-
-> Content zoom, GCal imports get their own folders, and a friendlier compact-width date picker.
-
-- [Add] App-wide content zoom — `Cmd/Ctrl` + `=`/`-` to resize, `0` to reset
-- [Add] Todos and bookmarks imported from Google Calendar now file into their own **"Synced from GCal"** folder
-- [Update] Google Meet links from synced events now show the calendar event's name as the card title
-- [Update] Compact-width date picker is now a bottom drawer with bigger tap targets
-- [Update] Todos list groups now read "Today" / "Tomorrow" / "Yesterday" / "N days ago" / "N days later"
-- [Fix] Empty todo folders no longer show a "0/0" badge
-- [Fix] Bottom nav's active tab pill no longer overlaps the next tab after zooming
-- [Fix] Wrapped titles in shared folder link lists now align under the first line
-- [Fix] Clicking a bookmark card no longer does nothing — it now opens the link in your system browser
-- [Fix] Update/changelog check no longer fails silently due to a CORS error — the desktop app now fetches it natively instead of through the webview
-
-### v0.28.1 [July 25, 2026]
-
-> Todos: All replaces Completed, folders show their progress, and new accounts get a welcome email.
-
-- [Add] New accounts now receive a welcome email right after signing up — a quick look at the daily canvas, links to get started, RSS and Google Calendar sync, and download links for the desktop app and browser extension. Applies to every signup, whether it happens in the web app or the desktop app
-- [Update] The Todos **Completed** tab is now **All** — every todo, open and done, sorted latest-first
-- [Update] Todo folders now show a `completed/total` count badge, with a green checkmark once everything inside is done
-
-### v0.28.0 [July 24, 2026]
-
-> A redesigned compact-width canvas: one "+" to create anything, floating drawers to edit it, long-press instead of a tap. Kicks in whenever the desktop window is narrow.
-
-- [Add] Compact-width bottom bar is now icon-only tabs plus a persistent **+** button — tap it anywhere to open a floating composer for a todo, note, bookmark, or event, always labeled with which day it's saving to
-- [Add] Explore and your profile moved to a top bar at compact widths, out of the way of the tab row
-- [Update] Editing a todo, note, bookmark, or event at a compact width now opens the same floating drawer everywhere — Cancel on the top left, Save on the top right, disabled until there's something to save
-- [Update] On the canvas, notes/todos/events now open for editing on **long-press** instead of a tap at compact widths, so a normal tap can still scroll the page
-
-### v0.27.1 [July 22, 2026]
-
-> Expanded in-app guide, cleaner canvas sorting, and update checks that always show the latest release notes.
-
-- [Add] Guide now covers the full app — Insights, Profile & account, Send feedback & request features, What's new & changelogs, Write & Read mode, Dynamic greetings, and a dedicated Download & install page for every platform (web/PWA, desktop, extension, mobile)
-- [Update] Guide sidebar shows a last-updated date so you know the content is fresh
-- [Update] Canvas items now sort by creation time (newest at the bottom) instead of a separate drag-and-drop placement system — simpler, faster, and always consistent across web and desktop
-- [Fix] Desktop app now checks for updates and changelog from omanote.com instead of relying on the bundled version, so the What's New modal always shows the latest release notes
-
-### v0.27.0 [July 21, 2026]
-
-> Two-way Google Calendar sync, and one consistent way to edit any todo — on every screen, at every size.
-
-- [Add] Google Calendar sync — connect your Google account in Settings to keep todos and events flowing both ways. Every open todo (timed, all-day, or recurring) appears on a dedicated "omanote" calendar in the omanote brand color; completing a todo logs it there too, as a checkmarked entry linking back to the original. Create an event directly in your primary Google Calendar and it shows up as a new todo in omanote automatically — recurring events included
-- [Add] A small "Synced with Google Calendar" badge shows up on todos linked to a Google event, with a note that edits made on both sides around the same time can overwrite each other
-- [Update] One consistent way to edit a todo everywhere — the pencil icon (or double-click) opens the full editor with due date, folder, repeat, and reminders, on Todos, Canvas, and the Event/Calendar screen alike
-- [Update] The todo editor is now a bottom drawer on mobile instead of a floating popup — full width, bigger tap targets, and a Save button that stays pinned in view
-- [Fix] The checkmark next to a todo title that wraps onto multiple lines now lines up with the first line instead of sitting too high
-- [Update] Todo titles now grow to fit as you type instead of scrolling sideways in a single line
-- [Fix] Redesigned the "Delete recurring todo" confirmation to match omanote's usual layout — buttons at the bottom, close via the X — and fixed a bug where the X didn't actually close it
-- [Fix] Reminders no longer fire for a todo whose due time has already passed by the time you create it
-
-### v0.26.0 [July 18, 2026]
-
-> Todos that repeat. Set a cadence, and omanote keeps the day-to-day going.
-
-- [Add] Recurring todos — repeat daily, weekly, monthly, or on chosen weekdays (even "the last Saturday of every month"), with an end date or a fixed number of repeats. Just type it — "every mon and fri" or "pay rent every month on the last saturday until December" — and a chip confirms what omanote understood
-- [Add] Repeating reminders — "drink water every 30 minutes for the next 6 hours" pings you on that cadence without cluttering your list with copies
-- [Add] Recurring todos appear on every day they're due, on both the canvas and the Event calendar; completing one advances the series and logs that day. Edit the cadence, repeat count, or end date any time, and choose what to delete — this one, this and future, or the whole series
-- [Update] Reminders keep firing on every occurrence even if you skip a day, the Todos list buckets a recurring todo by its current occurrence (Today vs. Overdue), and snooze is hidden for recurring todos and repeating reminders since it would knock them off schedule
-- [Add] A built-in guide at omanote.com/guide — a browsable help site covering the canvas, todos, notes, bookmarks, events, and more, readable without signing in and reachable from the profile menu when you are
-- [Fix] The Write/Read switcher no longer flips to Write when you open Settings, Updates, Insights, or the Guide — it stays on whichever side you were last using
-
-### v0.25.3 [July 13, 2026]
-
-> Type a colon, get an emoji. Slack-style shortcuts, right in your notes, todos, and events.
-
-- [Add] Typing `:` in notes, todos, and events now pops up an emoji picker — search by name or pick from quick suggestions, same dropdown feel as hashtags
-
-### v0.25.2 [July 3, 2026]
-
-> Sharing has a view toggle for links, today's chip is gone from the canvas, and direct-link cards now underline the URL.
-
-- [Update] Hid "today" chip from canvas, only time shows up now
-- [Fix] The added direct links now appear underlined
-- [Add] You can now choose to show links as card or list when sharing your notes or bookmarks folder
-
-### v0.25.1 [July 1, 2026]
-
-> Few fixes to go with the desktop release.
-
-- [Fix] Hashtags in public links are highlighted
-- [Fix] Todo addition now shows folder selection on the right like bookmark
-- [Fix] Touch/scroll used to focus out your edit/input and autosave your input on mobile -- fixed it. Now we have dedicated control for save and exit
-
-### v0.25.0 [June 30, 2026]
-
-> Desktop bug fixes
-
-- [Update] Now you can mark your todo as complete right from your notification
-- [Fix] Mobile view now has todo folder to save to specific folder
-- [Fix] Your added RSS feed now shows fallback icon if fetching didn't work
-- [Add] Desktop app now shows up badge when there's new notification
-- [Fix] Shared todo folder has an indicator like on notes and bookmark
-- [Fix] Selecting the hashtag from the dropdown works flawless -- it used to autosaved with the incomplete hashtag before
-- [Fix] Bookmark url where the details can not be fetched shows placeholder thumbnail
-
-
-### v0.24.3 [June 26, 2026]
-
-> Desktop bug fixes
-
-- [Fix] What's new modal not opening in desktop app — CHANGELOG.md was missing from desktop build
-- [Fix] URL preview cards not opening in browser on desktop — capture-phase link handler intercepts before stopPropagation
-
-
-### v0.23.2 [June 22, 2026]
-
-> Todo folders are here. Organize, iconify, and share your task lists — all bundled into the desktop app.
-
-- [Add] Todo folders: group your todos into organized folders with custom icons and emojis.
-- [Add] Share todo folders publicly, just like notes and bookmarks.
-- [Add] Canvas todos now respect your selected folder — "Shift + Enter" saves to the same folder.
-- [Update] Todos page redesigned with folder management, including sort and reorder.
-- [Update] All previous todos migrated to a default "Others" folder.
-- [Update] Compacted the time row in the caledar view when there are no events so that your precious space is saved.
-
-### v0.23.1 [June 22, 2026]
-
-> Feed fixes and cleaner controls.
-
-- [Fix] RSS feed fetching now uses the correct Cloudflare Worker proxy URL — fixes feeds in the desktop app.
-- [Add] Refresh, Mark all read, and Unsubscribe buttons in the feed header are now icon-only with tooltips.
-- [Add] Feed header shows "Updated Xd" label so you know exactly when each feed was last fetched.
-
-### v0.22.3 [June 17, 2026]
-
-> RSS feeds now fetch client-side — zero server egress. Feeds only refresh when you open them.
-
-- [Add] RSS feeds now fetch client-side via a Cloudflare Worker CORS proxy — zero Convex data egress.
-- [Add] Feeds only refresh when you open them — no background cron job.
-- [Add] Cloudflare Worker CORS proxy at `omanote-rss-proxy.iambishistha.workers.dev`.
-- [Update] Removed server-side RSS cron job and related Convex actions.
-
-### v0.22.2 [June 15, 2026]
-
-> The desktop app catches up with the latest webapp fixes.
-
-- [Update] Desktop now bundles the latest canvas, date picker, changelog, and backend-load fixes from the webapp.
-- [Fix] Canvas inputs line up more cleanly, so todos, events, and notes feel consistent in the desktop app too.
-- [Fix] Background fetching is calmer now, reducing unnecessary load while keeping your workspace fresh.
-
-### v0.22.1 [June 12, 2026]
-
-> A small fix for appimage on Linux.
-
-- [Fix] Linux appimage now bundles without the wayland package and uses the one on your machine. (issue detected: Omarchy)
-
-### v0.22.0 [June 12, 2026]
-
-> The desktop app grew up. It's a real app now — not a website in a window.
-
-- [Add] The desktop app now ships with the app built in. It opens instantly to a proper welcome screen on first launch — no landing page, no browser feel.
-- [Add] Signing in on desktop now happens in your browser: click Sign in, finish in the browser, and you're bounced right back into the app, signed in.
-- [Add] The desktop app asks for its own notification permission and has its own notification toggle in Settings → Notifications. Reminders pop as real system notifications — even while the app is open.
-- [Add] On Mac, the app's top bar now sits flush with the window controls — the Read/Write switch lives right up in the title bar. On Windows, the app draws its own minimize/maximize/close buttons in the same bar.
-- [Add] The desktop app keeps itself fresh: when a new version is out, it offers a one-click "Update & restart" — no manual downloads.
-
-
-### v0.21.0 [June 10, 2026]
-
-> Desktop apps are here. Plus minor fixes here and there.
-
-- [Add] Desktop apps are now live. Whether you are on Windows, MacOS or Linux, omanote installs standalone on your device. Download them for seamless experience.
 
 ## Extension Versions
 

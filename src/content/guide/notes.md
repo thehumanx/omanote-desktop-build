@@ -12,11 +12,13 @@ Start a note from the composer (plain text becomes a note) or from the Notes vie
 
 Paste a link into a note and it's kept as a clickable link; notes with a link also show a preview card.
 
-To edit a note already on the canvas, click it on desktop; on mobile, long-press it to open the editor as a floating drawer.
+To edit a note already on the canvas, click it on desktop; on mobile, long-press it to open the editor as a floating drawer. Editing an existing note doesn't let you move it to a different folder — pick the folder once, when you create it.
 
 ## Folders
 
 Group notes into folders with custom icons, the same way todos and bookmarks work. Uncategorized notes stay together until you file them.
+
+On mobile, opening a folder slides in a full page from the right instead of a bottom sheet — swipe from the left edge or tap the back arrow to return to the folder list. The folder's Share button sits on its own next to the "•••" menu, which just has Rename and Delete. A floating "+" at the bottom opens a composer scoped to that folder, so whatever you write files straight in without extra steps.
 
 ## Hashtags
 

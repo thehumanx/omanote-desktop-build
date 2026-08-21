@@ -176,7 +176,7 @@ export function AppShell() {
           >
             {settings.rssReaderEnabled ? (
               <div className="shrink-0 md:hidden">
-                <ModeSwitch />
+                <ModeSwitch variant="compact" />
               </div>
             ) : null}
             <div className="min-w-0 flex-1">{topChromeContent}</div>

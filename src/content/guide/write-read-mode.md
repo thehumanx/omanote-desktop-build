@@ -12,6 +12,6 @@ When you switch to Read mode, the canvas tab bar changes to show **Feeds** and *
 
 ## Switching between them
 
-The mode switch sits in the mock window chrome at the top of the app — a pill with "Write" on the left and "Read" on the right. Tap it to toggle. Your current view (which tab you were on in Write mode) stays preserved when you switch back.
+On desktop, the mode switch is a small floating rail pinned to the left edge of the window — hover it to see the "Write"/"Read" labels. On mobile, it's a compact icon-only pill sitting inline in the top bar next to the date. Tap either one to toggle. Your current view (which tab you were on in Write mode) stays preserved when you switch back.
 
 The reader is optional because not everyone wants RSS alongside their notes — that's why it's off by default. Flip it on only when you're ready to bring feeds into the mix.

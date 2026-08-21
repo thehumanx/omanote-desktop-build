@@ -18,18 +18,16 @@ export function UpdateModal() {
   const { isModalOpen, closeModal, latestVersion, modalVersions, isTransitioningToModal, isRunningLatest, changelogMarkdown } = useUpdate();
   const navigate = useNavigate();
   const [isEntered, setIsEntered] = useState(false);
-  const [activeTab, setActiveTab] = useState<ChangelogProduct>("webapp");
+  const [activeTab, setActiveTab] = useState<ChangelogProduct>("application");
   const extensionVersions = useMemo<VersionInfo[]>(() => parseVersions(changelogMarkdown, "Extension Versions"), []);
-  const desktopVersions = useMemo<VersionInfo[]>(() => parseVersions(changelogMarkdown, "Desktop Versions"), []);
   const latestExtensionVersions = useMemo(() => extensionVersions.slice(0, 1), [extensionVersions]);
-  const latestDesktopVersions = useMemo(() => desktopVersions.slice(0, 1), [desktopVersions]);
-  const displayedVersions = activeTab === "extension" ? latestExtensionVersions : activeTab === "desktop" ? latestDesktopVersions : modalVersions;
+  const displayedVersions = activeTab === "extension" ? latestExtensionVersions : modalVersions;
   const shouldRenderModal = isModalOpen && Boolean(latestVersion) && modalVersions.length > 0;
   const prefersReducedMotion =
     typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   useEffect(() => {
-    if (isModalOpen) setActiveTab("webapp");
+    if (isModalOpen) setActiveTab("application");
   }, [isModalOpen]);
 
   useEffect(() => {

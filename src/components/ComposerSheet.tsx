@@ -178,6 +178,7 @@ export function ComposerSheet() {
             outsideClickContainerRef={sectionRef}
             requestedMode={state.ui.composerMode}
             requestToken={state.ui.composerOpenToken}
+            hideMobileActions
           />
         </div>
       </section>
