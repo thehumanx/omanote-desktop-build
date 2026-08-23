@@ -413,6 +413,46 @@ function inlineNodes(
   return nodes;
 }
 
+const BULLET_MARKER_CLASSES = ["list-disc", "list-[circle]", "list-[square]"];
+const ORDERED_MARKER_CLASSES = ["list-decimal", "list-[lower-alpha]", "list-[lower-roman]"];
+
+type ListItemAcc = {
+  key: string;
+  content: ReactNode;
+  children: ListAcc | null;
+};
+
+type ListAcc = {
+  id: number;
+  type: "bullet" | "ordered";
+  indent: number;
+  start: number;
+  items: ListItemAcc[];
+};
+
+function renderListAcc(list: ListAcc, depth: number, paragraphClassName?: string): ReactNode {
+  const Tag = list.type === "bullet" ? "ul" : "ol";
+  const markerClass =
+    list.type === "bullet"
+      ? BULLET_MARKER_CLASSES[depth % BULLET_MARKER_CLASSES.length]
+      : ORDERED_MARKER_CLASSES[depth % ORDERED_MARKER_CLASSES.length];
+
+  return (
+    <Tag
+      key={`list-${list.id}`}
+      start={list.type === "ordered" ? list.start : undefined}
+      className={cn("m-0 pl-5", markerClass)}
+    >
+      {list.items.map((item) => (
+        <li key={item.key} className={cn("m-0 list-item text-zinc-400 marker:text-zinc-400", paragraphClassName)}>
+          <span className="text-app-ink">{item.content}</span>
+          {item.children ? renderListAcc(item.children, depth + 1, paragraphClassName) : null}
+        </li>
+      ))}
+    </Tag>
+  );
+}
+
 export function RichTextPreview({
   value,
   className,
@@ -428,79 +468,66 @@ export function RichTextPreview({
 }) {
   const lines = value.split(/\r?\n/);
   const nodes: ReactNode[] = [];
-  let listBuffer: ReactNode[] = [];
-  let listKeyBase = 0;
-  let orderedListBuffer: ReactNode[] = [];
-  let orderedListKeyBase = 0;
-  let orderedListStart = 1;
+  let listStack: ListAcc[] = [];
+  let listIdCounter = 0;
   let offset = 0;
 
-  const flushBulletList = () => {
-    if (!listBuffer.length) return;
-    nodes.push(
-      <ul key={`bullets-${listKeyBase}`} className="m-0 list-disc pl-5">
-        {listBuffer}
-      </ul>,
-    );
-    listBuffer = [];
-  };
-  const flushOrderedList = () => {
-    if (!orderedListBuffer.length) return;
-    nodes.push(
-      <ol key={`ordered-${orderedListKeyBase}`} start={orderedListStart} className="m-0 list-decimal pl-5">
-        {orderedListBuffer}
-      </ol>,
-    );
-    orderedListBuffer = [];
-    orderedListStart = 1;
+  const flushList = () => {
+    if (!listStack.length) return;
+    while (listStack.length > 1) {
+      const child = listStack.pop() as ListAcc;
+      const parent = listStack[listStack.length - 1];
+      parent.items[parent.items.length - 1].children = child;
+    }
+    const root = listStack.pop() as ListAcc;
+    nodes.push(renderListAcc(root, 0, paragraphClassName));
+    listStack = [];
   };
 
   lines.forEach((line, index) => {
     const displayLine = line.endsWith("\\") ? line.slice(0, -1) : line;
     const key = `${index}-${line}`;
     if (!displayLine.trim()) {
-      flushBulletList();
-      flushOrderedList();
+      flushList();
       nodes.push(<div key={key} className="h-6" />);
       offset += line.length + 1;
       return;
     }
 
-    const bulletMatch = displayLine.match(/^\s*[-*+]\s+(.+)$/);
-    if (bulletMatch) {
-      flushOrderedList();
-      if (!listBuffer.length) listKeyBase = index;
-      listBuffer.push(
-        <li key={key} className={cn("m-0 list-item text-zinc-400 marker:text-zinc-400", paragraphClassName)}>
-          <span className="text-app-ink">
-            {inlineNodes(bulletMatch[1], offset + displayLine.indexOf(bulletMatch[1]), value, onLinkEdit, onHashtagClick)}
-          </span>
-        </li>,
-      );
-      offset += line.length + 1;
-      return;
-    }
+    const bulletMatch = displayLine.match(/^(\s*)[-*+]\s+(.+)$/);
+    const orderedMatch = !bulletMatch ? displayLine.match(/^(\s*)(\d+)\.\s+(.+)$/) : null;
 
-    flushBulletList();
+    if (bulletMatch || orderedMatch) {
+      const type: ListAcc["type"] = bulletMatch ? "bullet" : "ordered";
+      const indent = (bulletMatch ?? orderedMatch)![1].length;
+      const text = bulletMatch ? bulletMatch[2] : orderedMatch![3];
+      const start = orderedMatch ? Number.parseInt(orderedMatch[2], 10) || 1 : 1;
 
-    const orderedMatch = displayLine.match(/^\s*(\d+)\.\s+(.+)$/);
-    if (orderedMatch) {
-      if (!orderedListBuffer.length) {
-        orderedListKeyBase = index;
-        orderedListStart = Number.parseInt(orderedMatch[1], 10) || 1;
+      while (
+        listStack.length &&
+        (indent < listStack[listStack.length - 1].indent ||
+          (indent === listStack[listStack.length - 1].indent && listStack[listStack.length - 1].type !== type))
+      ) {
+        const child = listStack.pop() as ListAcc;
+        if (listStack.length) {
+          const parent = listStack[listStack.length - 1];
+          parent.items[parent.items.length - 1].children = child;
+        } else {
+          nodes.push(renderListAcc(child, 0, paragraphClassName));
+        }
       }
-      orderedListBuffer.push(
-        <li key={key} className={cn("m-0 list-item text-zinc-400 marker:text-zinc-400", paragraphClassName)}>
-          <span className="text-app-ink">
-            {inlineNodes(orderedMatch[2], offset + displayLine.indexOf(orderedMatch[2]), value, onLinkEdit, onHashtagClick)}
-          </span>
-        </li>,
-      );
+
+      if (!listStack.length || indent > listStack[listStack.length - 1].indent) {
+        listStack.push({ id: listIdCounter++, type, indent, start, items: [] });
+      }
+
+      const content = inlineNodes(text, offset + displayLine.indexOf(text), value, onLinkEdit, onHashtagClick);
+      listStack[listStack.length - 1].items.push({ key, content, children: null });
       offset += line.length + 1;
       return;
     }
 
-    flushOrderedList();
+    flushList();
 
     nodes.push(
       <p key={key} className={cn("whitespace-pre-wrap break-words", paragraphClassName)}>
@@ -510,8 +537,7 @@ export function RichTextPreview({
     offset += line.length + 1;
   });
 
-  flushBulletList();
-  flushOrderedList();
+  flushList();
 
   return <div className={cn("omanote-rich-text", className)}>{nodes}</div>;
 }

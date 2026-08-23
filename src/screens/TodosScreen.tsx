@@ -11,6 +11,8 @@ import { BookmarkCategoryIconPicker } from "../components/BookmarkCategoryIconPi
 import { ShareFolderModal } from "../components/ShareFolderModal";
 import { EmptyState } from "../components/EmptyState";
 import { useTopChrome } from "../components/layout/useTopChrome";
+import { ExpandableSearch } from "../components/ExpandableSearch";
+import { matchesQuery, normalizeSearchQuery } from "../lib/search-match";
 import { ModalPortal } from "../components/ModalPortal";
 import { TodoEditorModal } from "../components/TodoEditorModal";
 import { TodoFolderCard, TodoFolderCountBadge, TodoFolderRow } from "../components/TodoFolderRow";
@@ -509,6 +511,27 @@ export function TodosScreen() {
     });
   }, [allFolderNames, newFolderName, renamingFolderId, state.todoFolders]);
 
+  const [todoSearch, setTodoSearch] = useState("");
+  const todoSearchQuery = useMemo(() => normalizeSearchQuery(todoSearch), [todoSearch]);
+
+  const matchingTodoFolderIds = useMemo(() => {
+    if (!todoSearchQuery) return null;
+    const ids = new Set<string>();
+    const othersId = effectiveTodoFolders.find((folder) => folder.name.toLowerCase() === "others")?.id ?? effectiveTodoFolders[0]?.id;
+    for (const todo of activeTodos) {
+      if (!matchesQuery(todoSearchQuery, todo.title, todo.notes)) continue;
+      const folderId =
+        todo.folderId && effectiveTodoFolders.some((folder) => folder.id === todo.folderId) ? todo.folderId : othersId;
+      if (folderId) ids.add(folderId);
+    }
+    return ids;
+  }, [todoSearchQuery, activeTodos, effectiveTodoFolders]);
+
+  const visibleTodoFolders = useMemo(() => {
+    if (!matchingTodoFolderIds) return effectiveTodoFolders;
+    return effectiveTodoFolders.filter((folder) => matchingTodoFolderIds.has(folder.id));
+  }, [effectiveTodoFolders, matchingTodoFolderIds]);
+
   useEffect(() => {
     if (!selectedFolder) return;
     if (selectedFolderId === selectedFolder.id) return;
@@ -872,18 +895,17 @@ export function TodosScreen() {
     };
   }, [state.todos, state.todoFolders, activeSharedFolderIds, updateShareSnapshot]);
 
-  useTopChrome(null);
+  useTopChrome(<ExpandableSearch value={todoSearch} onChange={setTodoSearch} placeholder="Search in Todos" />);
 
   return (
     <div
-      className="fixed left-0 right-0 z-0 mx-auto flex min-h-0 flex-1 flex-col overflow-hidden md:px-4"
+      className="fixed left-0 right-0 z-0 flex min-h-0 flex-1 flex-col overflow-hidden"
       style={{
         top: "var(--omanote-top-chrome-height, 0px)",
         bottom: "0px",
-        maxWidth: "1024px",
       }}
     >
-        <div className="grid h-full min-h-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-4 overflow-hidden lg:grid-cols-[284px_minmax(0,1fr)] lg:grid-rows-1">
+        <div className="grid h-full min-h-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-4 overflow-hidden lg:grid-cols-[227px_minmax(0,1fr)] lg:grid-rows-1">
         <aside className="min-h-0 overflow-hidden pt-4 lg:block lg:h-full">
           <div className="flex h-full min-h-0 flex-col">
             <div className="flex items-center justify-between px-2 pb-2 lg:px-0">
@@ -1002,7 +1024,7 @@ export function TodosScreen() {
                       />
                     </div>
                   ) : null}
-                  {effectiveTodoFolders.map((folder) => (
+                  {visibleTodoFolders.map((folder) => (
                     renamingFolderId === folder.id ? (
                       <div key={folder.id} className="col-span-3">
                         <TodoFolderRow
@@ -1085,7 +1107,7 @@ export function TodosScreen() {
                       onClick={noop}
                     />
                   ) : null}
-                  {effectiveTodoFolders.map((folder) => (
+                  {visibleTodoFolders.map((folder) => (
                     <TodoFolderRow
                       key={folder.id}
                       folder={folder}
@@ -1162,7 +1184,7 @@ export function TodosScreen() {
               </div>
             </div>
 
-            <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1 pb-24">
+            <div className="scrollbar-hide mt-4 min-h-0 flex-1 overflow-y-auto pr-1 pb-24">
               <div
                 style={{
                   animation: todoViewFading
@@ -1442,7 +1464,7 @@ export function TodosScreen() {
                   )}
                 </div>
               </div>
-              <div className="mt-4 min-h-0 flex-1 overflow-y-auto px-4 pb-16" data-drawer-todos-list>
+              <div className="scrollbar-hide mt-4 min-h-0 flex-1 overflow-y-auto px-4 pb-16" data-drawer-todos-list>
                 {drawerFilter === "active" ? (
                   drawerPendingTodos.length ? (
                     <div data-testid="todo-section-stack" className="omanote-todo-section-stack">

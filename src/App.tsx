@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from "react";
-import { Link, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
+import { Link, Navigate, Outlet, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { LandingScreen } from "./screens/LandingScreen";
@@ -75,9 +75,14 @@ const UpdatesScreen = lazy(() =>
 const SharedFolderPage = lazy(() =>
   import("./screens/SharedFolderPage").then((module) => ({ default: module.SharedFolderPage })),
 );
-const SharedNoteFolderPage = lazy(() =>
-  import("./screens/SharedNoteFolderPage").then((module) => ({ default: module.SharedNoteFolderPage })),
-);
+
+// All shared-folder links now live under /s/ (bookmarks, todos, and notes
+// alike — see SharedFolderPage). /n/ is the legacy note-folder route; links
+// already shared with it must keep working, so it redirects rather than 404s.
+function LegacySharedNoteFolderRedirect() {
+  const { shareCode } = useParams<{ shareCode: string }>();
+  return <Navigate to={`/s/${shareCode ?? ""}`} replace />;
+}
 const InsightsScreen = lazy(() =>
   import("./screens/InsightsScreen").then((module) => ({ default: module.InsightsScreen })),
 );
@@ -192,7 +197,7 @@ export default function App() {
         <Route path="/privacy" element={<PrivacyPolicyScreen />} />
         <Route path="/terms" element={<TermsScreen />} />
         <Route path="/s/:shareCode" element={<SharedFolderPage />} />
-        <Route path="/n/:shareCode" element={<SharedNoteFolderPage />} />
+        <Route path="/n/:shareCode" element={<LegacySharedNoteFolderRedirect />} />
         <Route path="/" element={<RootRoute />}>
           <Route index element={<Navigate to="/canvas" replace />} />
           <Route path="canvas" element={<CanvasScreen />} />

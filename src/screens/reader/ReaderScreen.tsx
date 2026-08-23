@@ -771,8 +771,8 @@ export function ReaderScreen({ savedView = false }: { savedView?: boolean }) {
   if (savedView) {
     return (
       <div
-        className="fixed left-0 right-0 z-0 mx-auto flex min-h-0 flex-1 flex-col overflow-hidden md:px-4"
-        style={{ top: "var(--omanote-top-chrome-height, 0px)", bottom: "0px", maxWidth: "1024px" }}
+        className="fixed left-0 right-0 z-0 flex min-h-0 flex-1 flex-col overflow-hidden"
+        style={{ top: "var(--omanote-top-chrome-height, 0px)", bottom: "0px" }}
       >
         <div className="h-full min-h-0 overflow-y-auto pt-4 pb-8">
           {items === undefined ? (
@@ -816,8 +816,8 @@ export function ReaderScreen({ savedView = false }: { savedView?: boolean }) {
     return (
       <>
         <div
-          className="fixed left-0 right-0 z-0 mx-auto flex min-h-0 flex-1 flex-col overflow-hidden md:px-4"
-          style={{ top: "var(--omanote-top-chrome-height, 0px)", bottom: "0px", maxWidth: "1024px" }}
+          className="fixed left-0 right-0 z-0 flex min-h-0 flex-1 flex-col overflow-hidden"
+          style={{ top: "var(--omanote-top-chrome-height, 0px)", bottom: "0px" }}
         >
           <EmptyState
             title="Your reading room is empty"
@@ -836,11 +836,10 @@ export function ReaderScreen({ savedView = false }: { savedView?: boolean }) {
 
   return (
     <div
-      className="fixed left-0 right-0 z-0 mx-auto flex min-h-0 flex-1 flex-col overflow-hidden md:px-4"
+      className="fixed left-0 right-0 z-0 flex min-h-0 flex-1 flex-col overflow-hidden"
       style={{
         top: "var(--omanote-top-chrome-height, 0px)",
         bottom: "0px",
-        maxWidth: "1024px",
       }}
     >
       <div className="relative grid h-full min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[284px_minmax(0,1fr)]">

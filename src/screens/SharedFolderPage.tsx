@@ -6,6 +6,10 @@ import { api } from "../../convex/_generated/api";
 import { getShareViewerToken } from "../lib/share-viewer-token";
 import { cn, TodoCheckmark } from "../components/ui";
 import { RichTextPreview } from "../components/rich-text";
+import { extractAllPreviewableUrls } from "../lib/attachment-link-preview";
+import { LinkListItem, UrlLinkPreview } from "../components/AttachmentLinkPreview";
+import { normalizeLegacyNoteBodyForTiptap } from "../lib/note-body-migration";
+import { HashtagChip } from "../components/HashtagChip";
 import { daysBetweenKeys, formatCompletedLabel, formatDueChip, toDateKey } from "@omanote/shared";
 import type { DateKey } from "@omanote/shared";
 import { Bookmark, CircleCheckBig, ExternalLink } from "lucide-react";
@@ -23,8 +27,11 @@ type PublicBookmark = {
 
 type PublicTodoFolder = {
   shareCode: string;
+  slug: string | null;
   folderName: string;
   folderIcon: string | null;
+  description: string | null;
+  thumbnailUrl: string | null;
   todos: {
     id: string;
     title: string;
@@ -44,8 +51,11 @@ type PublicTodoFolder = {
 
 type PublicBookmarkFolder = {
   shareCode: string;
+  slug: string | null;
   categoryName: string;
   categoryIcon: string | null;
+  description: string | null;
+  thumbnailUrl: string | null;
   bookmarks: {
     id: string;
     url: string;
@@ -63,6 +73,59 @@ type PublicBookmarkFolder = {
   linkViewMode: "card" | "list";
   isOwner: boolean;
 };
+
+type PublicNote = {
+  id: string;
+  title?: string;
+  body: string;
+  tags: string[];
+};
+
+type PublicNoteFolder = {
+  shareCode: string;
+  slug: string | null;
+  folderName: string;
+  folderIcon: string | null;
+  description: string | null;
+  thumbnailUrl: string | null;
+  notes: PublicNote[];
+  ownerName: string;
+  ownerImageUrl?: string;
+  viewCount: number;
+  createdAt: number;
+  snapshotUpdatedAt: number | null;
+  linkViewMode: "card" | "list";
+  isOwner: boolean;
+};
+
+function OwnerAvatar({ name, imageUrl }: { name: string; imageUrl?: string | null }) {
+  const initial = name.trim().charAt(0).toUpperCase() || "?";
+
+  if (!imageUrl) {
+    return (
+      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-app-line text-[10px] font-bold uppercase text-app-ink-muted">
+        {initial}
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative h-6 w-6 overflow-hidden rounded-full bg-app-line">
+      <div className="flex h-full w-full items-center justify-center text-[10px] font-bold uppercase text-app-ink-muted">
+        {initial}
+      </div>
+      <img
+        src={imageUrl}
+        alt={name}
+        referrerPolicy="no-referrer"
+        className="absolute inset-0 h-full w-full rounded-full object-cover"
+        onError={(e) => {
+          (e.currentTarget as HTMLImageElement).style.display = "none";
+        }}
+      />
+    </div>
+  );
+}
 
 function PublicBookmarkCard({ bookmark }: { bookmark: PublicBookmark }) {
   let domain = bookmark.url;
@@ -135,6 +198,55 @@ function PublicBookmarkCard({ bookmark }: { bookmark: PublicBookmark }) {
   );
 }
 
+function PublicNoteEntry({ note }: { note: PublicNote }) {
+  const normalizedBody = normalizeLegacyNoteBodyForTiptap(note.body);
+  return (
+    <div>
+      <div className="text-sm leading-relaxed text-app-ink-muted">
+        <RichTextPreview
+          value={normalizedBody}
+          paragraphClassName="text-sm leading-relaxed text-app-ink-muted break-words"
+        />
+      </div>
+      {note.tags.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {note.tags.map((tag) => (
+            <HashtagChip key={tag} name={tag} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FolderAttachedLinks({ notes, linkViewMode }: { notes: PublicNote[]; linkViewMode: "card" | "list" }) {
+  const linkUrls = extractAllPreviewableUrls(...notes.flatMap((n) => [n.title, normalizeLegacyNoteBodyForTiptap(n.body)]));
+  if (linkUrls.length === 0) return null;
+
+  return (
+    <div className="mt-2 rounded-2xl border border-app-line bg-app-surface px-6 py-6">
+      <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-app-ink-faint">
+        Attached links
+      </p>
+      {linkViewMode === "list" ? (
+        <ol className="list-outside list-decimal space-y-2 pl-5">
+          {linkUrls.map((url) => (
+            <li key={url}>
+              <LinkListItem url={url} />
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {linkUrls.map((url) => (
+            <UrlLinkPreview key={url} url={url} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function sortTodos(todos: PublicTodoFolder["todos"]) {
   return [...todos].sort((a, b) => {
     const aHasDate = a.dueDateKey != null;
@@ -172,13 +284,22 @@ export function SharedFolderPage() {
 
   const todoData = useQuery(api.sharedTodoFolders.getPublicShare, { shareCode: shareCode ?? "" });
   const bookmarkData = useQuery(api.sharedFolders.getPublicShare, { shareCode: shareCode ?? "" });
+  const noteData = useQuery(api.sharedNoteFolders.getPublicShare, { shareCode: shareCode ?? "" });
   const recordTodoView = useMutation(api.sharedTodoFolders.recordShareView);
   const recordBookmarkView = useMutation(api.sharedFolders.recordShareView);
+  const recordNoteView = useMutation(api.sharedNoteFolders.recordShareView);
   const unshare = useMutation(api.sharedFolders.unshareFromPublicPage);
+  const unshareNotes = useMutation(api.sharedNoteFolders.unshareFromPublicPage);
 
   const isTodo = todoData !== undefined && todoData !== null;
-  const data = todoData ?? bookmarkData;
-  const recordView = isTodo ? recordTodoView : recordBookmarkView;
+  const isNote = !isTodo && noteData !== undefined && noteData !== null;
+  const data = todoData ?? bookmarkData ?? noteData;
+  const recordView = isTodo ? recordTodoView : isNote ? recordNoteView : recordBookmarkView;
+
+  // Slugs/codes are unique across all three share tables (enforced at write
+  // time), so at most one of these queries ever resolves to a non-null share.
+  const allResolved =
+    todoData !== undefined && bookmarkData !== undefined && noteData !== undefined;
 
   useEffect(() => {
     if (!shareCode || data === undefined || data === null) return;
@@ -186,7 +307,7 @@ export function SharedFolderPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shareCode, data !== null && data !== undefined]);
 
-  if (data === undefined) {
+  if (!allResolved) {
     return (
       <>
         <SeoHead title="omanote | Shared folder" noIndex />
@@ -197,7 +318,7 @@ export function SharedFolderPage() {
     );
   }
 
-  if (data === null) {
+  if (data === null || data === undefined) {
     return (
       <>
         <SeoHead title="omanote | Shared folder" noIndex />
@@ -218,7 +339,8 @@ export function SharedFolderPage() {
       <>
         <SeoHead
           title={`${td.folderName} by ${td.ownerName.split(" ")[0]} | omanote`}
-          description={`${td.folderName} — a shared folder by ${td.ownerName} on omanote.`}
+          description={td.description || `${td.folderName} — a shared folder by ${td.ownerName} on omanote.`}
+          ogImage={td.thumbnailUrl ?? undefined}
           noIndex
         />
         <div className="public-page min-h-screen bg-app-canvas">
@@ -253,26 +375,7 @@ export function SharedFolderPage() {
             </h1>
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2">
-                {td.ownerImageUrl ? (
-                  <div className="relative h-6 w-6 overflow-hidden rounded-full bg-app-line">
-                    <div className="flex h-full w-full items-center justify-center text-[10px] font-bold uppercase text-app-ink-muted">
-                      {td.ownerName.charAt(0)}
-                    </div>
-                    <img
-                      src={td.ownerImageUrl}
-                      alt={td.ownerName}
-                      referrerPolicy="no-referrer"
-                      className="absolute inset-0 h-full w-full rounded-full object-cover"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).style.display = "none";
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-app-line text-[10px] font-bold uppercase text-app-ink-muted">
-                    {td.ownerName.charAt(0)}
-                  </div>
-                )}
+                <OwnerAvatar name={td.ownerName} imageUrl={td.ownerImageUrl} />
                 <span className="text-sm text-app-ink-muted">{td.ownerName}</span>
               </div>
               <span className="text-app-ink-faint">·</span>
@@ -345,12 +448,89 @@ export function SharedFolderPage() {
     );
   }
 
+  if (isNote) {
+    const nd = data as unknown as PublicNoteFolder;
+    return (
+      <>
+        <SeoHead
+          title={`${nd.folderName} by ${nd.ownerName.split(" ")[0]} | omanote`}
+          description={nd.description || `${nd.folderName} — a shared note folder by ${nd.ownerName} on omanote.`}
+          ogImage={nd.thumbnailUrl ?? undefined}
+          noIndex
+        />
+        <div className="public-page min-h-screen bg-app-canvas">
+          <header className="sticky top-0 z-10 border-b border-app-line bg-app-surface/80 backdrop-blur-sm">
+            <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+              <Link to="/" className="flex items-center transition hover:opacity-70">
+                <img src="/logo.svg" alt="Omanote" className="h-7 w-auto" />
+              </Link>
+              {nd.isOwner && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await unshareNotes({ shareCode: nd.shareCode });
+                  }}
+                  className="rounded-lg border border-danger-line bg-danger-surface px-3 py-1.5 text-xs font-medium text-danger-ink transition hover:bg-danger-surface"
+                >
+                  Unshare
+                </button>
+              )}
+            </div>
+          </header>
+
+          <main className="mx-auto max-w-5xl px-4 py-10">
+            <div className="mb-8">
+              <h1 className="text-2xl font-bold text-app-ink">
+                {nd.folderIcon && <span className="mr-2">{nd.folderIcon}</span>}
+                {nd.folderName}
+              </h1>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <OwnerAvatar name={nd.ownerName} imageUrl={nd.ownerImageUrl} />
+                  <span className="text-sm text-app-ink-muted">{nd.ownerName}</span>
+                </div>
+                <span className="text-app-ink-faint">·</span>
+                <span className="text-sm text-app-ink-faint">
+                  Updated {formatSharedDate(nd.snapshotUpdatedAt ?? nd.createdAt)}
+                </span>
+                <span className="text-app-ink-faint">·</span>
+                <span className="text-sm text-app-ink-faint">
+                  {nd.viewCount === 0
+                    ? "No views yet"
+                    : nd.viewCount === 1
+                      ? "1 view"
+                      : `${nd.viewCount} views`}
+                </span>
+              </div>
+            </div>
+
+            {nd.notes.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-app-line bg-app-surface py-16 text-center">
+                <p className="text-sm font-medium text-app-ink-muted">No notes in this folder yet.</p>
+              </div>
+            ) : (
+              <>
+                <div className="rounded-2xl border border-app-line bg-app-surface px-6 py-6 flex flex-col gap-4">
+                  {nd.notes.map((note) => (
+                    <PublicNoteEntry key={note.id} note={note} />
+                  ))}
+                </div>
+                <FolderAttachedLinks notes={nd.notes} linkViewMode={nd.linkViewMode} />
+              </>
+            )}
+          </main>
+        </div>
+      </>
+    );
+  }
+
   const bd = data as unknown as PublicBookmarkFolder;
   return (
     <>
       <SeoHead
-        title={`${bookmarkData!.categoryName} by ${data.ownerName.split(" ")[0]} | omanote`}
-        description={`${bookmarkData!.categoryName} — a shared bookmark folder by ${data.ownerName} on omanote.`}
+        title={`${bd.categoryName} by ${bd.ownerName.split(" ")[0]} | omanote`}
+        description={bd.description || `${bd.categoryName} — a shared bookmark folder by ${bd.ownerName} on omanote.`}
+        ogImage={bd.thumbnailUrl ?? undefined}
         noIndex
       />
       <div className="public-page min-h-screen bg-app-canvas">
@@ -381,26 +561,7 @@ export function SharedFolderPage() {
           </h1>
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2">
-                {bd.ownerImageUrl ? (
-                  <div className="relative h-6 w-6 overflow-hidden rounded-full bg-app-line">
-                    <div className="flex h-full w-full items-center justify-center text-[10px] font-bold uppercase text-app-ink-muted">
-                      {bd.ownerName.charAt(0)}
-                    </div>
-                    <img
-                      src={bd.ownerImageUrl}
-                      alt={bd.ownerName}
-                      referrerPolicy="no-referrer"
-                      className="absolute inset-0 h-full w-full rounded-full object-cover"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).style.display = "none";
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-app-line text-[10px] font-bold uppercase text-app-ink-muted">
-                    {bd.ownerName.charAt(0)}
-                  </div>
-                )}
+                <OwnerAvatar name={bd.ownerName} imageUrl={bd.ownerImageUrl} />
                 <span className="text-sm text-app-ink-muted">{bd.ownerName}</span>
               </div>
               <span className="text-app-ink-faint">·</span>

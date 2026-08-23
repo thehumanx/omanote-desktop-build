@@ -13,6 +13,8 @@ import { BookmarkCategoryIconPicker } from "../components/BookmarkCategoryIconPi
 import { CategoryIconView } from "../lib/bookmark-category-icon";
 import { NoteCard } from "../components/cards";
 import { useTopChrome } from "../components/layout/useTopChrome";
+import { ExpandableSearch } from "../components/ExpandableSearch";
+import { matchesQuery, normalizeSearchQuery } from "../lib/search-match";
 import { Button, cn } from "../components/ui";
 import { useOutsideClick } from "../lib/useOutsideClick";
 import { ModalPortal } from "../components/ModalPortal";
@@ -272,7 +274,24 @@ export function NotesScreen() {
     });
   }, [folderNameById, folderSort.direction, folderSort.key, sourceNotes, state.noteFolders]);
 
-  const visibleFolderRows = folderRows;
+  const [noteSearch, setNoteSearch] = useState("");
+  const noteSearchQuery = useMemo(() => normalizeSearchQuery(noteSearch), [noteSearch]);
+
+  const matchingNoteFolderKeys = useMemo(() => {
+    if (!noteSearchQuery) return null;
+    const keys = new Set<string>();
+    for (const note of sourceNotes) {
+      if (matchesQuery(noteSearchQuery, note.title, note.body)) {
+        keys.add(normalizeNoteFolderName(noteFolderName(note, folderNameById)));
+      }
+    }
+    return keys;
+  }, [noteSearchQuery, sourceNotes, folderNameById]);
+
+  const visibleFolderRows = useMemo(() => {
+    if (!matchingNoteFolderKeys) return folderRows;
+    return folderRows.filter((row) => matchingNoteFolderKeys.has(normalizeNoteFolderName(row.name)));
+  }, [folderRows, matchingNoteFolderKeys]);
 
   useEffect(() => {
     if (!creatingFolder && !renamingFolderId) return;
@@ -488,7 +507,7 @@ export function NotesScreen() {
     setSortMenuOpen(false);
   };
 
-  useTopChrome(null);
+  useTopChrome(<ExpandableSearch value={noteSearch} onChange={setNoteSearch} placeholder="Search in Notes" />);
 
   useEffect(() => {
     if (!focusNoteId) return;
@@ -691,7 +710,7 @@ export function NotesScreen() {
       </div>
       {visibleNotes.length ? (
         <div
-          className={cn("min-h-0 flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden", isMobileDrawer && "px-4")}
+          className={cn("scrollbar-hide min-h-0 flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden", isMobileDrawer && "px-4")}
           style={{ overflowAnchor: "none" }}
          
         >
@@ -786,7 +805,7 @@ export function NotesScreen() {
           <div aria-hidden="true" style={{ height: "calc(var(--omanote-bottom-nav-height, 64px) + 1.5rem)", flexShrink: 0 }} />
         </div>
       ) : (
-        <div className={cn("min-h-0 flex-1 overflow-y-auto overflow-x-hidden", isMobileDrawer && "px-4")}>
+        <div className={cn("scrollbar-hide min-h-0 flex-1 overflow-y-auto overflow-x-hidden", isMobileDrawer && "px-4")}>
           {/* Mobile uses the "+" button (same floating composer sheet as
               every other artifact type) instead of this persistent inline
               row; desktop keeps the inline composer. */}
@@ -822,14 +841,13 @@ export function NotesScreen() {
 
   return (
     <div
-      className="fixed left-0 right-0 z-0 mx-auto flex min-h-0 flex-1 flex-col overflow-hidden md:px-4"
+      className="fixed left-0 right-0 z-0 flex min-h-0 flex-1 flex-col overflow-hidden"
       style={{
         top: "var(--omanote-top-chrome-height, 0px)",
         bottom: "0px",
-        maxWidth: "1024px",
       }}
     >
-      <div className="relative grid h-full min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[284px_minmax(0,1fr)]">
+      <div className="relative grid h-full min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[227px_minmax(0,1fr)]">
         <aside className="h-full min-h-0 overflow-hidden pt-4">
           <div className="flex h-full min-h-0 flex-col">
             <div className="mb-3 flex items-center justify-between">

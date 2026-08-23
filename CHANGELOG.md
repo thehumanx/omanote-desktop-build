@@ -4,6 +4,22 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.31.3 [August 23, 2026]
+
+> A contextual search bar on Todos, Notes, Bookmarks, and Events narrows the folder list to what actually matches. Shared links get a custom thumbnail, URL, and description, and every share type now lives at the same clean `/s/` link. Also: a straighter top bar, a roomier bookmark grid, and quieter scrollbars.
+
+- [Add] A search icon at the top left of Todos, Notes, Bookmarks, and Events expands into a search bar on click. Type 3+ characters and the folder list narrows to only folders containing a match — on Events (timeline view), it filters the entries directly instead
+- [Fix] Opening the "what's new" update modal from any page other than Canvas now actually opens it — it used to silently do nothing
+- [Fix] Nested bullet and numbered lists in notes and todos now stay nested after saving — they used to flatten into one plain list on Canvas even though they looked properly indented while typing. Nested markers now also cycle by depth (dot → circle → square for bullets, 1 → a → i for numbered), matching how other apps do it
+- [Fix] Fixed an oversized gap that appeared between nested list levels only while editing, before saving
+- [Add] Give your shared links a custom preview — upload your own thumbnail image (auto-cropped to a clean 1200×630), pick your own web address instead of a string of random letters, and add an optional description. All three now show up correctly when the link is pasted into Slack, iMessage, or anywhere else that shows a link preview — it used to just show omanote's generic default no matter what you actually shared
+- [Update] Shared bookmark, todo, and note folders all now live at the same `/s/...` link — no more `/n/...` for notes specifically. Old note links you've already shared still work, they just quietly forward to the new address
+- [Fix] Bookmark thumbnails in the bookmark grid no longer get cropped — the full image now shows
+- [Update] The bookmark grid now fits as many columns as actually fit, instead of jumping between fixed column counts and squeezing cards too tight at some window sizes
+- [Update] The folder list on Todos, Notes, and Bookmarks is narrower, freeing up more room for content
+- [Fix] Scrollbars are hidden across Todos, Notes, Bookmarks, and the calendar — scrolling still works, it's just not a visible bar anymore
+- [Fix] The search icon and your profile avatar in the top bar now line up properly with the content underneath, on every page
+
 ### v0.31.2 [August 21, 2026]
 
 > Todos gets Active/Done tabs with day-grouped overdue todos, and every folder page — Todos, Notes, Bookmarks — opens full-screen on mobile now instead of a bottom sheet.

@@ -13,6 +13,8 @@ import { BookmarkCategoryIconPicker } from "../components/BookmarkCategoryIconPi
 import { CategoryIconView } from "../lib/bookmark-category-icon";
 import { BookmarkCard } from "../components/cards";
 import { useTopChrome } from "../components/layout/useTopChrome";
+import { ExpandableSearch } from "../components/ExpandableSearch";
+import { matchesQuery, normalizeSearchQuery } from "../lib/search-match";
 import { Button, cn } from "../components/ui";
 import { BookmarkEditorModal } from "../components/BookmarkEditorModal";
 import { ShareFolderModal } from "../components/ShareFolderModal";
@@ -325,8 +327,11 @@ export function BookmarksScreen() {
     return null;
   };
 
+  const [bookmarkSearch, setBookmarkSearch] = useState("");
+  const bookmarkSearchQuery = useMemo(() => normalizeSearchQuery(bookmarkSearch), [bookmarkSearch]);
+
   const categoryRows = useMemo(() => {
-    const rows = new Map<string, { id: string; name: string; icon?: string; count: number; lastUpdated: number }>();
+    const rows = new Map<string, { id: string; name: string; icon?: string; count: number; lastUpdated: number; hasMatch: boolean }>();
 
     for (const category of state.bookmarkCategories) {
       const rowId = isSavedCategoryName(category.name)
@@ -346,6 +351,7 @@ export function BookmarksScreen() {
         icon: virtualName ? undefined : category.icon,
         count: 0,
         lastUpdated: category.createdAt,
+        hasMatch: false,
       });
     }
 
@@ -356,10 +362,14 @@ export function BookmarksScreen() {
           ? canonicalGcalCategoryId
           : bookmark.categoryId;
       const virtualName = virtualRowName(rowId);
+      const matches = bookmarkSearchQuery
+        ? matchesQuery(bookmarkSearchQuery, bookmark.title, bookmark.url, bookmark.siteName, bookmark.description)
+        : false;
       const existing = rows.get(rowId);
       if (existing) {
         existing.count += 1;
         existing.lastUpdated = Math.max(existing.lastUpdated, bookmark.createdAt);
+        if (matches) existing.hasMatch = true;
       } else {
         rows.set(rowId, {
           id: rowId,
@@ -367,6 +377,7 @@ export function BookmarksScreen() {
           icon: undefined,
           count: 1,
           lastUpdated: bookmark.createdAt,
+          hasMatch: matches,
         });
       }
     }
@@ -396,9 +407,10 @@ export function BookmarksScreen() {
     gcalCategoryIdSet,
     sourceBookmarks,
     state.bookmarkCategories,
+    bookmarkSearchQuery,
   ]);
 
-  const visibleCategoryRows = categoryRows;
+  const visibleCategoryRows = bookmarkSearchQuery ? categoryRows.filter((row) => row.hasMatch) : categoryRows;
 
   const selectedCategory = selectedCategoryId ? visibleCategoryRows.find((category) => category.id === selectedCategoryId) ?? null : null;
 
@@ -562,7 +574,7 @@ export function BookmarksScreen() {
     setCategorySortMenuOpen(false);
   };
 
-  useTopChrome(null);
+  useTopChrome(<ExpandableSearch value={bookmarkSearch} onChange={setBookmarkSearch} placeholder="Search in Bookmarks" />);
 
   const renderBookmarksPanel = (isMobileDrawer = false) => (
     <div className="relative flex h-full min-h-0 flex-col">
@@ -728,8 +740,8 @@ export function BookmarksScreen() {
       </div>
 
       {visibleCount ? (
-        <div className={cn("min-h-0 flex-1 overflow-y-auto pb-24 lg:px-0", isMobileDrawer && "px-4")}>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className={cn("scrollbar-hide min-h-0 flex-1 overflow-y-auto pb-24 lg:px-0", isMobileDrawer && "px-4")}>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4">
             {visibleBookmarks.map((bookmark) => {
               const isLinkedArtifactBookmark = isLinkedArtifactBookmarkId(bookmark.id);
               return (
@@ -788,14 +800,13 @@ export function BookmarksScreen() {
 
   return (
     <div
-      className="fixed left-0 right-0 z-0 mx-auto flex min-h-0 flex-1 flex-col overflow-hidden md:px-4"
+      className="fixed left-0 right-0 z-0 flex min-h-0 flex-1 flex-col overflow-hidden"
       style={{
         top: "var(--omanote-top-chrome-height, 0px)",
         bottom: "0px",
-        maxWidth: "1024px",
       }}
     >
-      <div className="relative grid h-full min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[284px_minmax(0,1fr)]">
+      <div className="relative grid h-full min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[227px_minmax(0,1fr)]">
         <aside className="h-full min-h-0 overflow-hidden pt-4">
           <div className="flex h-full min-h-0 flex-col">
             <div className="mb-3 flex items-center justify-between gap-3">

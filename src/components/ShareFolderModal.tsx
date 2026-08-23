@@ -5,13 +5,15 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { Check, Copy, Eye, Link, X, LayoutList, LayoutGrid } from "lucide-react";
 import { BaseModal } from "./BaseModal";
 import { ShareEncryptionNotice } from "./ShareEncryptionNotice";
+import { ShareLinkMetaEditor } from "./ShareLinkMetaEditor";
 import { cn } from "./ui";
 import { useApp } from "../app/AppProvider";
+import { useShareLinkMeta } from "../lib/use-share-link-meta";
 
 const DOMAIN = "omanote.com";
 
-function buildShareUrl(shareCode: string) {
-  return `https://${DOMAIN}/s/${shareCode}`;
+function buildShareUrl(codeOrSlug: string) {
+  return `https://${DOMAIN}/s/${codeOrSlug}`;
 }
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
@@ -70,10 +72,31 @@ export function ShareFolderModal({
     isTodo ? api.sharedTodoFolders.updateShareSnapshot : api.sharedFolders.updateShareSnapshot,
   );
   const setLinkViewModeMutation = useMutation(api.sharedFolders.setLinkViewMode);
+  const generateThumbnailUploadUrl = useMutation(api.sharedFolderMeta.generateThumbnailUploadUrl);
+  const setShareThumbnail = useMutation(api.sharedFolderMeta.setShareThumbnail);
+  const setShareSlug = useMutation(api.sharedFolderMeta.setShareSlug);
+  const setShareDescription = useMutation(api.sharedFolderMeta.setShareDescription);
 
+  const meta = useShareLinkMeta({
+    share,
+    folderName: categoryName,
+    generateUploadUrl: generateThumbnailUploadUrl,
+    setThumbnail: (storageId) => {
+      if (!share) return Promise.resolve();
+      return setShareThumbnail({ shareId: share._id, storageId });
+    },
+    setSlug: (slug) => {
+      if (!share) return Promise.resolve();
+      return setShareSlug({ shareId: share._id, slug });
+    },
+    setDescription: (description) => {
+      if (!share) return Promise.resolve();
+      return setShareDescription({ shareId: share._id, description });
+    },
+  });
 
   const isActive = share?.isActive ?? false;
-  const shareUrl = share ? buildShareUrl(share.shareCode) : null;
+  const shareUrl = share ? buildShareUrl(share.customSlug || share.shareCode) : null;
 
   // Collect current items for this folder/category
   const categoryBookmarks = isTodo
@@ -145,11 +168,13 @@ export function ShareFolderModal({
         await setShareActive({
           todoFolderId: categoryId as Id<"todoFolders">,
           isActive: nextActive,
+          folderName: categoryName,
         });
       } else {
         await setShareActive({
           categoryId: categoryId as Id<"bookmarkCategories">,
           isActive: nextActive,
+          categoryName,
         });
       }
       if (nextActive) {
@@ -288,6 +313,8 @@ export function ShareFolderModal({
                       </div>
                     </div>
                   )}
+
+                  <ShareLinkMetaEditor domain={DOMAIN} {...meta} />
                 </div>
               )}
 

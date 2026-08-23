@@ -805,7 +805,7 @@ export const BookmarkCard = memo(function BookmarkCard({
           </div>
 
           {/* Desktop: vertical card layout */}
-          <div className="group relative hidden h-[260px] overflow-hidden rounded-2xl border border-app-line bg-app-surface shadow-none transition duration-200 ease-out md:block">
+          <div className="group relative hidden min-h-[260px] overflow-hidden rounded-2xl border border-app-line bg-app-surface shadow-none transition duration-200 ease-out md:block">
             {hasLinkedPill ? (
               <div ref={linkedArtifactTriggerRef} className="absolute left-[16px] top-[16px] z-30">
                 <button
@@ -829,9 +829,9 @@ export const BookmarkCard = memo(function BookmarkCard({
               className="block h-full"
             >
               <div className="relative z-10 flex h-full flex-col gap-3 p-3">
-                <div className="aspect-[1.91/1] min-w-[200px] overflow-hidden rounded-md bg-app-surface-muted">
+                <div className="aspect-[1.91/1] w-full overflow-hidden rounded-md bg-app-surface-muted">
                   {thumbnailUrl ? (
-                    <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" />
+                    <img src={thumbnailUrl} alt="" className="h-full w-full object-contain" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-app-ink-faint">
                       <Bookmark className="h-10 w-10" />

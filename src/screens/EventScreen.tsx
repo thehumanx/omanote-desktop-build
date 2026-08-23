@@ -13,6 +13,8 @@ import { TodoListRow } from "../components/TodoListRow";
 import { AttachmentLinkPreview } from "../components/AttachmentLinkPreview";
 import { RichTextPreview } from "../components/rich-text";
 import { useTopChrome } from "../components/layout/useTopChrome";
+import { ExpandableSearch } from "../components/ExpandableSearch";
+import { matchesQuery, normalizeSearchQuery } from "../lib/search-match";
 import { DrawerHeaderRow } from "../components/DrawerHeaderRow";
 import { Button, SegmentedPill, TodoCheckmark } from "../components/ui";
 import { handlePasteAsLink } from "../lib/link-utils";
@@ -663,6 +665,13 @@ export function EventScreen() {
     () => state.events.filter((event) => !event.deletedAt).sort((left, right) => left.loggedAt - right.loggedAt),
     [state.events],
   );
+
+  const [eventSearch, setEventSearch] = useState("");
+  const eventSearchQuery = useMemo(() => normalizeSearchQuery(eventSearch), [eventSearch]);
+  const timelineEvents = useMemo(() => {
+    if (!eventSearchQuery) return activeEvents;
+    return activeEvents.filter((event) => matchesQuery(eventSearchQuery, event.label, event.notes));
+  }, [activeEvents, eventSearchQuery]);
   // Mobile web shows a single day column (today by default); desktop shows the
   // full week window. The offset is in days either way, so the arrows just step
   // by a different amount.
@@ -773,7 +782,7 @@ export function EventScreen() {
   // while the days slide in.
   const daySlideClass = slideDirection ? `omanote-week-slide-${slideDirection}` : "";
 
-  useTopChrome(null);
+  useTopChrome(<ExpandableSearch value={eventSearch} onChange={setEventSearch} placeholder="Search in Events" />);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
@@ -785,7 +794,7 @@ export function EventScreen() {
           <p className="mt-1 text-sm text-app-ink-muted">
             {eventView === "week"
               ? `${weekRangeLabel} · ${weekEntries.length} logged · ${weekTodoCount} todos`
-              : `${activeEvents.length} total events`}
+              : `${timelineEvents.length} total events`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -832,9 +841,9 @@ export function EventScreen() {
       </div>
 
       {eventView === "timeline" && (
-        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+        <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
           <TimelineView
-            events={activeEvents}
+            events={timelineEvents}
             todayKey={todayKey}
             focusedEventId={focusedEventId}
             onEdit={(eventId) => setEditingEventId(eventId)}
@@ -858,7 +867,7 @@ export function EventScreen() {
           if (event.animationName.startsWith("omanote-week-slide")) setSlideDirection(null);
         }}
       >
-        <div ref={calendarScrollRef} className="h-full overflow-auto">
+        <div ref={calendarScrollRef} className="scrollbar-hide h-full overflow-auto">
           <div className={isMobile ? "min-w-0" : "min-w-[920px]"}>
             <div className="sticky top-0 z-20">
               <div className="grid border-b border-app-line bg-app-surface/95 backdrop-blur" style={{ gridTemplateColumns: calendarGridTemplate }}>

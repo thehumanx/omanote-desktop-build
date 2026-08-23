@@ -6,7 +6,6 @@ import { jsonCodec, readLocalStorageOptional, writeLocalStorage } from "../lib/l
 import { SurveyFullPage } from "./survey/SurveyFullPage";
 import { SurveyPrompt, type SurveyPromptStatus } from "./survey/SurveyPrompt";
 import { UpdateNotificationBanner } from "./UpdateNotificationBanner";
-import { UpdateModal } from "./UpdateModal";
 
 type SurveyEligibilityCache = { shouldPrompt: boolean; resuming: boolean };
 
@@ -96,7 +95,6 @@ export function CanvasSystemNotice() {
           }}
         />
       ) : null}
-      <UpdateModal />
     </>
   );
 }

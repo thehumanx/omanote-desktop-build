@@ -5,13 +5,15 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { Check, Copy, Eye, Link, X, LayoutList, LayoutGrid } from "lucide-react";
 import { BaseModal } from "./BaseModal";
 import { ShareEncryptionNotice } from "./ShareEncryptionNotice";
+import { ShareLinkMetaEditor } from "./ShareLinkMetaEditor";
 import { cn } from "./ui";
 import { useApp } from "../app/AppProvider";
+import { useShareLinkMeta } from "../lib/use-share-link-meta";
 
 const DOMAIN = "omanote.com";
 
-function buildShareUrl(shareCode: string) {
-  return `https://${DOMAIN}/n/${shareCode}`;
+function buildShareUrl(codeOrSlug: string) {
+  return `https://${DOMAIN}/s/${codeOrSlug}`;
 }
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
@@ -59,9 +61,31 @@ export function ShareNoteFolderModal({
   const setShareActive = useMutation(api.sharedNoteFolders.setShareActive);
   const updateShareSnapshot = useMutation(api.sharedNoteFolders.updateShareSnapshot);
   const setLinkViewModeMutation = useMutation(api.sharedNoteFolders.setLinkViewMode);
+  const generateThumbnailUploadUrl = useMutation(api.sharedFolderMeta.generateThumbnailUploadUrl);
+  const setNoteShareThumbnail = useMutation(api.sharedFolderMeta.setNoteShareThumbnail);
+  const setNoteShareSlug = useMutation(api.sharedFolderMeta.setNoteShareSlug);
+  const setNoteShareDescription = useMutation(api.sharedFolderMeta.setNoteShareDescription);
+
+  const meta = useShareLinkMeta({
+    share,
+    folderName,
+    generateUploadUrl: generateThumbnailUploadUrl,
+    setThumbnail: (storageId) => {
+      if (!share) return Promise.resolve();
+      return setNoteShareThumbnail({ shareId: share._id, storageId });
+    },
+    setSlug: (slug) => {
+      if (!share) return Promise.resolve();
+      return setNoteShareSlug({ shareId: share._id, slug });
+    },
+    setDescription: (description) => {
+      if (!share) return Promise.resolve();
+      return setNoteShareDescription({ shareId: share._id, description });
+    },
+  });
 
   const isActive = share?.isActive ?? false;
-  const shareUrl = share ? buildShareUrl(share.shareCode) : null;
+  const shareUrl = share ? buildShareUrl(share.customSlug || share.shareCode) : null;
 
   const folderNotes = state.notes
     .filter((n) => n.folderId === folderId && !n.deletedAt)
@@ -102,6 +126,7 @@ export function ShareNoteFolderModal({
       await setShareActive({
         folderId: folderId as Id<"noteFolders">,
         isActive: nextActive,
+        folderName,
       });
       if (nextActive) {
         setSnapshotPushed(true);
@@ -172,7 +197,7 @@ export function ShareNoteFolderModal({
                     isActive ? "text-app-ink-muted" : "text-app-ink-faint",
                   )}
                 >
-                  {shareUrl ?? `https://${DOMAIN}/n/········`}
+                  {shareUrl ?? `https://${DOMAIN}/s/········`}
                 </span>
                 <button
                   type="button"
@@ -195,7 +220,7 @@ export function ShareNoteFolderModal({
               </div>
 
               {isActive && share && (
-                <>
+                <div className="flex flex-col gap-3">
                   <div className="flex items-center gap-1.5 text-xs text-app-ink-faint">
                     <Eye className="h-3.5 w-3.5" />
                     <span>
@@ -206,7 +231,7 @@ export function ShareNoteFolderModal({
                           : `Opened ${share.viewCount} times`}
                     </span>
                   </div>
-                  <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-app-line bg-app-surface-muted px-4 py-3">
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-app-line bg-app-surface-muted px-4 py-3">
                     <span className="text-sm text-app-ink-muted font-medium">Link view</span>
                     <div className="flex overflow-hidden rounded-md border border-app-line">
                       <button
@@ -237,7 +262,9 @@ export function ShareNoteFolderModal({
                       </button>
                     </div>
                   </div>
-                </>
+
+                  <ShareLinkMetaEditor domain={DOMAIN} {...meta} />
+                </div>
               )}
 
               {!isActive && (

@@ -849,11 +849,27 @@ body {
 .ProseMirror ul {
   list-style-type: disc;
 }
+.ProseMirror ul ul {
+  list-style-type: circle;
+}
+.ProseMirror ul ul ul {
+  list-style-type: square;
+}
 .ProseMirror ol {
   list-style-type: decimal;
 }
+.ProseMirror ol ol {
+  list-style-type: lower-alpha;
+}
+.ProseMirror ol ol ol {
+  list-style-type: lower-roman;
+}
 .ProseMirror li {
   margin: 0;
+}
+.ProseMirror li > ul,
+.ProseMirror li > ol {
+  margin-top: 0.25rem;
 }
 .ProseMirror li::marker {
   color: theme('colors.zinc.400');
@@ -861,17 +877,17 @@ body {
 .ProseMirror li p {
   margin: 0;
 }
-.omanote-note-editor p + p {
+.omanote-note-editor > p + p {
   margin-top: 1.5rem;
 }
-.omanote-note-editor p + ul,
-.omanote-note-editor p + ol,
-.omanote-note-editor ul + p,
-.omanote-note-editor ol + p,
-.omanote-note-editor ul + ul,
-.omanote-note-editor ol + ol,
-.omanote-note-editor ul + ol,
-.omanote-note-editor ol + ul {
+.omanote-note-editor > p + ul,
+.omanote-note-editor > p + ol,
+.omanote-note-editor > ul + p,
+.omanote-note-editor > ol + p,
+.omanote-note-editor > ul + ul,
+.omanote-note-editor > ol + ol,
+.omanote-note-editor > ul + ol,
+.omanote-note-editor > ol + ul {
   margin-top: 1.5rem;
 }
 .omanote-rich-text p + ul,

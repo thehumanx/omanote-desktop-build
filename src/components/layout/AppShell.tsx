@@ -12,6 +12,7 @@ import { NotificationPermissionBanner } from "../NotificationPermissionBanner";
 import { FaviconBadgeSync } from "../FaviconBadgeSync";
 import { RecurringDeleteModal } from "../RecurringDeleteModal";
 import { FounderNoteModal } from "../FounderNoteModal";
+import { UpdateModal } from "../UpdateModal";
 import { OfflineStatusBanner } from "../OfflineStatusBanner";
 import { CookieNotice } from "../CookieNotice";
 import { useMobileKeyboardState } from "./useMobileKeyboardState";
@@ -188,6 +189,7 @@ export function AppShell() {
         <FaviconBadgeSync />
         <NotificationPermissionBanner />
         <OfflineStatusBanner />
+        <UpdateModal />
         <main
           className={[
             "box-border mx-auto flex min-h-0 w-full flex-1 flex-col transform-gpu",
