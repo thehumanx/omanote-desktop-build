@@ -195,6 +195,7 @@ function TodoSection({
   onToggle,
   dispatch,
   onOpenEditor,
+  highlightQuery,
 }: {
   title?: string;
   items: TodoItem[];
@@ -207,6 +208,7 @@ function TodoSection({
   onToggle: (todo: TodoItem) => void;
   dispatch: ReturnType<typeof useApp>["dispatch"];
   onOpenEditor: (todo: TodoItem) => void;
+  highlightQuery?: string | null;
 }) {
   if (!items.length) return null;
 
@@ -253,6 +255,7 @@ function TodoSection({
                   });
                 }}
                 onOpenEditor={onOpenEditor}
+                highlightQuery={highlightQuery}
               />
             </TodoExitFrame>
           ))}
@@ -514,23 +517,23 @@ export function TodosScreen() {
   const [todoSearch, setTodoSearch] = useState("");
   const todoSearchQuery = useMemo(() => normalizeSearchQuery(todoSearch), [todoSearch]);
 
-  const matchingTodoFolderIds = useMemo(() => {
+  const todoFolderMatchCounts = useMemo(() => {
     if (!todoSearchQuery) return null;
-    const ids = new Set<string>();
+    const counts = new Map<string, number>();
     const othersId = effectiveTodoFolders.find((folder) => folder.name.toLowerCase() === "others")?.id ?? effectiveTodoFolders[0]?.id;
     for (const todo of activeTodos) {
       if (!matchesQuery(todoSearchQuery, todo.title, todo.notes)) continue;
       const folderId =
         todo.folderId && effectiveTodoFolders.some((folder) => folder.id === todo.folderId) ? todo.folderId : othersId;
-      if (folderId) ids.add(folderId);
+      if (folderId) counts.set(folderId, (counts.get(folderId) ?? 0) + 1);
     }
-    return ids;
+    return counts;
   }, [todoSearchQuery, activeTodos, effectiveTodoFolders]);
 
   const visibleTodoFolders = useMemo(() => {
-    if (!matchingTodoFolderIds) return effectiveTodoFolders;
-    return effectiveTodoFolders.filter((folder) => matchingTodoFolderIds.has(folder.id));
-  }, [effectiveTodoFolders, matchingTodoFolderIds]);
+    if (!todoFolderMatchCounts) return effectiveTodoFolders;
+    return effectiveTodoFolders.filter((folder) => todoFolderMatchCounts.has(folder.id));
+  }, [effectiveTodoFolders, todoFolderMatchCounts]);
 
   useEffect(() => {
     if (!selectedFolder) return;
@@ -1063,6 +1066,7 @@ export function TodosScreen() {
                         folder={folder}
                         completedCount={folderCompletedCounts.get(folder.id) ?? 0}
                         totalCount={folderCounts.get(folder.id) ?? 0}
+                        searchMatchCount={todoFolderMatchCounts?.get(folder.id)}
                         selected={selectedFolder?.id === folder.id}
                         onClick={() => {
                           setSelectedFolderId(folder.id);
@@ -1113,6 +1117,7 @@ export function TodosScreen() {
                       folder={folder}
                       completedCount={folderCompletedCounts.get(folder.id) ?? 0}
                       totalCount={folderCounts.get(folder.id) ?? 0}
+                      searchMatchCount={renamingFolderId === folder.id ? undefined : todoFolderMatchCounts?.get(folder.id)}
                       selected={selectedFolder?.id === folder.id}
                       isDefault={folder.name === "Others"}
                       menuOpen={folderMenuOpenId === folder.id}
@@ -1211,6 +1216,7 @@ export function TodosScreen() {
                         onToggle={handleToggleTodo}
                         dispatch={dispatch}
                         onOpenEditor={(todo) => setEditingModalTodoId(todo.id)}
+                        highlightQuery={todoSearchQuery}
                       />
                     ))}
                     {activeBuckets.today.length ? (
@@ -1226,6 +1232,7 @@ export function TodosScreen() {
                         onToggle={handleToggleTodo}
                         dispatch={dispatch}
                         onOpenEditor={(todo) => setEditingModalTodoId(todo.id)}
+                        highlightQuery={todoSearchQuery}
                       />
                     ) : (
                       <TodoTodayEmptyCard onAdd={() => setCreating(true)} />
@@ -1244,6 +1251,7 @@ export function TodosScreen() {
                         onToggle={handleToggleTodo}
                         dispatch={dispatch}
                         onOpenEditor={(todo) => setEditingModalTodoId(todo.id)}
+                        highlightQuery={todoSearchQuery}
                       />
                     ))}
                   </div>
@@ -1274,6 +1282,7 @@ export function TodosScreen() {
                       onToggle={handleToggleTodo}
                       dispatch={dispatch}
                       onOpenEditor={(todo) => setEditingModalTodoId(todo.id)}
+                      highlightQuery={todoSearchQuery}
                     />
                   ))}
                 </div>
@@ -1482,6 +1491,7 @@ export function TodosScreen() {
                           onToggle={handleToggleTodo}
                           dispatch={dispatch}
                           onOpenEditor={(t) => setEditingModalTodoId(t.id)}
+                          highlightQuery={todoSearchQuery}
                         />
                       ))}
                       {activeBuckets.today.length ? (
@@ -1497,6 +1507,7 @@ export function TodosScreen() {
                           onToggle={handleToggleTodo}
                           dispatch={dispatch}
                           onOpenEditor={(t) => setEditingModalTodoId(t.id)}
+                          highlightQuery={todoSearchQuery}
                         />
                       ) : (
                         <TodoTodayEmptyCard onAdd={() => setCreating(true)} />
@@ -1515,6 +1526,7 @@ export function TodosScreen() {
                           onToggle={handleToggleTodo}
                           dispatch={dispatch}
                           onOpenEditor={(t) => setEditingModalTodoId(t.id)}
+                          highlightQuery={todoSearchQuery}
                         />
                       ))}
                     </div>
@@ -1545,6 +1557,7 @@ export function TodosScreen() {
                         onToggle={handleToggleTodo}
                         dispatch={dispatch}
                         onOpenEditor={(t) => setEditingModalTodoId(t.id)}
+                        highlightQuery={todoSearchQuery}
                       />
                     ))}
                   </div>

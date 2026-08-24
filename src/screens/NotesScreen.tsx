@@ -277,21 +277,21 @@ export function NotesScreen() {
   const [noteSearch, setNoteSearch] = useState("");
   const noteSearchQuery = useMemo(() => normalizeSearchQuery(noteSearch), [noteSearch]);
 
-  const matchingNoteFolderKeys = useMemo(() => {
+  const noteFolderMatchCounts = useMemo(() => {
     if (!noteSearchQuery) return null;
-    const keys = new Set<string>();
+    const counts = new Map<string, number>();
     for (const note of sourceNotes) {
-      if (matchesQuery(noteSearchQuery, note.title, note.body)) {
-        keys.add(normalizeNoteFolderName(noteFolderName(note, folderNameById)));
-      }
+      if (!matchesQuery(noteSearchQuery, note.title, note.body)) continue;
+      const key = normalizeNoteFolderName(noteFolderName(note, folderNameById));
+      counts.set(key, (counts.get(key) ?? 0) + 1);
     }
-    return keys;
+    return counts;
   }, [noteSearchQuery, sourceNotes, folderNameById]);
 
   const visibleFolderRows = useMemo(() => {
-    if (!matchingNoteFolderKeys) return folderRows;
-    return folderRows.filter((row) => matchingNoteFolderKeys.has(normalizeNoteFolderName(row.name)));
-  }, [folderRows, matchingNoteFolderKeys]);
+    if (!noteFolderMatchCounts) return folderRows;
+    return folderRows.filter((row) => noteFolderMatchCounts.has(normalizeNoteFolderName(row.name)));
+  }, [folderRows, noteFolderMatchCounts]);
 
   useEffect(() => {
     if (!creatingFolder && !renamingFolderId) return;
@@ -794,6 +794,7 @@ export function NotesScreen() {
                   onToggleExpanded={() => undefined}
                   onEdit={startEditingNote}
                   onDelete={(noteId) => dispatch({ type: "note/delete", noteId })}
+                  highlightQuery={noteSearchQuery}
                 />
               )}
             </div>
@@ -993,7 +994,7 @@ export function NotesScreen() {
                         key={folder.id ?? folder.name}
                         folderName={folder.name}
                         icon={folder.icon}
-                        count={folder.count}
+                        count={noteFolderMatchCounts?.get(normalizeNoteFolderName(folder.name)) ?? folder.count}
                         selected={selectedFolder ? normalizeNoteFolderName(selectedFolder) === normalizeNoteFolderName(folder.name) : false}
                         onClick={() => openFolderNotes(folder.name)}
                         isShared={folder.id ? sharedFolderIdSet.has(folder.id) : false}
@@ -1102,7 +1103,7 @@ export function NotesScreen() {
                         key={folder.id ?? folder.name}
                         folderName={folder.name}
                         icon={folder.icon}
-                        count={folder.count}
+                        count={noteFolderMatchCounts?.get(normalizeNoteFolderName(folder.name)) ?? folder.count}
                         selected={selectedFolder ? normalizeNoteFolderName(selectedFolder) === normalizeNoteFolderName(folder.name) : false}
                         onClick={() => openFolderNotes(folder.name)}
                         isShared={folder.id ? sharedFolderIdSet.has(folder.id) : false}

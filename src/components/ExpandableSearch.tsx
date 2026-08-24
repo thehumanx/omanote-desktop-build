@@ -3,6 +3,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "./ui";
 import { useOutsideClick } from "../lib/useOutsideClick";
 
+// Cmd/Ctrl+/ dispatches this so whichever page's search bar is currently
+// mounted opens and focuses itself, without the shortcut needing to know
+// which page it's on or reach into page-specific state.
+export const FOCUS_SEARCH_EVENT = "omanote:focus-search";
+
 export function ExpandableSearch({
   value,
   onChange,
@@ -22,6 +27,15 @@ export function ExpandableSearch({
   useEffect(() => {
     if (isOpen) inputRef.current?.focus();
   }, [isOpen]);
+
+  useEffect(() => {
+    const handleFocusRequest = () => {
+      setExpanded(true);
+      inputRef.current?.focus();
+    };
+    window.addEventListener(FOCUS_SEARCH_EVENT, handleFocusRequest);
+    return () => window.removeEventListener(FOCUS_SEARCH_EVENT, handleFocusRequest);
+  }, []);
 
   const collapse = useCallback(() => {
     if (!value) setExpanded(false);

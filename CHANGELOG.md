@@ -4,6 +4,20 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.31.4 [August 24, 2026]
+
+> Keyboard shortcuts to jump straight to any page or its search, matches highlighted right where they appear, and a composer that closes itself once you've added something.
+
+- [Add] Cmd/Ctrl+1 through 5 jump straight to Canvas, Todos, Notes, Bookmarks, and Events from anywhere in the app
+- [Add] Cmd/Ctrl+/ now focuses the current page's own search bar (Todos, Notes, Bookmarks, Events) instead of opening the separate Explore search — it's a no-op on Canvas, which has nothing to search
+- [Add] Matched text is now highlighted right where it appears — in note bodies, todo titles and notes, bookmark titles and descriptions, and event labels — while searching within Todos, Notes, Bookmarks, or Events
+- [Update] Folder and category pills on Todos, Notes, and Bookmarks now show how many items inside actually match your search, instead of the folder's total item count
+- [Update] Saving an artifact from the composer — note, todo, bookmark, or event — now closes it automatically instead of leaving it open
+- [Fix] The browser tab title now reflects the page you're on (e.g. "Todos | omanote") instead of always showing the generic app title
+- [Fix] Closing a folder on mobile with the back gesture now always returns to that folder's list, instead of sometimes jumping past it to whatever page you were on before
+- [Add] Shared folder pages now show the folder's description, if one was added while sharing, below the title
+- [Fix] The link-preview title for a shared folder (e.g. when pasted into Slack or iMessage) now shows the folder's actual name instead of a generic "Shared folder" title
+
 ### v0.31.3 [August 23, 2026]
 
 > A contextual search bar on Todos, Notes, Bookmarks, and Events narrows the folder list to what actually matches. Shared links get a custom thumbnail, URL, and description, and every share type now lives at the same clean `/s/` link. Also: a straighter top bar, a roomier bookmark grid, and quieter scrollbars.

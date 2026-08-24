@@ -1,6 +1,8 @@
 import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { useApp } from "../../app/AppProvider";
+import { SeoHead } from "../../seo/SeoHead";
+import { getPageTitleLabel } from "./pageTitle";
 import { ErrorBoundary } from "../ErrorBoundary";
 import { BottomNav } from "./BottomNav";
 import { ComposerSheet } from "../ComposerSheet";
@@ -17,6 +19,7 @@ import { OfflineStatusBanner } from "../OfflineStatusBanner";
 import { CookieNotice } from "../CookieNotice";
 import { useMobileKeyboardState } from "./useMobileKeyboardState";
 import { useGlobalCaptureShortcut } from "./useGlobalCaptureShortcut";
+import { useGlobalNavShortcuts } from "./useGlobalNavShortcuts";
 import { ProfileMenuButton } from "./ProfileMenuButton";
 import { useContentZoom } from "../../app/useContentZoom";
 import { ZoomIndicator } from "../ZoomIndicator";
@@ -55,6 +58,7 @@ export function AppShell() {
   const founderNoteAutoOpenRef = useRef(false);
   const mobileKeyboard = useMobileKeyboardState();
   useGlobalCaptureShortcut();
+  useGlobalNavShortcuts();
   const { zoomPercent, indicatorVisible } = useContentZoom();
   const hideBottomNavForKeyboard = mobileKeyboard.isMobileViewport && mobileKeyboard.keyboardOpen;
   const workspaceHeight =
@@ -152,8 +156,11 @@ export function AppShell() {
     );
   }
 
+  const pageTitleLabel = getPageTitleLabel(location.pathname);
+
   return (
     <div className={["flex min-h-screen flex-col bg-app-canvas text-app-ink", isCanvasRoute && settings.canvasDotGrid ? "omanote-canvas-grid" : ""].join(" ")}>
+      <SeoHead title={pageTitleLabel ? `${pageTitleLabel} | omanote` : undefined} noIndex />
       <div>
         {/* The one header bar for every route — fixed, always visible (no
             more scroll-driven hide/show), with each page injecting its own

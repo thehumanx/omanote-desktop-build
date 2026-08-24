@@ -779,6 +779,11 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
     window.requestAnimationFrame(() => {
       suppressSwitcherRef.current = false;
     });
+    // In the composer sheet, saving means "done" — matching Cancel's
+    // embedded-closes-the-sheet behavior above, rather than resetting to a
+    // blank note and refocusing for another entry (that's the Canvas page's
+    // inline behavior, not the modal's).
+    if (embedded) onDone?.();
   };
 
   const resetNoteDraft = () => {
@@ -909,6 +914,7 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
       focusNoteComposer();
       suppressSwitcherRef.current = false;
     });
+    if (embedded) onDone?.();
   };
 
   const resetTodoDraft = () => {
@@ -951,6 +957,7 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
       focusNoteComposer();
       suppressSwitcherRef.current = false;
     });
+    if (embedded) onDone?.();
   };
 
   const resetEventDraft = () => {

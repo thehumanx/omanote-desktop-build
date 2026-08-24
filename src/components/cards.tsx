@@ -21,7 +21,7 @@ import type { BookmarkItem, NoteItem, EventEntry, TodoItem } from "@omanote/shar
 import { useApp } from "../app/AppProvider";
 import { Badge, Button, Chip, cn, LoadingSpinner, TodoCheckmark } from "./ui";
 import { formatCompletedLabel, formatDueChip, formatLongDateKey } from "@omanote/shared";
-import { RichTextPreview } from "./rich-text";
+import { RichTextPreview, highlightText } from "./rich-text";
 import { parseHashtags } from "../lib/hashtags";
 import { AttachmentLinkPreview } from "./AttachmentLinkPreview";
 import { api } from "../../convex/_generated/api";
@@ -161,6 +161,7 @@ export const TodoCard = memo(function TodoCard({
   onDelete,
   onEdit,
   surface = "default",
+  highlightQuery,
 }: {
   todo: TodoItem;
   canvasDateKey: string;
@@ -168,6 +169,8 @@ export const TodoCard = memo(function TodoCard({
   onDelete: (todoId: string) => void;
   onEdit: (todo: TodoItem) => void;
   surface?: "default" | "canvas";
+  /** When set, case-insensitive matches of this string are highlighted in the title/notes. */
+  highlightQuery?: string | null;
 }) {
   const { dispatch } = useApp();
   const dueChip = formatDueChip(todo.dueDateKey, todo.dueTime, canvasDateKey, todo.createdDateKey);
@@ -198,7 +201,7 @@ export const TodoCard = memo(function TodoCard({
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <div className={["text-base leading-6", todo.status === "done" ? "text-app-ink-faint line-through" : "text-app-ink"].join(" ")}>
-                <RichTextPreview value={todo.title} onLinkEdit={editTodoTitle} />
+                <RichTextPreview value={todo.title} onLinkEdit={editTodoTitle} highlightQuery={highlightQuery} />
               </div>
               {dueChip ? (
                 <Badge className="rounded-md text-app-ink-faint/80">
@@ -212,7 +215,7 @@ export const TodoCard = memo(function TodoCard({
                 </span>
               ) : null}
             </div>
-            {todo.notes ? <p className="mt-1 max-w-3xl text-sm leading-7 text-app-ink-muted">{todo.notes}</p> : null}
+            {todo.notes ? <p className="mt-1 max-w-3xl text-sm leading-7 text-app-ink-muted">{highlightText(todo.notes, highlightQuery, "todo-notes")}</p> : null}
             <AttachmentLinkPreview textValues={[todo.title, todo.notes]} className="mt-2" />
           </div>
         </div>
@@ -230,7 +233,7 @@ export const TodoCard = memo(function TodoCard({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <div className={["text-base leading-6", todo.status === "done" ? "text-app-ink-faint line-through" : "text-app-ink"].join(" ")}>
-            <RichTextPreview value={todo.title} onLinkEdit={editTodoTitle} />
+            <RichTextPreview value={todo.title} onLinkEdit={editTodoTitle} highlightQuery={highlightQuery} />
           </div>
           {todo.priority === "high" ? <Badge tone="outline" className="uppercase tracking-wide">High</Badge> : null}
           {dueChip ? (
@@ -239,7 +242,7 @@ export const TodoCard = memo(function TodoCard({
             </Badge>
           ) : null}
         </div>
-        {todo.notes ? <p className="mt-1 text-sm leading-6 text-app-ink-muted">{todo.notes}</p> : null}
+        {todo.notes ? <p className="mt-1 text-sm leading-6 text-app-ink-muted">{highlightText(todo.notes, highlightQuery, "todo-notes")}</p> : null}
         <AttachmentLinkPreview textValues={[todo.title, todo.notes]} className="mt-2" />
       </div>
       <div className="flex flex-none items-center gap-1 self-start text-app-ink-faint">
@@ -281,6 +284,7 @@ export const NoteCard = memo(function NoteCard({
   expanded = false,
   onToggleExpanded,
   surface = "default",
+  highlightQuery,
 }: {
   note: NoteItem;
   folderLabel?: string;
@@ -290,12 +294,14 @@ export const NoteCard = memo(function NoteCard({
   expanded?: boolean;
   onToggleExpanded?: (noteId: string) => void;
   surface?: "default" | "canvas" | "list";
+  /** When set, case-insensitive matches of this string are highlighted in the note body. */
+  highlightQuery?: string | null;
 }) {
   const normalizedBody = normalizeLegacyNoteBodyForTiptap(note.body);
   if (surface === "canvas") {
     return (
       <div className="px-1 py-0.5">
-        <RichTextPreview value={normalizedBody} className="max-w-3xl text-[15px] leading-6 text-app-ink" paragraphClassName="text-[15px] leading-6 text-app-ink" />
+        <RichTextPreview value={normalizedBody} className="max-w-3xl text-[15px] leading-6 text-app-ink" paragraphClassName="text-[15px] leading-6 text-app-ink" highlightQuery={highlightQuery} />
         <AttachmentLinkPreview textValues={[normalizedBody]} className="mt-2" />
       </div>
     );
@@ -332,7 +338,7 @@ export const NoteCard = memo(function NoteCard({
           className="block w-full cursor-pointer text-left"
         >
           <div className="min-w-0 break-words text-[15px] leading-6 text-app-ink">
-            <RichTextPreview value={normalizedBody} className="block" paragraphClassName="text-[15px] leading-6 text-app-ink" />
+            <RichTextPreview value={normalizedBody} className="block" paragraphClassName="text-[15px] leading-6 text-app-ink" highlightQuery={highlightQuery} />
           </div>
           {note.tags.length ? (
             <div className="mt-2 flex flex-wrap gap-2">
@@ -376,7 +382,7 @@ export const NoteCard = memo(function NoteCard({
     <div className="rounded-2xl border border-app-line bg-app-surface p-4 shadow-none">
       <p className="text-xs font-bold uppercase tracking-[0.18em] text-app-ink-faint">{formatLongDateKey(note.createdDateKey)}</p>
       <div className="mt-2 text-sm leading-7 text-app-ink">
-        <RichTextPreview value={normalizedBody} className="text-sm leading-7 text-app-ink" paragraphClassName="text-sm leading-7 text-app-ink" />
+        <RichTextPreview value={normalizedBody} className="text-sm leading-7 text-app-ink" paragraphClassName="text-sm leading-7 text-app-ink" highlightQuery={highlightQuery} />
       </div>
       {note.tags.length ? (
         <div className="mt-3 flex flex-wrap gap-2">
@@ -425,6 +431,7 @@ export const BookmarkCard = memo(function BookmarkCard({
   onRestore,
   surface = "default",
   pendingSync,
+  highlightQuery,
 }: {
   bookmark: BookmarkItem;
   categoryName?: string;
@@ -436,6 +443,8 @@ export const BookmarkCard = memo(function BookmarkCard({
   onRestore?: (bookmarkId: string) => void;
   surface?: "default" | "canvas" | "list";
   pendingSync?: boolean;
+  /** When set, case-insensitive matches of this string are highlighted in the title/description. */
+  highlightQuery?: string | null;
 }) {
   const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
   const [previewFallback, setPreviewFallback] = useState<BookmarkPreviewFallback | null>(null);
@@ -674,8 +683,8 @@ export const BookmarkCard = memo(function BookmarkCard({
                       </div>
                       <p className="min-w-0 truncate text-xs font-medium text-app-ink-faint">{siteLabel}</p>
                   </div>
-                  <p className="line-clamp-2 text-base font-bold leading-6 text-app-ink">{displayTitle}</p>
-                  {displayDescription ? <p className="mt-1 line-clamp-2 text-xs leading-5 text-app-ink-muted">{displayDescription}</p> : null}
+                  <p className="line-clamp-2 text-base font-bold leading-6 text-app-ink">{highlightText(displayTitle, highlightQuery, "bm-title")}</p>
+                  {displayDescription ? <p className="mt-1 line-clamp-2 text-xs leading-5 text-app-ink-muted">{highlightText(displayDescription, highlightQuery, "bm-desc")}</p> : null}
                   <div className="mt-2 flex flex-wrap items-center">
                     {categoryBadge}
                   </div>
@@ -759,8 +768,8 @@ export const BookmarkCard = memo(function BookmarkCard({
                   </div>
                   <p className="min-w-0 truncate text-[11px] font-medium text-app-ink-faint">{siteLabel}</p>
                 </div>
-                <p className="line-clamp-2 text-sm font-bold leading-[1.35] text-app-ink">{displayTitle}</p>
-                <p className="mt-1 line-clamp-2 text-xs leading-[1.4] text-app-ink-faint">{displayDescription}</p>
+                <p className="line-clamp-2 text-sm font-bold leading-[1.35] text-app-ink">{highlightText(displayTitle, highlightQuery, "bm-title")}</p>
+                <p className="mt-1 line-clamp-2 text-xs leading-[1.4] text-app-ink-faint">{highlightText(displayDescription, highlightQuery, "bm-desc")}</p>
               </div>
               <div className="flex flex-none flex-col items-end justify-between gap-1 pl-1">
                 {hasLinkedPill ? (
@@ -839,8 +848,8 @@ export const BookmarkCard = memo(function BookmarkCard({
                   )}
                 </div>
                 <div className="min-h-[68px] space-y-1">
-                  <p className="line-clamp-2 text-sm font-bold leading-5 text-app-ink">{displayTitle}</p>
-                  <p className="line-clamp-1 text-sm leading-5 text-app-ink-faint">{displayDescription}</p>
+                  <p className="line-clamp-2 text-sm font-bold leading-5 text-app-ink">{highlightText(displayTitle, highlightQuery, "bm-title")}</p>
+                  <p className="line-clamp-1 text-sm leading-5 text-app-ink-faint">{highlightText(displayDescription, highlightQuery, "bm-desc")}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="relative flex h-5 w-5 flex-none items-center justify-center overflow-hidden bg-app-surface-muted text-app-ink-faint">
@@ -1037,12 +1046,15 @@ export const EventCard = memo(function EventCard({
   onDelete,
   onRestore,
   surface = "default",
+  highlightQuery,
 }: {
   event: EventEntry;
   onEdit?: (event: EventEntry) => void;
   onDelete?: (eventId: string) => void;
   onRestore?: (eventId: string) => void;
   surface?: "default" | "canvas";
+  /** When set, case-insensitive matches of this string are highlighted in the label/notes. */
+  highlightQuery?: string | null;
 }) {
   const { dispatch } = useApp();
   const editEventLabel = (nextValue: string) => {
@@ -1073,12 +1085,12 @@ export const EventCard = memo(function EventCard({
             {new Date(event.loggedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }).replace(":00", "").replace(/\s+/g, "")}
           </div>
           <div className="text-base text-app-ink">
-            <RichTextPreview value={event.label} onLinkEdit={editEventLabel} />
+            <RichTextPreview value={event.label} onLinkEdit={editEventLabel} highlightQuery={highlightQuery} />
           </div>
         </div>
         {event.notes ? (
           <div className="mt-1 max-w-3xl text-sm leading-7 text-app-ink-muted">
-            <RichTextPreview value={event.notes} paragraphClassName="text-app-ink-muted" onLinkEdit={editEventNotes} />
+            <RichTextPreview value={event.notes} paragraphClassName="text-app-ink-muted" onLinkEdit={editEventNotes} highlightQuery={highlightQuery} />
           </div>
         ) : null}
         <AttachmentLinkPreview textValues={[event.label, event.notes]} className="mt-2" />
@@ -1092,12 +1104,12 @@ export const EventCard = memo(function EventCard({
           {new Date(event.loggedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }).replace(":00", "").replace(/\s+/g, "")}
         </div>
         <div className="text-sm font-bold text-app-ink">
-          <RichTextPreview value={event.label} onLinkEdit={editEventLabel} />
+          <RichTextPreview value={event.label} onLinkEdit={editEventLabel} highlightQuery={highlightQuery} />
         </div>
       </div>
       {event.notes ? (
         <div className="mt-2 text-sm leading-6 text-app-ink-muted">
-          <RichTextPreview value={event.notes} paragraphClassName="text-app-ink-muted" onLinkEdit={editEventNotes} />
+          <RichTextPreview value={event.notes} paragraphClassName="text-app-ink-muted" onLinkEdit={editEventNotes} highlightQuery={highlightQuery} />
         </div>
       ) : null}
       <AttachmentLinkPreview textValues={[event.label, event.notes]} className="mt-2" />

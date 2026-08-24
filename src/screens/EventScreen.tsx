@@ -180,6 +180,7 @@ function TimelineView({
   onDelete,
   onDeleteTodoEvent,
   onLogEvent,
+  highlightQuery,
 }: {
   events: EventItem[];
   todayKey: string;
@@ -188,6 +189,7 @@ function TimelineView({
   onDelete: (eventId: string) => void;
   onDeleteTodoEvent: (todoId: string) => void;
   onLogEvent: () => void;
+  highlightQuery?: string | null;
 }) {
   const dateGroups = useMemo(() => {
     const byDate = new Map<string, EventItem[]>();
@@ -314,6 +316,7 @@ function TimelineView({
                               <RichTextPreview
                                 value={event.label}
                                 paragraphClassName="text-sm text-app-ink-muted"
+                                highlightQuery={highlightQuery}
                               />
                               <AttachmentLinkPreview
                                 textValues={[event.label, event.notes]}
@@ -350,12 +353,14 @@ function TimelineView({
                               <RichTextPreview
                                 value={event.label}
                                 paragraphClassName="text-sm text-app-ink-muted"
+                                highlightQuery={highlightQuery}
                               />
                               {event.notes && (
                                 <RichTextPreview
                                   value={event.notes}
                                   className="mt-0.5"
                                   paragraphClassName="text-xs text-app-ink-faint"
+                                  highlightQuery={highlightQuery}
                                 />
                               )}
                               <AttachmentLinkPreview
@@ -849,6 +854,7 @@ export function EventScreen() {
             onEdit={(eventId) => setEditingEventId(eventId)}
             onDelete={(eventId) => dispatch({ type: "event/delete", eventId })}
             onDeleteTodoEvent={(todoId) => dispatch({ type: "todo/toggle", todoId })}
+            highlightQuery={eventSearchQuery}
             onLogEvent={() =>
               isMobile
                 ? dispatch({ type: "ui/open-composer", mode: "event" })

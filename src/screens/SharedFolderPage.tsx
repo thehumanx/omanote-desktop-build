@@ -373,6 +373,9 @@ export function SharedFolderPage() {
               ) : null}
               <span>{td.folderName}</span>
             </h1>
+            {td.description ? (
+              <p className="mt-2 text-sm text-app-ink-muted">{td.description}</p>
+            ) : null}
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2">
                 <OwnerAvatar name={td.ownerName} imageUrl={td.ownerImageUrl} />
@@ -484,6 +487,9 @@ export function SharedFolderPage() {
                 {nd.folderIcon && <span className="mr-2">{nd.folderIcon}</span>}
                 {nd.folderName}
               </h1>
+              {nd.description ? (
+                <p className="mt-2 text-sm text-app-ink-muted">{nd.description}</p>
+              ) : null}
               <div className="mt-3 flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2">
                   <OwnerAvatar name={nd.ownerName} imageUrl={nd.ownerImageUrl} />
@@ -559,6 +565,9 @@ export function SharedFolderPage() {
             {bd.categoryIcon && <span className="mr-2">{bd.categoryIcon}</span>}
             {bd.categoryName}
           </h1>
+          {bd.description ? (
+            <p className="mt-2 text-sm text-app-ink-muted">{bd.description}</p>
+          ) : null}
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2">
                 <OwnerAvatar name={bd.ownerName} imageUrl={bd.ownerImageUrl} />

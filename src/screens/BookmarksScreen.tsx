@@ -331,7 +331,7 @@ export function BookmarksScreen() {
   const bookmarkSearchQuery = useMemo(() => normalizeSearchQuery(bookmarkSearch), [bookmarkSearch]);
 
   const categoryRows = useMemo(() => {
-    const rows = new Map<string, { id: string; name: string; icon?: string; count: number; lastUpdated: number; hasMatch: boolean }>();
+    const rows = new Map<string, { id: string; name: string; icon?: string; count: number; matchCount: number; lastUpdated: number; hasMatch: boolean }>();
 
     for (const category of state.bookmarkCategories) {
       const rowId = isSavedCategoryName(category.name)
@@ -350,6 +350,7 @@ export function BookmarksScreen() {
         name: virtualName ?? category.name,
         icon: virtualName ? undefined : category.icon,
         count: 0,
+        matchCount: 0,
         lastUpdated: category.createdAt,
         hasMatch: false,
       });
@@ -369,13 +370,17 @@ export function BookmarksScreen() {
       if (existing) {
         existing.count += 1;
         existing.lastUpdated = Math.max(existing.lastUpdated, bookmark.createdAt);
-        if (matches) existing.hasMatch = true;
+        if (matches) {
+          existing.hasMatch = true;
+          existing.matchCount += 1;
+        }
       } else {
         rows.set(rowId, {
           id: rowId,
           name: virtualName ?? "Uncategorized",
           icon: undefined,
           count: 1,
+          matchCount: matches ? 1 : 0,
           lastUpdated: bookmark.createdAt,
           hasMatch: matches,
         });
@@ -764,6 +769,7 @@ export function BookmarksScreen() {
                     setMobileBookmarksOpen(false);
                   } : undefined}
                   onDelete={!isLinkedArtifactBookmark ? (bookmarkId) => dispatch({ type: "bookmark/delete", bookmarkId }) : undefined}
+                  highlightQuery={bookmarkSearchQuery}
                 />
                 </div>
               );
@@ -957,7 +963,7 @@ export function BookmarksScreen() {
                         key={category.id}
                         categoryName={category.name}
                         icon={category.icon}
-                        count={category.count}
+                        count={bookmarkSearchQuery ? category.matchCount : category.count}
                         selected={selectedCategoryId === category.id}
                         onClick={() => openCategoryBookmarks(category.id)}
                         isShared={sharedCategoryIdSet.has(category.id)}
@@ -1068,7 +1074,7 @@ export function BookmarksScreen() {
                         key={category.id}
                         categoryName={category.name}
                         icon={category.icon}
-                        count={category.count}
+                        count={bookmarkSearchQuery ? category.matchCount : category.count}
                         selected={selectedCategoryId === category.id}
                         onClick={() => openCategoryBookmarks(category.id)}
                         isShared={sharedCategoryIdSet.has(category.id)}

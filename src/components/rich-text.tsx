@@ -326,6 +326,7 @@ function inlineNodes(
   sourceValue: string,
   onLinkEdit?: (nextValue: string) => void,
   onHashtagClick?: (name: string) => void,
+  highlightQuery?: string | null,
 ): ReactNode[] {
   const pattern = /(\[[^\]]+\]\([^)]+\)|(https?:\/\/|mailto:|tel:)[^\s<]+|`[^`]+`|\*\*[^*]+\*\*|\*[^*\s][^*]*\*|(?:^|\s)#[a-zA-Z]\w*)/g;
   const nodes: ReactNode[] = [];
@@ -337,7 +338,7 @@ function inlineNodes(
     if (index > lastIndex) {
       nodes.push(
         <span key={`text-${baseOffset + lastIndex}`} data-rich-text-source-start={baseOffset + lastIndex}>
-          {text.slice(lastIndex, index)}
+          {highlightText(text.slice(lastIndex, index), highlightQuery, `h-${baseOffset + lastIndex}`)}
         </span>,
       );
     }
@@ -377,24 +378,24 @@ function inlineNodes(
       } else {
         nodes.push(
           <span key={`text-${baseOffset + index}`} data-rich-text-source-start={baseOffset + index}>
-            {token}
+            {highlightText(token, highlightQuery, `h-${baseOffset + index}`)}
           </span>,
         );
       }
     } else if (token.startsWith("`")) {
       nodes.push(
         <code key={`${index}-${token}`} data-rich-text-source-start={baseOffset + index + 1} className="rounded bg-app-surface-muted px-1.5 py-0.5 font-mono text-[0.92em] text-app-ink">
-          {token.slice(1, -1)}
+          {highlightText(token.slice(1, -1), highlightQuery, `h-${baseOffset + index}`)}
         </code>,
       );
     } else if (token.startsWith("**")) {
-      nodes.push(<strong key={`${index}-${token}`} data-rich-text-source-start={baseOffset + index + 2}>{token.slice(2, -2)}</strong>);
+      nodes.push(<strong key={`${index}-${token}`} data-rich-text-source-start={baseOffset + index + 2}>{highlightText(token.slice(2, -2), highlightQuery, `h-${baseOffset + index}`)}</strong>);
     } else if (token.startsWith("*")) {
-      nodes.push(<em key={`${index}-${token}`} data-rich-text-source-start={baseOffset + index + 1}>{token.slice(1, -1)}</em>);
+      nodes.push(<em key={`${index}-${token}`} data-rich-text-source-start={baseOffset + index + 1}>{highlightText(token.slice(1, -1), highlightQuery, `h-${baseOffset + index}`)}</em>);
     } else {
       nodes.push(
         <span key={`text-${baseOffset + index}`} data-rich-text-source-start={baseOffset + index}>
-          {token}
+          {highlightText(token, highlightQuery, `h-${baseOffset + index}`)}
         </span>,
       );
     }
@@ -405,10 +406,35 @@ function inlineNodes(
   if (lastIndex < text.length) {
     nodes.push(
       <span key={`text-${baseOffset + lastIndex}`} data-rich-text-source-start={baseOffset + lastIndex}>
-        {text.slice(lastIndex)}
+        {highlightText(text.slice(lastIndex), highlightQuery, `h-${baseOffset + lastIndex}`)}
       </span>,
     );
   }
+
+  return nodes;
+}
+
+/** Wraps case-insensitive matches of `query` in `text` with a light-blue <mark>. Returns the plain string when there's nothing to highlight, so callers can keep using it wherever a plain string child worked before. */
+export function highlightText(text: string, query: string | null | undefined, keyBase: string): ReactNode {
+  if (!query) return text;
+  const lowerText = text.toLowerCase();
+  const lowerQuery = query.toLowerCase();
+  if (!lowerQuery || !lowerText.includes(lowerQuery)) return text;
+
+  const nodes: ReactNode[] = [];
+  let cursor = 0;
+  let matchIndex = lowerText.indexOf(lowerQuery, cursor);
+  while (matchIndex !== -1) {
+    if (matchIndex > cursor) nodes.push(text.slice(cursor, matchIndex));
+    nodes.push(
+      <mark key={`${keyBase}-${matchIndex}`} className="rounded bg-info-line text-inherit">
+        {text.slice(matchIndex, matchIndex + query.length)}
+      </mark>,
+    );
+    cursor = matchIndex + query.length;
+    matchIndex = lowerText.indexOf(lowerQuery, cursor);
+  }
+  if (cursor < text.length) nodes.push(text.slice(cursor));
 
   return nodes;
 }
@@ -459,12 +485,15 @@ export function RichTextPreview({
   paragraphClassName,
   onLinkEdit,
   onHashtagClick,
+  highlightQuery,
 }: {
   value: string;
   className?: string;
   paragraphClassName?: string;
   onLinkEdit?: (nextValue: string) => void;
   onHashtagClick?: (name: string) => void;
+  /** When set, case-insensitive matches of this string are wrapped in a light-blue <mark>. */
+  highlightQuery?: string | null;
 }) {
   const lines = value.split(/\r?\n/);
   const nodes: ReactNode[] = [];
@@ -521,7 +550,7 @@ export function RichTextPreview({
         listStack.push({ id: listIdCounter++, type, indent, start, items: [] });
       }
 
-      const content = inlineNodes(text, offset + displayLine.indexOf(text), value, onLinkEdit, onHashtagClick);
+      const content = inlineNodes(text, offset + displayLine.indexOf(text), value, onLinkEdit, onHashtagClick, highlightQuery);
       listStack[listStack.length - 1].items.push({ key, content, children: null });
       offset += line.length + 1;
       return;
@@ -531,7 +560,7 @@ export function RichTextPreview({
 
     nodes.push(
       <p key={key} className={cn("whitespace-pre-wrap break-words", paragraphClassName)}>
-        {inlineNodes(displayLine, offset, value, onLinkEdit, onHashtagClick)}
+        {inlineNodes(displayLine, offset, value, onLinkEdit, onHashtagClick, highlightQuery)}
       </p>,
     );
     offset += line.length + 1;

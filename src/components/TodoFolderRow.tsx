@@ -132,11 +132,28 @@ export function TodoFolderCountBadge({
   completedCount,
   totalCount,
   selected,
+  searchMatchCount,
 }: {
   completedCount: number;
   totalCount: number;
   selected?: boolean;
+  /** While a search is active, show the match count instead of the completed/total ratio. */
+  searchMatchCount?: number;
 }) {
+  if (searchMatchCount !== undefined) {
+    if (searchMatchCount === 0) return null;
+    return (
+      <span
+        className={cn(
+          "flex-none rounded-full px-2 py-0.5 text-[11px] font-medium",
+          selected ? "bg-app-surface text-app-ink" : "bg-app-surface-muted text-app-ink-faint",
+        )}
+      >
+        {searchMatchCount === 1 ? "1 result" : `${searchMatchCount} results`}
+      </span>
+    );
+  }
+
   if (totalCount === 0) {
     return null;
   }
@@ -180,12 +197,14 @@ export function TodoFolderCard({
   completedCount,
   totalCount,
   selected,
+  searchMatchCount,
   onClick,
 }: {
   folder: TodoFolder;
   completedCount: number;
   totalCount: number;
   selected: boolean;
+  searchMatchCount?: number;
   onClick: () => void;
 }) {
   return (
@@ -202,7 +221,7 @@ export function TodoFolderCard({
       </span>
       <button type="button" onClick={onClick} className="flex w-full items-center justify-center gap-1">
         <span className="min-w-0 truncate text-[13px] font-bold leading-tight">{folder.name}</span>
-        <TodoFolderCountBadge completedCount={completedCount} totalCount={totalCount} />
+        <TodoFolderCountBadge completedCount={completedCount} totalCount={totalCount} searchMatchCount={searchMatchCount} />
       </button>
     </div>
   );
@@ -235,6 +254,7 @@ export const TodoFolderRow = memo(function TodoFolderRow({
   onShare,
   onDelete,
   onClick,
+  searchMatchCount,
 }: {
   folder: TodoFolder;
   completedCount: number;
@@ -249,6 +269,7 @@ export const TodoFolderRow = memo(function TodoFolderRow({
   iconPickerActive: boolean;
   isShared?: boolean;
   isDesktop?: boolean;
+  searchMatchCount?: number;
   duplicateError?: string | null;
   inputRef?: Ref<HTMLInputElement>;
   onCancel?: () => void;
@@ -356,7 +377,7 @@ export const TodoFolderRow = memo(function TodoFolderRow({
             <Globe className="h-3 w-3" />
           </span>
         ) : null}
-        <TodoFolderCountBadge completedCount={completedCount} totalCount={totalCount} selected={selected} />
+        <TodoFolderCountBadge completedCount={completedCount} totalCount={totalCount} selected={selected} searchMatchCount={searchMatchCount} />
       </span>
       {!isDefault && isDesktop ? (
         <TodoFolderActionMenu

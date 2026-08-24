@@ -3,7 +3,7 @@ import { CircleCheckBig, Pencil, Repeat, Trash2 } from "lucide-react";
 import type { TodoItem } from "@omanote/shared";
 import { Badge, cn, TodoCheckmark } from "./ui";
 import { describeRecurrenceRule, formatCompletedLabel, formatDueChip } from "@omanote/shared";
-import { RichTextPreview } from "./rich-text";
+import { RichTextPreview, highlightText } from "./rich-text";
 import { AttachmentLinkPreview } from "./AttachmentLinkPreview";
 import { useUserSettings } from "../contexts/UserSettingsContext";
 
@@ -17,6 +17,7 @@ export const TodoListRow = memo(function TodoListRow({
   onDelete,
   onSaveEdit,
   onOpenEditor,
+  highlightQuery,
 }: {
   todo: TodoItem;
   canvasDateKey: string;
@@ -32,6 +33,8 @@ export const TodoListRow = memo(function TodoListRow({
   onSaveEdit: (todoId: string, payload: { title: string; dueDateKey?: string; dueTime?: string }) => void;
   /** Opens the full editor (due date, folder, recurrence, reminders) for this todo. */
   onOpenEditor: (todo: TodoItem) => void;
+  /** When set, case-insensitive matches of this string are highlighted in the title/notes. */
+  highlightQuery?: string | null;
 }) {
   const { settings } = useUserSettings();
   const completeOnRowClick = settings.completeTodoOnRowClick;
@@ -78,7 +81,7 @@ export const TodoListRow = memo(function TodoListRow({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <div className={cn("text-base leading-6", isVisuallyDone ? "text-app-ink-faint line-through" : "text-app-ink")}>
-              <RichTextPreview value={todo.title} onLinkEdit={editTodoTitle} />
+              <RichTextPreview value={todo.title} onLinkEdit={editTodoTitle} highlightQuery={highlightQuery} />
             </div>
             {todo.priority === "high" ? <Badge tone="outline" className="uppercase tracking-wide">High</Badge> : null}
             {todo.recurrence || todo.recurringSourceId ? (
@@ -92,7 +95,7 @@ export const TodoListRow = memo(function TodoListRow({
             ) : null}
             {dueChip ? <Badge className="rounded-md text-app-ink-faint">{dueChip}</Badge> : null}
           </div>
-          {todo.notes ? <p className="mt-1 text-sm leading-6 text-app-ink-muted">{todo.notes}</p> : null}
+          {todo.notes ? <p className="mt-1 text-sm leading-6 text-app-ink-muted">{highlightText(todo.notes, highlightQuery, "todo-row-notes")}</p> : null}
           {completedLabel ? (
             <p className="mt-0.5 text-xs text-app-ink-faint lg:hidden">
               <span className="inline-flex items-center gap-1">
