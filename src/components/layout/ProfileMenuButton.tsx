@@ -365,9 +365,10 @@ export function ProfileMenuButton({ onOpenAbout }: { onOpenAbout: () => void }) 
         <MenuItem
           onClick={() => {
             removeStorage(storageKeys.uiState);
-            signOut();
-            window.location.assign("/");
             closeProfileOptions();
+            signOut().then(() => {
+              window.location.assign("/");
+            });
           }}
         >
           <LogOut className="h-4 w-4" />

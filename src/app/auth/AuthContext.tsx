@@ -9,7 +9,7 @@ interface AuthContextValue {
     imageUrl: string | null;
     provider: "clerk";
   } | null;
-  signOut: () => void;
+  signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
   /**
    * Clerk session JWT for services that authenticate outside Convex — today
@@ -38,7 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             provider: "clerk" as const,
           }
         : null,
-      signOut: () => signOut(),
+      signOut: () => signOut().then(() => {}),
       deleteAccount: async () => {
         if (!user) {
           throw new Error("No authenticated user");

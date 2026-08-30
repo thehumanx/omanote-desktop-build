@@ -420,7 +420,7 @@ function CanvasView({
   completedTodos: Set<string>;
 }) {
   const activeDay = CANVAS_DAYS[activeDayIndex] ?? CANVAS_DAYS[0];
-  const greeting = getMockGreeting("BBK");
+  const greeting = getMockGreeting("traveller");
 
   return (
     <div className="mx-auto flex w-full max-w-[880px] flex-1 flex-col py-5 pb-24" aria-label={`${activeDay.subtitle} ${activeDay.label}`}>

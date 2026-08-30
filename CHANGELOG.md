@@ -4,6 +4,14 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.31.5 [August 30, 2026]
+
+> Signing out now actually finishes signing out, the desktop app no longer gets stuck loading with a dead connection, and access is now limited to gmail.com accounts.
+
+- [Fix] Logging out now waits for sign-out to fully complete before redirecting — previously the redirect could happen before Clerk finished clearing the session, leaving you still signed in after "logging out"
+- [Fix] The desktop app no longer gets stuck on a blank "Loading…" screen when the network is up but unreachable (e.g. Wi-Fi connected with no real internet, broken DNS) — offline detection now also checks the live connection to omanote's backend instead of relying solely on what the OS reports
+- [Add] Sign-up and sign-in are now limited to gmail.com email addresses — other accounts see a clear "Access restricted" message instead of the app failing silently
+
 ### v0.31.4 [August 24, 2026]
 
 > Keyboard shortcuts to jump straight to any page or its search, matches highlighted right where they appear, and a composer that closes itself once you've added something.

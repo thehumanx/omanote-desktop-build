@@ -3,6 +3,7 @@ import { AuthProvider } from "./auth/AuthContext";
 import { EncryptionProvider } from "../contexts/EncryptionContext";
 import { UserSettingsProvider } from "../contexts/UserSettingsContext";
 import { EncryptionGate } from "../components/EncryptionGate";
+import { DomainGate } from "../components/DomainGate";
 import { DeviceActivityReporter } from "../components/DeviceActivityReporter";
 import { UpdateProvider } from "../contexts/UpdateContext";
 import { AppShell } from "../components/layout/AppShell";
@@ -12,6 +13,7 @@ export function AuthenticatedAppLayout() {
   return (
     <>
       <AuthProvider>
+      <DomainGate>
       <UserSettingsProvider>
       <ThemeProvider>
       <EncryptionProvider>
@@ -26,6 +28,7 @@ export function AuthenticatedAppLayout() {
       </EncryptionProvider>
       </ThemeProvider>
       </UserSettingsProvider>
+      </DomainGate>
     </AuthProvider>
     </>
   );
