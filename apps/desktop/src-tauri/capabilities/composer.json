@@ -1,0 +1,19 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "composer",
+  "description": "Capabilities for the pop-out composer window (see src/lib/composer-popout.ts)",
+  "windows": ["composer"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-minimize",
+    "core:window:allow-close",
+    "core:window:allow-is-maximized",
+    "notification:default",
+    "opener:default",
+    {
+      "identifier": "http:default",
+      "allow": [{ "url": "https://omanote.com/*" }]
+    }
+  ]
+}

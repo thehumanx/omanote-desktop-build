@@ -1,10 +1,9 @@
-import { Bold, Check, Code2, Copy, Italic, List, ListOrdered } from "lucide-react";
-import { createPortal } from "react-dom";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Bold, Code2, Italic, List, ListOrdered } from "lucide-react";
 import type { ReactNode, RefObject } from "react";
 import { createMarkdownLink, normalizeLinkUrl } from "@omanote/shared";
 import { cn } from "./ui";
 import { HashtagChip } from "./HashtagChip";
+import { useLinkCopyPopover } from "./LinkCopyPopover";
 
 export type RichTextFormat = "bold" | "italic" | "bullet" | "ordered" | "code";
 
@@ -142,167 +141,13 @@ function LinkToken({
   start: number;
   onEdit?: (nextValue: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
-  const [hasPosition, setHasPosition] = useState(false);
-  const [popoverPosition, setPopoverPosition] = useState<{ top: number; left: number; placement: "above" | "below" }>({
-    top: 0,
-    left: 0,
-    placement: "below",
-  });
-  const popoverRef = useRef<HTMLDivElement | null>(null);
-  const spanRef = useRef<HTMLSpanElement | null>(null);
-  const closeTimeoutRef = useRef<number | null>(null);
-
-  const tooltipUrl = token.href.length > 24 ? `${token.href.slice(0, 24)}…` : token.href;
-
-  const cancelClose = () => {
-    if (closeTimeoutRef.current !== null) {
-      window.clearTimeout(closeTimeoutRef.current);
-      closeTimeoutRef.current = null;
-    }
-  };
-
-  const copyTimeoutRef = useRef<number | null>(null);
-
-  const scheduleClose = () => {
-    cancelClose();
-    closeTimeoutRef.current = window.setTimeout(() => {
-      setOpen(false);
-      closeTimeoutRef.current = null;
-    }, 80);
-  };
-
-  useLayoutEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!open) return;
-
-    const updatePosition = () => {
-      const anchor = spanRef.current;
-      const popover = popoverRef.current;
-      if (!anchor) return;
-      const rect = anchor.getBoundingClientRect();
-      const width = 288;
-      const padding = 12;
-      const left = Math.min(Math.max(padding, rect.left + rect.width / 2 - width / 2), window.innerWidth - width - padding);
-      const popoverHeight = popover?.offsetHeight ?? 40;
-      const top = Math.max(8, rect.top - popoverHeight - 6);
-      setPopoverPosition({ top, left, placement: "above" });
-      setHasPosition(true);
-    };
-
-    setHasPosition(false);
-    updatePosition();
-    window.addEventListener("scroll", updatePosition, true);
-    window.addEventListener("resize", updatePosition);
-    return () => {
-      window.removeEventListener("scroll", updatePosition, true);
-      window.removeEventListener("resize", updatePosition);
-    };
-  }, [open, token.href]);
-
-  useEffect(() => {
-    if (open) {
-      setIsMounted(true);
-      return;
-    }
-
-    const timeout = window.setTimeout(() => setIsMounted(false), 160);
-    return () => window.clearTimeout(timeout);
-  }, [open]);
-
-  useEffect(() => {
-    return () => {
-      if (copyTimeoutRef.current !== null) {
-        window.clearTimeout(copyTimeoutRef.current);
-        copyTimeoutRef.current = null;
-      }
-    };
-  }, []);
-
-  const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(token.href);
-      setCopied(true);
-      if (copyTimeoutRef.current !== null) {
-        window.clearTimeout(copyTimeoutRef.current);
-      }
-      copyTimeoutRef.current = window.setTimeout(() => {
-        setCopied(false);
-        copyTimeoutRef.current = null;
-      }, 900);
-    } catch {
-      // ignore clipboard failures silently
-    }
-  };
-
-  const visible = open;
-  const popover = isMounted && typeof document !== "undefined"
-    ? createPortal(
-        <div
-          ref={popoverRef}
-          data-rich-text-popover="true"
-          className={[
-            "fixed z-app-extension-root max-w-[320px] rounded-xl border border-app-line bg-app-surface px-3 py-2 shadow-soft transition-opacity duration-150 ease-out",
-            visible ? "opacity-100" : "pointer-events-none opacity-0",
-          ].join(" ")}
-          style={{ top: popoverPosition.top, left: popoverPosition.left, visibility: hasPosition ? "visible" : "hidden" }}
-          onMouseEnter={() => {
-            cancelClose();
-          }}
-          onMouseLeave={() => {
-            scheduleClose();
-          }}
-          onPointerDown={(event) => {
-            event.stopPropagation();
-          }}
-        >
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-            <p className="min-w-0 truncate text-sm font-medium text-app-ink-muted" title={token.href}>
-              {tooltipUrl}
-            </p>
-            <button
-              type="button"
-              aria-label={copied ? "Copied" : "Copy link"}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                void copyLink();
-              }}
-              className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-app-line bg-app-surface px-2 text-xs font-medium text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-            >
-              {copied ? (
-                <>
-                  <Check className="h-3.5 w-3.5 text-success-ink animate-[omanote-copy-check_220ms_ease-out]" />
-                  <span className="text-success-ink">Copied</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="h-3.5 w-3.5" />
-                  <span>Copy</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>,
-        document.body,
-      )
-    : null;
+  const { anchorRef, handlers, popover } = useLinkCopyPopover(token.href);
 
   return (
       <span
-      ref={spanRef}
+      ref={anchorRef as RefObject<HTMLSpanElement>}
       className="group/link relative inline-flex min-w-0 max-w-full items-center"
-      onMouseEnter={() => {
-        cancelClose();
-        setOpen(true);
-      }}
-      onMouseLeave={(event) => {
-        if (popoverRef.current?.contains(event.relatedTarget as Node | null)) return;
-        scheduleClose();
-      }}
+      {...handlers}
     >
       <a
         href={token.href}
@@ -467,10 +312,17 @@ function renderListAcc(list: ListAcc, depth: number, paragraphClassName?: string
     <Tag
       key={`list-${list.id}`}
       start={list.type === "ordered" ? list.start : undefined}
-      className={cn("m-0 pl-5", markerClass)}
+      className={cn(depth === 0 ? "m-0" : "mb-0 mt-1", "pl-5", markerClass)}
     >
       {list.items.map((item) => (
-        <li key={item.key} className={cn("m-0 list-item text-zinc-400 marker:text-zinc-400", paragraphClassName)}>
+        <li
+          key={item.key}
+          className={cn(
+            "list-item text-zinc-400 marker:text-zinc-400",
+            depth === 0 ? "mb-2 mt-0" : "m-0",
+            paragraphClassName,
+          )}
+        >
           <span className="text-app-ink">{item.content}</span>
           {item.children ? renderListAcc(item.children, depth + 1, paragraphClassName) : null}
         </li>

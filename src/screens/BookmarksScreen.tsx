@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useEdgeSwipeBack } from "../lib/useEdgeSwipeBack";
+import { useHistoryBackClose } from "../lib/useHistoryBackClose";
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, Globe, LayoutGrid, LayoutList, MoreHorizontal, Pencil, Plus, Share2, Trash2 } from "lucide-react";
 import type { BookmarkCategory, BookmarkItem } from "@omanote/shared";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -211,6 +212,7 @@ export function BookmarksScreen() {
   }, []);
 
   const { dragOffset, isDragging, edgeSwipeProps } = useEdgeSwipeBack(() => setMobileBookmarksOpen(false));
+  useHistoryBackClose(mobileBookmarksOpen, () => setMobileBookmarksOpen(false));
 
   useOutsideClick(categorySortMenuRef, categorySortMenuOpen, () => setCategorySortMenuOpen(false));
   useOutsideClick(categoryMenuRef, Boolean(categoryMenuOpenId), () => setCategoryMenuOpenId(null));

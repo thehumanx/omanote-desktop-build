@@ -4,6 +4,22 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.32.0 [September 2, 2026]
+
+> History is its own page now — a full-height date list, a real full-page view of any day on mobile, no bottom bar in the way, and a calendar button to jump to any date.
+
+- [Update] History is now its own page instead of a view that swapped in over the canvas. Clicking the date button on Canvas still opens it the same way, and the × still takes you back to today
+- [Update] On mobile, tapping a day in History now opens it as a full page — back arrow at the top left, the date as the page title — instead of a bottom sheet
+- [Remove] The bottom navigation bar no longer shows on History
+- [Add] A floating calendar button on History opens a month view for jumping straight to any past date, with a dot on every day that has something on it
+- [Fix] Your phone's back gesture now closes an open folder
+- [Update] Hovering a link preview card now shows the full address with a copy button
+- [Fix] On mobile, an event's date and time now sit on their own row beneath the label instead of being squeezed onto the same line
+- [Fix] A todo containing a long unbroken string (a URL, a pasted line of underscores) now wraps instead of stretching its row
+- [Fix] Spacing between top-level bullet and numbered list items is now the same while you're editing a note as it is after saving
+- [Fix] The guide's content pane no longer shows a scrollbar, matching every other scrolling area in the app
+- [Fix] On Linux, the desktop app now shuts down cleanly instead of leaving background processes running — the AppImage no longer holds your system up for several seconds when you log out or restart
+
 ### v0.31.5 [August 30, 2026]
 
 > Signing out now actually finishes signing out, the desktop app no longer gets stuck loading with a dead connection, and access is now limited to gmail.com accounts.

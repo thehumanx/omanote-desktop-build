@@ -20,6 +20,7 @@ import { TodoListRow } from "../components/TodoListRow";
 import { Button, cn, SegmentedPill } from "../components/ui";
 import { formatCompletedLabel, formatOverdueGroupHeading, formatRelativeGroupHeading, getSeriesListBucket, isClosedSeriesMaster } from "@omanote/shared";
 import { useEdgeSwipeBack } from "../lib/useEdgeSwipeBack";
+import { useHistoryBackClose } from "../lib/useHistoryBackClose";
 import { useMeasuredHighlight } from "../hooks/useMeasuredHighlight";
 import { parseHashtags } from "../lib/hashtags";
 import { useOutsideClick } from "../lib/useOutsideClick";
@@ -331,6 +332,7 @@ export function TodosScreen() {
   const drawerRenameInputRef = useRef<HTMLInputElement>(null);
   const drawerDirectIconButtonRef = useRef<HTMLButtonElement>(null);
   const { dragOffset, isDragging, edgeSwipeProps } = useEdgeSwipeBack(() => setMobileTodosOpen(false));
+  useHistoryBackClose(mobileTodosOpen, () => setMobileTodosOpen(false));
   const [drawerFilter, setDrawerFilter] = useState<"active" | "done">("active");
   const [drawerMenuOpen, setDrawerMenuOpen] = useState(false);
   const drawerMenuRef = useRef<HTMLDivElement>(null);

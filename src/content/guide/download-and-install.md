@@ -14,7 +14,7 @@ The desktop app wraps omanote in a native window with its own tray icon, auto-up
 
 - **macOS**: `.dmg` file — open it and drag omanote to your Applications folder.
 - **Windows**: `.msi` installer — run it and follow the prompts.
-- **Linux**: `.deb` or `.AppImage` — pick the package format that matches your distribution.
+- **Linux**: `.deb` on Debian and Ubuntu, `.rpm` on Fedora, or `.AppImage` on Arch and anywhere else — the AppImage is a single file you make executable and run, no installation needed. If it fails to start on a system without FUSE, run it as `APPIMAGE_EXTRACT_AND_RUN=1 ./omanote.AppImage`.
 
 The desktop app checks for updates in the background every 30 minutes. When a new version is available, a banner appears at the bottom of the screen — click it to download and restart.
 

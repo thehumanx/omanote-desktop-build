@@ -2,6 +2,7 @@
 // Ordered by specificity — "/reader/saved" must be checked before "/reader".
 const pageLabelRules: Array<{ prefix: string; label: string }> = [
   { prefix: "/canvas", label: "Canvas" },
+  { prefix: "/history", label: "History" },
   { prefix: "/todos", label: "Todos" },
   { prefix: "/notes", label: "Notes" },
   { prefix: "/bookmarks", label: "Bookmarks" },

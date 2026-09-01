@@ -16,6 +16,9 @@ const AuthenticatedAppLayout = lazy(() =>
 const CanvasScreen = lazy(() =>
   import("./screens/CanvasScreen").then((module) => ({ default: module.CanvasScreen })),
 );
+const HistoryScreen = lazy(() =>
+  import("./screens/HistoryScreen").then((module) => ({ default: module.HistoryScreen })),
+);
 const LoginScreen = lazy(() =>
   import("./screens/auth/LoginScreen").then((module) => ({ default: module.LoginScreen })),
 );
@@ -201,6 +204,7 @@ export default function App() {
         <Route path="/" element={<RootRoute />}>
           <Route index element={<Navigate to="/canvas" replace />} />
           <Route path="canvas" element={<CanvasScreen />} />
+          <Route path="history" element={<HistoryScreen />} />
           {/* Chromeless by design — see AppShell's early return for this
               route — so the pop-out window (see composer-popout.ts) shows
               only the composer, not the app's nav/header. Still nested

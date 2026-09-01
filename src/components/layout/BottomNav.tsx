@@ -28,6 +28,11 @@ export function BottomNav({ hidden = false, forceHidden = false }: { hidden?: bo
   const isInsightsRoute = location.pathname.startsWith("/insights");
   const isGuideRoute = location.pathname.startsWith("/guide");
 
+  // History has no nav at all — it's a focused drill-down with its own X in
+  // the top bar and its own floating date-jump button, and the tab pill would
+  // just sit on top of the day content for no reason.
+  if (location.pathname === "/history") return <NoBottomNav />;
+
   if (isUpdatesRoute || isSettingsRoute || isInsightsRoute || isGuideRoute) {
     const label = isSettingsRoute
       ? "Close settings"
@@ -40,6 +45,19 @@ export function BottomNav({ hidden = false, forceHidden = false }: { hidden?: bo
   }
 
   return <FullBottomNav hidden={hidden} forceHidden={forceHidden} />;
+}
+
+/**
+ * Renders nothing, but zeroes the height variable while it's mounted —
+ * every screen sizes its bottom clearance off `--omanote-bottom-nav-height`,
+ * so leaving the previous route's value behind would strand dead space at
+ * the bottom of a page that has no nav.
+ */
+function NoBottomNav() {
+  useEffect(() => {
+    document.documentElement.style.setProperty("--omanote-bottom-nav-height", "0px");
+  }, []);
+  return null;
 }
 
 function SimpleRouteCloseNav({ hidden, forceHidden, label }: { hidden: boolean; forceHidden: boolean; label: string }) {
@@ -313,41 +331,39 @@ function FullBottomNav({ hidden = false, forceHidden = false }: { hidden?: boole
                 className="min-w-0 gap-1 p-2 shadow-nav"
               >
                 {highlightStyle ? <SegmentedHighlight style={highlightStyle} /> : null}
-                {tabs.map(({ to, label, icon: Icon }) => (
-                  <NavLink
-                    key={to}
-                    to={to}
-                    end={to === "/reader"}
-                    aria-label={label}
-                    ref={(node) => {
-                      tabRefs.current[to] = node;
-                    }}
-                    className={({ isActive }) =>
-                      segmentedItemClass({
+                {tabs.map(({ to, label, icon: Icon }) => {
+                  // Keyed off `activeTab` rather than NavLink's own isActive
+                  // so tab-less routes that belong to a tab (see
+                  // navRouteAliases) light it up like the tab's own route.
+                  const isActive = to === activeTab;
+                  const showIcon = navLabelStyle !== "label-only";
+                  const showLabel = navLabelStyle === "label-only" || navLabelStyle === "icon-label" || (navLabelStyle === "active-label" && isActive);
+                  return (
+                    <NavLink
+                      key={to}
+                      to={to}
+                      end={to === "/reader"}
+                      aria-label={label}
+                      ref={(node) => {
+                        tabRefs.current[to] = node;
+                      }}
+                      className={segmentedItemClass({
                         active: isActive,
                         className:
                           "relative flex flex-col items-center justify-center px-3 py-2 text-app-ink-muted transition-[transform,color,opacity] duration-150 ease-out active:translate-y-px active:scale-[0.98] md:flex-row md:px-4",
-                      })
-                    }
-                  >
-                    {({ isActive }) => {
-                      const showIcon = navLabelStyle !== "label-only";
-                      const showLabel = navLabelStyle === "label-only" || navLabelStyle === "icon-label" || (navLabelStyle === "active-label" && isActive);
-                      return (
-                        <>
-                          <Icon className={`relative z-10 h-4 w-4 md:h-3.5 md:w-3.5${showIcon ? "" : " md:hidden"}`} />
-                          <SegmentedItemLabel
-                            visible={showLabel}
-                            withLeadingGap={showIcon && showLabel}
-                            className="relative z-10 font-medium text-[14px] leading-none"
-                          >
-                            {label}
-                          </SegmentedItemLabel>
-                        </>
-                      );
-                    }}
-                  </NavLink>
-                ))}
+                      })}
+                    >
+                      <Icon className={`relative z-10 h-4 w-4 md:h-3.5 md:w-3.5${showIcon ? "" : " md:hidden"}`} />
+                      <SegmentedItemLabel
+                        visible={showLabel}
+                        withLeadingGap={showIcon && showLabel}
+                        className="relative z-10 font-medium text-[14px] leading-none"
+                      >
+                        {label}
+                      </SegmentedItemLabel>
+                    </NavLink>
+                  );
+                })}
               </SegmentedShell>
             </div>
 
@@ -388,13 +404,11 @@ function FullBottomNav({ hidden = false, forceHidden = false }: { hidden?: boole
                     ref={(node) => {
                       mobileTabRefs.current[to] = node;
                     }}
-                    className={({ isActive }) =>
-                      segmentedItemClass({
-                        active: isActive,
-                        className:
-                          "relative flex items-center justify-center px-3 py-2 text-app-ink-muted transition-[transform,color,opacity] duration-150 ease-out active:translate-y-px active:scale-[0.98]",
-                      })
-                    }
+                    className={segmentedItemClass({
+                      active: to === activeTab,
+                      className:
+                        "relative flex items-center justify-center px-3 py-2 text-app-ink-muted transition-[transform,color,opacity] duration-150 ease-out active:translate-y-px active:scale-[0.98]",
+                    })}
                   >
                     <Icon className="relative z-10 h-4 w-4" />
                   </NavLink>

@@ -175,7 +175,7 @@ function CanvasTodoBlockComponent({
           <div className="flex flex-wrap items-center gap-2">
             <div
               className={cn(
-                "text-base leading-6",
+                "min-w-0 text-base leading-6",
                 todo.status === "done" ? "text-app-ink-faint line-through" : isFutureTodo ? "text-app-ink-faint" : "text-app-ink",
               )}
             >

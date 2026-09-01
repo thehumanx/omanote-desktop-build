@@ -1,6 +1,6 @@
 [package]
 name = "omanote-desktop"
-version = "0.31.5"
+version = "0.32.0"
 description = "omanote desktop app"
 edition = "2021"
 
@@ -19,6 +19,12 @@ tauri-plugin-deep-link = "2"
 tauri-plugin-http = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+# Linux teardown (see lib.rs): the AppImage's FUSE mount only unmounts once
+# this process and every WebKit helper it spawned have exited.
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"
+signal-hook = "0.3"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }

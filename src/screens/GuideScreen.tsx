@@ -170,7 +170,7 @@ export function GuideScreen() {
           </aside>
           <section
             className={cn(
-              "min-h-0 flex-1 flex-col overflow-y-auto pb-16 lg:flex lg:border-l lg:border-app-line lg:pl-4 lg:pt-4",
+              "scrollbar-hide min-h-0 flex-1 flex-col overflow-y-auto pb-16 lg:flex lg:border-l lg:border-app-line lg:pl-4 lg:pt-4",
               hasTopic ? "flex" : "hidden lg:flex",
             )}
           >

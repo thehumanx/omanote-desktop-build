@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useEdgeSwipeBack } from "../lib/useEdgeSwipeBack";
+import { useHistoryBackClose } from "../lib/useHistoryBackClose";
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, LayoutGrid, LayoutList, MoreHorizontal, Pencil, Plus, Share2, Trash2 } from "lucide-react";
 import type { NoteItem } from "@omanote/shared";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -129,6 +130,7 @@ export function NotesScreen() {
   const pendingFolderRenameRef = useRef<string | null>(null);
   const restoreNotesEditScrollRef = useRef<(() => void) | null>(null);
   const { dragOffset, isDragging, edgeSwipeProps } = useEdgeSwipeBack(() => setMobileNotesOpen(false));
+  useHistoryBackClose(mobileNotesOpen, () => setMobileNotesOpen(false));
 
   useOutsideClick(sortMenuRef, sortMenuOpen, () => setSortMenuOpen(false));
   useOutsideClick(folderMenuRef, Boolean(folderMenuOpenId), () => setFolderMenuOpenId(null));

@@ -46,7 +46,9 @@ export function AppShell() {
   const isSettingsRoute = location.pathname.startsWith("/settings");
   const isInsightsRoute = location.pathname.startsWith("/insights");
   const isEventRoute = location.pathname.startsWith("/event");
-  const usesViewportShell = isWorkspaceRoute || isExploreRoute || isSettingsRoute || isInsightsRoute || isEventRoute;
+  const isHistoryRoute = location.pathname === "/history";
+  const usesViewportShell =
+    isWorkspaceRoute || isExploreRoute || isSettingsRoute || isInsightsRoute || isEventRoute || isHistoryRoute;
   const topChromeRef = useRef<HTMLDivElement | null>(null);
   const [topChromeContent, setTopChromeContent] = useState<ReactNode | null>(null);
   // Stable identity so consuming useOutletContext() doesn't re-render every
@@ -221,6 +223,16 @@ export function AppShell() {
                     height: "100dvh",
                     paddingTop: "calc(var(--omanote-top-chrome-height, 0px) + 1rem)",
                     paddingBottom: "calc(var(--omanote-bottom-nav-height, 64px) + 1rem)",
+                  }
+              : isHistoryRoute
+                ? {
+                    // Exactly the viewport minus the top bar: both History
+                    // columns then fill this and scroll internally, running
+                    // under the floating bottom nav (each column pads its
+                    // own content clear of it) instead of stopping above it.
+                    height: "100dvh",
+                    paddingTop: "var(--omanote-top-chrome-height, 0px)",
+                    paddingBottom: "0px",
                   }
               : isExploreRoute || isSettingsRoute
                 ? {

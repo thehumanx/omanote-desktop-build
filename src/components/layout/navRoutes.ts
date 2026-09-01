@@ -4,8 +4,16 @@ export const navRoutePaths = ["/canvas", "/todos", "/notes", "/bookmarks", "/eve
 
 export type NavRoutePath = (typeof navRoutePaths)[number];
 
+// Routes that aren't tabs of their own but belong to one — /history is a
+// second view of the canvas, so the Canvas tab stays highlighted (and swipe
+// navigation keeps working) while you're browsing past days.
+const navRouteAliases: Record<string, NavRoutePath> = {
+  "/history": "/canvas",
+};
+
 export function getNavRouteIndex(pathname: string) {
-  return navRoutePaths.findIndex((route) => pathname === route || pathname.startsWith(`${route}/`));
+  const aliased = navRouteAliases[pathname] ?? pathname;
+  return navRoutePaths.findIndex((route) => aliased === route || aliased.startsWith(`${route}/`));
 }
 
 export function getWrappedNavRoutePath(index: number) {

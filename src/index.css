@@ -627,30 +627,6 @@ body {
   background-size: 16px 16px;
 }
 
-/* History mode opening: reveals top-to-bottom, like a blind unrolling. */
-@keyframes omanote-history-reveal {
-  from {
-    clip-path: inset(0 0 100% 0);
-    opacity: 0;
-  }
-  to {
-    clip-path: inset(0 0 0% 0);
-    opacity: 1;
-  }
-}
-
-/* History mode closing: retracts back up toward the top, reverse of reveal. */
-@keyframes omanote-history-conceal {
-  from {
-    clip-path: inset(0 0 0% 0);
-    opacity: 1;
-  }
-  to {
-    clip-path: inset(0 0 100% 0);
-    opacity: 0;
-  }
-}
-
 @keyframes omanote-page-fade {
   from {
     opacity: 0;
@@ -866,6 +842,13 @@ body {
 }
 .ProseMirror li {
   margin: 0;
+}
+/* Matches the mb-2 given to depth-0 <li> in RichTextPreview's renderListAcc
+   (src/components/rich-text.tsx) so top-level list items get the same gap
+   whether the note is being edited or viewed. */
+.ProseMirror > ul > li,
+.ProseMirror > ol > li {
+  margin-bottom: 0.5rem;
 }
 .ProseMirror li > ul,
 .ProseMirror li > ol {

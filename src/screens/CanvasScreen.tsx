@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
-import { addDays, addDaysToDateKey, buildRecurringCompletionIndex, daysBetweenKeys, parseVirtualOccurrenceId, toDateKey } from "@omanote/shared";
+import { addDaysToDateKey, buildRecurringCompletionIndex, daysBetweenKeys, parseVirtualOccurrenceId, toDateKey } from "@omanote/shared";
 import type { DateKey } from "@omanote/shared";
 import type { TodoItem } from "@omanote/shared";
 import { api } from "../../convex/_generated/api";
@@ -8,42 +9,31 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { useApp } from "../app/AppProvider";
 import { useAuth } from "../app/auth/AuthContext";
 import { buildCanvasDayItems } from "../app/reducer";
-import { buildDateKeyRangeDescending, buildDatesWithContentSet, earliestDateKeyFromState } from "../app/history";
 import { CanvasDateRow, formatTodayLabel } from "../components/CanvasDateRow";
 import { CanvasDayArtifacts } from "../components/CanvasDayArtifacts";
-import { CanvasHistoryDateWheel } from "../components/CanvasHistoryDateWheel";
 import { CanvasOverdueSection, type OverdueRecentAction } from "../components/CanvasOverdueSection";
 import type { RescheduleTarget } from "../components/RescheduleMenu";
 import { CanvasSkeleton } from "../components/CanvasSkeleton";
 import { CanvasSystemNotice } from "../components/CanvasSystemNotice";
 import { CanvasWeekAtGlance } from "../components/CanvasWeekAtGlance";
 import { BookmarkEditorModal } from "../components/BookmarkEditorModal";
-import { MobileEditDrawer } from "../components/MobileEditDrawer";
 import { TodoEditorModal } from "../components/TodoEditorModal";
 import { getGreetingForDate } from "../components/layout/greetings";
-import { useIsMobileViewport } from "../lib/mobile";
 import { useTopChrome } from "../components/layout/useTopChrome";
 import { readDismissedFlag, writeDismissedFlag } from "../lib/local-storage";
 
 const CANVAS_WELCOME_SEEN_KEY = "omanote:canvas-welcome-seen";
 
-function formatSelectedHeading(dateKey: DateKey, todayKey: DateKey): string {
-  if (dateKey === todayKey) return "Today";
-  const date = new Date(`${dateKey}T12:00:00`);
-  return date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
-}
-
 export function CanvasScreen() {
   const { state, dispatch, isCanvasContentLoading } = useApp();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const firstName = useMemo(() => {
     const name = user?.name?.trim();
     return name ? name.split(" ")[0]! : "there";
   }, [user?.name]);
   const today = useMemo(() => new Date(), []);
   const todayKey = useMemo(() => toDateKey(today), [today]);
-  // History never lists today — it's already the canvas itself.
-  const yesterdayKey = useMemo(() => toDateKey(addDays(today, -1)), [today]);
   // Lazy init captures whether this is the first canvas visit before we mark it seen below.
   const [isFirstCanvasVisit] = useState(() => !readDismissedFlag(CANVAS_WELCOME_SEEN_KEY));
   useEffect(() => {
@@ -61,63 +51,18 @@ export function CanvasScreen() {
   const [editingBookmarkId, setEditingBookmarkId] = useState<string | null>(null);
   const [overdueRecentAction, setOverdueRecentAction] = useState<OverdueRecentAction | null>(null);
 
-  // History mode: a local view toggle, not a route. `hasOpenedHistory` gates
-  // the full-history scans below so they run at most once (the first time
-  // history is opened), not on every toggle — closing and reopening reuses
-  // the memoized result as long as the underlying data hasn't changed.
-  const [viewMode, setViewMode] = useState<"today" | "history">("today");
-  // What's actually mounted lags `viewMode` by one animation on close, so the
-  // history content stays rendered (and visible) through its exit animation
-  // instead of being unmounted the instant the icon flips back to "enter".
-  const [renderedMode, setRenderedMode] = useState<"today" | "history">("today");
-  const [historyAnim, setHistoryAnim] = useState<"opening" | "closing" | null>(null);
-  const [hasOpenedHistory, setHasOpenedHistory] = useState(false);
-  const [selectedHistoryDateKey, setSelectedHistoryDateKey] = useState<DateKey>(yesterdayKey);
-  // On mobile, History shows only the date strip; tapping a date opens that
-  // day's content in a bottom drawer instead of a side-by-side pane.
-  const isMobile = useIsMobileViewport();
-  const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
+  const openHistory = useCallback(() => navigate("/history"), [navigate]);
 
-  const handleToggleHistory = useCallback(() => {
-    setViewMode((prev) => {
-      if (prev === "today") {
-        setHasOpenedHistory(true);
-        setSelectedHistoryDateKey(yesterdayKey);
-        setRenderedMode("history");
-        setHistoryAnim("opening");
-        return "history";
-      }
-      setHistoryAnim("closing");
-      setHistoryDrawerOpen(false);
-      return "today";
-    });
-  }, [yesterdayKey]);
-
-  // The date row now lives in the shared header bar (see AppShell) instead
-  // of scrolling with the page — same content, just injected up top.
-  // Memoized: useTopChrome's effect keys off this node's identity, and an
-  // unmemoized JSX literal is a new object every render, which would loop
-  // forever (render → new node → setTopChrome → AppShell re-renders →
-  // Canvas re-renders → new node → ...).
+  // The date row lives in the shared header bar (see AppShell) instead of
+  // scrolling with the page. Memoized: useTopChrome's effect keys off this
+  // node's identity, and an unmemoized JSX literal is a new object every
+  // render, which would loop forever (render → new node → setTopChrome →
+  // AppShell re-renders → Canvas re-renders → new node → ...).
   const dateRowElement = useMemo(
-    () => <CanvasDateRow label={todayLabel} mode={viewMode === "today" ? "enter" : "exit"} onToggle={handleToggleHistory} />,
-    [todayLabel, viewMode, handleToggleHistory],
+    () => <CanvasDateRow label={todayLabel} mode="enter" onToggle={openHistory} />,
+    [todayLabel, openHistory],
   );
   useTopChrome(dateRowElement);
-
-  const handleActivateHistoryDate = useCallback((dateKey: DateKey) => {
-    setSelectedHistoryDateKey(dateKey);
-    setHistoryDrawerOpen(true);
-  }, []);
-
-  // Fires when the reveal/conceal keyframe finishes — only after "closing"
-  // completes do we actually unmount the history content.
-  const handleHistoryAnimEnd = useCallback(() => {
-    setHistoryAnim((prev) => {
-      if (prev === "closing") setRenderedMode("today");
-      return null;
-    });
-  }, []);
 
   const categoryNameById = useMemo(
     () => new Map(state.bookmarkCategories.map((category) => [category.id, category.name] as const)),
@@ -149,26 +94,6 @@ export function CanvasScreen() {
     if (!lastActiveKey) return 0;
     return daysBetweenKeys(lastActiveKey, todayKey);
   }, [state.todos, state.notes, state.bookmarks, state.events, todayKey]);
-
-  // Full-history scans — gated behind `hasOpenedHistory` and keyed on the
-  // specific arrays they read (not the whole `state` object), so they don't
-  // run on page load and don't recompute on unrelated state changes.
-  const earliestKey = useMemo(
-    () => (hasOpenedHistory ? earliestDateKeyFromState(state, todayKey) : todayKey),
-    [hasOpenedHistory, state.todos, state.notes, state.deletedNotes, state.bookmarks, state.deletedBookmarks, state.events, todayKey],
-  );
-  const historyDateKeys = useMemo(
-    () => (hasOpenedHistory && earliestKey <= yesterdayKey ? buildDateKeyRangeDescending(earliestKey, yesterdayKey) : []),
-    [hasOpenedHistory, earliestKey, yesterdayKey],
-  );
-  const historyDatesWithContent = useMemo(
-    () => (hasOpenedHistory ? buildDatesWithContentSet(state) : new Set<DateKey>()),
-    [hasOpenedHistory, state.todos, state.notes, state.bookmarks, state.events],
-  );
-  const historyDayItems = useMemo(
-    () => (viewMode === "history" ? buildCanvasDayItems(state, selectedHistoryDateKey, recurringCompletionIndex) : []),
-    [viewMode, state.todos, state.notes, state.bookmarks, state.events, selectedHistoryDateKey, recurringCompletionIndex],
-  );
 
   const editingBookmark = state.bookmarks.find((bookmark) => bookmark.id === editingBookmarkId) ?? null;
   const editingTodoRealId = editingTodoId ? parseVirtualOccurrenceId(editingTodoId)?.masterId ?? editingTodoId : null;
@@ -276,8 +201,7 @@ export function CanvasScreen() {
     };
   }, [state.todos, state.todoFolders, activeSharedFolderIds, updateShareSnapshot]);
 
-  // Only rendered inside the "today" branch below — history browsing always
-  // stays top-aligned, no centering spacer needed there.
+  // Drives the spacers that vertically center an empty canvas.
   const isEmpty = canvasItems.length === 0;
 
   return (
@@ -288,9 +212,9 @@ export function CanvasScreen() {
         minHeight: "calc(100dvh - var(--omanote-top-chrome-height, 0px) - var(--omanote-bottom-nav-height, 64px) - 3rem)",
       }}
     >
-      {renderedMode === "today" && isCanvasContentLoading ? (
+      {isCanvasContentLoading ? (
         <CanvasSkeleton />
-      ) : renderedMode === "today" ? (
+      ) : (
         <div className="mt-4 flex flex-col gap-10">
           <div
             aria-hidden="true"
@@ -347,100 +271,7 @@ export function CanvasScreen() {
             style={{ flexGrow: isEmpty ? 1 : 0, flexBasis: 0 }}
           />
         </div>
-      ) : (
-        <div
-          className="mt-4 flex min-w-0 overflow-hidden"
-          style={{
-            // Explicit height (not just a cap) on both platforms — the date
-            // wheel and the content pane both stretch to fill this
-            // container and use their own internal scroll, matching the
-            // regular Canvas page's always-full-height behavior instead of
-            // shrink-wrapping to whichever column happens to be shorter.
-            height: "calc(100dvh - var(--omanote-top-chrome-height, 0px) - var(--omanote-bottom-nav-height, 64px) - 9rem)",
-            animation:
-              historyAnim === "opening"
-                ? "omanote-history-reveal var(--motion-duration-drawer) var(--motion-easing-drawer) both"
-                : historyAnim === "closing"
-                  ? "omanote-history-conceal var(--motion-duration-drawer) var(--motion-easing-drawer) both"
-                  : undefined,
-          }}
-          onAnimationEnd={handleHistoryAnimEnd}
-        >
-          {isMobile ? (
-            <CanvasHistoryDateWheel
-              dateKeys={historyDateKeys}
-              datesWithContent={historyDatesWithContent}
-              todayKey={todayKey}
-              selectedDateKey={selectedHistoryDateKey}
-              onSelectDateKey={setSelectedHistoryDateKey}
-              onActivateDateKey={handleActivateHistoryDate}
-              widthClassName="w-full"
-              contentAlign="center"
-            />
-          ) : (
-            <div className="flex min-w-0 flex-1 gap-4 md:gap-6">
-              <div className="relative shrink-0">
-                <CanvasHistoryDateWheel
-                  dateKeys={historyDateKeys}
-                  datesWithContent={historyDatesWithContent}
-                  todayKey={todayKey}
-                  selectedDateKey={selectedHistoryDateKey}
-                  onSelectDateKey={setSelectedHistoryDateKey}
-                />
-                <div
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-y-0 right-0 w-px"
-                  style={{ background: "linear-gradient(to bottom, transparent, rgb(var(--color-line)), transparent)" }}
-                />
-              </div>
-
-              <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto">
-                <h1 className="text-lg font-bold text-app-ink md:text-2xl">{formatSelectedHeading(selectedHistoryDateKey, todayKey)}</h1>
-                {historyDayItems.length ? (
-                  <CanvasDayArtifacts
-                    items={historyDayItems}
-                    canvasDateKey={selectedHistoryDateKey}
-                    todayKey={todayKey}
-                    dispatch={dispatch}
-                    noteFolders={state.noteFolders}
-                    categoryNameById={categoryNameById}
-                    onOpenTodoEditor={handleOpenTodoEditor}
-                    onInlineTodoTitleEdit={handleInlineTodoTitleEdit}
-                    onToggleTodo={handleToggleTodo}
-                    onDeleteTodo={handleDeleteTodo}
-                    onEditBookmark={(bookmarkId) => setEditingBookmarkId(bookmarkId)}
-                  />
-                ) : (
-                  <p className="text-sm text-app-ink-faint">Nothing was added on this day.</p>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
       )}
-
-      {isMobile && historyDrawerOpen ? (
-        <MobileEditDrawer onClose={() => setHistoryDrawerOpen(false)} ariaLabel={formatSelectedHeading(selectedHistoryDateKey, todayKey)}>
-          <h1 className="mb-4 text-lg font-bold text-app-ink">{formatSelectedHeading(selectedHistoryDateKey, todayKey)}</h1>
-          {historyDayItems.length ? (
-            <CanvasDayArtifacts
-              items={historyDayItems}
-              canvasDateKey={selectedHistoryDateKey}
-              todayKey={todayKey}
-              dispatch={dispatch}
-              noteFolders={state.noteFolders}
-              categoryNameById={categoryNameById}
-              onOpenTodoEditor={handleOpenTodoEditor}
-              onInlineTodoTitleEdit={handleInlineTodoTitleEdit}
-              onToggleTodo={handleToggleTodo}
-              onDeleteTodo={handleDeleteTodo}
-              onEditBookmark={(bookmarkId) => setEditingBookmarkId(bookmarkId)}
-            />
-          ) : (
-            <p className="text-sm text-app-ink-faint">Nothing was added on this day.</p>
-          )}
-        </MobileEditDrawer>
-      ) : null}
 
       {editingBookmark ? (
         <BookmarkEditorModal

@@ -8,16 +8,16 @@ export function formatTodayLabel(date: Date): string {
 
 export type CanvasDateRowProps = {
   label: string;
-  /** "enter" shows an always-visible chevron that opens history mode; "exit" shows an always-visible close icon that returns to today. */
+  /** "enter" shows a chevron that opens /history; "exit" shows a close icon that returns to /canvas. */
   mode: "enter" | "exit";
   onToggle: () => void;
 };
 
 /**
- * The small date label row shown above both the canvas (today, mode "enter")
- * and the in-place history view (mode "exit") of the canvas page. Toggling
- * between the two is local state — no navigation — so the history view
- * grows directly out of this exact spot with no route-transition seam.
+ * The small label row injected into the shared top bar by Canvas (today's
+ * date, mode "enter") and History (mode "exit"). Both routes render it in
+ * the same spot, so moving between them reads as one control flipping state
+ * rather than a page swap.
  */
 export function CanvasDateRow({ label, mode, onToggle }: CanvasDateRowProps) {
   return (

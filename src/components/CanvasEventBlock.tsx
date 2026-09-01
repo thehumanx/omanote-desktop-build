@@ -9,7 +9,7 @@ import { handlePasteAsLink } from "../lib/link-utils";
 import { useOutsideClick } from "../lib/useOutsideClick";
 import { useIsMobileViewport } from "../lib/mobile";
 import { MobileEditDrawer } from "./MobileEditDrawer";
-import { Input } from "./ui";
+import { Input, cn } from "./ui";
 import { RichTextPreview } from "./rich-text";
 import { parseHashtags } from "../lib/hashtags";
 import { AttachmentLinkPreview } from "./AttachmentLinkPreview";
@@ -263,11 +263,11 @@ function CanvasEventBlockComponent({ event, pendingSync, dispatch }: CanvasEvent
     <div
       role={isReadOnly || isEditing ? undefined : "button"}
       tabIndex={isReadOnly || isEditing ? undefined : 0}
-      className={
-        isReadOnly || isEditing || !isMobile
-          ? "flex w-full items-start gap-2 text-left outline-none"
-          : "flex w-full select-none items-start gap-2 text-left outline-none [-webkit-touch-callout:none]"
-      }
+      className={cn(
+        "flex w-full items-start gap-2 text-left outline-none",
+        isMobile && "flex-col items-stretch gap-1",
+        !isReadOnly && !isEditing && isMobile && "select-none [-webkit-touch-callout:none]",
+      )}
       onClick={(event) => {
         if (isReadOnly || isEditing || isPopoverEvent(event)) return;
         setFocusTarget("label");

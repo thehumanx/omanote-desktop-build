@@ -1,8 +1,10 @@
 import { Bookmark, ExternalLink } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import type { RefObject } from "react";
 import { extractFirstPreviewableUrl } from "../lib/attachment-link-preview";
 import { cn } from "./ui";
 import { db, isLinkPreviewFresh } from "../app/db";
+import { useLinkCopyPopover } from "./LinkCopyPopover";
 
 const WORKER_URL = "https://omanote-link-preview.iambishistha.workers.dev";
 
@@ -155,9 +157,11 @@ export function UrlLinkPreview({ url, className }: { url: string; className?: st
   const siteLabel = resolvedPreview.siteName ?? domainFromUrl(resolvedPreview.url);
   const thumbnailUrl = resolvedPreview.thumbnailUrl;
   const faviconUrl = resolvedPreview.faviconUrl;
+  const { anchorRef, handlers, popover } = useLinkCopyPopover(resolvedPreview.url);
 
   return (
     <a
+      ref={anchorRef as RefObject<HTMLAnchorElement>}
       href={resolvedPreview.url}
       target="_blank"
       rel="noreferrer"
@@ -166,6 +170,7 @@ export function UrlLinkPreview({ url, className }: { url: string; className?: st
         "group/attachment block w-full overflow-hidden rounded-xl border border-app-line bg-app-surface transition hover:border-app-line-strong",
         className,
       )}
+      {...handlers}
     >
       <div className="flex items-stretch gap-3 p-2.5">
         <div className="relative flex h-20 w-20 flex-none items-center justify-center overflow-hidden rounded-lg border border-app-line bg-app-surface-muted text-app-ink-faint">
@@ -208,6 +213,7 @@ export function UrlLinkPreview({ url, className }: { url: string; className?: st
           ) : null}
         </div>
       </div>
+      {popover}
     </a>
   );
 }
@@ -221,16 +227,18 @@ export function AttachmentLinkPreview({
 }) {
   const linkUrl = extractFirstPreviewableUrl(...textValues);
   const { preview, loading } = useLinkPreview(linkUrl);
+  const resolvedPreview = preview ?? (linkUrl ? fallbackPreview(linkUrl) : null);
+  const { anchorRef, handlers, popover } = useLinkCopyPopover(resolvedPreview?.url ?? "");
 
-  if (!linkUrl) return null;
+  if (!linkUrl || !resolvedPreview) return null;
 
-  const resolvedPreview = preview ?? fallbackPreview(linkUrl);
   const siteLabel = resolvedPreview.siteName ?? domainFromUrl(resolvedPreview.url);
   const thumbnailUrl = resolvedPreview.thumbnailUrl;
   const faviconUrl = resolvedPreview.faviconUrl;
 
   return (
     <a
+      ref={anchorRef as RefObject<HTMLAnchorElement>}
       href={resolvedPreview.url}
       target="_blank"
       rel="noreferrer"
@@ -241,6 +249,7 @@ export function AttachmentLinkPreview({
         "group/attachment block w-full max-w-[440px] overflow-hidden rounded-xl border border-app-line bg-app-surface transition hover:border-app-line-strong",
         className,
       )}
+      {...handlers}
     >
       <div className="flex items-stretch gap-3 p-2.5">
         <div className="relative flex h-20 w-20 flex-none items-center justify-center overflow-hidden rounded-lg border border-app-line bg-app-surface-muted text-app-ink-faint">
@@ -284,6 +293,7 @@ export function AttachmentLinkPreview({
           ) : null}
         </div>
       </div>
+      {popover}
     </a>
   );
 }
