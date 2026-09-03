@@ -1,4 +1,9 @@
 import "@testing-library/jest-dom/vitest";
+// jsdom ships no IndexedDB, so anything touching Dexie was untestable — which
+// is why the local-first layer, most of this app's state handling, had no
+// coverage of its actual store semantics. This provides a working
+// implementation for every suite.
+import "fake-indexeddb/auto";
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
 

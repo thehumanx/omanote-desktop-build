@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { Button } from "./ui";
+import { reportError } from "../lib/error-reporting";
 
 interface Props {
   children: ReactNode;
@@ -17,7 +18,13 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("[omanote] Uncaught error:", error, info.componentStack);
+    // The component stack is deliberately not reported: it is the most useful
+    // field for debugging and the most likely to carry rendered content, and
+    // there is no scrubber that can reliably tell a component name from a note
+    // title inside it. It stays in the local console, which is where a
+    // developer reproducing the crash will look anyway.
+    console.debug("[omanote] component stack:", info.componentStack);
+    reportError(error, "ErrorBoundary");
   }
 
   render() {

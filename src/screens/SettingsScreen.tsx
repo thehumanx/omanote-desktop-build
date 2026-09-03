@@ -8,6 +8,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { Button, CheckboxField, cn, Input, OptionCard } from "../components/ui";
 import { applyTypographySettings } from "../design-system/theme";
+import { GoogleSyncEncryptionNotice } from "../components/ShareEncryptionNotice";
 import { ModalPortal } from "../components/ModalPortal";
 import { BaseModal } from "../components/BaseModal";
 import { useTopChrome } from "../components/layout/useTopChrome";
@@ -566,6 +567,9 @@ export function SettingsScreen() {
                     {googleActionError && (
                       <p className="mt-1 text-[13px] leading-5 text-danger-ink">{googleActionError}</p>
                     )}
+                    {/* Shown connected or not, like the share notice: before, it's
+                        what you need to decide; after, it's what stays true. */}
+                    <GoogleSyncEncryptionNotice className="mt-3" />
                   </div>
                   {googleConnection?.connected ? (
                     googleConnection.status === "needs_reconnect" ? (

@@ -4,6 +4,17 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.32.1 [September 3, 2026]
+
+> Fixes for the kind of thing you'd only notice when it went wrong — mostly around working offline and sharing a computer.
+
+- [Fix] Notes and todos written offline no longer go missing. If something can't be saved, you'll be told what it was instead of it quietly disappearing
+- [Fix] Ticking off a repeating todo while offline now sticks — it used to come back unticked once you reconnected
+- [Fix] Signing in as someone else on the same computer no longer leaves the previous person's feeds and saved articles behind
+- [Fix] Changes made in bulk now reach all your devices reliably
+- [Add] Connecting Google Calendar now tells you upfront what gets sent to Google unencrypted, the same way sharing a folder already does
+- [Update] Security and reliability work under the hood. Nothing for you to do
+
 ### v0.32.0 [September 2, 2026]
 
 > History is its own page now — a full-height date list, a real full-page view of any day on mobile, no bottom bar in the way, and a calendar button to jump to any date.

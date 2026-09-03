@@ -64,8 +64,26 @@ export interface CachedRssSubscription {
   lastFetchStatus?: string;
 }
 
+/**
+ * A user write that hasn't reached the server yet.
+ *
+ * Typed structurally rather than importing the payload union from
+ * `canvas-outbox.ts`, which imports this module — the precise type lives with
+ * the code that builds and consumes payloads, and the store only needs to know
+ * this is a keyed row with a sort order.
+ */
+export interface OutboxRecord {
+  id: string;
+  kind: string;
+  createdAt: number;
+  attempts: number;
+  payload: unknown;
+  nextAttemptAt?: number;
+}
+
 class OmanoteDB extends Dexie {
   syncCursors!: Table<SyncCursor, string>;
+  outbox!: Table<OutboxRecord, string>;
   todos!: Table<Doc<"todos">, string>;
   todoFolders!: Table<Doc<"todoFolders">, string>;
   notes!: Table<Doc<"notes">, string>;
@@ -149,8 +167,42 @@ class OmanoteDB extends Dexie {
     this.version(5).stores({
       todoChecklistItems: null,
     });
+    // The unsent-write queue moved here from localStorage. It shares a ~5MB
+    // synchronous origin-wide budget there with drafts, settings, and sort
+    // preferences, while carrying full encrypted note bodies — and a quota
+    // failure meant the whole queue silently stopped persisting. See
+    // docs/hardening-audit.md §8.7.
+    //
+    // Being a Dexie table also means clearLocalCache() wipes it on a user
+    // switch, which it must: in localStorage the queue survived, so an offline
+    // note written by one user could be flushed into the next user's account
+    // on a shared browser.
+    this.version(6).stores({
+      outbox: "id, createdAt",
+    });
   }
 }
 
 export const db = new OmanoteDB();
 export type { SyncCursor };
+
+/** localStorage key recording which Clerk user the cache in this browser belongs to. */
+export const DEXIE_CACHE_OWNER_KEY = "omanote.dexie-user";
+
+/**
+ * Empties every Dexie table.
+ *
+ * Deliberately iterates `db.tables` instead of listing table names. The
+ * previous version of this clear named eight tables by hand and had drifted to
+ * cover eight of fourteen — `rssSubscriptions`, `rssCategories`, `rssReadState`,
+ * `rssItems`, `rssFeeds`, and `linkPreviews` were all missed. Four of those are
+ * user-scoped and the RSS read path filters only on `deletedAt`, never on
+ * `userId`, so a second user signing in on the same browser saw the union of
+ * both users' subscriptions and read state. See docs/hardening-audit.md §8.1.
+ *
+ * A hand-maintained list has to be updated every time a table is added, and
+ * nothing fails when it isn't. This cannot fall out of date.
+ */
+export async function clearLocalCache(): Promise<void> {
+  await Promise.all(db.tables.map((table) => table.clear()));
+}

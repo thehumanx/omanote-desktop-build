@@ -299,6 +299,11 @@ export const component = {
   // treatment without hardcoding gradients in JSX or CSS.
   segmented: {
     radius: "90px",
+    // The rail-mode switch stacks its items vertically, where the pill radius
+    // above reads as a lozenge rather than a pill. Tokenized rather than left
+    // as the `rounded-[24px]` it used to be, so the one segmented control that
+    // needs a different corner declares it in the same place as the rest.
+    verticalRadius: "24px",
     padding: "0.375rem",
     itemRadius: "70px",
     labelGap: "0.375rem",

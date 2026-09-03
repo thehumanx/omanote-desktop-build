@@ -144,7 +144,7 @@ export function ModeSwitch({
     <SegmentedShell
       ref={containerRef}
       aria-label="Write or read mode"
-      className="group w-fit flex-col items-stretch gap-1 overflow-visible rounded-[24px] p-1.5 shadow-nav"
+      className="group w-fit flex-col items-stretch gap-1 overflow-visible rounded-segmented-vertical p-1.5 shadow-nav"
     >
       {highlightStyle ? <SegmentedHighlight className="duration-app-base ease-app-out" style={highlightStyle} /> : null}
       {items.map(({ key, label, Icon }) => (

@@ -11,6 +11,53 @@ export type SyncQueryFn = <Q extends FunctionReference<"query">>(
 
 const BATCH_SIZE = 500;
 
+// Ceiling for the widening described in `advanceCursor`. Reaching it means a
+// single user has more than this many rows sharing one millisecond, which no
+// real workload produces; the loop gives up widening at that point rather than
+// growing without bound.
+const MAX_BATCH_SIZE = 8000;
+
+/**
+ * Where to resume paging from, given the rows just received.
+ *
+ * The server pages with `.gt("updatedAt", after)`, so a cursor parked exactly
+ * on a timestamp skips every remaining row that shares it. When a full batch
+ * ends mid-tie — 500 rows where the last few were all written in the same
+ * millisecond — advancing to `max` drops the rest of that tie permanently,
+ * because the cursor is persisted and never goes back. Bulk writes are what
+ * produce the ties: `backfillGoogleCalendarTodoFolders`, the `updatedAt`
+ * backfills, and import all stamp many rows from one `Date.now()`.
+ *
+ * Resuming one millisecond *before* the last timestamp re-requests that whole
+ * millisecond next time. The overlap is free — every table is written with
+ * `bulkPut`, keyed by `_id` — and it cannot skip a tie.
+ *
+ * The exception is a full batch whose rows all share one timestamp, where
+ * `max - 1` would return the same rows forever. That can only be escaped by
+ * asking for more at once, so the caller widens the page instead of advancing.
+ *
+ * See docs/hardening-audit.md §8.4.
+ */
+export function advanceCursor(
+  cursors: number[],
+  batchLength: number,
+  limit: number,
+): { next: number; widenTo?: number } {
+  const max = Math.max(...cursors);
+  const min = Math.min(...cursors);
+  const isFullBatch = batchLength >= limit;
+
+  if (isFullBatch && min === max) {
+    const widened = limit * 2;
+    if (widened <= MAX_BATCH_SIZE) return { next: max - 1, widenTo: widened };
+    // Past the ceiling, take the loss over looping forever: advance normally
+    // and leave the remainder of this tie unsynced.
+    return { next: max };
+  }
+
+  return { next: isFullBatch ? max - 1 : max };
+}
+
 // Returns the cursor value for an item (the field we page on).
 function eventCursor(item: { updatedAt?: number }): number {
   return item.updatedAt ?? 0;
@@ -27,45 +74,60 @@ async function syncTable<Item extends { _id: string; updatedAt?: number }>(
 ): Promise<number> {
   const stored = await db.syncCursors.get(tableKey);
   let after = stored?.cursor ?? 0;
+  let limit = BATCH_SIZE;
   let total = 0;
 
   while (true) {
-    const batch = (await queryFn(convexQuery, { after, limit: BATCH_SIZE })) as Item[];
+    const requestedLimit = limit;
+    const batch = (await queryFn(convexQuery, { after, limit: requestedLimit })) as Item[];
     if (!batch.length) break;
 
     await dexieTable.bulkPut(batch);
     total += batch.length;
 
-    const maxCursor = Math.max(...batch.map(getCursor));
-    after = Math.max(after, maxCursor);
+    const { next, widenTo } = advanceCursor(batch.map(getCursor), batch.length, requestedLimit);
+    after = Math.max(after, next);
+    limit = widenTo ?? BATCH_SIZE;
 
     await db.syncCursors.put({ table: tableKey, cursor: after });
 
-    if (batch.length < BATCH_SIZE) break;
+    // A short batch means the table is drained. A widened one is a retry of the
+    // same millisecond, so it keeps going even though it was short.
+    if (batch.length < requestedLimit && widenTo === undefined) break;
   }
 
   return total;
 }
 
-// Sync activityHistory — uses `timestamp` as cursor rather than `updatedAt`.
+// Sync activityHistory — cursors on `createdAt` (write time), not `timestamp`
+// (event time, which callers may set into the past). See hardening-audit §8.5.
 async function syncHistory(queryFn: SyncQueryFn): Promise<number> {
   const stored = await db.syncCursors.get("activityHistory");
   let after = stored?.cursor ?? 0;
+  let limit = BATCH_SIZE;
   let total = 0;
 
   while (true) {
-    const batch = await queryFn(api.history.listHistoryUpdatedAfter, { after, limit: BATCH_SIZE });
+    const requestedLimit = limit;
+    const batch = await queryFn(api.history.listHistoryUpdatedAfter, { after, limit: requestedLimit });
     if (!batch.length) break;
 
     await db.activityHistory.bulkPut(batch);
     total += batch.length;
 
-    const maxCursor = Math.max(...batch.map((item) => item.timestamp));
-    after = Math.max(after, maxCursor);
+    const { next, widenTo } = advanceCursor(
+      // `?? 0` only covers rows the backfill hasn't reached yet; the server
+      // pages on `createdAt`, so anything it returns normally has one.
+      batch.map((item) => item.createdAt ?? 0),
+      batch.length,
+      requestedLimit,
+    );
+    after = Math.max(after, next);
+    limit = widenTo ?? BATCH_SIZE;
 
     await db.syncCursors.put({ table: "activityHistory", cursor: after });
 
-    if (batch.length < BATCH_SIZE) break;
+    if (batch.length < requestedLimit && widenTo === undefined) break;
   }
 
   return total;
@@ -76,10 +138,12 @@ async function syncHistory(queryFn: SyncQueryFn): Promise<number> {
 async function syncRssSubscriptions(queryFn: SyncQueryFn): Promise<number> {
   const stored = await db.syncCursors.get("rssSubscriptions");
   let after = stored?.cursor ?? 0;
+  let limit = BATCH_SIZE;
   let total = 0;
 
   while (true) {
-    const batch = await queryFn(api.rss.listSubscriptionsUpdatedAfter, { after, limit: BATCH_SIZE });
+    const requestedLimit = limit;
+    const batch = await queryFn(api.rss.listSubscriptionsUpdatedAfter, { after, limit: requestedLimit });
     if (!batch.length) break;
 
     // Fetch feed metadata for any feedId not yet in Dexie.
@@ -121,11 +185,12 @@ async function syncRssSubscriptions(queryFn: SyncQueryFn): Promise<number> {
     await db.rssSubscriptions.bulkPut(joined);
     total += batch.length;
 
-    const maxCursor = Math.max(...batch.map((s) => s.updatedAt));
-    after = Math.max(after, maxCursor);
+    const { next, widenTo } = advanceCursor(batch.map((s) => s.updatedAt), batch.length, requestedLimit);
+    after = Math.max(after, next);
+    limit = widenTo ?? BATCH_SIZE;
     await db.syncCursors.put({ table: "rssSubscriptions", cursor: after });
 
-    if (batch.length < BATCH_SIZE) break;
+    if (batch.length < requestedLimit && widenTo === undefined) break;
   }
   return total;
 }

@@ -27,8 +27,16 @@ function normalizeBookmarkUrl(raw: string): string {
 }
 import { readStorage, storageKeys, writeStorage } from "./storage";
 import { removeCanvasDraft } from "./canvas-drafts";
-import { clearCanvasDraftForKey, enqueueCanvasMutation, flushCanvasOutbox, runWithCanvasOutboxFallback } from "./canvas-outbox";
+import {
+  clearCanvasDraftForKey,
+  enqueueCanvasMutation,
+  flushCanvasOutbox,
+  runWithCanvasOutboxFallback,
+  setCanvasOutboxObserver,
+  type CanvasKind,
+} from "./canvas-outbox";
 import { runIncrementalSync } from "./sync";
+import { reportError } from "../lib/error-reporting";
 import type { SyncQueryFn } from "./sync";
 import type { FunctionReference, FunctionArgs } from "convex/server";
 import { useLiveQuery } from "dexie-react-hooks";
@@ -36,7 +44,7 @@ import { db } from "./db";
 import { useAuth } from "./auth/AuthContext";
 import { parseHashtags } from "../lib/hashtags";
 import { detectWebClientType, getCurrentDeviceMetadata } from "../lib/device-info";
-import { readLocalStorage, readLocalStorageOptional, stringCodec, writeLocalStorage } from "../lib/local-storage";
+import { readLocalStorage, stringCodec, writeLocalStorage } from "../lib/local-storage";
 import type { AppAction, AppState, DraftMode, RecurringDeletePrompt, ToastItem } from "./types";
 import { prefixedRandomId, randomId } from "@omanote/shared";
 import { mapActivity, mapBookmark, mapBookmarkCategory, mapEvent, mapNote, mapNoteFolder, mapTodo, mapTodoFolder } from "./mappers";
@@ -99,6 +107,38 @@ const DELETE_MASK_RELEASE_MS = 220;
 // Kept in sync with BookmarksScreen.tsx's isGcalCategoryName() label for the
 // analogous "Synced from GCal" bookmark folder.
 const GOOGLE_CALENDAR_TODO_FOLDER_NAME = "Synced from GCal";
+
+// What to call each queued operation when telling the user it was lost. Only
+// the artifact matters to them, not the verb — "a note couldn't be synced"
+// reads better than "note/update failed", and the Google entries say "calendar
+// event" because that is the thing they'd go looking for.
+const OUTBOX_KIND_NOUNS: Partial<Record<CanvasKind, string>> = {
+  "note/create": "note",
+  "note/update": "note",
+  "note/delete": "note",
+  "note/restore": "note",
+  "todo/create": "todo",
+  "todo/update": "todo",
+  "todo/delete": "todo",
+  "todo/delete-occurrence": "todo",
+  "todo/truncate-series": "todo",
+  "todo/restore": "todo",
+  "todo/toggle": "todo",
+  "todo/complete-occurrence": "todo",
+  "todo/uncomplete-occurrence": "todo",
+  "todo/snooze": "reminder",
+  "todo/mark-fired": "reminder",
+  "event/create": "reminder",
+  "event/update": "reminder",
+  "event/delete": "reminder",
+  "event/restore": "reminder",
+  "bookmark/create": "bookmark",
+  "bookmark/update": "bookmark",
+  "google/event-push": "calendar event",
+  "google/event-delete": "calendar event",
+  "google/event-entry-push": "calendar event",
+  "google/event-entry-delete": "calendar event",
+};
 
 const defaultUiState: UiState = {
   selectedDateKey: toDateKey(new Date()),
@@ -463,24 +503,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const { settings } = useUserSettings();
   const { user: authUser } = useAuth();
 
-  // When the signed-in user changes, clear all Dexie tables so the previous
-  // user's encrypted data is never visible to the new user (even briefly).
-  useEffect(() => {
-    const clerkUserId = authUser?.id ?? null;
-    if (!clerkUserId) return;
-    const stored = readLocalStorageOptional("omanote.dexie-user", stringCodec);
-    const clear = stored && stored !== clerkUserId;
-    if (clear) {
-      void Promise.all([
-        db.todos.clear(), db.todoFolders.clear(), db.notes.clear(),
-        db.noteFolders.clear(), db.bookmarks.clear(), db.bookmarkCategories.clear(),
-        db.events.clear(), db.activityHistory.clear(),
-        db.syncCursors.clear(),
-      ]).then(() => writeLocalStorage("omanote.dexie-user", stringCodec, clerkUserId));
-    } else {
-      writeLocalStorage("omanote.dexie-user", stringCodec, clerkUserId);
-    }
-  }, [authUser?.id]);
+  // Cache ownership (clearing Dexie when a different user signs in) is handled
+  // by `LocalCacheGate`, mounted above this provider — the live queries below
+  // must not run until it has resolved. See docs/hardening-audit.md §8.1–8.3.
 
   const queryScope = useMemo(
     () => getAppProviderQueryScope(location.pathname),
@@ -758,6 +783,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const backfillTodoDueDates = useMutation(api.todos.backfillTodoDueDates);
   const backfillGoogleCalendarTodoFolders = useMutation(api.todos.backfillGoogleCalendarTodoFolders);
   const backfillBookmarkUpdatedAt = useMutation(api.bookmarks.backfillBookmarkUpdatedAt);
+  const backfillActivityHistoryCreatedAt = useMutation(api.history.backfillActivityHistoryCreatedAt);
   const backfillBookmarkCategoryUpdatedAt = useMutation(api.bookmarks.backfillBookmarkCategoryUpdatedAt);
   const backfillEventUpdatedAt = useMutation(api.events.backfillEventUpdatedAt);
   const updateTodo = useMutation(api.todos.updateTodo);
@@ -949,6 +975,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       backfillBookmarkUpdatedAt({}),
       backfillBookmarkCategoryUpdatedAt({}),
       backfillEventUpdatedAt({}),
+      // activityHistory gained a write-time `createdAt` to page on; rows
+      // predating it have none, and an absent value sorts before every number
+      // in the index, so a fresh device would see no history at all until this
+      // runs. Returns { done } and is re-run until true, since a long history
+      // exceeds one mutation's budget.
+      (async () => {
+        for (let pass = 0; pass < 50; pass++) {
+          const { done } = await backfillActivityHistoryCreatedAt({});
+          if (done) return;
+        }
+      })(),
     ])
       // Reset the Dexie sync cursors for bookmarks/categories then trigger a
       // fresh sync. The backfill sets updatedAt = createdAt (an old timestamp)
@@ -959,11 +996,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await Promise.all([
           db.syncCursors.delete("bookmarks"),
           db.syncCursors.delete("bookmarkCategories"),
+          // Same reason: backfilled createdAt values are older than the
+          // current cursor, so only a reset re-fetches them.
+          db.syncCursors.delete("activityHistory"),
         ]);
         scheduleSync();
       })
       .catch(() => { updatedAtBackfillRequestedRef.current = false; });
-  }, [isLocked, backfillBookmarkUpdatedAt, backfillBookmarkCategoryUpdatedAt, backfillEventUpdatedAt, scheduleSync]);
+  }, [isLocked, backfillBookmarkUpdatedAt, backfillBookmarkCategoryUpdatedAt, backfillEventUpdatedAt, backfillActivityHistoryCreatedAt, scheduleSync]);
 
   useEffect(() => {
     const previousTimestamp = lastRemoteSyncTimestampRef.current;
@@ -1691,6 +1731,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   ]);
 
   const wasOfflineRef = useRef(false);
+
+  // Anything the outbox gives up on is a user write that is now gone. Losing
+  // one quietly is the single worst failure this app can have — the offline
+  // promise is the whole point of the queue — so every discard surfaces.
+  useEffect(() => {
+    setCanvasOutboxObserver({
+      onDiscarded: ({ kind, reason, error }) => {
+        // Tell us as well as the user. A discarded write is the worst failure
+        // this app has, and until this was wired nobody but the affected user
+        // could know it happened.
+        reportError(error ?? new Error(`outbox discarded ${kind}`), `outbox/${reason}`);
+        const noun = OUTBOX_KIND_NOUNS[kind] ?? "change";
+        localDispatch({
+          type: "toast/add",
+          toast: {
+            id: randomId(),
+            createdAt: Date.now(),
+            tone: "warning",
+            title:
+              reason === "rejected"
+                ? `That ${noun} couldn't be saved`
+                : `A ${noun} couldn't be synced`,
+            body:
+              reason === "rejected"
+                ? "The server rejected it, so it wasn't retried. Try again, or copy the text somewhere safe first."
+                : "It stayed unsent for too long and has been dropped from the queue.",
+          },
+        });
+      },
+      onPersistFailed: ({ kind }) => {
+        reportError(new Error(`outbox could not persist ${kind}`), "outbox/persist-failed");
+        localDispatch({
+          type: "toast/add",
+          toast: {
+            id: randomId(),
+            createdAt: Date.now(),
+            tone: "warning",
+            title: "Offline changes may not be saved",
+            body: "This browser's storage is full. Free up space, or reconnect so pending changes can finish sending.",
+          },
+        });
+      },
+    });
+    return () => setCanvasOutboxObserver(null);
+  }, []);
 
   useEffect(() => {
     const handleOffline = () => {
