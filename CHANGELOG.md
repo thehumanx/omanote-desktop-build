@@ -4,6 +4,17 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.33.0 [September 6, 2026]
+
+> Much-needed image uploads and multiple canvas pages are finally here. A canvas page is now a full-fledged document editor, like Google Docs or Notion.
+
+- [Add] You can now create multiple pages/documents in Canvas for a full document-editing experience — and share any of them with others
+- [Update] Todos and bookmarks added inside a canvas page now show up under the "Others" folder and "Saved" folder respectively. Events aren't supported inside canvas pages yet
+- [Add] You can now add images to omanote — for now, only inside canvas pages. Storage is capped at 200MB while accounts are free
+- [Add] Canvas pages can now be included when exporting your data
+- [Update] The onboarding guide's "/" tip now also mentions "Create new page" for starting a blank canvas
+- [Fix] Some fixes under the hood
+
 ### v0.32.1 [September 3, 2026]
 
 > Fixes for the kind of thing you'd only notice when it went wrong — mostly around working offline and sharing a computer.

@@ -101,6 +101,9 @@ const AdminDashboardScreen = lazy(() =>
 const ComposerPopoutScreen = lazy(() =>
   import("./screens/ComposerPopoutScreen").then((module) => ({ default: module.ComposerPopoutScreen })),
 );
+const PageScreen = lazy(() =>
+  import("./screens/PageScreen").then((module) => ({ default: module.PageScreen })),
+);
 
 export function getAuthenticatedLayoutKind(pathname: string) {
   void pathname;
@@ -211,6 +214,10 @@ export default function App() {
               under the authenticated tree so it gets the full provider
               stack (auth, encryption, user settings) for free. */}
           <Route path="compose-popout" element={<ComposerPopoutScreen />} />
+          {/* One canvas, full page and chromeless — see AppShell's
+              isChromelessRoute. A real route rather than a modal so it can be
+              opened in a new tab and linked to. */}
+          <Route path="p/:pageId" element={<PageScreen />} />
           <Route path="todos" element={<TodosScreen />} />
           <Route path="search" element={<SearchScreen />} />
           <Route path="explore" element={<ExploreScreen />} />

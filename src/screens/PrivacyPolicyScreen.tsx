@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { SeoHead } from "../seo/SeoHead";
 
-const LAST_UPDATED = "August 18, 2026";
+const LAST_UPDATED = "September 5, 2026";
 const CONTACT_EMAIL = "omanote@iambishistha.com";
 
 export function PrivacyPolicyScreen() {
@@ -115,9 +115,16 @@ export function PrivacyPolicyScreen() {
                 <div>
                   <p className="font-bold text-app-ink mb-1">User-generated content</p>
                   <p>
-                    Notes, todos, bookmarks, and events you create are encrypted on your device
-                    before being stored. We receive and store only ciphertext — we cannot read the
-                    content of your entries.
+                    Notes, todos, bookmarks, events, and canvases you create are encrypted on your
+                    device before being stored. We receive and store only ciphertext — we cannot
+                    read the content of your entries. This includes images you add to a canvas,
+                    which are encrypted on your device the same way your text is.
+                  </p>
+                  <p className="mt-2">
+                    Turning on a public link for a folder or canvas is the one exception, and it
+                    only applies to what you explicitly share. To be readable by someone without
+                    your passphrase, that item's contents are copied to our servers unencrypted
+                    for as long as the link is on. Turning the link off deletes the copy.
                   </p>
                 </div>
                 <div>
@@ -281,6 +288,11 @@ export function PrivacyPolicyScreen() {
                       name: "Convex",
                       role: "Cloud database and backend infrastructure. Stores your encrypted content. Convex cannot decrypt your data and has no access to its contents.",
                       url: "https://www.convex.dev/privacy",
+                    },
+                    {
+                      name: "Cloudflare",
+                      role: "Object storage for canvas images, and the proxies used for link previews and RSS feeds. Images are encrypted on your device before upload, so Cloudflare stores only ciphertext and cannot access their contents.",
+                      url: "https://www.cloudflare.com/privacypolicy/",
                     },
                     {
                       name: "Google",

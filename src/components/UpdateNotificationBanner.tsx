@@ -79,13 +79,13 @@ export function UpdateNotificationBanner({ inline = false }: { inline?: boolean 
         </div>
         <div className="mt-3.5 flex gap-2">
           <Button
-            tone="default"
+            variant="default"
             className="flex-1 py-2 text-[13px]"
             onClick={isRunningLatest ? () => navigate("/updates") : () => window.location.reload()}
           >
             {isRunningLatest ? "View all changelogs" : "Refresh to update"}
           </Button>
-          <Button tone="ghost" className="flex-1 py-2 text-[13px]" onClick={dismissBanner}>
+          <Button variant="ghost" className="flex-1 py-2 text-[13px]" onClick={dismissBanner}>
             Dismiss
           </Button>
         </div>

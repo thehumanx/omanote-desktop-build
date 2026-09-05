@@ -16,6 +16,8 @@ import type { RescheduleTarget } from "../components/RescheduleMenu";
 import { CanvasSkeleton } from "../components/CanvasSkeleton";
 import { CanvasSystemNotice } from "../components/CanvasSystemNotice";
 import { CanvasWeekAtGlance } from "../components/CanvasWeekAtGlance";
+import { CanvasContinueWriting } from "../components/page/CanvasContinueWriting";
+import { SharePageModal } from "../components/page/SharePageModal";
 import { BookmarkEditorModal } from "../components/BookmarkEditorModal";
 import { TodoEditorModal } from "../components/TodoEditorModal";
 import { getGreetingForDate } from "../components/layout/greetings";
@@ -50,6 +52,7 @@ export function CanvasScreen() {
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
   const [editingBookmarkId, setEditingBookmarkId] = useState<string | null>(null);
   const [overdueRecentAction, setOverdueRecentAction] = useState<OverdueRecentAction | null>(null);
+  const [sharingPageId, setSharingPageId] = useState<string | null>(null);
 
   const openHistory = useCallback(() => navigate("/history"), [navigate]);
 
@@ -96,6 +99,7 @@ export function CanvasScreen() {
   }, [state.todos, state.notes, state.bookmarks, state.events, todayKey]);
 
   const editingBookmark = state.bookmarks.find((bookmark) => bookmark.id === editingBookmarkId) ?? null;
+  const sharingPage = state.pages.find((page) => page.id === sharingPageId) ?? null;
   const editingTodoRealId = editingTodoId ? parseVirtualOccurrenceId(editingTodoId)?.masterId ?? editingTodoId : null;
   const editingTodo = state.todos.find((todo) => todo.id === editingTodoRealId) ?? null;
 
@@ -233,6 +237,8 @@ export function CanvasScreen() {
 
             <CanvasSystemNotice />
 
+            <CanvasContinueWriting pages={state.pages} todayKey={todayKey} />
+
             <CanvasOverdueSection
               overdueTodos={overdueTodos}
               daysAway={daysAway}
@@ -262,6 +268,7 @@ export function CanvasScreen() {
               onToggleTodo={handleToggleTodo}
               onDeleteTodo={handleDeleteTodo}
               onEditBookmark={(bookmarkId) => setEditingBookmarkId(bookmarkId)}
+              onSharePage={(pageId) => setSharingPageId(pageId)}
             />
           </div>
 
@@ -294,6 +301,17 @@ export function CanvasScreen() {
             dispatch({ type: "bookmark/delete", bookmarkId: editingBookmark.id });
             setEditingBookmarkId(null);
           }}
+        />
+      ) : null}
+      {sharingPage ? (
+        <SharePageModal
+          page={sharingPage}
+          // A canvas's checklist blocks publish with their current status, so
+          // the snapshot needs to resolve each block's key to its live row.
+          isTodoDone={(todoKey) =>
+            state.todos.some((todo) => todo.clientKey === todoKey && todo.status === "done")
+          }
+          onClose={() => setSharingPageId(null)}
         />
       ) : null}
       {editingTodo ? (

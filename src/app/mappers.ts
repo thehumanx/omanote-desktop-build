@@ -3,7 +3,7 @@
  * docs/hardening-audit.md §1.4 — previously inline in AppProvider.tsx.
  */
 import type { Doc } from "../../convex/_generated/dataModel";
-import type { DateKey, NoteFolder, TodoFolder, TodoItem } from "@omanote/shared";
+import type { DateKey, NoteFolder, PageItem, TodoFolder, TodoItem } from "@omanote/shared";
 
 // Convex stores DateKey fields as plain strings; cast to the branded type.
 export function asDateKey(value: string): DateKey {
@@ -33,6 +33,7 @@ export function mapTodo(todo: Doc<"todos">): TodoItem {
     recurringSourceId: todo.recurringSourceId ? String(todo.recurringSourceId) : undefined,
     reminderEveryMinutes: todo.reminderEveryMinutes ?? undefined,
     reminderUntil: todo.reminderUntil ?? undefined,
+    pageId: todo.pageId ? String(todo.pageId) : undefined,
   };
 }
 
@@ -62,6 +63,24 @@ export function mapNote(note: Doc<"notes">) {
   };
 }
 
+// `title`, `docJson`, and `preview` come back encrypted — AppProvider's
+// decrypt pass replaces them, same as it does for a note's body.
+export function mapPage(page: Doc<"pages">): PageItem {
+  return {
+    id: String(page._id),
+    clientKey: page.clientKey ?? undefined,
+    title: page.title ?? undefined,
+    icon: page.icon ?? undefined,
+    docJson: page.docJson,
+    preview: page.preview,
+    hashtags: page.hashtags ?? undefined,
+    deletedAt: page.deletedAt ?? undefined,
+    createdAt: page.createdAt,
+    updatedAt: page.updatedAt,
+    createdDateKey: asDateKey(page.createdDateKey),
+  };
+}
+
 export function mapNoteFolder(folder: Doc<"noteFolders">): NoteFolder {
   return {
     id: String(folder._id),
@@ -87,6 +106,7 @@ export function mapBookmark(bookmark: Doc<"bookmarks">) {
     deletedAt: bookmark.deletedAt ?? undefined,
     createdAt: bookmark.createdAt,
     createdDateKey: asDateKey(bookmark.createdDateKey),
+    pageId: bookmark.pageId ? String(bookmark.pageId) : undefined,
   };
 }
 

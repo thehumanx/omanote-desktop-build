@@ -121,7 +121,7 @@ export function FeedbackModal({ onClose }: FeedbackModalProps) {
             <span className="text-3xl">🙏</span>
             <p className="font-bold text-app-ink">Thank you!</p>
             <p className="text-sm text-app-ink-muted">Your {type === "feature" ? "feature request" : "feedback"} has been received.</p>
-            <Button tone="default" className="mt-2 w-full py-2 text-sm" onClick={onClose}>
+            <Button variant="default" className="mt-2 w-full py-2 text-sm" onClick={onClose}>
               Done
             </Button>
           </div>
@@ -173,7 +173,7 @@ export function FeedbackModal({ onClose }: FeedbackModalProps) {
             {/* Actions */}
             <div className="flex gap-2">
               <Button
-                tone="ghost"
+                variant="ghost"
                 className="flex-1 py-2 text-sm"
                 onClick={onClose}
                 disabled={status === "submitting"}
@@ -181,7 +181,7 @@ export function FeedbackModal({ onClose }: FeedbackModalProps) {
                 Cancel
               </Button>
               <Button
-                tone="default"
+                variant="default"
                 className="flex-1 py-2 text-sm"
                 onClick={handleSubmit}
                 disabled={!message.trim() || status === "submitting"}

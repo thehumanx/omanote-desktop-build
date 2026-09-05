@@ -510,7 +510,7 @@ function EventClusterModal({
                   <AttachmentLinkPreview textValues={[event?.label, event?.notes]} className="mt-2" />
                 </div>
                 {event && !isTodoCompletedEvent(event) ? (
-                  <Button tone="ghost" onClick={() => onEdit(event.id)}>
+                  <Button variant="ghost" onClick={() => onEdit(event.id)}>
                     Open
                   </Button>
                 ) : event?.sourceTodoId ? (
@@ -806,7 +806,7 @@ export function EventScreen() {
           {eventView === "week" && (
             <>
               <Button
-                tone="soft"
+                variant="soft"
                 onClick={() => {
                   dispatch({ type: "ui/set-date-window-offset", offset: 0 });
                   dispatch({ type: "ui/set-selected-date", dateKey: toDateKey(today) });
@@ -815,7 +815,7 @@ export function EventScreen() {
                 Today
               </Button>
               <Button
-                tone="ghost"
+                variant="ghost"
                 className="h-10 w-10 rounded-full p-0"
                 aria-label={isMobile ? "Previous day" : "Previous week"}
                 onClick={() => stepCalendar("prev")}
@@ -823,7 +823,7 @@ export function EventScreen() {
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <Button
-                tone="ghost"
+                variant="ghost"
                 className="h-10 w-10 rounded-full p-0"
                 aria-label={isMobile ? "Next day" : "Next week"}
                 onClick={() => stepCalendar("next")}

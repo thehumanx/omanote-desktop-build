@@ -623,6 +623,20 @@ body {
   }
 }
 
+/* "Create new canvas": the composer sheet morphs into the full canvas page
+   (shared view-transition-name "canvas-expand" — see ComposerSheet.tsx and
+   PageScreen.tsx). Same timing as the drawer itself for continuity. */
+::view-transition-group(canvas-expand) {
+  animation-duration: var(--motion-duration-drawer);
+  animation-timing-function: var(--motion-easing-drawer);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(canvas-expand) {
+    animation: none;
+  }
+}
+
 .omanote-canvas-grid {
   background-image: radial-gradient(circle, rgb(var(--color-canvas-dot)) 1px, transparent 1px);
   background-size: 16px 16px;
@@ -860,6 +874,33 @@ body {
 }
 .ProseMirror li p {
   margin: 0;
+}
+/* Only PageEditor enables headings (NoteCanvasEditor's StarterKit config
+   disables them), so these rules only ever apply inside a page. Tailwind's
+   preflight strips heading font sizes, which is why h1-h3 rendered identical
+   before this. */
+.ProseMirror h1 {
+  margin: 1.5rem 0 0.5rem;
+  font-size: 1.875rem;
+  line-height: 2.25rem;
+  font-weight: 800;
+}
+.ProseMirror h2 {
+  margin: 1.25rem 0 0.5rem;
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 700;
+}
+.ProseMirror h3 {
+  margin: 1rem 0 0.5rem;
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  font-weight: 700;
+}
+.ProseMirror h1:first-child,
+.ProseMirror h2:first-child,
+.ProseMirror h3:first-child {
+  margin-top: 0;
 }
 .omanote-note-editor > p + p {
   margin-top: 1.5rem;

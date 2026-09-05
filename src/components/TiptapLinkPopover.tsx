@@ -271,7 +271,7 @@ export function TiptapLinkPopover({
               >
                 Remove
               </button>
-              <Button tone="default" onClick={openEdit} className="flex-1">
+              <Button variant="default" onClick={openEdit} className="flex-1">
                 Edit
               </Button>
             </div>
@@ -328,7 +328,7 @@ export function TiptapLinkPopover({
               >
                 Cancel
               </button>
-              <Button tone="default" onClick={applyEdit}>
+              <Button variant="default" onClick={applyEdit}>
                 Save
               </Button>
             </div>

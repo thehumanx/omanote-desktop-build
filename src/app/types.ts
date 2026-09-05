@@ -7,6 +7,7 @@ import type {
   HabitDefinition,
   NoteFolder,
   NoteItem,
+  PageItem,
   EventEntry,
   RecurrenceRule,
   TabKey,
@@ -67,6 +68,7 @@ export interface AppState {
   notes: NoteItem[];
   deletedNotes: NoteItem[];
   noteFolders: NoteFolder[];
+  pages: PageItem[];
   bookmarks: BookmarkItem[];
   deletedBookmarks: BookmarkItem[];
   bookmarkCategories: BookmarkCategory[];
@@ -98,7 +100,7 @@ export type AppAction =
   | { type: "ui/set-active-bookmark-category"; categoryId: string | null }
   | { type: "ui/open-composer"; mode?: DraftMode }
   | { type: "ui/close-composer" }
-  | { type: "todo/create"; title: string; dateKey: DateKey; dueDateKey?: DateKey; dueTime?: string; hashtags?: string[]; fromReminder?: boolean; folderId?: string; folderName?: string; folderIcon?: string; recurrence?: RecurrenceRule; reminderEveryMinutes?: number; reminderUntil?: number }
+  | { type: "todo/create"; title: string; dateKey: DateKey; dueDateKey?: DateKey; dueTime?: string; hashtags?: string[]; fromReminder?: boolean; folderId?: string; folderName?: string; folderIcon?: string; recurrence?: RecurrenceRule; reminderEveryMinutes?: number; reminderUntil?: number; clientKey?: string; pageId?: string }
   | { type: "todo/toggle"; todoId: string; completedAt?: number }
   | { type: "todo/delete"; todoId: string }
   | { type: "todo/delete-series"; todoId: string }
@@ -114,6 +116,15 @@ export type AppAction =
   | { type: "note/update"; noteId: string; title?: string; body: string; tags: string[]; hashtags?: string[]; folderName?: string; folderId?: string }
   | { type: "note/delete"; noteId: string }
   | { type: "note/restore"; noteId: string }
+  // Canvases. `page/update` is dispatched by autosave on every debounce tick,
+  // so it carries the whole document each time — see canvas-outbox.ts, where
+  // pending updates for one page coalesce rather than queueing.
+  | { type: "page/create"; dateKey: DateKey; title?: string; icon?: string; docJson: string; preview: string; hashtags?: string[]; clientKey?: string }
+  | { type: "page/update"; pageId: string; title?: string; icon?: string; docJson: string; preview: string; hashtags?: string[] }
+  // `silent` skips the delete toast/undo — used when discarding a page the
+  // user never actually wrote anything into (see PageScreen's unmount cleanup).
+  | { type: "page/delete"; pageId: string; silent?: boolean }
+  | { type: "page/restore"; pageId: string }
   | { type: "todo-folder/create"; name: string; icon?: string }
   | { type: "todo-folder/update"; folderId: string; name: string; icon?: string }
   | { type: "todo-folder/delete"; folderId: string }
@@ -135,6 +146,8 @@ export type AppAction =
       thumbnailUrl?: string;
       faviconUrl?: string;
       draftKey?: string;
+      clientKey?: string;
+      pageId?: string;
     }
   | { type: "bookmark/update"; bookmarkId: string; categoryId?: string; categoryName?: string; url: string; title?: string; siteName?: string; description?: string; thumbnailUrl?: string; faviconUrl?: string; draftKey?: string }
   | { type: "bookmark/delete"; bookmarkId: string }

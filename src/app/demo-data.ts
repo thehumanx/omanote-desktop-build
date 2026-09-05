@@ -59,6 +59,7 @@ export function createInitialState(): AppState {
     ],
     deletedNotes: [],
     noteFolders: [],
+    pages: [],
     bookmarks: [],
     deletedBookmarks: [],
     bookmarkCategories: [

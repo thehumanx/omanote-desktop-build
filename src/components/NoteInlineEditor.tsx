@@ -329,12 +329,12 @@ export const NoteInlineEditor = forwardRef<NoteInlineEditorHandle, {
             Save
           </Button>
           {onCancel ? (
-            <Button tone="ghost" onClick={onCancel}>
+            <Button variant="ghost" onClick={onCancel}>
               Cancel
             </Button>
           ) : null}
           {onDelete ? (
-            <Button tone="ghost" className="ml-auto text-app-ink-muted" onClick={onDelete}>
+            <Button variant="ghost" className="ml-auto text-app-ink-muted" onClick={onDelete}>
               Delete
             </Button>
           ) : null}

@@ -14,6 +14,9 @@ import { daysBetweenKeys, formatCompletedLabel, formatDueChip, toDateKey } from 
 import type { DateKey } from "@omanote/shared";
 import { Bookmark, CircleCheckBig, ExternalLink } from "lucide-react";
 import { CategoryIconView } from "../lib/bookmark-category-icon";
+import { SharedCanvasView } from "./SharedCanvasView";
+import { unpublishPageImages } from "../lib/page-images";
+import { useAuth } from "@clerk/react";
 
 type PublicBookmark = {
   id: string;
@@ -285,21 +288,29 @@ export function SharedFolderPage() {
   const todoData = useQuery(api.sharedTodoFolders.getPublicShare, { shareCode: shareCode ?? "" });
   const bookmarkData = useQuery(api.sharedFolders.getPublicShare, { shareCode: shareCode ?? "" });
   const noteData = useQuery(api.sharedNoteFolders.getPublicShare, { shareCode: shareCode ?? "" });
+  const canvasData = useQuery(api.sharedPages.getPublicShare, { shareCode: shareCode ?? "" });
   const recordTodoView = useMutation(api.sharedTodoFolders.recordShareView);
   const recordBookmarkView = useMutation(api.sharedFolders.recordShareView);
   const recordNoteView = useMutation(api.sharedNoteFolders.recordShareView);
+  const recordCanvasView = useMutation(api.sharedPages.recordShareView);
   const unshare = useMutation(api.sharedFolders.unshareFromPublicPage);
   const unshareNotes = useMutation(api.sharedNoteFolders.unshareFromPublicPage);
+  const unshareCanvas = useMutation(api.sharedPages.unshareFromPublicPage);
+  // Only ever exercised by the owner — the "Stop sharing" button is behind
+  // `isOwner`, so a signed-out visitor never reaches this.
+  const { getToken } = useAuth();
 
   const isTodo = todoData !== undefined && todoData !== null;
   const isNote = !isTodo && noteData !== undefined && noteData !== null;
-  const data = todoData ?? bookmarkData ?? noteData;
-  const recordView = isTodo ? recordTodoView : isNote ? recordNoteView : recordBookmarkView;
+  const isCanvas = !isTodo && !isNote && canvasData !== undefined && canvasData !== null;
+  const data = todoData ?? bookmarkData ?? noteData ?? canvasData;
+  const recordView = isTodo ? recordTodoView : isNote ? recordNoteView : isCanvas ? recordCanvasView : recordBookmarkView;
 
-  // Slugs/codes are unique across all three share tables (enforced at write
-  // time), so at most one of these queries ever resolves to a non-null share.
+  // Slugs/codes are unique across all share tables (enforced at write time in
+  // lib/shareLookup.ts), so at most one of these queries ever resolves to a
+  // non-null share.
   const allResolved =
-    todoData !== undefined && bookmarkData !== undefined && noteData !== undefined;
+    todoData !== undefined && bookmarkData !== undefined && noteData !== undefined && canvasData !== undefined;
 
   useEffect(() => {
     if (!shareCode || data === undefined || data === null) return;
@@ -329,6 +340,33 @@ export function SharedFolderPage() {
         <p className="text-sm text-app-ink-muted">This link is no longer available.</p>
       </div>
     </>
+    );
+  }
+
+  if (isCanvas) {
+    const canvas = canvasData!;
+    return (
+      <>
+        <SeoHead
+          title={`${canvas.title || "Untitled page"} | omanote`}
+          description={canvas.description ?? undefined}
+          ogImage={canvas.thumbnailUrl ?? undefined}
+          noIndex
+        />
+        <SharedCanvasView
+          canvas={canvas}
+          formatDate={(ts) => (ts ? formatSharedDate(ts) : "")}
+          onUnshare={() => {
+            if (!shareCode) return;
+            // The mutation returns the published plaintext image copies it just
+            // orphaned — they live on an unauthenticated prefix, so unsharing
+            // has to delete them too or the revocation is only half real.
+            void unshareCanvas({ shareCode }).then((orphanedImageKeys) =>
+              unpublishPageImages(orphanedImageKeys ?? [], () => getToken({ template: "convex" })),
+            );
+          }}
+        />
+      </>
     );
   }
 

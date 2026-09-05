@@ -83,7 +83,7 @@ export const TodoListRow = memo(function TodoListRow({
             <div className={cn("text-base leading-6", isVisuallyDone ? "text-app-ink-faint line-through" : "text-app-ink")}>
               <RichTextPreview value={todo.title} onLinkEdit={editTodoTitle} highlightQuery={highlightQuery} />
             </div>
-            {todo.priority === "high" ? <Badge tone="outline" className="uppercase tracking-wide">High</Badge> : null}
+            {todo.priority === "high" ? <Badge variant="outline" className="uppercase tracking-wide">High</Badge> : null}
             {todo.recurrence || todo.recurringSourceId ? (
               <Badge
                 title={todo.recurrence ? describeRecurrenceRule(todo.recurrence) : "recurring"}

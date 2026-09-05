@@ -114,7 +114,7 @@ export function MakeItYoursStep({ onNext }: { onNext: () => void }) {
 
       <OnboardingFooter>
         {configIndex > 0 ? (
-          <Button type="button" tone="ghost" className="gap-1.5" onClick={() => goTo(configIndex - 1, "prev")}>
+          <Button type="button" variant="ghost" className="gap-1.5" onClick={() => goTo(configIndex - 1, "prev")}>
             <ArrowLeft className="h-4 w-4" />
             Back
           </Button>

@@ -4,14 +4,23 @@ import type { DateKey, TabKey } from "@omanote/shared";
 import { searchArtifacts } from "@omanote/shared";
 import { useApp } from "../app/AppProvider";
 
-const kindOrder: Array<"todo" | "note" | "bookmark" | "event"> = ["todo", "note", "bookmark", "event"];
+type SearchKind = "todo" | "note" | "bookmark" | "event" | "page";
 
-function targetTab(kind: "todo" | "note" | "bookmark" | "event"): TabKey {
+const kindOrder: SearchKind[] = ["todo", "note", "bookmark", "event", "page"];
+
+// Canvases are not a tab — they have their own route — so this is only ever
+// called for the four artifact kinds. See the "page" branch in the result
+// click handler below.
+function targetTab(kind: Exclude<SearchKind, "page">): TabKey {
   return kind === "todo" ? "todos" : kind === "note" ? "notes" : kind === "bookmark" ? "bookmarks" : "event";
 }
 
-function kindLabel(kind: (typeof kindOrder)[number]) {
-  return kind === "todo" ? "Todos" : kind === "note" ? "Notes" : kind === "bookmark" ? "Bookmarks" : "Event";
+function kindLabel(kind: SearchKind) {
+  return kind === "todo" ? "Todos"
+    : kind === "note" ? "Notes"
+    : kind === "bookmark" ? "Bookmarks"
+    : kind === "page" ? "Canvases"
+    : "Event";
 }
 
 export function SearchResultsList({
@@ -32,8 +41,9 @@ export function SearchResultsList({
         notes: state.notes,
         bookmarks: state.bookmarks,
         events: state.events,
+        pages: state.pages,
       }),
-    [state.bookmarks, state.notes, state.events, state.todos, state.ui.searchQuery],
+    [state.bookmarks, state.notes, state.events, state.todos, state.pages, state.ui.searchQuery],
   );
 
   const groupedResults = useMemo(
@@ -50,7 +60,7 @@ export function SearchResultsList({
   if (!state.ui.searchQuery.trim()) {
     return (
       <p className="px-1 py-6 text-sm text-app-ink-muted">
-        Start typing to search across your todos, notes, bookmarks, and events.
+        Start typing to search across your todos, notes, bookmarks, events, and canvases.
       </p>
     );
   }
@@ -77,6 +87,11 @@ export function SearchResultsList({
                   index > 0 ? "border-t border-app-line" : "",
                 ].join(" ")}
                 onClick={() => {
+                  if (result.kind === "page") {
+                    dispatch({ type: "ui/set-search-open", open: false });
+                    navigate(`/p/${result.id}`);
+                    return;
+                  }
                   const tab = targetTab(result.kind);
                   dispatch({ type: "ui/set-tab", tab });
                   if (result.dateKey) dispatch({ type: "ui/set-selected-date", dateKey: result.dateKey as DateKey });
@@ -93,7 +108,7 @@ export function SearchResultsList({
                   <p className="truncate text-sm font-bold text-app-ink">{result.title}</p>
                   <p className="mt-0.5 line-clamp-2 text-sm text-app-ink-muted">{result.subtitle}</p>
                 </div>
-                <span className="shrink-0 text-[11px] uppercase tracking-wide text-app-ink-faint">{result.kind}</span>
+                <span className="shrink-0 text-[11px] uppercase tracking-wide text-app-ink-faint">{result.kind === "page" ? "canvas" : result.kind}</span>
               </button>
             ))}
           </div>

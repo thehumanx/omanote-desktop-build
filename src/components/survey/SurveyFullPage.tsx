@@ -316,7 +316,7 @@ export function SurveyFullPage({ initialAnswers, onClose, onCompleted }: SurveyF
 
                 <div className="mt-8 flex items-center gap-2">
                   <Button
-                    tone="ghost"
+                    variant="ghost"
                     className="gap-1.5 py-2 text-[13px]"
                     onClick={() => goTo(index - 1, "prev")}
                     disabled={index === 0 || status === "submitting"}
@@ -327,7 +327,7 @@ export function SurveyFullPage({ initialAnswers, onClose, onCompleted }: SurveyF
                   <div className="flex-1" />
                   {isLast ? (
                     <Button
-                      tone="default"
+                      variant="default"
                       className="min-w-[7rem] py-2 text-[13px]"
                       onClick={handleSubmit}
                       disabled={status === "submitting" || answeredCount === 0}
@@ -336,7 +336,7 @@ export function SurveyFullPage({ initialAnswers, onClose, onCompleted }: SurveyF
                     </Button>
                   ) : (
                     <Button
-                      tone={answeredCurrent ? "default" : "soft"}
+                      variant={answeredCurrent ? "default" : "soft"}
                       className="min-w-[7rem] gap-1.5 py-2 text-[13px]"
                       onClick={() => goTo(index + 1, "next")}
                       disabled={status === "submitting"}
@@ -375,7 +375,7 @@ function SurveySuccess({ onDone }: { onDone: () => void }) {
       <p className="max-w-[26rem] text-sm leading-relaxed text-app-ink-muted">
         Every answer here gets read. It's what decides what omanote becomes next.
       </p>
-      <Button tone="default" className="mt-3 w-full py-2 text-sm" onClick={onDone}>
+      <Button variant="default" className="mt-3 w-full py-2 text-sm" onClick={onDone}>
         Back to omanote
       </Button>
     </div>

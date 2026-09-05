@@ -6,6 +6,7 @@ import {
   CheckSquare,
   Database,
   FileText,
+  HardDrive,
   Layers,
   Monitor,
   Palette,
@@ -40,7 +41,7 @@ export type NotificationDraft = {
 
 export type BrowserPermissionState = NotificationPermission | "unsupported";
 
-export type CategoryId = "appearance" | "notifications" | "security" | "devices" | "data" | "account" | "features";
+export type CategoryId = "appearance" | "notifications" | "security" | "devices" | "data" | "storage" | "account" | "features";
 
 const FONT_FAMILY_OPTIONS: readonly {
   value: FontFamily;
@@ -120,6 +121,7 @@ export const CATEGORIES: { id: CategoryId; label: string; Icon: React.ElementTyp
   { id: "security", label: "Security", Icon: ShieldCheck },
   { id: "devices", label: "Devices", Icon: Monitor },
   { id: "data", label: "Data", Icon: Database },
+  { id: "storage", label: "Storage", Icon: HardDrive },
   { id: "account", label: "Account", Icon: UserCircle },
 ];
 

@@ -22,7 +22,7 @@ export function SignupScreen() {
           <SignUpButton mode="modal" fallbackRedirectUrl="/canvas">
             <Button className="w-full">Create account</Button>
           </SignUpButton>
-          <Button tone="ghost" className="w-full" onClick={() => navigate("/login")}>
+          <Button variant="ghost" className="w-full" onClick={() => navigate("/login")}>
             Back to login
           </Button>
         </div>

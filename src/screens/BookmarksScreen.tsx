@@ -1214,13 +1214,13 @@ export function BookmarksScreen() {
                 : "This category is empty. Deleting it will remove the category."}
             </p>
             <div className="mt-5 flex items-center justify-between gap-3">
-              <Button tone="plain" onClick={() => setDeleteTarget(null)}>
+              <Button variant="plain" onClick={() => setDeleteTarget(null)}>
                 Cancel
               </Button>
               <div className="flex items-center gap-2">
                 {deleteTarget.count > 0 ? (
                   <Button
-                    tone="dangerGhost"
+                    variant="dangerGhost"
                     onClick={() => {
                       dispatch({ type: "bookmark-category/delete-with-bookmarks", categoryId: deleteTarget.id });
                       setDeleteTarget(null);
@@ -1230,7 +1230,7 @@ export function BookmarksScreen() {
                   </Button>
                 ) : null}
                 <Button
-                  tone="default"
+                  variant="default"
                   onClick={() => {
                     dispatch({ type: "bookmark-category/delete", categoryId: deleteTarget.id });
                     setDeleteTarget(null);

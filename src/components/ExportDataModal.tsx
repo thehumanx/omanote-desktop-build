@@ -6,12 +6,13 @@ import { useApp } from "../app/AppProvider";
 import { BaseModal } from "./BaseModal";
 import { Button, CheckboxField } from "./ui";
 
-type ExportCat = "todos" | "notes" | "bookmarks" | "events" | "rss";
+type ExportCat = "todos" | "notes" | "pages" | "bookmarks" | "events" | "rss";
 
-const CATS: ExportCat[] = ["todos", "notes", "bookmarks", "events", "rss"];
+const CATS: ExportCat[] = ["todos", "notes", "pages", "bookmarks", "events", "rss"];
 const CAT_LABELS: Record<ExportCat, string> = {
   todos: "Todos",
   notes: "Notes",
+  pages: "Canvas pages",
   bookmarks: "Bookmarks",
   events: "Events",
   rss: "RSS subscriptions",
@@ -38,6 +39,7 @@ export function ExportDataPanel() {
   const counts: Record<ExportCat, number> = {
     todos: state.todos.filter((t) => !t.deletedAt).length,
     notes: state.notes.length,
+    pages: state.pages.filter((p) => !p.deletedAt).length,
     bookmarks: state.bookmarks.length,
     events: state.events.filter((r) => !r.deletedAt).length,
     rss: rssSubscriptions?.length ?? 0,
@@ -104,6 +106,19 @@ export function ExportDataPanel() {
               createdAt: n.createdAt,
             };
           });
+      }
+
+      if (selected.has("pages")) {
+        payload.pages = state.pages
+          .filter((p) => !p.deletedAt)
+          .map((p) => ({
+            title: p.title ?? null,
+            docJson: p.docJson,
+            preview: p.preview,
+            hashtags: p.hashtags ?? [],
+            createdDateKey: p.createdDateKey,
+            createdAt: p.createdAt,
+          }));
       }
 
       if (selected.has("bookmarks")) {

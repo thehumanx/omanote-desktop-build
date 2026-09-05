@@ -33,6 +33,12 @@ See the devices and sessions signed in to your account, and remove any you don't
 
 Import and export your data for backup or migration.
 
+## Storage
+
+See how much of your 200MB storage limit you've used, split between images and everything else (notes, todos, bookmarks, canvas pages, events), with a breakdown by type and count. A summary also appears in your profile menu.
+
+Deleting something frees up its space right away. Large images are shrunk automatically when you add them to a canvas page, so a handful of photos won't eat your whole limit.
+
 ## Account
 
 Your profile details, and account deletion if you ever need it.

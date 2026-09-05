@@ -43,7 +43,7 @@ export function RecurringDeleteModal() {
 
         <div className="flex flex-wrap justify-end gap-2 px-5 pb-5">
           <Button
-            tone="soft"
+            variant="soft"
             className="text-sm"
             onClick={() =>
               run({ type: "todo/delete-occurrence", todoId: prompt.masterId, occurrenceDateKey: prompt.occurrenceDateKey })
@@ -52,7 +52,7 @@ export function RecurringDeleteModal() {
             Only this todo
           </Button>
           <Button
-            tone="soft"
+            variant="soft"
             className="text-sm"
             onClick={() =>
               run({ type: "todo/truncate-series", todoId: prompt.masterId, fromDateKey: prompt.occurrenceDateKey })
@@ -61,7 +61,7 @@ export function RecurringDeleteModal() {
             This and all future
           </Button>
           <Button
-            tone="danger"
+            variant="danger"
             className="text-sm"
             onClick={() => run({ type: "todo/delete-series", todoId: prompt.masterId })}
           >

@@ -185,7 +185,7 @@ export function EmojiPickerDropdown({
     <div
       ref={listRef}
       data-omanote-ignore-outside-click="true"
-      className="fixed z-app-popover w-52 overflow-hidden rounded-2xl border border-app-line bg-app-surface shadow-app-menu"
+      className="fixed z-app-popover w-52 overflow-hidden rounded-2xl border border-app-line bg-app-surface shadow-app-soft"
       style={pos}
     >
       <div className="max-h-64 overflow-y-auto p-1">

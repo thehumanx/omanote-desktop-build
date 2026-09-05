@@ -81,10 +81,10 @@ export function NotificationPermissionBanner() {
           <p className="mt-0.5 text-xs text-app-ink-faint">Get notified even when omanote is in the background.</p>
         </div>
         <div className="flex flex-shrink-0 items-center gap-2">
-          <Button tone="default" className="px-3 py-1.5 text-xs" onClick={() => void handleEnable()}>
+          <Button variant="default" className="px-3 py-1.5 text-xs" onClick={() => void handleEnable()}>
             Enable
           </Button>
-          <Button tone="ghost" className="p-1.5" onClick={handleDismiss}>
+          <Button variant="ghost" className="p-1.5" onClick={handleDismiss}>
             <X className="h-4 w-4" />
           </Button>
         </div>

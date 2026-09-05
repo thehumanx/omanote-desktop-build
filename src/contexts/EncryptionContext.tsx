@@ -12,8 +12,10 @@ import { api } from "../../convex/_generated/api";
 import {
   clearSessionContentKey,
   downloadRecoveryKeyTextFile,
+  decryptBytes,
   decryptString,
   deriveWrappingKey,
+  encryptBytes,
   encryptString,
   generateContentKey,
   generateRecoveryKey,
@@ -78,6 +80,9 @@ interface EncryptionContextValue {
   /** Encrypt / decrypt every element of a string array. */
   encryptArray: (items: string[]) => Promise<string[]>;
   decryptArray: (items: string[]) => Promise<string[]>;
+  /** Binary payloads (canvas images). Not cached — blobs are large and used once. */
+  encryptBinary: (bytes: ArrayBuffer, mimeType: string) => Promise<ArrayBuffer>;
+  decryptBinary: (payload: ArrayBuffer) => Promise<{ bytes: ArrayBuffer; mimeType: string }>;
 }
 
 // ---------------------------------------------------------------------------
@@ -495,6 +500,19 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
     [decrypt],
   );
 
+  // Deliberately not routed through DecryptionCache: that cache is keyed on the
+  // ciphertext string and holds plaintext, which for images would mean keeping
+  // multi-megabyte buffers alive for the session.
+  const encryptBinary = useCallback(async (bytes: ArrayBuffer, mimeType: string): Promise<ArrayBuffer> => {
+    if (!keyRef.current) throw new Error("Encryption key not available");
+    return encryptBytes(bytes, mimeType, keyRef.current);
+  }, []);
+
+  const decryptBinary = useCallback(async (payload: ArrayBuffer) => {
+    if (!keyRef.current) throw new Error("Encryption key not available");
+    return decryptBytes(payload, keyRef.current);
+  }, []);
+
   return (
     <EncryptionContext.Provider
       value={{
@@ -516,6 +534,8 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
         decryptOptional,
         encryptArray,
         decryptArray,
+        encryptBinary,
+        decryptBinary,
       }}
     >
       {children}

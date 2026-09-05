@@ -1885,7 +1885,7 @@ function ArticleSheet({
         {/* Action bar */}
         <div className="flex flex-wrap items-center gap-2 border-t border-app-line px-4 py-3 sm:px-6">
           <Button
-            tone="ghost"
+            variant="ghost"
             onClick={() => {
               const next = !saved;
               setSaved(next);
@@ -1911,7 +1911,7 @@ function ArticleSheet({
 
           {item.url ? (
             bookmarked ? (
-              <Button tone="ghost" disabled>
+              <Button variant="ghost" disabled>
                 <span className="inline-flex items-center gap-1.5 text-[13px]">
                   <Check className="h-3.5 w-3.5" />
                   In your bookmarks
@@ -1980,7 +1980,7 @@ function ArticleSheet({
                 </button>
               </div>
             ) : (
-              <Button tone="ghost" onClick={() => setBookmarkPanelOpen(true)}>
+              <Button variant="ghost" onClick={() => setBookmarkPanelOpen(true)}>
                 <span className="inline-flex items-center gap-1.5 text-[13px]">
                   <BookmarkPlus className="h-3.5 w-3.5" />
                   Add to bookmarks
@@ -1991,7 +1991,7 @@ function ArticleSheet({
 
           <span className="flex-1" />
           <Button
-            tone="ghost"
+            variant="ghost"
             onClick={() => {
               const now = Date.now();
               void db.rssReadState.where("itemId").equals(String(item._id)).modify({ readAt: undefined, updatedAt: now });

@@ -289,3 +289,69 @@ export async function decryptString(encrypted: string, key: CryptoKey): Promise<
 export function isEncrypted(value: string): boolean {
   return value.startsWith(ENCRYPTED_PREFIX);
 }
+
+// ---------------------------------------------------------------------------
+// Binary payloads (canvas images)
+// ---------------------------------------------------------------------------
+
+/**
+ * Binary counterpart to `encryptString`, for content that isn't text.
+ *
+ * Deliberately *not* built on encryptString: that returns base64, which would
+ * inflate an image by a third and — worse — build the string one
+ * `String.fromCharCode` call per byte. For an 8MB upload that is millions of
+ * concatenations before a single byte reaches the network.
+ *
+ * Layout is the same idea as the string form, minus the text prefix (there is
+ * no legacy plaintext to detect here, and a magic string in front of binary
+ * would just be a header to strip):
+ *
+ *     IV (12 bytes) || AES-GCM( mimeLen (1) || mime (UTF-8) || bytes )
+ *
+ * The MIME type travels *inside* the ciphertext rather than as R2 object
+ * metadata. Storing it outside would tell anyone reading the bucket that a
+ * given object is a PNG screenshot — a small leak, but a free one to avoid,
+ * and the client needs the type back anyway to render the blob.
+ */
+export async function encryptBytes(
+  bytes: ArrayBuffer,
+  mimeType: string,
+  key: CryptoKey,
+): Promise<ArrayBuffer> {
+  const mime = new TextEncoder().encode(mimeType);
+  if (mime.length > 255) throw new Error("MIME type too long to encode");
+
+  const plaintext = new Uint8Array(1 + mime.length + bytes.byteLength);
+  plaintext[0] = mime.length;
+  plaintext.set(mime, 1);
+  plaintext.set(new Uint8Array(bytes), 1 + mime.length);
+
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext);
+
+  const combined = new Uint8Array(12 + ciphertext.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(ciphertext), 12);
+  return combined.buffer;
+}
+
+/** Reverses `encryptBytes`, recovering both the bytes and their MIME type. */
+export async function decryptBytes(
+  payload: ArrayBuffer,
+  key: CryptoKey,
+): Promise<{ bytes: ArrayBuffer; mimeType: string }> {
+  if (payload.byteLength < 13) throw new Error("Encrypted payload is too short");
+
+  const combined = new Uint8Array(payload);
+  const iv = combined.slice(0, 12);
+  const ciphertext = combined.slice(12);
+  const plaintext = new Uint8Array(
+    await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext),
+  );
+
+  const mimeLength = plaintext[0]!;
+  const mimeType = new TextDecoder().decode(plaintext.slice(1, 1 + mimeLength));
+  // `slice` on a Uint8Array copies, so the returned buffer doesn't retain the
+  // whole plaintext array.
+  return { bytes: plaintext.slice(1 + mimeLength).buffer, mimeType };
+}

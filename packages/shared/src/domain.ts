@@ -36,6 +36,8 @@ export interface TodoItem {
   reminderFiredAt?: number;
   folderId?: string;
   folderName?: string;
+  /** Set when this todo was created from a checklist block inside a page. */
+  pageId?: string;
   /** Recurring series master: the rule expanded virtually on clients. */
   recurrence?: RecurrenceRule;
   /** Materialized completion of one occurrence -> its series master id. */
@@ -82,6 +84,32 @@ export interface NoteFolder {
   updatedAt: number;
 }
 
+/**
+ * A "canvas" — the titled, full-page document that can hold prose alongside
+ * real todos/bookmarks/events. Called `page` in code because `canvas` already
+ * names the daily feed (`CanvasArtifactItem`, canvasArtifacts, /canvas).
+ *
+ * `docJson` is a serialised ProseMirror document, never markdown: artifact
+ * blocks carry node ids (todoId, bookmarkId, imageKey) that markdown has
+ * nowhere to store. `preview` is a short plaintext extract kept alongside it
+ * so preview cards and search never have to parse the whole document.
+ */
+export interface PageItem {
+  id: string;
+  clientKey?: string;
+  pendingSync?: boolean;
+  title?: string;
+  /** Emoji or lucide icon name — same format as bookmarkCategories/noteFolders icons. */
+  icon?: string;
+  docJson: string;
+  preview: string;
+  hashtags?: string[];
+  deletedAt?: number;
+  createdAt: number;
+  updatedAt: number;
+  createdDateKey: DateKey;
+}
+
 export interface BookmarkCategory {
   id: string;
   name: string;
@@ -104,6 +132,8 @@ export interface BookmarkItem {
   deletedAt?: number;
   createdAt: number;
   createdDateKey: DateKey;
+  /** Set when this bookmark was created from a link block inside a page. */
+  pageId?: string;
 }
 
 export interface EventEntry {
@@ -136,7 +166,7 @@ export type ActivityAction = "created" | "completed" | "deleted" | "edited" | "f
 
 export interface ActivityItem {
   id: string;
-  module: "todo" | "note" | "bookmark" | "event";
+  module: "todo" | "note" | "bookmark" | "event" | "page";
   action: ActivityAction;
   itemId: string;
   itemTitle: string;

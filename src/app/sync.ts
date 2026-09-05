@@ -234,6 +234,7 @@ export interface SyncResult {
   todoFolders: number;
   notes: number;
   noteFolders: number;
+  pages: number;
   bookmarks: number;
   bookmarkCategories: number;
   events: number;
@@ -252,12 +253,13 @@ interface SyncOptions {
 // block others and the next call retries from the last good cursor.
 export async function runIncrementalSync(queryFn: SyncQueryFn, options: SyncOptions = {}): Promise<SyncResult> {
   const includeRss = options.includeRss ?? true;
-  const [todos, todoFolders, notes, noteFolders, bookmarks, bookmarkCategories, events, activityHistoryCount] =
+  const [todos, todoFolders, notes, noteFolders, pages, bookmarks, bookmarkCategories, events, activityHistoryCount] =
     await Promise.all([
       syncTable(queryFn, "todos", api.todos.listTodosUpdatedAfter, db.todos, (i) => i.updatedAt ?? 0),
       syncTable(queryFn, "todoFolders", api.todos.listTodoFoldersUpdatedAfter, db.todoFolders, (i) => i.updatedAt ?? 0),
       syncTable(queryFn, "notes", api.notes.listNotesUpdatedAfter, db.notes, (i) => i.updatedAt ?? 0),
       syncTable(queryFn, "noteFolders", api.notes.listNoteFoldersUpdatedAfter, db.noteFolders, (i) => i.updatedAt ?? 0),
+      syncTable(queryFn, "pages", api.pages.listPagesUpdatedAfter, db.pages, (i) => i.updatedAt ?? 0),
       syncTable(queryFn, "bookmarks", api.bookmarks.listBookmarksUpdatedAfter, db.bookmarks, (i) => i.updatedAt ?? 0),
       syncTable(queryFn, "bookmarkCategories", api.bookmarks.listBookmarkCategoriesUpdatedAfter, db.bookmarkCategories, (i) => i.updatedAt ?? 0),
       syncTable(queryFn, "events", api.events.listEventsUpdatedAfter, db.events, eventCursor),
@@ -279,5 +281,5 @@ export async function runIncrementalSync(queryFn: SyncQueryFn, options: SyncOpti
     await syncRssFeeds(queryFn);
   }
 
-  return { todos, todoFolders, notes, noteFolders, bookmarks, bookmarkCategories, events, activityHistory: activityHistoryCount, rssSubscriptions: rssSubscriptionsCount, rssCategories, rssReadState };
+  return { todos, todoFolders, notes, noteFolders, pages, bookmarks, bookmarkCategories, events, activityHistory: activityHistoryCount, rssSubscriptions: rssSubscriptionsCount, rssCategories, rssReadState };
 }

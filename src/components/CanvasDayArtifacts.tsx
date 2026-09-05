@@ -5,6 +5,7 @@ import { CanvasTodoBlock } from "./CanvasTodoBlock";
 import { CanvasNoteBlock } from "./CanvasNoteBlock";
 import { CanvasEventBlock } from "./CanvasEventBlock";
 import { BookmarkCard } from "./cards";
+import { PageCard } from "./page/PageCard";
 
 export type { CanvasArtifactItem };
 
@@ -21,6 +22,7 @@ export type CanvasDayArtifactsProps = {
   onToggleTodo: (todo: TodoItem) => void;
   onDeleteTodo: (todo: TodoItem) => void;
   onEditBookmark: (bookmarkId: string) => void;
+  onSharePage?: (pageId: string) => void;
 };
 
 /**
@@ -40,6 +42,7 @@ export function CanvasDayArtifacts({
   onToggleTodo,
   onDeleteTodo,
   onEditBookmark,
+  onSharePage,
 }: CanvasDayArtifactsProps) {
   return (
     // This is a direct flex-item child of a flex-col content pane on the
@@ -78,6 +81,13 @@ export function CanvasDayArtifacts({
             />
           ) : null}
           {item.kind === "event" ? <CanvasEventBlock event={item.data} pendingSync={!!item.data.pendingSync} dispatch={dispatch} /> : null}
+          {item.kind === "page" ? (
+            <PageCard
+              page={item.data}
+              onDelete={(pageId) => dispatch({ type: "page/delete", pageId })}
+              onShare={(pageId) => onSharePage?.(pageId)}
+            />
+          ) : null}
         </div>
       ))}
     </div>

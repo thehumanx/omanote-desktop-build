@@ -13,7 +13,7 @@ export function SearchScreen() {
         <Input
           value={state.ui.searchQuery}
           onChange={(event) => dispatch({ type: "ui/set-search-query", query: event.target.value })}
-          placeholder="Search canvas, todos, notes, bookmarks, and events"
+          placeholder="Search canvases, todos, notes, bookmarks, and events"
           autoFocus
         />
       </div>

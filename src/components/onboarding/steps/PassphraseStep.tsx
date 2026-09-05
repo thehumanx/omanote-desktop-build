@@ -86,7 +86,7 @@ export function PassphraseStep({ onBack, onSubmitted }: { onBack: () => void; on
       </form>
 
       <OnboardingFooter>
-        <Button type="button" tone="ghost" className="gap-1.5" onClick={onBack} disabled={loading}>
+        <Button type="button" variant="ghost" className="gap-1.5" onClick={onBack} disabled={loading}>
           <ArrowLeft className="h-4 w-4" />
           Back
         </Button>

@@ -107,12 +107,12 @@ export function DesktopUpdateBanner() {
         </div>
         <div className="flex flex-shrink-0 items-center gap-2">
           {state.phase !== "downloading" && (
-            <Button tone="default" className="px-3 py-1.5 text-xs" onClick={() => void handleInstall()}>
+            <Button variant="default" className="px-3 py-1.5 text-xs" onClick={() => void handleInstall()}>
               {state.phase === "error" ? "Retry" : "Update & restart"}
             </Button>
           )}
           {state.phase !== "downloading" && (
-            <Button tone="ghost" className="p-1.5" onClick={() => setState({ phase: "hidden" })}>
+            <Button variant="ghost" className="p-1.5" onClick={() => setState({ phase: "hidden" })}>
               <X className="h-4 w-4" />
             </Button>
           )}

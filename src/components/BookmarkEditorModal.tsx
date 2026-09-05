@@ -251,11 +251,11 @@ export function BookmarkEditorModal({
             <Button disabled={!canSave} onClick={handleSave} className="hidden md:inline-flex">
               Save
             </Button>
-            <Button tone="ghost" onClick={onClose} className="hidden md:inline-flex">
+            <Button variant="ghost" onClick={onClose} className="hidden md:inline-flex">
               Cancel
             </Button>
             {bookmark && onDelete ? (
-              <Button tone="ghost" className="text-app-ink-muted md:ml-auto" onClick={onDelete}>
+              <Button variant="ghost" className="text-app-ink-muted md:ml-auto" onClick={onDelete}>
                 Delete
               </Button>
             ) : null}

@@ -36,6 +36,33 @@ type NoteRestorePayload = {
   draftKey?: string;
 };
 
+type PageCreatePayload = {
+  clientKey?: string;
+  docJson: string;
+  preview: string;
+  title?: string;
+  icon?: string;
+  hashtags?: string[];
+  dateKey: string;
+};
+
+type PageUpdatePayload = {
+  pageId: string;
+  docJson: string;
+  preview: string;
+  title?: string;
+  icon?: string;
+  hashtags?: string[];
+};
+
+type PageDeletePayload = {
+  pageId: string;
+};
+
+type PageRestorePayload = {
+  pageId: string;
+};
+
 type EventCreatePayload = {
   clientKey?: string;
   label: string;
@@ -189,6 +216,10 @@ type CanvasPayloadMap = {
   "note/update": NoteUpdatePayload;
   "note/delete": NoteDeletePayload;
   "note/restore": NoteRestorePayload;
+  "page/create": PageCreatePayload;
+  "page/update": PageUpdatePayload;
+  "page/delete": PageDeletePayload;
+  "page/restore": PageRestorePayload;
   "event/create": EventCreatePayload;
   "event/update": EventUpdatePayload;
   "event/delete": EventDeletePayload;
@@ -330,9 +361,20 @@ export async function enqueueCanvasMutation<K extends CanvasKind>(
 ): Promise<void> {
   const now = Date.now();
   try {
+    const supersededId = await findSupersededItemId(kind, payload);
     await db.outbox.put(
       toRecord({
-        id: newId(),
+        // Reusing the superseded row's id replaces it in place rather than
+        // adding a second one. `createdAt` still advances to now, which moves
+        // the row to the back of the queue and — the part that matters —
+        // restarts the 7-day expiry from the newest edit. Ageing a coalesced
+        // row from the *first* keystroke would let MAX_ITEM_AGE_MS discard a
+        // canvas the user is still actively typing in.
+        //
+        // Losing the original queue position is harmless here: the payload is
+        // the whole document, so it carries no ordering relationship to the
+        // other writes around it.
+        id: supersededId ?? newId(),
         kind,
         createdAt: now,
         attempts: 0,
@@ -343,6 +385,32 @@ export async function enqueueCanvasMutation<K extends CanvasKind>(
   } catch {
     observer?.onPersistFailed({ kind });
   }
+}
+
+/**
+ * The id of a queued item this write makes redundant, if any.
+ *
+ * Only `page/update` qualifies. Autosave fires on a debounce while the user
+ * types, and each payload carries the *entire* encrypted document — so an
+ * offline writing session would otherwise queue one full copy of the canvas
+ * every second or so, all but the last of which are already stale by the time
+ * the queue drains. Every other kind is an incremental fact about the world
+ * ("toggled", "snoozed", "deleted") where an earlier entry is not implied by a
+ * later one, and collapsing them would lose writes.
+ *
+ * Safe because `updatePage` is a whole-document overwrite: replaying only the
+ * newest payload produces the same server state as replaying all of them.
+ */
+async function findSupersededItemId<K extends CanvasKind>(
+  kind: K,
+  payload: CanvasPayloadMap[K],
+): Promise<string | undefined> {
+  if (kind !== "page/update") return undefined;
+  const pageId = (payload as PageUpdatePayload).pageId;
+  const rows = await db.outbox.toArray();
+  return rows.find(
+    (row) => row.kind === "page/update" && (row.payload as PageUpdatePayload).pageId === pageId,
+  )?.id;
 }
 
 // A server push that got rate-limited surfaces this shape (see
@@ -374,6 +442,23 @@ function extractRetryAfterMs(err: unknown): number {
 function isPermanentFailure(err: unknown): boolean {
   if (extractRetryAfterMs(err) > 0) return false;
   return err instanceof ConvexError;
+}
+
+/**
+ * Whether a write failed because the account is out of storage, as opposed to
+ * any other rejection.
+ *
+ * Worth distinguishing because the remedy is completely different: "the server
+ * rejected it, try again" is actively wrong advice when the real answer is
+ * "delete something". Thrown by convex/storageUsage.ts's reserveTextBytes.
+ */
+export function isStorageLimitError(err: unknown): boolean {
+  return (
+    err instanceof ConvexError &&
+    typeof err.data === "object" &&
+    err.data !== null &&
+    (err.data as { kind?: unknown }).kind === "storage_limit"
+  );
 }
 
 export async function runWithCanvasOutboxFallback<K extends CanvasKind>(

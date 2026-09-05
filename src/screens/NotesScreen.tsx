@@ -1215,13 +1215,13 @@ export function NotesScreen() {
                 : "This folder is empty. Deleting it will remove the folder."}
             </p>
             <div className="mt-5 flex items-center justify-between gap-3">
-              <Button tone="plain" onClick={() => setDeleteTarget(null)}>
+              <Button variant="plain" onClick={() => setDeleteTarget(null)}>
                 Cancel
               </Button>
               <div className="flex items-center gap-2">
                 {deleteTarget.count > 0 ? (
                   <Button
-                    tone="dangerGhost"
+                    variant="dangerGhost"
                     onClick={() => {
                       dispatch({ type: "note-folder/delete-with-notes", folderId: deleteTarget.id });
                       setDeleteTarget(null);
@@ -1231,7 +1231,7 @@ export function NotesScreen() {
                   </Button>
                 ) : null}
                 <Button
-                  tone="default"
+                  variant="default"
                   onClick={() => {
                     dispatch({ type: "note-folder/delete", folderId: deleteTarget.id });
                     setDeleteTarget(null);

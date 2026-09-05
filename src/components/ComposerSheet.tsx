@@ -9,6 +9,8 @@ import { useDrawerDrag } from "../lib/useDrawerDrag";
 import { CanvasDraftBlock, type CanvasDraftBlockHandle } from "./CanvasDraftBlock";
 import { formatSaveShortcutKeyLabel } from "../lib/editor-shortcuts";
 import { detectPlatformName } from "../lib/device-info";
+import { FilePlus2 } from "lucide-react";
+import { useCreateCanvas } from "../lib/use-create-canvas";
 // Pop-out (see ../lib/composer-popout.ts) is temporarily not exposed in the
 // UI — hidden per product decision, not removed. Re-add a trigger calling
 // popOutComposer() here (with draftRef.current?.flushDraft() first, and
@@ -17,6 +19,29 @@ import { detectPlatformName } from "../lib/device-info";
 
 function dateKeyToDate(dateKey: string) {
   return new Date(`${dateKey}T12:00:00`);
+}
+
+/**
+ * The way into a canvas — a full document, as opposed to the single artifact
+ * the rest of this sheet composes. Sits between the esc/save hints rather than
+ * in the mode selector below, because it isn't another draft mode: picking it
+ * leaves the composer entirely.
+ */
+function CreateCanvasButton({ onCreated }: { onCreated: () => void }) {
+  const createCanvas = useCreateCanvas();
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        createCanvas();
+        onCreated();
+      }}
+      className="inline-flex items-center gap-1.5 rounded-full border border-app-line px-3 py-1 text-xs font-medium text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink active:scale-[0.98]"
+    >
+      <FilePlus2 className="h-3.5 w-3.5" />
+      Create new page
+    </button>
+  );
 }
 
 export function ComposerSheet() {
@@ -124,6 +149,10 @@ export function ComposerSheet() {
         style={{
           bottom: "calc(1rem + env(safe-area-inset-bottom))",
           transform: isDragging || dragOffset > 0 ? `translateY(${dragOffset}px)` : undefined,
+          // Shared with PageScreen's root — lets "Create new page" morph
+          // this sheet into the full canvas page (see use-create-canvas.ts)
+          // instead of a hard cut. No-op outside that one transition.
+          viewTransitionName: "canvas-expand",
         }}
         onKeyDown={(event) => {
           // Fallback for focus that isn't inside one of CanvasDraftBlock's
@@ -150,9 +179,14 @@ export function ComposerSheet() {
         {/* Desktop: no dedicated close/save buttons — Esc and the save
             shortcut are the only ways to dismiss/commit, so surface them
             as plain hints instead of duplicating the mobile button row. */}
-        <div className="hidden shrink-0 items-center justify-between px-4 pt-3 pb-2 md:flex">
-          <span className="rounded-md border border-app-line px-1.5 py-0.5 text-[11px] font-medium text-app-ink-faint">esc</span>
-          <span className="rounded-md border border-app-line px-1.5 py-0.5 text-[11px] font-medium text-app-ink-faint">{saveKeyLabel}</span>
+        <div className="hidden shrink-0 items-center px-4 pt-3 pb-2 md:flex">
+          <span className="flex-1 text-left">
+            <span className="rounded-md border border-app-line px-1.5 py-0.5 text-[11px] font-medium text-app-ink-faint">esc</span>
+          </span>
+          <CreateCanvasButton onCreated={close} />
+          <span className="flex-1 text-right">
+            <span className="rounded-md border border-app-line px-1.5 py-0.5 text-[11px] font-medium text-app-ink-faint">{saveKeyLabel}</span>
+          </span>
         </div>
         <div className="flex shrink-0 items-center justify-center gap-2 px-4 pb-2">
           <span className={isToday ? "text-xs text-app-ink-faint" : "text-xs font-medium text-warning-ink"}>
@@ -167,6 +201,10 @@ export function ComposerSheet() {
               Jump to today
             </button>
           ) : null}
+        </div>
+        {/* The hint row above is desktop-only, so mobile gets its own way in. */}
+        <div className="flex shrink-0 justify-center px-4 pb-2 md:hidden">
+          <CreateCanvasButton onCreated={close} />
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
           <CanvasDraftBlock

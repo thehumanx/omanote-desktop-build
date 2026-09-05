@@ -279,6 +279,29 @@ export function formatRelativeGroupHeading(dateKey: string): string {
   return diffDays > 0 ? `${diffDays} days later` : `${Math.abs(diffDays)} days ago`;
 }
 
+/**
+ * Coarse "when was this last touched" label for a timestamp, e.g. "2 days ago".
+ *
+ * Deliberately vague past a week — a canvas card wants to convey recency, not
+ * a precise date, and "3 weeks ago" reads better there than "August 14". Days
+ * are compared as calendar days, not 24-hour spans, so something edited late
+ * last night says "yesterday" rather than "today" at 8am.
+ */
+export function formatRelativeEditedAt(timestamp: number, now: Date = new Date()): string {
+  const target = fromDateKey(toDateKey(new Date(timestamp)));
+  const today = fromDateKey(toDateKey(now));
+  const diffDays = Math.round((today.getTime() - target.getTime()) / (24 * 60 * 60 * 1000));
+
+  if (diffDays <= 0) return "today";
+  if (diffDays === 1) return "yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 14) return "last week";
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+  if (diffDays < 60) return "last month";
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
+  return diffDays < 730 ? "last year" : `${Math.floor(diffDays / 365)} years ago`;
+}
+
 /** Heading for a group of overdue todos, e.g. "Overdue by 3 days". */
 export function formatOverdueGroupHeading(dateKey: string): string {
   const target = fromDateKey(dateKey as DateKey);

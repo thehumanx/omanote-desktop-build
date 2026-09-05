@@ -445,7 +445,7 @@ export function TodoEditorModal({
                   <Button
                     key={label}
                     type="button"
-                    tone={active ? "default" : "soft"}
+                    variant={active ? "default" : "soft"}
                     className={["h-7 px-2.5 py-0 text-xs font-medium", active ? "text-white" : "text-app-ink-muted"].join(" ")}
                     onClick={() => {
                       setDraftWhen(value);

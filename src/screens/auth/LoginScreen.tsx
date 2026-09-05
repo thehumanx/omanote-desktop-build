@@ -26,7 +26,7 @@ export function LoginScreen() {
             <Button className="w-full">Continue with Google</Button>
           </SignInButton>
           <SignUpButton mode="modal" fallbackRedirectUrl="/canvas">
-            <Button tone="soft" className="w-full">Create account</Button>
+            <Button variant="soft" className="w-full">Create account</Button>
           </SignUpButton>
         </div>
       </div>

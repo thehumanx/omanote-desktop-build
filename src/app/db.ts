@@ -88,6 +88,7 @@ class OmanoteDB extends Dexie {
   todoFolders!: Table<Doc<"todoFolders">, string>;
   notes!: Table<Doc<"notes">, string>;
   noteFolders!: Table<Doc<"noteFolders">, string>;
+  pages!: Table<Doc<"pages">, string>;
   bookmarks!: Table<Doc<"bookmarks">, string>;
   bookmarkCategories!: Table<Doc<"bookmarkCategories">, string>;
   events!: Table<Doc<"eventEntries">, string>;
@@ -179,6 +180,13 @@ class OmanoteDB extends Dexie {
     // on a shared browser.
     this.version(6).stores({
       outbox: "id, createdAt",
+    });
+    // Canvases (see the `pages` table in convex/schema.ts). Indexed on
+    // `updatedAt` because "Continue writing" orders by last edit, and on
+    // `createdDateKey` because a canvas also appears as a card in the day it
+    // was created.
+    this.version(7).stores({
+      pages: "_id, userId, updatedAt, deletedAt, createdDateKey",
     });
   }
 }

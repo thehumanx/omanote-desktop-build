@@ -493,10 +493,10 @@ function DeleteUserModal({
         )}
 
         <div className="mt-4 flex justify-end gap-2">
-          <Button type="button" tone="ghost" onClick={onClose} disabled={submitting}>
+          <Button type="button" variant="ghost" onClick={onClose} disabled={submitting}>
             Cancel
           </Button>
-          <Button type="button" tone="danger" onClick={() => void handleDelete()} disabled={!canDelete || submitting}>
+          <Button type="button" variant="danger" onClick={() => void handleDelete()} disabled={!canDelete || submitting}>
             {submitting ? "Deleting…" : alsoDeleteLogin ? "Delete user" : "Wipe data"}
           </Button>
         </div>

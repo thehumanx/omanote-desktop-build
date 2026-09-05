@@ -191,7 +191,7 @@ export function UpdateModal() {
             <div className="flex items-center gap-2">
               {showPrimaryAction && (
                 <Button
-                  tone="default"
+                  variant="default"
                   className="flex flex-1 items-center justify-center gap-2 py-2 text-sm"
                   onClick={handlePrimaryAction}
                 >
@@ -200,7 +200,7 @@ export function UpdateModal() {
                 </Button>
               )}
               <Button
-                tone="ghost"
+                variant="ghost"
                 className="flex flex-1 items-center justify-center gap-2 py-2 text-sm"
                 onClick={() => {
                   closeModal();

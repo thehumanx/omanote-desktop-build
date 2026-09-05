@@ -126,7 +126,7 @@ function ToastStack({
                       <p className="mt-0.5 text-sm font-medium text-app-ink leading-snug">{toast.title}</p>
                     </div>
                     <Button
-                      tone="ghost"
+                      variant="ghost"
                       className="mt-0.5 flex-shrink-0 p-1.5"
                       onClick={() => dispatch({ type: "toast/remove", toastId: toast.id })}
                     >
@@ -136,7 +136,7 @@ function ToastStack({
                   {toast.todoId && (
                     <div className="mt-3 flex items-center gap-2 pl-9">
                       <Button
-                        tone="default"
+                        variant="default"
                         className="flex items-center gap-1 px-2.5 py-1.5 text-xs"
                         onClick={() => {
                           dispatch({ type: "todo/toggle", todoId: toast.todoId! });
@@ -147,7 +147,7 @@ function ToastStack({
                       </Button>
                       {toast.todoId && noSnoozeTodoIds.has(toast.todoId) ? null : (
                         <Button
-                          tone="soft"
+                          variant="soft"
                           className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs"
                           onClick={() => {
                             dispatch({ type: "todo/snooze", todoId: toast.todoId!, minutes: settings.defaultSnoozeMinutes });
@@ -159,7 +159,7 @@ function ToastStack({
                         </Button>
                       )}
                       <Button
-                        tone="ghost"
+                        variant="ghost"
                         className="px-2.5 py-1.5 text-xs text-app-ink-faint"
                         onClick={() => dispatch({ type: "toast/remove", toastId: toast.id })}
                       >
@@ -179,7 +179,7 @@ function ToastStack({
                   </div>
                   {toast.onAction && (
                     <Button
-                      tone="soft"
+                      variant="soft"
                       className="flex-shrink-0 px-3 py-1.5 text-xs"
                       onClick={() => {
                         toast.onAction?.();
@@ -189,7 +189,7 @@ function ToastStack({
                       Undo
                     </Button>
                   )}
-                  <Button tone="ghost" className="p-2" onClick={() => dispatch({ type: "toast/remove", toastId: toast.id })}>
+                  <Button variant="ghost" className="p-2" onClick={() => dispatch({ type: "toast/remove", toastId: toast.id })}>
                     <X className="h-4 w-4" />
                   </Button>
                 </div>

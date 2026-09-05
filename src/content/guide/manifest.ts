@@ -21,6 +21,7 @@ import {
 // beside this manifest and registering it below.
 import gettingStarted from "./getting-started.md?raw";
 import dailyCanvas from "./daily-canvas.md?raw";
+import canvasPages from "./canvas-pages.md?raw";
 import capturing from "./capturing.md?raw";
 import todos from "./todos.md?raw";
 import recurringTodos from "./recurring-todos.md?raw";
@@ -84,6 +85,7 @@ export const guideCategories: GuideCategory[] = [
     icon: LayoutGrid,
     topics: [
       { slug: "daily-canvas", title: "The daily canvas", description: "One day, everything in one place.", body: dailyCanvas },
+      { slug: "canvas-pages", title: "Canvas pages", description: "Titled documents with checklists, links, and images.", body: canvasPages },
       { slug: "capturing", title: "Capturing anything", description: "The composer, slash commands, and natural language.", body: capturing },
       { slug: "greetings", title: "Dynamic greetings", description: "A greeting that changes with the time of day.", body: greetings },
     ],
@@ -191,7 +193,7 @@ export const guideCategories: GuideCategory[] = [
 
 // Shown in the guide header (like the changelog version on /updates). Bump
 // when guide content is meaningfully revised.
-export const GUIDE_LAST_UPDATED = "Aug 21, 2026";
+export const GUIDE_LAST_UPDATED = "Sep 5, 2026";
 
 export const guideTopics: GuideTopic[] = guideCategories.flatMap((category) => category.topics);
 

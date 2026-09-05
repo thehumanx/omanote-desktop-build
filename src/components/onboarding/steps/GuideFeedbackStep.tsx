@@ -26,7 +26,7 @@ export function GuideFeedbackStep({ onNext, onBack }: { onNext: () => void; onBa
             <div>
               <p className="text-sm font-bold text-app-ink">Press / to start typing</p>
               <p className="mt-1 text-xs leading-relaxed text-app-ink-muted">
-                Hit <strong>/</strong> anywhere in the app — or tap <strong>+</strong> — to open the composer and capture a note, todo, event, or bookmark on the spot.
+                Hit <strong>/</strong> anywhere in the app — or tap <strong>+</strong> — to open the composer and capture a note, todo, event, or bookmark on the spot. Want a blank canvas instead? Tap <strong>Create new page</strong>.
               </p>
             </div>
           </div>
@@ -58,7 +58,7 @@ export function GuideFeedbackStep({ onNext, onBack }: { onNext: () => void; onBa
       </div>
 
       <OnboardingFooter>
-        <Button type="button" tone="ghost" className="gap-1.5" onClick={onBack}>
+        <Button type="button" variant="ghost" className="gap-1.5" onClick={onBack}>
           <ArrowLeft className="h-4 w-4" />
           Back
         </Button>

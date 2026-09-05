@@ -35,6 +35,7 @@ import { isTauri } from "../../lib/desktop";
 import { MenuItem, SegmentedHighlight, SegmentedItem, SegmentedShell } from "../ui";
 import { FeedbackModal } from "../FeedbackModal";
 import { ModalPortal } from "../ModalPortal";
+import { StorageUsageStat } from "./StorageUsageStat";
 
 const defaultAvatarSrc =
   "data:image/svg+xml;utf8," +
@@ -182,7 +183,11 @@ function ProfileOptionsDrawer({
             </a>
           </div>
         </div>
-        <div className="space-y-1 px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+1rem)]">{children}</div>
+        <div className="space-y-1 px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+          <StorageUsageStat onNavigate={onClose} />
+          <div className="my-2 h-px bg-app-line" />
+          {children}
+        </div>
       </section>
     </ModalPortal>
   );
@@ -414,6 +419,7 @@ export function ProfileMenuButton({ onOpenAbout }: { onOpenAbout: () => void }) 
                 </a>
               </div>
             </div>
+            <StorageUsageStat onNavigate={closeProfileOptions} />
             <div className="my-2 h-px bg-app-line" />
             {renderProfileActions({
               includeExtension: !runningInDesktopApp,

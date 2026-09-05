@@ -23,12 +23,17 @@ export function ShareEncryptionNotice({
   noun,
   className,
 }: {
-  noun: "folder" | "notes" | "todos" | "links";
+  noun: "folder" | "notes" | "todos" | "links" | "page";
   className?: string;
 }) {
+  // A shared page is one document, not a collection, so it needs the
+  // singular. Reusing a plural noun here ("these page are stored") would be
+  // the one ungrammatical sentence in a notice whose whole job is to be read
+  // carefully.
+  const subject = noun === "page" ? "this page is" : `these ${noun} are`;
   return (
     <EncryptionBoundaryNotice className={className}>
-      A public link has to be readable without your passphrase, so these {noun} are stored
+      A public link has to be readable without your passphrase, so {subject} stored
       unencrypted while it's on. Turning the link off deletes that copy. The rest of your
       canvas stays encrypted either way.
     </EncryptionBoundaryNotice>

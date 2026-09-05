@@ -146,7 +146,7 @@ export function ConnectEnableStep({ onNext, onBack }: { onNext: () => void; onBa
               ) : (
                 <Button
                   type="button"
-                  tone="soft"
+                  variant="soft"
                   className="mt-3"
                   onClick={() => void handleConnectGoogle()}
                   disabled={googlePending || googleConnection === undefined}
@@ -202,7 +202,7 @@ export function ConnectEnableStep({ onNext, onBack }: { onNext: () => void; onBa
       <OnboardingFooter>
         <Button
           type="button"
-          tone="ghost"
+          variant="ghost"
           className="gap-1.5"
           onClick={configIndex === 0 ? onBack : () => goTo(configIndex - 1, "prev")}
         >

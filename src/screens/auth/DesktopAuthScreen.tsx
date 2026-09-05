@@ -77,7 +77,7 @@ export function DesktopAuthScreen() {
                 <Button className="w-full">Sign in</Button>
               </SignInButton>
               <SignUpButton mode="modal" fallbackRedirectUrl={returnHere}>
-                <Button tone="soft" className="w-full">Create account</Button>
+                <Button variant="soft" className="w-full">Create account</Button>
               </SignUpButton>
             </div>
           </>

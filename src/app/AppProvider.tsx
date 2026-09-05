@@ -10,7 +10,7 @@ import {
   parseVirtualOccurrenceId,
   toDateKey,
 } from "@omanote/shared";
-import type { ActivityItem, BookmarkCategory, BookmarkItem, DateKey, NoteFolder, NoteItem, EventEntry, TodoFolder, TodoItem } from "@omanote/shared";
+import type { ActivityItem, BookmarkCategory, BookmarkItem, DateKey, NoteFolder, NoteItem, PageItem, EventEntry, TodoFolder, TodoItem } from "@omanote/shared";
 import { useEncryption } from "../contexts/EncryptionContext";
 import { useUserSettings } from "../contexts/UserSettingsContext";
 
@@ -31,6 +31,7 @@ import {
   clearCanvasDraftForKey,
   enqueueCanvasMutation,
   flushCanvasOutbox,
+  isStorageLimitError,
   runWithCanvasOutboxFallback,
   setCanvasOutboxObserver,
   type CanvasKind,
@@ -47,7 +48,7 @@ import { detectWebClientType, getCurrentDeviceMetadata } from "../lib/device-inf
 import { readLocalStorage, stringCodec, writeLocalStorage } from "../lib/local-storage";
 import type { AppAction, AppState, DraftMode, RecurringDeletePrompt, ToastItem } from "./types";
 import { prefixedRandomId, randomId } from "@omanote/shared";
-import { mapActivity, mapBookmark, mapBookmarkCategory, mapEvent, mapNote, mapNoteFolder, mapTodo, mapTodoFolder } from "./mappers";
+import { mapActivity, mapBookmark, mapBookmarkCategory, mapEvent, mapNote, mapNoteFolder, mapPage, mapTodo, mapTodoFolder } from "./mappers";
 
 // Stable empty array used as the fallback for not-yet-loaded Dexie queries.
 // A plain `useLiveQuery(...) ?? []` creates a new array reference on every
@@ -117,6 +118,10 @@ const OUTBOX_KIND_NOUNS: Partial<Record<CanvasKind, string>> = {
   "note/update": "note",
   "note/delete": "note",
   "note/restore": "note",
+  "page/create": "page",
+  "page/update": "page",
+  "page/delete": "page",
+  "page/restore": "page",
   "todo/create": "todo",
   "todo/update": "todo",
   "todo/delete": "todo",
@@ -163,12 +168,18 @@ type LocalState = {
   optimisticTodos: TodoItem[];
   deletingTodoIds: string[];
   deletingNoteIds: string[];
+  deletingPageIds: string[];
   deletingBookmarkIds: string[];
   deletingEventIds: string[];
   togglingTodos: Record<string, "done" | "open">;
   optimisticBookmarks: BookmarkItem[];
   optimisticEvents: EventEntry[];
   optimisticNotes: NoteItem[];
+  // A canvas created offline has no server id yet, but the editor has to open
+  // *something* immediately. The optimistic row is keyed by its clientKey and
+  // PageScreen resolves a route param against both id and clientKey, so the
+  // URL stays valid across the handoff to the real id.
+  optimisticPages: PageItem[];
 };
 
 type HistoryEntry = {
@@ -200,6 +211,11 @@ type LocalAction =
   | { type: "todo/clear-deleting"; todoIds: string[] }
   | { type: "note/mark-deleting"; noteId: string }
   | { type: "note/clear-deleting"; noteIds: string[] }
+  | { type: "page/mark-deleting"; pageId: string }
+  | { type: "page/clear-deleting"; pageIds: string[] }
+  | { type: "page/add-optimistic"; page: PageItem }
+  | { type: "page/remove-optimistic"; clientKey: string }
+  | { type: "page/patch-optimistic"; clientKey: string; title?: string; icon?: string; docJson: string; preview: string; hashtags?: string[] }
   | { type: "bookmark/mark-deleting"; bookmarkId: string }
   | { type: "bookmark/clear-deleting"; bookmarkIds: string[] }
   | { type: "event/mark-deleting"; eventId: string }
@@ -308,6 +324,36 @@ function localReducer(state: LocalState, action: LocalAction): LocalState {
         deletingNoteIds: state.deletingNoteIds.filter((noteId) => !idsToClear.has(noteId)),
       };
     }
+    case "page/mark-deleting":
+      return state.deletingPageIds.includes(action.pageId)
+        ? state
+        : { ...state, deletingPageIds: [...state.deletingPageIds, action.pageId] };
+    case "page/clear-deleting": {
+      const idsToClear = new Set(action.pageIds);
+      return {
+        ...state,
+        deletingPageIds: state.deletingPageIds.filter((pageId) => !idsToClear.has(pageId)),
+      };
+    }
+    case "page/add-optimistic":
+      return { ...state, optimisticPages: [action.page, ...state.optimisticPages] };
+    case "page/remove-optimistic":
+      return {
+        ...state,
+        optimisticPages: state.optimisticPages.filter((p) => p.clientKey !== action.clientKey),
+      };
+    // Edits to a canvas whose create has not yet been confirmed. The row only
+    // exists locally, so this is the sole place those keystrokes live until
+    // the create flushes and carries the latest content with it.
+    case "page/patch-optimistic":
+      return {
+        ...state,
+        optimisticPages: state.optimisticPages.map((p) =>
+          p.clientKey === action.clientKey
+            ? { ...p, title: action.title, icon: action.icon, docJson: action.docJson, preview: action.preview, hashtags: action.hashtags, updatedAt: Date.now() }
+            : p,
+        ),
+      };
     case "bookmark/mark-deleting":
       return state.deletingBookmarkIds.includes(action.bookmarkId)
         ? state
@@ -485,12 +531,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     optimisticTodos: [],
     deletingTodoIds: [],
     deletingNoteIds: [],
+    deletingPageIds: [],
     deletingBookmarkIds: [],
     deletingEventIds: [],
     togglingTodos: {},
     optimisticBookmarks: [],
     optimisticEvents: [],
     optimisticNotes: [],
+    optimisticPages: [],
   }));
   const todoDueBackfillRequestedRef = useRef(false);
   const gcalTodoFolderBackfillRequestedRef = useRef(false);
@@ -536,6 +584,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const rawNoteFolders = useLiveQuery(
     () => db.noteFolders.toArray().then(rows => rows.sort((a, b) => b.createdAt - a.createdAt)),
   ) ?? EMPTY;
+  // Canvases sort by last edit, not creation: their two surfaces are the
+  // "Continue writing" row (most recently worked on first) and the day card.
+  const rawPages = useLiveQuery(
+    () => db.pages.filter(p => !p.deletedAt).toArray().then(rows => rows.sort((a, b) => b.updatedAt - a.updatedAt)),
+  ) ?? EMPTY;
   const rawBookmarkCategories = useLiveQuery(
     () => db.bookmarkCategories.toArray().then(rows => rows.sort((a, b) => b.createdAt - a.createdAt)),
   ) ?? EMPTY;
@@ -550,6 +603,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     () => db.events.filter(e => !e.deletedAt).toArray().then(rows => rows.sort((a, b) => b.loggedAt - a.loggedAt)),
   ) ?? EMPTY;
   const serverNoteIds = useMemo(() => new Set(rawNotes.map((note) => String(note._id))), [rawNotes]);
+  const serverPageIds = useMemo(() => new Set(rawPages.map((page) => String(page._id))), [rawPages]);
   const serverBookmarkIds = useMemo(() => new Set(rawBookmarks.map((bookmark) => String(bookmark._id))), [rawBookmarks]);
   const serverEventIds = useMemo(() => new Set(rawEvents.map((event) => String(event._id))), [rawEvents]);
   const rawActivity = useLiveQuery<Doc<"activityHistory">[]>(
@@ -565,6 +619,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [decryptedNotes, setDecryptedNotes] = useState<NoteItem[]>([]);
   const [decryptedDeletedNotes, setDecryptedDeletedNotes] = useState<NoteItem[]>([]);
   const [decryptedNoteFolders, setDecryptedNoteFolders] = useState<NoteFolder[]>([]);
+  const [decryptedPages, setDecryptedPages] = useState<PageItem[]>([]);
   const [decryptedBookmarkCategories, setDecryptedBookmarkCategories] = useState<BookmarkCategory[]>([]);
   const [decryptedBookmarks, setDecryptedBookmarks] = useState<BookmarkItem[]>([]);
   const [decryptedDeletedBookmarks, setDecryptedDeletedBookmarks] = useState<BookmarkItem[]>([]);
@@ -634,6 +689,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [localState.deletingBookmarkIds, serverBookmarkIds]);
 
   useEffect(() => {
+    const confirmedDeletes = localState.deletingPageIds.filter((pageId) => !serverPageIds.has(pageId));
+    if (!confirmedDeletes.length) return;
+    const timer = window.setTimeout(() => {
+      localDispatch({ type: "page/clear-deleting", pageIds: confirmedDeletes });
+    }, DELETE_MASK_RELEASE_MS);
+    return () => window.clearTimeout(timer);
+  }, [localState.deletingPageIds, serverPageIds]);
+
+  useEffect(() => {
     const confirmedDeletes = localState.deletingEventIds.filter((eventId) => !serverEventIds.has(eventId));
     if (!confirmedDeletes.length) return;
     const timer = window.setTimeout(() => {
@@ -658,6 +722,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     })();
     return () => { cancelled = true; };
   }, [rawNotes, isLocked, decrypt, decryptArray]);
+
+  // `allSettled` rather than `all`, same as notes: one canvas whose ciphertext
+  // can't be decrypted (a key rotation, a corrupted row) must not blank out
+  // every other canvas the user has.
+  useEffect(() => {
+    if (isLocked) { setDecryptedPages([]); return; }
+    let cancelled = false;
+    void (async () => {
+      const settled = await Promise.allSettled(rawPages.map(async (p) => ({
+        ...mapPage(p),
+        title: p.title ? await decrypt(p.title) : undefined,
+        docJson: await decrypt(p.docJson),
+        preview: await decrypt(p.preview),
+      })));
+      const result = settled.flatMap((r) => r.status === "fulfilled" ? [r.value] : []);
+      if (!cancelled) setDecryptedPages(result);
+    })();
+    return () => { cancelled = true; };
+  }, [rawPages, isLocked, decrypt]);
 
   useEffect(() => {
     if (isLocked) { setDecryptedDeletedNotes([]); return; }
@@ -811,6 +894,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updateNote = useMutation(api.notes.updateNote);
   const deleteNote = useMutation(api.notes.deleteNote);
   const restoreNote = useMutation(api.notes.restoreNote);
+  const createPage = useMutation(api.pages.createPage);
+  const updatePage = useMutation(api.pages.updatePage);
+  const deletePage = useMutation(api.pages.deletePage);
+  const restorePage = useMutation(api.pages.restorePage);
   const createBookmark = useMutation(api.bookmarks.createBookmark);
   const updateBookmark = useMutation(api.bookmarks.updateBookmark);
   const deleteBookmark = useMutation(api.bookmarks.deleteBookmark);
@@ -846,6 +933,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const serverNoteClientKeys = useMemo(
     () => new Set(decryptedNotes.map((n) => n.clientKey).filter((v): v is string => Boolean(v))),
     [decryptedNotes],
+  );
+  const serverPageClientKeys = useMemo(
+    () => new Set(decryptedPages.map((p) => p.clientKey).filter((v): v is string => Boolean(v))),
+    [decryptedPages],
   );
 
   // One-time data migrations
@@ -1167,6 +1258,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       localDispatch({ type: "note/remove-optimistic", clientKey: note.clientKey });
     }
   }, [localState.optimisticNotes, serverNoteClientKeys]);
+
+  useEffect(() => {
+    for (const page of localState.optimisticPages) {
+      if (!page.clientKey || !serverPageClientKeys.has(page.clientKey)) continue;
+      localDispatch({ type: "page/remove-optimistic", clientKey: page.clientKey });
+    }
+  }, [localState.optimisticPages, serverPageClientKeys]);
 
   // Persist UI state to localStorage on every change.
   useEffect(() => {
@@ -1490,6 +1588,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       thumbnailUrl?: string;
       faviconUrl?: string;
       draftKey?: string;
+      pageId?: string;
     }) => {
       const clientKey = action.clientKey ?? prefixedRandomId("bookmark");
       const normalizedUrl = normalizeBookmarkUrl(action.url);
@@ -1511,6 +1610,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           previewState: isOnline ? "loading" : undefined,
           createdAt: Date.now(),
           createdDateKey: action.dateKey,
+          pageId: action.pageId,
         },
       });
 
@@ -1532,6 +1632,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           description: await encryptOptional(action.description ?? preview?.description),
           thumbnailUrl: await encryptOptional(action.thumbnailUrl ?? preview?.thumbnailUrl),
           faviconUrl: await encryptOptional(action.faviconUrl ?? preview?.faviconUrl),
+          pageId: action.pageId as any,
         })) as string;
         localDispatch({ type: "bookmark/confirm-optimistic", clientKey });
         clearBookmarkDraft(action.draftKey);
@@ -1605,6 +1706,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       "note/delete": async (payload) => {
         await deleteNote({ noteId: payload.noteId as any });
         clearCanvasDraftForKey(payload.draftKey);
+      },
+      "page/create": async (payload) => {
+        await createPage({
+          clientKey: payload.clientKey,
+          docJson: payload.docJson,
+          preview: payload.preview,
+          title: payload.title,
+          icon: payload.icon,
+          hashtags: payload.hashtags,
+          dateKey: payload.dateKey,
+        });
+      },
+      "page/update": async (payload) => {
+        await updatePage({
+          pageId: payload.pageId as any,
+          docJson: payload.docJson,
+          preview: payload.preview,
+          title: payload.title,
+          icon: payload.icon,
+          hashtags: payload.hashtags,
+        });
+      },
+      "page/delete": async (payload) => {
+        await deletePage({ pageId: payload.pageId as any });
+      },
+      "page/restore": async (payload) => {
+        await restorePage({ pageId: payload.pageId as any });
       },
       "bookmark/create": async (payload) => {
         await saveBookmarkCreate(payload);
@@ -1727,6 +1855,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     updateTodo,
     updateNote,
     updateEventEntry,
+    createPage,
+    updatePage,
+    deletePage,
+    restorePage,
     scheduleSync,
   ]);
 
@@ -1743,6 +1875,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // could know it happened.
         reportError(error ?? new Error(`outbox discarded ${kind}`), `outbox/${reason}`);
         const noun = OUTBOX_KIND_NOUNS[kind] ?? "change";
+
+        // Out of space is its own thing. "The server rejected it, try again"
+        // is wrong advice here — trying again cannot work until something is
+        // deleted — so it gets its own copy and a way to act on it.
+        if (isStorageLimitError(error)) {
+          localDispatch({
+            type: "toast/add",
+            toast: {
+              id: randomId(),
+              createdAt: Date.now(),
+              tone: "warning",
+              title: `That ${noun} couldn't be saved — you're out of storage`,
+              body: "You've hit the 200MB limit. Delete something to free up space, then try again.",
+              actionLabel: "Manage storage",
+              actionHref: "/settings?category=storage",
+            },
+          });
+          return;
+        }
+
         localDispatch({
           type: "toast/add",
           toast: {
@@ -1808,7 +1960,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const showDeleteToast = useCallback(
-    (kind: "todo" | "note" | "bookmark" | "event", content: string, onUndo?: () => void) => {
+    (kind: "todo" | "note" | "bookmark" | "event" | "page", content: string, onUndo?: () => void) => {
       const label = kind === "event" ? "reminder" : kind;
       localDispatch({
         type: "toast/add",
@@ -1845,7 +1997,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       case "todo/create": {
         const normalizedDue = normalizeTodoDueInput({ dueDateKey: action.dueDateKey, dueTime: action.dueTime });
         const hashtags = action.hashtags ?? buildHashtagsFromText(action.title);
-        const clientKey = prefixedRandomId("todo");
+        // Callers that need to reference the todo before the server answers
+        // supply their own key — a canvas checklist block stores it as the
+        // node's identity, so the block survives the optimistic-to-server
+        // handoff without ever holding a server id. See usePageArtifactSync.
+        const clientKey = action.clientKey ?? prefixedRandomId("todo");
         const optimisticFolder =
           action.folderId || action.folderName
             ? { folderId: action.folderId, folderName: action.folderName }
@@ -1870,6 +2026,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           recurrence: action.recurrence,
           reminderEveryMinutes: action.reminderEveryMinutes,
           reminderUntil: action.reminderUntil,
+          pageId: action.pageId,
         };
         localDispatch({ type: "todo/add-optimistic", todo: optimisticTodo });
         void (async () => {
@@ -1886,6 +2043,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               hashtags,
               folderId: resolvedFolder.folderId as any,
               folderName: resolvedFolder.folderId ? undefined : resolvedFolder.folderName ? await encrypt(resolvedFolder.folderName) : undefined,
+              pageId: action.pageId as any,
               recurrence: action.recurrence,
               reminderEveryMinutes: action.reminderEveryMinutes,
               reminderUntil: action.reminderUntil,
@@ -2505,6 +2663,110 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
         })();
         return true;
+      case "page/create": {
+        const clientKey = action.clientKey ?? prefixedRandomId("page");
+        const now = Date.now();
+        localDispatch({
+          type: "page/add-optimistic",
+          page: {
+            id: clientKey,
+            clientKey,
+            pendingSync: true,
+            title: action.title,
+            icon: action.icon,
+            docJson: action.docJson,
+            preview: action.preview,
+            hashtags: action.hashtags,
+            createdAt: now,
+            updatedAt: now,
+            createdDateKey: action.dateKey,
+          },
+        });
+        void (async () => {
+          const encDoc = await encrypt(action.docJson);
+          const encPreview = await encrypt(action.preview);
+          const encTitle = action.title ? await encrypt(action.title) : undefined;
+          try {
+            await createPage({ clientKey, docJson: encDoc, preview: encPreview, title: encTitle, icon: action.icon, hashtags: action.hashtags, dateKey: action.dateKey });
+            scheduleSync();
+          } catch {
+            enqueueCanvasMutation("page/create", { clientKey, docJson: encDoc, preview: encPreview, title: encTitle, icon: action.icon, hashtags: action.hashtags, dateKey: action.dateKey });
+          }
+        })();
+        return true;
+      }
+      case "page/update": {
+        // A canvas still identified by its clientKey has never reached the
+        // server, so there is no row to patch. Keep the edit in the optimistic
+        // copy and fold it into the queued create, which is idempotent on
+        // clientKey and will carry the newest content when it flushes.
+        const pending = localState.optimisticPages.find((p) => p.clientKey === action.pageId);
+        if (pending) {
+          localDispatch({
+            type: "page/patch-optimistic",
+            clientKey: action.pageId,
+            title: action.title,
+            icon: action.icon,
+            docJson: action.docJson,
+            preview: action.preview,
+            hashtags: action.hashtags,
+          });
+        }
+        void (async () => {
+          const encDoc = await encrypt(action.docJson);
+          const encPreview = await encrypt(action.preview);
+          const encTitle = action.title ? await encrypt(action.title) : undefined;
+          if (pending) {
+            enqueueCanvasMutation("page/create", { clientKey: action.pageId, docJson: encDoc, preview: encPreview, title: encTitle, icon: action.icon, hashtags: action.hashtags, dateKey: pending.createdDateKey });
+            return;
+          }
+          try {
+            await updatePage({ pageId: action.pageId as any, docJson: encDoc, preview: encPreview, title: encTitle, icon: action.icon, hashtags: action.hashtags });
+            scheduleSync();
+          } catch {
+            enqueueCanvasMutation("page/update", { pageId: action.pageId, docJson: encDoc, preview: encPreview, title: encTitle, icon: action.icon, hashtags: action.hashtags });
+          }
+        })();
+        return true;
+      }
+      case "page/delete": {
+        const snapshot = stateRef.current?.pages.find((p) => p.id === action.pageId);
+        if (!historySuppressedRef.current && !action.silent) {
+          showDeleteToast(
+            "page",
+            snapshot?.title?.trim() || snapshot?.preview?.trim() || "Untitled page",
+            snapshot ? () => dispatchRef.current({ type: "page/restore", pageId: snapshot.id }) : undefined,
+          );
+        }
+        localDispatch({ type: "page/mark-deleting", pageId: action.pageId });
+        void (async () => {
+          try {
+            await deletePage({ pageId: action.pageId as any });
+            scheduleSync();
+            if (snapshot) {
+              pushHistory({
+                key: `page:delete:${snapshot.id}`,
+                undo: () => dispatchRef.current({ type: "page/restore", pageId: snapshot.id }),
+                redo: () => dispatchRef.current({ type: "page/delete", pageId: snapshot.id }),
+              });
+            }
+          } catch {
+            enqueueCanvasMutation("page/delete", { pageId: action.pageId });
+          }
+        })();
+        return true;
+      }
+      case "page/restore":
+        localDispatch({ type: "page/clear-deleting", pageIds: [action.pageId] });
+        void (async () => {
+          try {
+            await restorePage({ pageId: action.pageId as any });
+            scheduleSync();
+          } catch {
+            enqueueCanvasMutation("page/restore", { pageId: action.pageId });
+          }
+        })();
+        return true;
       case "note-folder/create":
         void (async () => {
           const encryptedName = await encrypt(action.name);
@@ -2574,12 +2836,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       default:
         return false;
     }
-  }, [authUser?.id, createNote, updateNote, deleteNote, restoreNote, createNoteFolder, updateNoteFolder, deleteNoteFolder, deleteNoteFolderWithNotes, pushHistory, showDeleteToast, encrypt, encryptArray, scheduleSync, setDecryptedNoteFolders]);
+  }, [authUser?.id, createNote, updateNote, deleteNote, restoreNote, createNoteFolder, updateNoteFolder, deleteNoteFolder, deleteNoteFolderWithNotes, createPage, updatePage, deletePage, restorePage, localState.optimisticPages, pushHistory, showDeleteToast, encrypt, encryptArray, scheduleSync, setDecryptedNoteFolders]);
 
   const handleBookmarkAction = useCallback((action: AppAction): boolean => {
     switch (action.type) {
       case "bookmark/create": {
-        const clientKey = prefixedRandomId("bookmark");
+        // Callers that must reference the bookmark before the server answers
+        // supply their own key — a canvas link block stores it as the node's
+        // identity. See usePageArtifactSync.
+        const clientKey = action.clientKey ?? prefixedRandomId("bookmark");
         const actionWithKey = { ...action, clientKey };
         void runWithCanvasOutboxFallback("bookmark/create", actionWithKey, async () => {
           const bookmarkId = await saveBookmarkCreate(actionWithKey);
@@ -2891,6 +3156,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ],
       deletedNotes: decryptedDeletedNotes,
       noteFolders: decryptedNoteFolders,
+      pages: [
+        ...decryptedPages.filter((page) => !localState.deletingPageIds.includes(page.id)),
+        ...localState.optimisticPages.filter(
+          (optimisticPage) =>
+            !serverPageClientKeys.has(optimisticPage.clientKey ?? "") &&
+            !localState.deletingPageIds.includes(optimisticPage.id),
+        ),
+      ],
       bookmarks: [
         ...decryptedBookmarks.filter((bookmark) => !localState.deletingBookmarkIds.includes(bookmark.id)),
         ...localState.optimisticBookmarks.filter(

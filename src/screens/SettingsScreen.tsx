@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useAction, useMutation, useQuery } from "convex/react";
 import {
   GripHorizontal,
@@ -60,6 +61,9 @@ import {
 const SettingsDataPanels = lazy(() =>
   import("../app/SettingsDataPanels").then((module) => ({ default: module.SettingsDataPanels })),
 );
+const StorageUsagePanel = lazy(() =>
+  import("./StorageUsagePanel").then((module) => ({ default: module.StorageUsagePanel })),
+);
 
 const MOBILE_CATEGORY_SUMMARIES: Record<CategoryId, string> = {
   appearance: "Theme, navigation labels, and canvas look",
@@ -68,10 +72,22 @@ const MOBILE_CATEGORY_SUMMARIES: Record<CategoryId, string> = {
   security: "Passphrase controls and app lock behavior",
   devices: "Signed-in sessions and device access",
   data: "Import, export, and backup tools",
+  storage: "Space used, broken down by images and text",
   account: "Profile details and account deletion",
 };
 
 export function SettingsScreen() {
+  // Deep-linkable so ProfileMenuButton's "Storage" entry can land straight on
+  // that category instead of the default — see StorageUsageStat.
+  //
+  // Router state covers in-app navigation; `?category=` exists because a toast
+  // action only carries an href, and "you're out of space" is useless if it
+  // can't put the user in front of the thing to delete.
+  const location = useLocation();
+  const categoryParam = new URLSearchParams(location.search).get("category");
+  const initialCategory =
+    (location.state as { category?: CategoryId } | null)?.category ??
+    (CATEGORIES.some((c) => c.id === categoryParam) ? (categoryParam as CategoryId) : undefined);
   const { user, deleteAccount, signOut } = useAuth();
   const { settings, loading, updateSettings } = useUserSettings();
   const { themeMode, setThemeMode } = useTheme();
@@ -122,7 +138,7 @@ export function SettingsScreen() {
     }
   }
 
-  const [selectedCategory, setSelectedCategory] = useState<CategoryId>("appearance");
+  const [selectedCategory, setSelectedCategory] = useState<CategoryId>(initialCategory ?? "appearance");
   const [mobileOpen, setMobileOpen] = useState(false);
   const { dragOffset, isDragging, dragHandleProps } = useDrawerDrag(() => setMobileOpen(false));
 
@@ -573,7 +589,7 @@ export function SettingsScreen() {
                   </div>
                   {googleConnection?.connected ? (
                     googleConnection.status === "needs_reconnect" ? (
-                      <Button tone="default" disabled={googleActionPending} onClick={() => void handleConnectGoogle()}>
+                      <Button variant="default" disabled={googleActionPending} onClick={() => void handleConnectGoogle()}>
                         Reconnect
                       </Button>
                     ) : (
@@ -608,7 +624,7 @@ export function SettingsScreen() {
                       Disconnecting removes omanote's access to your Google account and stops all syncing.
                     </p>
                     <Button
-                      tone="dangerGhost"
+                      variant="dangerGhost"
                       disabled={googleActionPending}
                       onClick={() => void handleDisconnectGoogle()}
                     >
@@ -777,7 +793,7 @@ export function SettingsScreen() {
             )}
             <div className="mt-6 flex justify-end gap-2">
               {hasPendingAppearanceChanges ? (
-                <Button type="button" tone="ghost" onClick={resetAppearanceChanges} disabled={loading || savingAppearance}>
+                <Button type="button" variant="ghost" onClick={resetAppearanceChanges} disabled={loading || savingAppearance}>
                   Reset changes
                 </Button>
               ) : null}
@@ -981,7 +997,7 @@ export function SettingsScreen() {
 
             <div className="mt-6 flex justify-end gap-2">
               {hasPendingNotificationChanges ? (
-                <Button type="button" tone="ghost" onClick={resetNotificationChanges} disabled={loading || savingNotifications}>
+                <Button type="button" variant="ghost" onClick={resetNotificationChanges} disabled={loading || savingNotifications}>
                   Reset changes
                 </Button>
               ) : null}
@@ -1071,7 +1087,7 @@ export function SettingsScreen() {
               )}
 
               <div className="mt-4 flex justify-end">
-                <Button type="button" tone="soft" onClick={() => void handleExportRecoveryKey()} disabled={exportingRecovery}>
+                <Button type="button" variant="soft" onClick={() => void handleExportRecoveryKey()} disabled={exportingRecovery}>
                   {exportingRecovery ? "Preparing..." : "Download Recovery Key (.txt)"}
                 </Button>
               </div>
@@ -1158,6 +1174,13 @@ export function SettingsScreen() {
           </div>
         );
 
+      case "storage":
+        return (
+          <Suspense fallback={<div className="h-24 rounded-xl border border-app-line bg-app-surface-muted" aria-hidden="true" />}>
+            <StorageUsagePanel isMobileDrawer={isMobileDrawer} />
+          </Suspense>
+        );
+
       case "account":
         return (
           <div>
@@ -1184,7 +1207,7 @@ export function SettingsScreen() {
               <div className="mt-4 flex justify-end">
                 <Button
                   type="button"
-                  tone="danger"
+                  variant="danger"
                   onClick={() => void handleDeleteAccount()}
                   disabled={!canDeleteAccount || deletingAccount}
                 >
@@ -1276,12 +1299,12 @@ export function SettingsScreen() {
               <p className="mt-1.5 text-sm leading-relaxed text-app-ink-faint">{confirmDialog?.message}</p>
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-app-line px-5 py-4">
-              <Button type="button" tone="plain" onClick={closeConfirm} disabled={confirmLoading}>
+              <Button type="button" variant="plain" onClick={closeConfirm} disabled={confirmLoading}>
                 Cancel
               </Button>
               <Button
                 type="button"
-                tone={confirmDialog?.variant === "danger" ? "danger" : "default"}
+                variant={confirmDialog?.variant === "danger" ? "danger" : "default"}
                 onClick={() => void handleConfirmOk()}
                 disabled={confirmLoading}
               >

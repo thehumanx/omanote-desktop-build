@@ -44,7 +44,10 @@ export async function findSharedNoteFolderByCodeOrSlug(ctx: QueryCtx, codeOrSlug
 export async function isShareIdentifierTaken(
   ctx: QueryCtx,
   value: string,
-  excludeSelf?: { table: "sharedFolders" | "sharedNoteFolders"; id: Id<"sharedFolders"> | Id<"sharedNoteFolders"> },
+  excludeSelf?: {
+    table: "sharedFolders" | "sharedNoteFolders" | "sharedPages";
+    id: Id<"sharedFolders"> | Id<"sharedNoteFolders"> | Id<"sharedPages">;
+  },
 ) {
   const folderByCode = await ctx.db
     .query("sharedFolders")
@@ -74,7 +77,35 @@ export async function isShareIdentifierTaken(
     return true;
   }
 
+  const pageByCode = await ctx.db
+    .query("sharedPages")
+    .withIndex("by_shareCode", (q) => q.eq("shareCode", value))
+    .unique();
+  if (pageByCode) return true;
+
+  const pageBySlug = await ctx.db
+    .query("sharedPages")
+    .withIndex("by_customSlug", (q) => q.eq("customSlug", value))
+    .unique();
+  if (pageBySlug && !(excludeSelf?.table === "sharedPages" && pageBySlug._id === excludeSelf.id)) {
+    return true;
+  }
+
   return false;
+}
+
+/** Resolves `/s/<code-or-slug>` for a shared canvas. */
+export async function findSharedPageByCodeOrSlug(ctx: QueryCtx, value: string) {
+  const byCode = await ctx.db
+    .query("sharedPages")
+    .withIndex("by_shareCode", (q) => q.eq("shareCode", value))
+    .unique();
+  if (byCode) return byCode;
+
+  return ctx.db
+    .query("sharedPages")
+    .withIndex("by_customSlug", (q) => q.eq("customSlug", value))
+    .unique();
 }
 
 /**

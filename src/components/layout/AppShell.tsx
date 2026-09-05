@@ -27,6 +27,19 @@ import { useUserSettings } from "../../contexts/UserSettingsContext";
 import { desktopPlatform } from "../../lib/desktop";
 import { WindowControls } from "../desktop/WindowControls";
 
+/**
+ * Routes rendered with no app chrome at all — the early return below means
+ * neither the header nor BottomNav nor ComposerSheet is ever mounted for
+ * these, rather than each being hidden separately.
+ *
+ * Exported for tests: the list is easy to extend and hard to notice breaking,
+ * since a mistake here shows up as chrome floating over a page meant to be
+ * bare, which nothing else asserts.
+ */
+export function isChromelessRoute(pathname: string): boolean {
+  return pathname === "/compose-popout" || pathname.startsWith("/p/");
+}
+
 export function AppShell() {
   const location = useLocation();
   const {
@@ -144,11 +157,14 @@ export function AppShell() {
     };
   }, [isWorkspaceRoute]);
 
-  // The pop-out composer window (see composer-popout.ts) is its own tiny
-  // window — no nav, no header, no second ComposerSheet — but still needs
-  // to be nested here for the provider stack above AppShell (auth,
-  // encryption, user settings) that CanvasDraftBlock depends on.
-  if (location.pathname === "/compose-popout") {
+  // Routes that render with none of the app's chrome — no header, no bottom
+  // nav, no ComposerSheet — but still need to be nested here for the provider
+  // stack above AppShell (auth, encryption, user settings).
+  //
+  // `/compose-popout` is the pop-out composer window (see composer-popout.ts).
+  // `/p/:pageId` is a single canvas, which is meant to read like a document
+  // rather than a panel inside the app.
+  if (isChromelessRoute(location.pathname)) {
     return (
       <Suspense fallback={null}>
         <ErrorBoundary>

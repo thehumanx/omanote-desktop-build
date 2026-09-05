@@ -1,10 +1,10 @@
-import type { BookmarkItem, DateKey, NoteItem, EventEntry, TodoItem } from "./domain";
+import type { BookmarkItem, DateKey, NoteItem, PageItem, EventEntry, TodoItem } from "./domain";
 import { formatTimestamp } from "./date-utils";
 
 export interface SearchHit {
   id: string;
   title: string;
-  kind: "todo" | "note" | "bookmark" | "event";
+  kind: "todo" | "note" | "bookmark" | "event" | "page";
   subtitle: string;
   dateKey?: string;
   canvasDateKey?: DateKey;
@@ -34,6 +34,7 @@ export function searchArtifacts(args: {
   notes: NoteItem[];
   bookmarks: BookmarkItem[];
   events: EventEntry[];
+  pages?: PageItem[];
 }): SearchHit[] {
   const query = args.query.trim();
   if (!query) return [];
@@ -94,6 +95,23 @@ export function searchArtifacts(args: {
         subtitle: event.loggedAt ? formatTimestamp(event.loggedAt) : event.createdDateKey,
         dateKey: event.createdDateKey,
         canvasDateKey: event.createdDateKey,
+      });
+    }
+  }
+
+  // Matched on the plaintext `preview` extract rather than the full document:
+  // docJson is ProseMirror JSON, so searching it raw would match structural
+  // keys like "paragraph" and "heading" as if they were content.
+  for (const page of args.pages ?? []) {
+    if (page.deletedAt) continue;
+    if (matchesKeywords([page.title ?? "", page.preview], query)) {
+      hits.push({
+        id: page.id,
+        title: page.title?.trim() || "Untitled canvas",
+        kind: "page",
+        subtitle: page.preview.trim() || page.createdDateKey,
+        dateKey: page.createdDateKey,
+        canvasDateKey: page.createdDateKey,
       });
     }
   }

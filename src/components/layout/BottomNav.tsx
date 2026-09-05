@@ -438,7 +438,7 @@ function FullBottomNav({ hidden = false, forceHidden = false }: { hidden?: boole
           <div className="flex h-full items-center gap-2">
             {/* X / close button */}
             <Button
-              tone="ghost"
+              variant="ghost"
               className="h-12 w-12 shrink-0 rounded-full border border-app-line bg-app-surface/80 p-0 text-app-ink shadow-none hover:bg-app-surface"
               aria-label="Close explore"
               onClick={closeExplore}

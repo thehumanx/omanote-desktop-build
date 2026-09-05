@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "convex/react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
 import { useUpdate } from "../contexts/UpdateContext";
 import { jsonCodec, readLocalStorageOptional, writeLocalStorage } from "../lib/local-storage";
@@ -31,7 +32,9 @@ const surveyEligibilityCodec = jsonCodec(isSurveyEligibilityCache);
  * on the next reload — there's no dismiss for the ongoing survey itself.
  */
 export function CanvasSystemNotice() {
+  const navigate = useNavigate();
   const update = useUpdate();
+  const storageUsage = useQuery(api.storageUsage.getUsage);
   const surveyResponse = useQuery(api.survey.getMyResponse);
   const [surveyOpen, setSurveyOpen] = useState(false);
   const [surveyCompletedLocally, setSurveyCompletedLocally] = useState(false);
@@ -52,6 +55,9 @@ export function CanvasSystemNotice() {
   }, [surveyResponse]);
 
   const showUpdateBanner = update.isBannerVisible && !!update.latestVersion;
+  const showStorageWarning = storageUsage
+    ? (storageUsage.textBytes + storageUsage.imageBytes) / storageUsage.capBytes >= 0.9
+    : false;
   const surveyShouldPrompt = surveyResponse ? surveyResponse.shouldPrompt : (cachedEligibility?.shouldPrompt ?? false);
   const surveyResuming = surveyResponse ? surveyResponse.answers.length > 0 : (cachedEligibility?.resuming ?? false);
   const surveyEligible = !surveyCompletedLocally && surveyShouldPrompt;
@@ -66,7 +72,7 @@ export function CanvasSystemNotice() {
         : "not-started"
       : null;
 
-  const hasNotice = showUpdateBanner || surveyStatus !== null;
+  const hasNotice = showUpdateBanner || showStorageWarning || surveyStatus !== null;
 
   return (
     <>
@@ -75,6 +81,19 @@ export function CanvasSystemNotice() {
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-app-ink-faint">omanote updates</p>
           <div className="divide-y divide-app-line overflow-hidden rounded-lg border border-app-line bg-app-surface">
             {showUpdateBanner ? <UpdateNotificationBanner inline /> : null}
+            {showStorageWarning ? (
+              <button
+                type="button"
+                aria-label="storage almost full"
+                onClick={() => navigate("/settings", { state: { category: "storage" } })}
+                className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors duration-150 hover:bg-app-surface-hover"
+              >
+                <span aria-hidden="true" className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-danger-solid" />
+                <span className="min-w-0 flex-1 text-sm text-app-ink-muted">
+                  <span className="text-app-ink">Storage almost full.</span> Delete/export old files to save storage.
+                </span>
+              </button>
+            ) : null}
             {surveyStatus ? (
               <SurveyPrompt
                 status={surveyStatus}

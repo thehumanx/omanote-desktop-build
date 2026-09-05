@@ -235,7 +235,7 @@ export const TodoCard = memo(function TodoCard({
           <div className={["text-base leading-6", todo.status === "done" ? "text-app-ink-faint line-through" : "text-app-ink"].join(" ")}>
             <RichTextPreview value={todo.title} onLinkEdit={editTodoTitle} highlightQuery={highlightQuery} />
           </div>
-          {todo.priority === "high" ? <Badge tone="outline" className="uppercase tracking-wide">High</Badge> : null}
+          {todo.priority === "high" ? <Badge variant="outline" className="uppercase tracking-wide">High</Badge> : null}
           {dueChip ? (
             <Badge className="rounded-md text-app-ink-faint/80">
               {dueChip}
@@ -343,7 +343,7 @@ export const NoteCard = memo(function NoteCard({
           {note.tags.length ? (
             <div className="mt-2 flex flex-wrap gap-2">
               {note.tags.map((tag) => (
-                <Chip key={tag} tone="muted" className="text-app-ink-muted">
+                <Chip key={tag} variant="muted" className="text-app-ink-muted">
                   {tag}
                 </Chip>
               ))}
@@ -387,7 +387,7 @@ export const NoteCard = memo(function NoteCard({
       {note.tags.length ? (
         <div className="mt-3 flex flex-wrap gap-2">
           {note.tags.map((tag) => (
-            <Chip key={tag} tone="outline">
+            <Chip key={tag} variant="outline">
               {tag}
             </Chip>
           ))}
@@ -397,19 +397,19 @@ export const NoteCard = memo(function NoteCard({
       {onEdit || onDelete || onRestore ? (
         <div className="mt-4 flex flex-wrap items-center gap-2">
           {onEdit ? (
-            <Button tone="soft" onClick={(event) => onEdit(note, event)}>
+            <Button variant="soft" onClick={(event) => onEdit(note, event)}>
               <Pencil className="mr-1.5 h-3.5 w-3.5" />
               Edit
             </Button>
           ) : null}
           {onDelete ? (
-            <Button tone="ghost" onClick={() => onDelete(note.id)}>
+            <Button variant="ghost" onClick={() => onDelete(note.id)}>
               <Trash2 className="mr-1.5 h-3.5 w-3.5" />
               Delete
             </Button>
           ) : null}
           {onRestore ? (
-            <Button tone="soft" onClick={() => onRestore(note.id)}>
+            <Button variant="soft" onClick={() => onRestore(note.id)}>
               <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
               Restore
             </Button>
@@ -982,7 +982,7 @@ export const BookmarkCard = memo(function BookmarkCard({
                                   </Badge>
                                 ) : null}
                                 {todoCompletedLabel ? (
-                                  <Badge tone="success" className="gap-1 rounded-md px-1.5">
+                                  <Badge variant="success" className="gap-1 rounded-md px-1.5">
                                     <CircleCheckBig className="h-3 w-3" />
                                     {todoCompletedLabel}
                                   </Badge>
@@ -1030,7 +1030,7 @@ export const BookmarkCard = memo(function BookmarkCard({
       )}
       {surface === "canvas" && onRestore ? (
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <Button tone="soft" onClick={() => onRestore(bookmark.id)}>
+          <Button variant="soft" onClick={() => onRestore(bookmark.id)}>
             <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
             Restore
           </Button>
@@ -1116,19 +1116,19 @@ export const EventCard = memo(function EventCard({
       {onEdit || onDelete || onRestore ? (
         <div className="mt-4 flex flex-wrap items-center gap-2">
           {onEdit ? (
-            <Button tone="soft" onClick={() => onEdit(event)}>
+            <Button variant="soft" onClick={() => onEdit(event)}>
               <Pencil className="mr-1.5 h-3.5 w-3.5" />
               Edit
             </Button>
           ) : null}
           {onDelete ? (
-            <Button tone="ghost" onClick={() => onDelete(event.id)}>
+            <Button variant="ghost" onClick={() => onDelete(event.id)}>
               <Trash2 className="mr-1.5 h-3.5 w-3.5" />
               Delete
             </Button>
           ) : null}
           {onRestore ? (
-            <Button tone="soft" onClick={() => onRestore(event.id)}>
+            <Button variant="soft" onClick={() => onRestore(event.id)}>
               <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
               Restore
             </Button>

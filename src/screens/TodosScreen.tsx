@@ -271,7 +271,7 @@ function TodoTodayEmptyCard({ onAdd }: { onAdd: () => void }) {
     <div className="flex flex-col items-start gap-2 rounded-xl border border-dashed border-app-line bg-app-surface-muted/40 px-4 py-4">
       <p className="text-sm font-bold text-app-ink">Nothing due today</p>
       <p className="text-sm text-app-ink-faint">Add something to your day, or enjoy the quiet.</p>
-      <Button tone="soft" className="mt-1 h-8 px-3 text-xs" onClick={onAdd}>
+      <Button variant="soft" className="mt-1 h-8 px-3 text-xs" onClick={onAdd}>
         <span className="inline-flex items-center gap-1.5">
           <Plus className="h-3.5 w-3.5" />
           Add todo
@@ -1655,17 +1655,17 @@ export function TodosScreen() {
                 : "This folder is empty. Deleting it will remove the folder."}
             </p>
             <div className="mt-5 flex items-center justify-between gap-3">
-              <Button tone="plain" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+              <Button variant="plain" onClick={() => setDeleteTarget(null)}>Cancel</Button>
               <div className="flex items-center gap-2">
                 {deleteTarget.count > 0 ? (
-                  <Button tone="dangerGhost" onClick={() => {
+                  <Button variant="dangerGhost" onClick={() => {
                     dispatch({ type: "todo-folder/delete-with-todos", folderId: deleteTarget.id });
                     setDeleteTarget(null);
                   }}>
                     Delete folder and todos
                   </Button>
                 ) : null}
-                <Button tone="default" onClick={() => {
+                <Button variant="default" onClick={() => {
                   dispatch({ type: "todo-folder/delete", folderId: deleteTarget.id });
                   setDeleteTarget(null);
                 }}>

@@ -1,5 +1,5 @@
 import { buildRecurringCompletionIndex, getVirtualOccurrenceForDate, toDateKey } from "@omanote/shared";
-import type { ActivityItem, BookmarkItem, DateKey, EventEntry, NoteItem, TodoItem } from "@omanote/shared";
+import type { ActivityItem, BookmarkItem, DateKey, EventEntry, NoteItem, PageItem, TodoItem } from "@omanote/shared";
 import { createInitialState } from "./demo-data";
 import type { AppAction, AppState, ToastItem } from "./types";
 import { prefixedRandomId } from "@omanote/shared";
@@ -446,6 +446,10 @@ export function getVisibleCanvasTodos(
   const todayKey = toDateKey(new Date());
   const visible: TodoItem[] = [];
   for (const todo of state.todos) {
+    // A checklist item written inside a page lives there, not in the day
+    // feed too — see PageScreen / usePageArtifactSync. It still shows in
+    // Todos under its folder; this only keeps it out of the duplicate.
+    if (todo.pageId) continue;
     // Series masters never render directly — each canvas day gets a virtual
     // occurrence when the rule fires there (daily on every day, weekly on
     // every 7th, …). Materialized completions render via the normal path.
@@ -468,7 +472,8 @@ export type CanvasArtifactItem =
   | { kind: "todo"; createdAt: number; data: TodoItem }
   | { kind: "note"; createdAt: number; data: NoteItem }
   | { kind: "bookmark"; createdAt: number; data: BookmarkItem }
-  | { kind: "event"; createdAt: number; data: EventEntry };
+  | { kind: "event"; createdAt: number; data: EventEntry }
+  | { kind: "page"; createdAt: number; data: PageItem };
 
 /** Every artifact (todos, including recurring occurrences, notes, bookmarks, events) created on `dateKey`, sorted by creation time. Shared by the canvas (today) and history (any day) screens. */
 export function buildCanvasDayItems(
@@ -484,14 +489,20 @@ export function buildCanvasDayItems(
   const noteItems: CanvasArtifactItem[] = state.notes
     .filter((note) => note.createdDateKey === dateKey)
     .map((note) => ({ kind: "note", createdAt: note.createdAt, data: note }));
+  // Same as todos above: a link block's bookmark row stays inside its page.
   const bookmarkItems: CanvasArtifactItem[] = state.bookmarks
-    .filter((bookmark) => bookmark.createdDateKey === dateKey)
+    .filter((bookmark) => bookmark.createdDateKey === dateKey && !bookmark.pageId)
     .map((bookmark) => ({ kind: "bookmark", createdAt: bookmark.createdAt, data: bookmark }));
   const eventItems: CanvasArtifactItem[] = state.events
     .filter((event) => !event.deletedAt && event.createdDateKey === dateKey)
     .map((event) => ({ kind: "event", createdAt: event.createdAt, data: event }));
+  // Canvases file under the day they were created, like notes — editing one
+  // later must not move it to another day's feed.
+  const pageItems: CanvasArtifactItem[] = state.pages
+    .filter((page) => !page.deletedAt && page.createdDateKey === dateKey)
+    .map((page) => ({ kind: "page", createdAt: page.createdAt, data: page }));
 
-  return [...todoItems, ...noteItems, ...bookmarkItems, ...eventItems].sort((left, right) => left.createdAt - right.createdAt);
+  return [...todoItems, ...noteItems, ...bookmarkItems, ...eventItems, ...pageItems].sort((left, right) => left.createdAt - right.createdAt);
 }
 
 export function hydrateState(raw: AppState | null) {

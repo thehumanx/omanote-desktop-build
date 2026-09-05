@@ -15,19 +15,19 @@ const keyboardFocusClass = "focus:outline-none focus-visible:ring-2 focus-visibl
 const fieldBase =
   "w-full rounded-app-field border border-app-line bg-app-surface px-app-field-x py-app-field-y text-sm text-app-ink outline-none placeholder:text-app-ink-faint transition-[border-color,background-color,box-shadow] duration-app-fast ease-app-out focus:border-app-line-strong focus:ring-2 focus:ring-app-focus/15 disabled:cursor-not-allowed disabled:opacity-50";
 
-export function Button(props: React.ButtonHTMLAttributes<HTMLButtonElement> & { tone?: "default" | "plain" | "ghost" | "soft" | "danger" | "dangerGhost" }) {
-  const { className, tone = "default", ...rest } = props;
+export function Button(props: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "default" | "plain" | "ghost" | "soft" | "danger" | "dangerGhost" }) {
+  const { className, variant = "default", ...rest } = props;
   return (
     <button
       className={cn(
         "inline-flex items-center justify-center rounded-app-button px-app-field-x py-app-field-y text-sm font-bold transition-[transform,background-color,border-color,color,box-shadow,opacity] duration-app-fast ease-app-out active:translate-y-px active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40",
         focusClass,
-        tone === "default" && "omanote-button-chrome text-action-primary-ink",
-        tone === "plain" && "omanote-button-plain bg-transparent text-app-ink shadow-none hover:bg-app-surface-hover hover:text-app-ink",
-        tone === "ghost" && "bg-transparent text-app-ink-muted hover:bg-app-surface-hover hover:text-app-ink",
-        tone === "soft" && "bg-app-surface-muted text-app-ink hover:bg-app-surface-hover",
-        tone === "danger" && "omanote-button-destructive text-danger-solid-ink",
-        tone === "dangerGhost" && "omanote-button-danger-ghost bg-transparent text-danger-ink shadow-none hover:bg-danger-surface hover:text-danger-ink",
+        variant === "default" && "omanote-button-chrome text-action-primary-ink",
+        variant === "plain" && "omanote-button-plain bg-transparent text-app-ink shadow-none hover:bg-app-surface-hover hover:text-app-ink",
+        variant === "ghost" && "bg-transparent text-app-ink-muted hover:bg-app-surface-hover hover:text-app-ink",
+        variant === "soft" && "bg-app-surface-muted text-app-ink hover:bg-app-surface-hover",
+        variant === "danger" && "omanote-button-destructive text-danger-solid-ink",
+        variant === "dangerGhost" && "omanote-button-danger-ghost bg-transparent text-danger-ink shadow-none hover:bg-danger-surface hover:text-danger-ink",
         className,
       )}
       {...rest}
@@ -49,15 +49,15 @@ export function LoadingSpinner({ className, ...props }: React.HTMLAttributes<HTM
   );
 }
 
-type BadgeTone = "muted" | "outline" | "success" | "danger";
+type BadgeVariant = "muted" | "outline" | "success" | "danger";
 type BadgeProps = React.HTMLAttributes<HTMLSpanElement> & {
-  tone?: BadgeTone;
+  variant?: BadgeVariant;
 };
 
 const metadataPillBase = "inline-flex shrink-0 items-center justify-center whitespace-nowrap text-[11px] font-medium leading-none";
 
-function metadataToneClass(tone: BadgeTone) {
-  switch (tone) {
+function metadataVariantClass(variant: BadgeVariant) {
+  switch (variant) {
     case "outline":
       return "border border-app-line bg-transparent text-app-ink-muted";
     case "success":
@@ -70,13 +70,13 @@ function metadataToneClass(tone: BadgeTone) {
   }
 }
 
-export function Badge({ className, tone = "muted", ...props }: BadgeProps) {
+export function Badge({ className, variant = "muted", ...props }: BadgeProps) {
   return (
     <span
       className={cn(
         metadataPillBase,
         "rounded-app-chip px-2 py-0.5",
-        metadataToneClass(tone),
+        metadataVariantClass(variant),
         className,
       )}
       {...props}
@@ -84,10 +84,10 @@ export function Badge({ className, tone = "muted", ...props }: BadgeProps) {
   );
 }
 
-type ChipTone = BadgeTone;
+type ChipVariant = BadgeVariant;
 type ChipShape = "rounded" | "circular";
 type ChipBaseProps = {
-  tone?: ChipTone;
+  variant?: ChipVariant;
   shape?: ChipShape;
   selected?: boolean;
 };
@@ -95,12 +95,12 @@ type ChipProps =
   | (React.HTMLAttributes<HTMLSpanElement> & ChipBaseProps & { onClick?: undefined })
   | (React.ButtonHTMLAttributes<HTMLButtonElement> & ChipBaseProps & { onClick: React.MouseEventHandler<HTMLButtonElement> });
 
-export function Chip({ className, tone = "muted", shape = "circular", selected = false, ...props }: ChipProps) {
+export function Chip({ className, variant = "muted", shape = "circular", selected = false, ...props }: ChipProps) {
   const classes = cn(
     metadataPillBase,
     shape === "circular" ? "rounded-app-chip" : "rounded-app-field",
     "px-2 py-0.5",
-    selected ? "border border-app-line-strong bg-app-surface text-app-ink" : metadataToneClass(tone),
+    selected ? "border border-app-line-strong bg-app-surface text-app-ink" : metadataVariantClass(variant),
     "transition-[background-color,border-color,color,box-shadow]",
     "onClick" in props && props.onClick ? focusClass : undefined,
     className,

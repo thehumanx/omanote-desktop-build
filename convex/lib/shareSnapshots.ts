@@ -38,6 +38,21 @@ export const SHARED_NOTE_FOLDER_SNAPSHOT_FIELDS = [
   "snapshotUpdatedAt",
 ] as const satisfies readonly (keyof Doc<"sharedNoteFolders">)[];
 
+/**
+ * Snapshot fields on `sharedPages`.
+ *
+ * `publishedImages` belongs here: it describes the plaintext copies that exist
+ * only because the share does, so it has to be cleared alongside the rest of
+ * the snapshot. The caller deletes the objects themselves first — see
+ * `deactivatePageShare`.
+ */
+export const SHARED_PAGE_SNAPSHOT_FIELDS = [
+  "snapshotTitle",
+  "snapshotBlocks",
+  "snapshotUpdatedAt",
+  "publishedImages",
+] as const satisfies readonly (keyof Doc<"sharedPages">)[];
+
 function clearedFields(fields: readonly string[]) {
   // Patching a field to `undefined` removes it in Convex.
   return Object.fromEntries(fields.map((field) => [field, undefined]));
@@ -64,4 +79,33 @@ export async function deactivateNoteFolderShare(
     isActive: false,
     ...clearedFields(SHARED_NOTE_FOLDER_SNAPSHOT_FIELDS),
   });
+}
+
+/**
+ * Same, for canvas shares.
+ *
+ * Returns the public keys of the plaintext image copies this share had
+ * published, which the caller is expected to hand back to the client so it can
+ * delete them from R2. Convex cannot do that itself — the objects live behind
+ * the page-images worker, which authorises deletes against the owner's Clerk
+ * token — so the row is cleared here and the bytes are removed by whoever
+ * called the mutation.
+ *
+ * Clearing the row regardless of whether that cleanup succeeds is deliberate:
+ * the share going dark is the part that must not be allowed to fail. A missed
+ * object is a leaked copy of something the user already chose to publish; a
+ * share that stays live because cleanup errored is a revocation that silently
+ * did nothing.
+ */
+export async function deactivatePageShare(
+  ctx: MutationCtx,
+  shareId: Id<"sharedPages">,
+): Promise<string[]> {
+  const share = await ctx.db.get(shareId);
+  const publishedKeys = share?.publishedImages?.map((image) => image.publicKey) ?? [];
+  await ctx.db.patch(shareId, {
+    isActive: false,
+    ...clearedFields(SHARED_PAGE_SNAPSHOT_FIELDS),
+  });
+  return publishedKeys;
 }
