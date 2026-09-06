@@ -280,6 +280,27 @@ export async function deletePageImage(objectKey: string, getToken: ImageTokenGet
   return deleteImageObject(objectKey, getToken);
 }
 
+/**
+ * Recomputes the caller's imageBytes/imageCount from what's actually in R2
+ * and overwrites Convex's counter with the true total — see setImageUsage in
+ * convex/storageUsage.ts for why the running delta can drift low. Surfaced as
+ * a "Recalculate" action on the storage settings screen; the Convex query is
+ * reactive, so once this resolves the panel updates on its own.
+ */
+export async function reconcileImageUsage(getToken: ImageTokenGetter): Promise<{ imageBytes: number; imageCount: number }> {
+  const token = await getToken();
+  if (!token) throw new PageImageError("Not signed in", "auth");
+
+  const response = await fetch(`${IMAGES_URL}/storage/reconcile`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    throw new PageImageError(`Could not recalculate image storage (${response.status})`, "network");
+  }
+  return response.json();
+}
+
 /** A published plaintext copy, and the private object it was made from. */
 export interface PublishedImage {
   sourceKey: string;

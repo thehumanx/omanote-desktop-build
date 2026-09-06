@@ -1,9 +1,12 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "convex/react";
-import { FileText, Image as ImageIcon, Link2, StickyNote, CheckSquare, Clock } from "lucide-react";
+import { useAuth } from "@clerk/react";
+import { FileText, Image as ImageIcon, Link2, StickyNote, CheckSquare, Clock, RefreshCw } from "lucide-react";
+import { randomId } from "@omanote/shared";
 import { api } from "../../convex/_generated/api";
 import { useApp } from "../app/AppProvider";
 import { formatBytes } from "../lib/format-bytes";
+import { reconcileImageUsage } from "../lib/page-images";
 
 function utf8Bytes(value: string | undefined | null): number {
   if (!value) return 0;
@@ -38,19 +41,45 @@ function Row({
 }
 
 /**
- * The 200MB cap made legible: what's using space, split by images (R2,
- * tracked by the page-images worker) vs text (Convex, tracked exactly by
- * every content mutation — see convex/storageUsage.ts). Lives inside
- * SettingsScreen as the "storage" category rather than its own route.
+ * The 200MB cap made legible: what's using space, split by images (R2 canvas
+ * images + Convex-storage share thumbnails, both tracked exactly server-side)
+ * vs text (Convex, tracked exactly by every content mutation — see
+ * convex/storageUsage.ts). Lives inside SettingsScreen as the "storage"
+ * category rather than its own route.
  *
- * The per-entity-type breakdown below is computed client-side from state
- * already in memory rather than a new server query — it's informational, not
- * the thing the cap is enforced against, so approximating it from what's
- * already loaded is enough.
+ * The per-text-type rows in "By type" are estimated client-side from state
+ * already in memory rather than a new server query — informational, not what
+ * the cap is enforced against, so approximating from what's already loaded is
+ * enough. The two image rows there are exact server totals, same source as
+ * the summary tiles above.
  */
 export function StorageUsagePanel({ isMobileDrawer = false }: { isMobileDrawer?: boolean }) {
-  const { state } = useApp();
+  const { state, dispatch } = useApp();
+  const { getToken } = useAuth();
   const usage = useQuery(api.storageUsage.getUsage);
+  const [isRecalculating, setIsRecalculating] = useState(false);
+
+  // The image counter is a mirror of R2, kept in sync by best-effort reports
+  // from the page-images worker (see convex/storageUsage.ts) — it can drift
+  // low if a report is ever lost. This recomputes it from R2 itself rather
+  // than trusting the running total.
+  const recalculateImageUsage = async () => {
+    setIsRecalculating(true);
+    try {
+      await reconcileImageUsage(() => getToken({ template: "convex" }));
+      dispatch({
+        type: "toast/add",
+        toast: { id: randomId(), createdAt: Date.now(), title: "Image storage recalculated" },
+      });
+    } catch {
+      dispatch({
+        type: "toast/add",
+        toast: { id: randomId(), createdAt: Date.now(), title: "Couldn't recalculate image storage", tone: "warning" },
+      });
+    } finally {
+      setIsRecalculating(false);
+    }
+  };
 
   const breakdown = useMemo(() => {
     const activePages = state.pages.filter((page) => !page.deletedAt);
@@ -98,7 +127,30 @@ export function StorageUsagePanel({ isMobileDrawer = false }: { isMobileDrawer?:
     ];
   }, [state.pages, state.notes, state.todos, state.bookmarks, state.events]);
 
-  const usedBytes = usage ? usage.textBytes + usage.imageBytes : 0;
+  // Exact, server-sourced rows — unlike `breakdown` above, which estimates
+  // from plaintext already loaded on this device. Combined for the "By type"
+  // list so it accounts for every image byte the 200MB cap is measured
+  // against, not just the ones this device happens to have handy.
+  const imageRows = [
+    {
+      key: "canvas-images",
+      icon: ImageIcon,
+      label: "Canvas images",
+      count: usage?.imageCount ?? 0,
+      bytes: usage?.imageBytes ?? 0,
+    },
+    {
+      key: "thumbnails",
+      icon: ImageIcon,
+      label: "Share thumbnails",
+      count: usage?.thumbnailCount ?? 0,
+      bytes: usage?.thumbnailBytes ?? 0,
+    },
+  ];
+
+  const combinedImageBytes = (usage?.imageBytes ?? 0) + (usage?.thumbnailBytes ?? 0);
+  const combinedImageCount = (usage?.imageCount ?? 0) + (usage?.thumbnailCount ?? 0);
+  const usedBytes = usage ? usage.textBytes + combinedImageBytes : 0;
   const percent = usage ? Math.min(100, (usedBytes / usage.capBytes) * 100) : 0;
   const nearCap = percent >= 90;
 
@@ -128,12 +180,23 @@ export function StorageUsagePanel({ isMobileDrawer = false }: { isMobileDrawer?:
 
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-2xl border border-app-line bg-app-surface p-4">
-          <div className="flex items-center gap-2 text-app-ink-faint">
-            <ImageIcon className="h-4 w-4" />
-            <span className="text-xs font-medium uppercase tracking-wide">Images</span>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-app-ink-faint">
+              <ImageIcon className="h-4 w-4" />
+              <span className="text-xs font-medium uppercase tracking-wide">Images</span>
+            </div>
+            <button
+              type="button"
+              aria-label="Recalculate image storage"
+              disabled={isRecalculating}
+              onClick={() => void recalculateImageUsage()}
+              className="text-app-ink-faint transition hover:text-app-ink disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isRecalculating ? "animate-spin" : ""}`} />
+            </button>
           </div>
-          <p className="mt-2 text-xl font-bold tabular-nums text-app-ink">{formatBytes(usage?.imageBytes ?? 0)}</p>
-          <p className="text-xs text-app-ink-faint">{(usage?.imageCount ?? 0).toLocaleString()} image{usage?.imageCount === 1 ? "" : "s"}</p>
+          <p className="mt-2 text-xl font-bold tabular-nums text-app-ink">{formatBytes(combinedImageBytes)}</p>
+          <p className="text-xs text-app-ink-faint">{combinedImageCount.toLocaleString()} image{combinedImageCount === 1 ? "" : "s"}</p>
         </div>
         <div className="rounded-2xl border border-app-line bg-app-surface p-4">
           <div className="flex items-center gap-2 text-app-ink-faint">
@@ -153,13 +216,17 @@ export function StorageUsagePanel({ isMobileDrawer = false }: { isMobileDrawer?:
           {breakdown.map((row) => (
             <Row key={row.key} icon={row.icon} label={row.label} count={row.count} bytes={row.bytes} />
           ))}
+          {imageRows.map((row) => (
+            <Row key={row.key} icon={row.icon} label={row.label} count={row.count} bytes={row.bytes} />
+          ))}
         </div>
       </div>
 
       <p className="text-xs text-app-ink-faint">
-        The "By type" sizes above are estimated from the plaintext on this device; the total up top counts the
-        encrypted bytes actually stored, which run larger — that number is what the 200MB limit is measured
-        against. Image totals come from the server and are exact either way.
+        The Canvas pages/Notes/Todos/Saved links/Reminders sizes above are estimated from the plaintext on this
+        device; the total up top counts the encrypted bytes actually stored, which run larger — that number is
+        what the 200MB limit is measured against. Canvas images and Share thumbnails come from the server and
+        are exact either way — use the refresh icon on the Images card if that ever looks stale.
       </p>
     </section>
   );

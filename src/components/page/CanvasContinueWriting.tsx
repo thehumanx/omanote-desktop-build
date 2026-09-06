@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { formatRelativeEditedAt } from "@omanote/shared";
 import type { PageItem } from "@omanote/shared";
+import { CategoryIconView } from "../../lib/bookmark-category-icon";
 
 export const CONTINUE_WRITING_LIMIT = 3;
 
@@ -30,7 +31,7 @@ export function CanvasContinueWriting({ pages, todayKey }: { pages: PageItem[]; 
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
         <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-app-ink-faint">Continue writing</p>
-        <Link to="/history" className="text-xs font-medium text-app-accent hover:underline">
+        <Link to="/history?only=pages" className="text-xs font-medium text-app-accent hover:underline">
           View all
         </Link>
       </div>
@@ -41,8 +42,13 @@ export function CanvasContinueWriting({ pages, todayKey }: { pages: PageItem[]; 
             to={`/p/${page.id}`}
             className="flex min-w-0 flex-col gap-1.5 rounded-lg border border-app-line bg-app-surface px-4 py-3 transition-colors duration-150 hover:bg-app-surface-hover active:scale-[0.99]"
           >
-            <span className="truncate text-sm font-semibold text-app-ink">
-              {page.title?.trim() || "Untitled page"}
+            <span className="flex min-w-0 items-center gap-1.5 truncate text-sm font-semibold text-app-ink">
+              {page.icon ? (
+                <span className="shrink-0 text-app-ink-faint">
+                  <CategoryIconView icon={page.icon} />
+                </span>
+              ) : null}
+              <span className="truncate">{page.title?.trim() || "Untitled page"}</span>
             </span>
             <span className="line-clamp-2 min-h-[2.5rem] text-sm text-app-ink-muted">
               {page.preview?.trim() || "Empty page"}

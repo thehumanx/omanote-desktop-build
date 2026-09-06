@@ -62,7 +62,13 @@ export function AppShell() {
   const isHistoryRoute = location.pathname === "/history";
   const usesViewportShell =
     isWorkspaceRoute || isExploreRoute || isSettingsRoute || isInsightsRoute || isEventRoute || isHistoryRoute;
-  const topChromeRef = useRef<HTMLDivElement | null>(null);
+  // Callback ref rather than useRef: chromeless routes (`/p/:pageId`) unmount
+  // the header entirely, so the node identity changes across navigation. The
+  // measuring effect below keys off this element so it re-observes the new
+  // header instead of staying bound to the detached old one — which used to
+  // leave --omanote-top-chrome-height at 0px and slide every screen up
+  // underneath the fixed top bar after visiting a canvas.
+  const [topChromeEl, setTopChromeEl] = useState<HTMLDivElement | null>(null);
   const [topChromeContent, setTopChromeContent] = useState<ReactNode | null>(null);
   // Stable identity so consuming useOutletContext() doesn't re-render every
   // route on every AppShell render — setTopChromeContent itself is already
@@ -98,7 +104,7 @@ export function AppShell() {
 
   useEffect(() => {
     const updateTopChromeHeight = () => {
-      const height = topChromeRef.current?.getBoundingClientRect().height ?? 0;
+      const height = topChromeEl?.getBoundingClientRect().height ?? 0;
       // Combined with the mobile-only top bar (Explore/Profile) so every
       // screen that reads --omanote-top-chrome-height gets the full offset
       // without needing to know about the extra bar. calc() re-evaluates
@@ -111,17 +117,17 @@ export function AppShell() {
     };
 
     updateTopChromeHeight();
+    if (!topChromeEl) return;
+
     const observer = new ResizeObserver(updateTopChromeHeight);
-    if (topChromeRef.current) {
-      observer.observe(topChromeRef.current);
-    }
+    observer.observe(topChromeEl);
     window.addEventListener("resize", updateTopChromeHeight);
 
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", updateTopChromeHeight);
     };
-  }, []);
+  }, [topChromeEl]);
 
   useEffect(() => {
     if (loading) return;
@@ -186,7 +192,7 @@ export function AppShell() {
             the right. Width matches whatever <main> uses for that route so
             nothing here floats wider than the page content below it. */}
         <div
-          ref={topChromeRef}
+          ref={setTopChromeEl}
           data-tauri-drag-region
           className="fixed inset-x-0 z-40 border-b border-app-line bg-app-surface"
         >

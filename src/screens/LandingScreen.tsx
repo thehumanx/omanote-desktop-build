@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { SignInButton } from "@clerk/react";
 import { CookieNotice } from "../components/CookieNotice";
-import { ArrowRight, Bookmark, CheckCheck, CheckSquare, Clock3, Plus, FileText, CalendarDays, SquarePen, Folder, Link2, List, Settings, Zap, MousePointerClick, Lock, Puzzle, LayoutDashboard, Hash, Share2, Moon, Monitor, Bell, RefreshCw, Download, Rss, BookOpen, ChevronDown, X } from "lucide-react";
+import { ArrowRight, Bookmark, CheckCheck, CheckSquare, Clock3, Plus, FileText, CalendarDays, SquarePen, Folder, Link2, List, Settings, Zap, MousePointerClick, Lock, Puzzle, LayoutDashboard, Hash, Share2, Moon, Monitor, Bell, RefreshCw, Download, Rss, BookOpen, ChevronDown, X, Layers, Image as ImageIcon, ExternalLink, FilePlus2 } from "lucide-react";
 import changelogMarkdown from "../../CHANGELOG.md?raw";
 import { SeoHead } from "../seo/SeoHead";
 import { color } from "../design-system/tokens";
@@ -17,6 +17,7 @@ import {
   FAQ_ITEMS,
   getModeFromText,
   MOCKUP_GRADIENT,
+  MOCKUP_PHOTO,
   tagColor,
 } from "./landing-data";
 
@@ -230,7 +231,19 @@ const SLASH_ARTIFACTS: Array<{ key: SlashArtifact; label: string }> = [
   { key: "bookmark", label: "bookmark" },
 ];
 
-const SLASH_SEQUENCE: Array<{ phase: SlashComposerPhase; artifact: SlashArtifact; duration: number }> = [
+/**
+ * The `page` beat has no artifact — it isn't a composer draft mode at all.
+ * Modelled as a separate variant rather than a fourth `SlashArtifact` so the
+ * slash picker (`SLASH_ARTIFACTS`) can't accidentally grow a "page" row: the
+ * real composer puts "Create new page" in its esc/save hint row, deliberately
+ * outside the mode selector, because picking it leaves the composer entirely.
+ * See ComposerSheet.tsx's CreateCanvasButton.
+ */
+type SlashSequenceStep =
+  | { phase: "slash" | "picker" | "editor"; artifact: SlashArtifact; duration: number }
+  | { phase: "page"; duration: number };
+
+const SLASH_SEQUENCE: SlashSequenceStep[] = [
   { phase: "slash", artifact: "todo", duration: 800 },
   { phase: "picker", artifact: "todo", duration: 1100 },
   { phase: "editor", artifact: "todo", duration: 2300 },
@@ -240,6 +253,9 @@ const SLASH_SEQUENCE: Array<{ phase: SlashComposerPhase; artifact: SlashArtifact
   { phase: "slash", artifact: "bookmark", duration: 650 },
   { phase: "picker", artifact: "bookmark", duration: 1050 },
   { phase: "editor", artifact: "bookmark", duration: 2500 },
+  // Long enough to type the title (~1.1s), fade the image in, and still leave
+  // a few seconds to actually read the page before the loop restarts.
+  { phase: "page", duration: 5000 },
 ];
 
 const ARTIFACT_TYPED_TEXT: Record<SlashArtifact, string> = {
@@ -247,6 +263,21 @@ const ARTIFACT_TYPED_TEXT: Record<SlashArtifact, string> = {
   event: "Morning run 6:45 AM",
   bookmark: "https://readwise.io",
 };
+
+const HERO_PAGE_TITLE = "Iceland trip, rough plan";
+
+/**
+ * The composer is hidden during the `page` beat, but `SlashCommandComposer`
+ * still needs an artifact to render. Reuse whichever one the sequence was last
+ * on, so the sheet doesn't visibly swap contents while it slides away.
+ */
+function artifactAtOrBefore(step: number): SlashArtifact {
+  for (let index = step; index >= 0; index--) {
+    const entry = SLASH_SEQUENCE[index]!;
+    if (entry.phase !== "page") return entry.artifact;
+  }
+  return "todo";
+}
 
 // How long the slide-in/slide-out transition itself takes — matches the
 // duration set on the composer's own transition classes below.
@@ -258,7 +289,7 @@ function useSlashCommandAnimation() {
   const exitTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const current = SLASH_SEQUENCE[step];
+    const current = SLASH_SEQUENCE[step]!;
     // One full slash → picker → editor sequence for a single artifact type
     // is "one loop" — only slide the composer out once that loop finishes,
     // not after every individual phase.
@@ -280,28 +311,53 @@ function useSlashCommandAnimation() {
     };
   }, [step]);
 
-  return { ...SLASH_SEQUENCE[step], visible };
+  const current = SLASH_SEQUENCE[step]!;
+  const nextPhase = SLASH_SEQUENCE[(step + 1) % SLASH_SEQUENCE.length]!.phase;
+
+  return {
+    // The page beat isn't a composer phase — the sheet is off-screen for it.
+    // Hold the last real phase so it keeps its content while sliding away
+    // instead of visibly resetting to a bare "/" mid-exit.
+    composerPhase: (current.phase === "page" ? "editor" : current.phase) satisfies SlashComposerPhase,
+    artifact: artifactAtOrBefore(step),
+    // The composer stays translated off-screen for the whole page beat. Making
+    // this derived rather than folding it into `visible` keeps the exit that
+    // *precedes* the page beat intact: the sheet slides out on the editor's
+    // own timing, then simply never slides back in until the page closes.
+    composerVisible: visible && current.phase !== "page",
+    pageActive: current.phase === "page",
+    // True only while the sheet is sliding away into the page — the 380ms that
+    // reads as "that button was just pressed", rather than a highlight sitting
+    // there for the whole preceding phase.
+    createPagePressed: nextPhase === "page" && !visible,
+  };
 }
 
-function useArtifactTyping(artifact: SlashArtifact, active: boolean) {
+function useTypedText(target: string, active: boolean) {
   const [text, setText] = useState("");
 
+  // Reset on the way *in*, never on the way out. Clearing when `active` goes
+  // false would empty the text while the element that shows it is still
+  // animating away — the page card visibly losing its title mid-shrink.
   useEffect(() => {
-    setText("");
-  }, [artifact, active]);
+    if (active) setText("");
+  }, [target, active]);
 
   useEffect(() => {
     if (!active) return;
-    const target = ARTIFACT_TYPED_TEXT[artifact];
     if (text.length >= target.length) return;
 
     const timeout = window.setTimeout(() => {
       setText(target.slice(0, text.length + 1));
     }, 42);
     return () => window.clearTimeout(timeout);
-  }, [active, artifact, text]);
+  }, [active, target, text]);
 
   return text;
+}
+
+function useArtifactTyping(artifact: SlashArtifact, active: boolean) {
+  return useTypedText(ARTIFACT_TYPED_TEXT[artifact], active);
 }
 
 function SlashCommandMenu({ active }: { active: SlashArtifact }) {
@@ -378,6 +434,107 @@ function ArtifactEditorPreview({ artifact, typedText }: { artifact: SlashArtifac
   );
 }
 
+/**
+ * The "Create new page" pill, in the composer's esc/save hint row.
+ *
+ * That placement is the real one, not a convenience: ComposerSheet keeps this
+ * button out of the mode selector because a page isn't another draft mode —
+ * picking it leaves the composer entirely, which is exactly what the page beat
+ * of the animation then shows.
+ */
+function CreatePagePill({ pressed }: { pressed: boolean }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors duration-200 ${
+        pressed
+          ? "border-app-line-strong bg-app-surface-muted text-app-ink"
+          : "border-app-line text-app-ink-faint"
+      }`}
+    >
+      <FilePlus2 className="h-3 w-3" />
+      Create new page
+    </span>
+  );
+}
+
+/**
+ * The full document, growing out of the composer.
+ *
+ * Mirrors PageScreen's real chrome — an inset rounded card rather than an
+ * edge-to-edge route, page icon left and actions right on one header row,
+ * title, then a "·"-separated metadata row, then an `<hr>` before the body.
+ * The grow-from-bottom transform stands in for the real View Transition, where
+ * the composer sheet and the page card share `view-transition-name:
+ * canvas-expand` so one visually becomes the other.
+ *
+ * The body waits for the title to finish typing before fading in, so the eye
+ * has somewhere to go next instead of everything arriving at once.
+ */
+function HeroPageOverlay({ active }: { active: boolean }) {
+  const typedTitle = useTypedText(HERO_PAGE_TITLE, active);
+  const bodyVisible = active && typedTitle.length === HERO_PAGE_TITLE.length;
+
+  return (
+    <div
+      aria-hidden="true"
+      className={`pointer-events-none absolute inset-3 z-50 origin-bottom overflow-hidden rounded-2xl border border-app-line bg-app-surface-raised shadow-app-dialog transition-[transform,opacity] duration-[380ms] ease-out ${
+        active ? "scale-100 opacity-100" : "scale-95 opacity-0"
+      }`}
+    >
+      <div className="flex h-full flex-col px-5 py-4">
+        <div className="flex items-center justify-between">
+          <span className="text-lg leading-none">🌌</span>
+          <div className="flex items-center gap-2.5 text-app-ink-faint">
+            <ExternalLink className="h-3.5 w-3.5" />
+            <Share2 className="h-3.5 w-3.5" />
+            <X className="h-3.5 w-3.5" />
+          </div>
+        </div>
+
+        <p className="mt-2 text-xl font-bold leading-tight text-app-ink">
+          {typedTitle}
+          <span className="ml-px inline-block h-5 w-px animate-pulse bg-app-ink align-text-bottom" />
+        </p>
+        <p className="mt-1 text-[11px] text-app-ink-faint">
+          Created today · Updated just now · 2 todos · 1 image
+        </p>
+        <hr className="mt-3 border-app-line" />
+
+        <div className={`mt-3 min-h-0 flex-1 transition-opacity duration-500 ${bodyVisible ? "opacity-100" : "opacity-0"}`}>
+          <p className="text-sm leading-relaxed text-app-ink-muted">
+            Ring Road counter-clockwise, nine days.
+          </p>
+          <div className="mt-2.5 space-y-1.5">
+            <div className="flex items-center gap-2.5">
+              <TodoCheckmark as="span" checked size="sm" align="text" />
+              <span className="text-sm leading-5 text-app-ink-faint line-through">Book Reykjavik guesthouse</span>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <TodoCheckmark as="span" checked={false} size="sm" align="text" />
+              <span className="text-sm leading-5 text-app-ink-muted">Check aurora forecast for week two</span>
+            </div>
+          </div>
+          <div className="mt-3 inline-block overflow-hidden rounded-xl border border-app-line">
+            <img
+              src={MOCKUP_PHOTO.aurora}
+              alt=""
+              width={880}
+              height={293}
+              loading="lazy"
+              decoding="async"
+              className="h-24 w-72 max-w-full object-cover"
+            />
+            <div className="flex items-center justify-between gap-4 border-t border-app-line bg-app-surface px-3 py-1.5">
+              <span className="truncate text-[11px] text-app-ink-faint">Northern lights, night three</span>
+              <span className="shrink-0 text-[11px] text-app-ink-faint">1.2 MB</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SlashCommandComposer({
   phase,
   artifact,
@@ -405,6 +562,32 @@ function SlashCommandComposer({
     </div>
   );
 }
+
+/**
+ * Ordered by last edit, and none of them created today — that's what the real
+ * `selectContinueWritingPages` does, since a page created today already shows
+ * as a card in "Your today" below and would otherwise appear twice.
+ */
+const CONTINUE_WRITING_PAGES = [
+  {
+    icon: "🌌",
+    title: "Iceland trip, rough plan",
+    preview: "Ring Road counter-clockwise, nine days.",
+    edited: "Edited 2 days ago",
+  },
+  {
+    icon: "📓",
+    title: "Book notes: On Emotional Intelligence",
+    preview: "Self-awareness underpins the other four.",
+    edited: "Edited 4 days ago",
+  },
+  {
+    icon: "🧭",
+    title: "Q3 planning",
+    preview: "Three bets, one we can actually staff.",
+    edited: "Edited last week",
+  },
+] as const;
 
 function CanvasView({
   activeDayIndex,
@@ -445,6 +628,33 @@ function CanvasView({
             </div>
           </div>
           <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-app-ink-faint" />
+        </div>
+      </div>
+
+      {/* Mirrors CanvasContinueWriting, which on the real canvas sits between
+          the week-glance block and the "Your today" divider (CanvasScreen).
+          Previews are clamped to one line here, not the component's two: the
+          mockup frame is a fixed 440px and the composer overlay covers its
+          bottom, so every extra row costs a visible day item. */}
+      <div className="mt-4 flex flex-col gap-2 px-5">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-app-ink-faint">Continue writing</p>
+          <span className="text-xs font-medium text-app-accent">View all</span>
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          {CONTINUE_WRITING_PAGES.map((page) => (
+            <div
+              key={page.title}
+              className="flex min-w-0 flex-col gap-1 rounded-lg border border-app-line bg-app-surface px-3 py-2"
+            >
+              <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-app-ink">
+                <span className="shrink-0">{page.icon}</span>
+                <span className="truncate">{page.title}</span>
+              </span>
+              <span className="truncate text-xs text-app-ink-muted">{page.preview}</span>
+              <span className="text-[11px] text-app-ink-faint">{page.edited}</span>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -626,7 +836,7 @@ type TodoMockupRow = {
 const TODO_MOCKUP_SECTIONS: readonly TodoMockupRow[] = [
   { title: "Launch mobile apps", due: "10AM, Today" },
   { title: "Add recurring todos", due: "Tue, Jun 30" },
-  { title: "Read Atomic Habits ch.5", tag: "#books", due: "Fri, Jul 3" },
+  { title: "Read On Emotional Intelligence ch.5", tag: "#books", due: "Fri, Jul 3" },
   { title: "Launch RSS reader", completedLabel: "✓ 12:32PM, Wed, Jun 24" },
   { title: "Add todo folders", completedLabel: "✓ 1:29PM, Wed, Jun 24" },
 ] as const;
@@ -1306,19 +1516,28 @@ function AppMockup() {
             <div className="pointer-events-none absolute inset-x-0 bottom-4 z-40 mx-auto flex w-full max-w-[880px] justify-center px-5 md:pl-12 md:pr-12">
               <div
                 className={`w-full rounded-2xl border border-app-line bg-app-surface-raised px-4 py-3 shadow-app-dialog transition-[transform,opacity] duration-[380ms] ease-out ${
-                  slashComposer.visible ? "translate-y-0 opacity-100" : "translate-y-[calc(100%+1rem)] opacity-0"
+                  slashComposer.composerVisible ? "translate-y-0 opacity-100" : "translate-y-[calc(100%+1rem)] opacity-0"
                 }`}
               >
-                <div className="mb-2 flex items-center justify-between">
+                <div className="mb-2 flex items-center justify-between gap-3">
                   <span className="rounded-md border border-app-line px-1.5 py-0.5 text-[11px] font-medium text-app-ink-faint">esc</span>
+                  {/* Between the two hints, matching the real sheet — see
+                      CreatePagePill for why it isn't in the mode selector. */}
+                  <CreatePagePill pressed={slashComposer.createPagePressed} />
                   {/* Todo/event/bookmark all save on a plain Enter — only
                       note mode needs Cmd/Ctrl+Enter (not shown in this demo). */}
                   <span className="rounded-md border border-app-line px-1.5 py-0.5 text-[11px] font-medium text-app-ink-faint">⏎</span>
                 </div>
-                <SlashCommandComposer phase={slashComposer.phase} artifact={slashComposer.artifact} />
+                <SlashCommandComposer phase={slashComposer.composerPhase} artifact={slashComposer.artifact} />
               </div>
             </div>
           ) : null}
+          {/* Sits above the composer's z-40 wrapper and the nav pill's z-30 —
+              the real PageScreen is a fixed overlay covering the whole shell,
+              bottom nav included, so covering them here is the faithful thing.
+              Kept mounted while inactive so the grow/shrink transition has
+              something to animate in both directions. */}
+          {showCanvas ? <HeroPageOverlay active={slashComposer.pageActive} /> : null}
           {mode === "write" && writeTab === "todos" ? <TodosView /> : null}
           {mode === "write" && writeTab === "notes" ? <NotesView /> : null}
           {mode === "write" && writeTab === "bookmarks" ? <BookmarksView /> : null}
@@ -1537,7 +1756,7 @@ function ExtensionPopupMockup() {
 }
 
 // ─── RSS announcement banner ──────────────────────────────────────────────────
-const RSS_BANNER_KEY = "omanote_gcal_banner_dismissed";
+const RSS_BANNER_KEY = "omanote_pages_banner_dismissed";
 
 function RssBanner() {
   const [visible, setVisible] = useState(false);
@@ -1556,8 +1775,8 @@ function RssBanner() {
   return (
     <div className="relative px-4 py-2" style={{ backgroundColor: CTA_BG }}>
       <p className="text-center text-sm font-medium text-white">
-        Feature announcement: Google Calendar sync is here. Keep todos and events flowing both ways.{" "}
-        <a href="#offerings" className="font-bold underline underline-offset-2 hover:no-underline">
+        Feature announcement: canvas pages and image uploads are here. Write full documents and drop in images.{" "}
+        <a href="#pages" className="font-bold underline underline-offset-2 hover:no-underline">
           Learn more →
         </a>
       </p>
@@ -1569,6 +1788,63 @@ function RssBanner() {
       >
         <X className="h-4 w-4" />
       </button>
+    </div>
+  );
+}
+
+// ─── Canvas page mockup ────────────────────────────────────────────────────────
+function PageMockup() {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-app-line bg-app-surface-raised text-left shadow-app-dialog">
+      <div className="flex items-center justify-between border-b border-app-line px-5 py-2.5">
+        <div className="flex gap-1.5">
+          <div className="h-2.5 w-2.5 rounded-full bg-app-line" />
+          <div className="h-2.5 w-2.5 rounded-full bg-app-line" />
+          <div className="h-2.5 w-2.5 rounded-full bg-app-line" />
+        </div>
+        <div className="flex items-center gap-2 text-app-ink-faint">
+          <Layers className="h-3.5 w-3.5" />
+          <Share2 className="h-3.5 w-3.5" />
+        </div>
+      </div>
+      <div className="p-6">
+        <span className="text-2xl">🌌</span>
+        <p className="mt-3 text-lg font-bold text-app-ink">Trip planning: Iceland</p>
+        <p className="mt-1 text-xs text-app-ink-faint">Created Sep 2 · 3 images · 4 todos</p>
+        <hr className="mt-4 border-app-line" />
+        <p className="mt-4 text-sm leading-relaxed text-app-ink-muted">
+          Rough itinerary below. Ring Road counter-clockwise over nine days. Screenshots of
+          places we don't want to forget.
+        </p>
+        <div className="mt-4 space-y-2">
+          {[
+            { text: "Book Reykjavik guesthouse", done: true },
+            { text: "Check aurora forecast for week two", done: false },
+          ].map((item) => (
+            <div key={item.text} className="flex items-center gap-2.5">
+              <TodoCheckmark as="span" checked={item.done} size="sm" align="text" />
+              <span className={`text-sm ${item.done ? "text-app-ink-faint line-through" : "text-app-ink-muted"}`}>
+                {item.text}
+              </span>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 overflow-hidden rounded-xl border border-app-line">
+          <img
+            src={MOCKUP_PHOTO.aurora}
+            alt="Aurora borealis over an Icelandic landscape at night"
+            width={880}
+            height={293}
+            loading="lazy"
+            decoding="async"
+            className="h-32 w-full object-cover"
+          />
+          <div className="flex items-center justify-between border-t border-app-line bg-app-surface px-3 py-1.5">
+            <span className="text-xs text-app-ink-faint">Northern lights, night three</span>
+            <span className="text-xs text-app-ink-faint">1.2 MB</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1685,8 +1961,8 @@ function ExtensionSection() {
               Capture from anywhere,<br className="hidden sm:block" /> without switching tabs.
             </h2>
             <p className="mt-5 text-app-ink-muted leading-relaxed text-[15px]">
-              The omanote extension puts quick capture one click away. Save a bookmark, drop a note,
-              or log a todo — one click from any page, straight into your encrypted canvas.
+              Save a bookmark, write a note, or log a todo from any page, without leaving the tab
+              you're on. Everything goes straight into your encrypted canvas.
             </p>
 
             <ul className="mt-7 space-y-4">
@@ -1711,7 +1987,7 @@ function ExtensionSection() {
                   <f.icon className="h-5 w-5 shrink-0 mt-0.5 text-app-ink-muted" />
                   <p className="text-[15px] leading-snug text-app-ink-muted">
                     <strong className="text-app-ink font-bold">{f.title}</strong>
-                    {" — "}
+                    {". "}
                     {f.body}
                   </p>
                 </li>
@@ -1740,7 +2016,7 @@ function ExtensionSection() {
               </a>
             </div>
             <p className="mt-3 text-xs text-app-ink-faint">
-              Free. No account needed to install — sign in to sync with your canvas.
+              Free. No account needed to install. Sign in to sync with your canvas.
             </p>
           </div>
         </div>
@@ -1787,7 +2063,7 @@ export function LandingScreen() {
     <>
       <SeoHead
         title="omanote | Opinionated daily canvas"
-        description="omanote is a personal daily canvas for capturing notes, todos, bookmarks, events, and small moments before the day disappears."
+        description="omanote is a personal daily canvas for capturing notes, todos, bookmarks, and events, with multi-page canvas documents and image uploads."
       />
       <div className="public-page min-h-screen flex flex-col bg-app-surface text-app-ink">
       {/* Nav */}
@@ -1819,12 +2095,12 @@ export function LandingScreen() {
             <br className="hidden sm:block" /> before it disappears.
           </h1>
           <p className="mt-5 text-md text-app-ink-muted max-w-[560px] mx-auto leading-relaxed">
-            Notes, todos, bookmarks, events, RSS.
+            Notes, todos, bookmarks, events, pages, RSS.
             <br />
             One canvas for everything that fits in a day.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <JournalCta label="Open your canvas — it's free" />
+            <JournalCta label="Open your canvas. It's free" />
             <a
               href="https://omanote.com/s/FeUM44Rd"
               target="_blank"
@@ -1853,22 +2129,21 @@ export function LandingScreen() {
                   The name
                 </p>
                 <h2 className="font-serif-heading font-serif-heading-smooth mt-4 text-3xl sm:text-4xl font-black tracking-[-0.025em] leading-tight">
-                  An opinionated daily canvas, already arranged.
+                  An opinionated daily canvas, set up in advance.
                 </h2>
                 <p className="mt-5 text-app-ink-muted leading-relaxed text-[15px]">
                   <strong className="text-app-ink">Omakase</strong> (お任せ) is Japanese for "I'll
-                  leave it to you" — the total trust you place in a chef who just handles it. No
-                  menu. No decisions. Just show up, eat well, and wonder how they knew exactly what
-                  you needed.
+                  leave it to you", the trust you place in a chef who handles the menu for you. No
+                  menu, no decisions.
                 </p>
                 <p className="mt-4 text-app-ink-muted leading-relaxed text-[15px]">
-                  omanote does the same thing for your day. The structure is already there waiting —
-                  canvas to start, then notes, todos, bookmarks, events, RSS, Insights, and Explore
-                  when you want to pull the thread.
+                  omanote takes the same approach to your day. The structure is already there: the
+                  canvas to start, then notes, todos, bookmarks, events, pages, RSS, Insights, and
+                  Explore when you need them.
                 </p>
                 <p className="mt-4 text-app-ink-muted leading-relaxed text-[15px]">
-                  It's for people who want to just open a thing and start typing — not spend a
-                  weekend building a second brain.
+                  It's for people who want to open an app and start typing, without setting up a
+                  system first.
                 </p>
                 <p className="mt-4 text-app-ink-muted leading-relaxed text-[15px]">
                   Inspired by{" "}
@@ -1880,7 +2155,7 @@ export function LandingScreen() {
                   >
                     Omarchy by DHH
                   </a>{" "}
-                  and its beautifully stubborn, ready-to-use spirit.
+                  and its ready-to-use approach. Oh, I use Omarchy btw.
                 </p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1893,7 +2168,7 @@ export function LandingScreen() {
                   {
                     icon: Zap,
                     title: "Low ceremony",
-                    body: "Dump it in. Sort it out later. The canvas won't judge you for figuring things out as you go.",
+                    body: "Capture first, sort later. Nothing needs a folder or a tag at the moment you write it down.",
                   },
                   {
                     icon: Hash,
@@ -1908,7 +2183,7 @@ export function LandingScreen() {
                   {
                     icon: Moon,
                     title: "Light, dark, or system",
-                    body: "Full dark mode support, synced across devices. Switch in settings — or just let it follow your OS.",
+                    body: "Full dark mode support, synced across devices. Switch it in settings, or let it follow your OS.",
                   },
                   {
                     icon: Rss,
@@ -1940,15 +2215,15 @@ export function LandingScreen() {
                   <br className="hidden sm:block" /> Same canvas.
                 </h2>
                 <p className="mt-5 text-app-ink-muted leading-relaxed text-[15px]">
-                  <strong className="text-app-ink">Write mode</strong> — press <strong>/</strong> or{" "}
+                  <strong className="text-app-ink">Write mode.</strong> Press <strong>/</strong> or{" "}
                   <strong>+</strong> from anywhere to capture. Notes, todos, bookmarks, and events
-                  all land on the canvas first, in one stream tied to today. Sort it out later in
-                  the focused views.
+                  all land on the canvas first, in one stream tied to today. Sort them later in the
+                  focused views.
                 </p>
                 <ul className="mt-5 space-y-3">
                   {[
-                    { icon: SquarePen, text: "Canvas is your daily dumping ground" },
-                    { icon: FileText, text: "Notes is your organized thoughts" },
+                    { icon: SquarePen, text: "Canvas holds everything you captured today" },
+                    { icon: FileText, text: "Notes keeps your longer writing in folders" },
                     { icon: CheckSquare, text: "Todos parses natural language for date and time" },
                     { icon: Bookmark, text: "Bookmarks organizes your links" },
                     { icon: Clock3, text: "Events shows your upcoming todos, events and timelines" },
@@ -1960,9 +2235,9 @@ export function LandingScreen() {
                   ))}
                 </ul>
                 <p className="mt-5 text-app-ink-muted leading-relaxed text-[15px]">
-                  <strong className="text-app-ink">Read mode</strong> — subscribe to feeds, read
-                  articles, and save what matters. Full reader sits alongside your canvas — no
-                  context switch needed.
+                  <strong className="text-app-ink">Read mode.</strong> Subscribe to feeds, read
+                  articles, and save the ones you want to keep. The reader sits in the same app, so
+                  there's no context switch.
                 </p>
               </div>
 
@@ -1979,49 +2254,112 @@ export function LandingScreen() {
           </div>
         </section>
 
+        {/* Canvas pages & images */}
+        <section id="pages" className="border-t border-app-line">
+          <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-16 sm:py-20 lg:py-24">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">New</p>
+                <h2 className="font-serif-heading font-serif-heading-smooth mt-4 text-3xl sm:text-4xl font-black tracking-[-0.025em] leading-tight">
+                  One canvas.
+                  <br className="hidden sm:block" /> Many pages.
+                </h2>
+                <p className="mt-5 text-app-ink-muted leading-relaxed text-[15px]">
+                  The daily canvas covers a single day. For anything longer, create a{" "}
+                  <strong className="text-app-ink">canvas page</strong>: a full document, similar to
+                  a Notion page or Google Doc, that sits alongside it. A trip itinerary, a project
+                  brief, reading notes.
+                </p>
+                <p className="mt-4 text-app-ink-muted leading-relaxed text-[15px]">
+                  Pages hold text, headings, checklists, and links. They also hold{" "}
+                  <strong className="text-app-ink">images</strong>, which is new to omanote. Resize
+                  them, caption them, and they stay encrypted like everything else you write.
+                </p>
+                <ul className="mt-5 space-y-3">
+                  {[
+                    { icon: Layers, text: "Create as many pages as you want" },
+                    { icon: ImageIcon, text: "Add images, resized and captioned, encrypted on your device" },
+                    { icon: CheckSquare, text: "Checklists and links stay inside the page" },
+                    { icon: Share2, text: "Share any single page as a read-only public link" },
+                  ].map((item) => (
+                    <li key={item.text} className="flex items-center gap-3 text-sm text-app-ink-muted">
+                      <item.icon className="h-4 w-4 shrink-0 text-app-ink-faint" />
+                      <span>{item.text}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-5 text-app-ink-muted leading-relaxed text-[15px]">
+                  Storage is capped at 200MB per account while accounts are free. Large images are
+                  compressed automatically when you add them.
+                </p>
+              </div>
+
+              <div className="flex justify-center lg:justify-end">
+                <div className="relative w-full max-w-[480px]">
+                  <div
+                    className="absolute inset-0 rounded-3xl blur-3xl opacity-15 -z-10"
+                    style={{ background: `radial-gradient(ellipse at center, ${CTA_BG} 0%, transparent 70%)` }}
+                  />
+                  <PageMockup />
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Offerings */}
         <section id="offerings" className="border-t border-app-line">
           <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-16 sm:py-20 lg:py-24">
             <div className="text-center">
               <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">Offerings</p>
               <h2 className="font-serif-heading font-serif-heading-smooth mt-4 text-3xl sm:text-4xl font-black tracking-[-0.025em] leading-tight">
-                It grew a lot since "just a canvas."
+                What's in it so far.
               </h2>
               <p className="mt-4 text-app-ink-muted leading-relaxed text-[15px] max-w-[560px] mx-auto">
-                A running list of what's shipped and quietly become part of the daily habit.
+                A running list of what has shipped since the first version.
               </p>
             </div>
             <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {[
                 {
+                  icon: Layers,
+                  title: "Multi-page canvas",
+                  body: "Full documents inside Canvas, with headings, checklists, links, and images. Create as many as you want, and share any single page as a read-only link.",
+                },
+                {
+                  icon: ImageIcon,
+                  title: "Image uploads",
+                  body: "Drop images into a canvas page, then resize and caption them inline. Encrypted on your device before upload, with 200MB of storage per free account.",
+                },
+                {
                   icon: RefreshCw,
                   title: "Recurring todos",
-                  body: "\"Every mon and fri\" or \"pay rent every month until December\" — just type it. Repeats daily, weekly, monthly, or on chosen weekdays, with an end date or a fixed count.",
+                  body: "Type \"every mon and fri\" or \"pay rent every month until December\" and omanote sets the schedule. Repeats daily, weekly, monthly, or on chosen weekdays, with an end date or a fixed count.",
                 },
                 {
                   icon: CalendarDays,
                   title: "Google Calendar sync",
-                  body: "Connect your Google account and todos flow both ways — open todos land on a dedicated omanote calendar, and events you create in Google show up as todos automatically.",
+                  body: "Connect your Google account and todos flow both ways. Open todos land on a dedicated omanote calendar, and events you create in Google become todos automatically.",
                 },
                 {
                   icon: LayoutDashboard,
                   title: "Insights",
-                  body: "Completion rate, overdue rate, and week-over-week deltas. Content breakdown by type. A 365-day activity heatmap. All the patterns you'd otherwise never notice.",
+                  body: "Completion rate, overdue rate, and week-over-week deltas. Content breakdown by type. A 365-day activity heatmap.",
                 },
                 {
                   icon: Bell,
-                  title: "Reminders that understand you",
-                  body: "\"Drink water every 30 minutes for the next 6 hours\" pings on that cadence without cluttering your list. Natural-language dates and times, parsed as you type.",
+                  title: "Natural-language reminders",
+                  body: "\"Drink water every 30 minutes for the next 6 hours\" pings on that cadence without adding copies to your list. Dates and times are parsed as you type.",
                 },
                 {
                   icon: Share2,
                   title: "Share any folder",
-                  body: "Todo folders, note folders, bookmark categories — each can become a clean, read-only public link. Your encrypted canvas stays private; visitors just see the page.",
+                  body: "Todo folders, note folders, and bookmark categories can each become a read-only public link. The rest of your canvas stays encrypted and private.",
                 },
                 {
                   icon: Download,
                   title: "Export & import",
-                  body: "Your data isn't locked in. Export everything as plain text once decrypted, and import it back — move accounts, back it up, treat it like the private journal it is.",
+                  body: "Export everything as plain text once decrypted, and import it back. Use it to move accounts or keep your own backup.",
                 },
               ].map((card) => (
                 <div key={card.title} className="rounded-2xl border border-app-line bg-app-surface p-5 text-left">
@@ -2042,11 +2380,11 @@ export function LandingScreen() {
           <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-16 sm:py-20 text-center">
             <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">Privacy</p>
             <h2 className="font-serif-heading font-serif-heading-smooth mt-4 text-2xl sm:text-3xl font-black tracking-[-0.025em] leading-tight">
-              Your stuff. Yours.
+              Your data stays private.
             </h2>
             <p className="mt-4 text-[15px] leading-relaxed text-app-ink-muted max-w-[560px] mx-auto">
-              Client-side encryption, passphrase unlock, offline capture, and recovery keys.
-              Your data stays yours — always.
+              Content is encrypted on your device before it is stored. Unlock it with your
+              passphrase, capture offline, and keep a recovery key as a backup way in.
             </p>
             <Link
               to="/privacy"
@@ -2062,7 +2400,7 @@ export function LandingScreen() {
           <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-16 sm:py-20">
             <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">FAQ</p>
             <h2 className="font-serif-heading font-serif-heading-smooth mt-4 text-2xl sm:text-3xl font-black tracking-[-0.025em] leading-tight">
-              Good questions.
+              Common questions.
             </h2>
             <div className="mt-8 border-t border-app-line">
               {FAQ_ITEMS.map((item) => (
@@ -2089,10 +2427,10 @@ export function LandingScreen() {
               already in one place.
             </h2>
             <p className="mt-4 max-w-[400px] mx-auto leading-relaxed text-[15px] text-app-ink-muted">
-              A minute to set up. Then just your day, handled.
+              A minute to set up. Free while it's in early access.
             </p>
             <div className="mt-8 flex justify-center">
-              <JournalCta label="Start dumping →" />
+              <JournalCta label="Open your canvas →" />
             </div>
           </div>
         </section>

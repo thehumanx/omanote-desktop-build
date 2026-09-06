@@ -4,6 +4,17 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.33.1 [September 6, 2026]
+
+> Storage numbers now add up, History gets a filter row, and a canvas-page layout glitch is fixed.
+
+- [Fix] Storage usage is now accurate — image counts and the overall total were undercounting, missing uploaded images and share-link thumbnails entirely
+- [Add] A "Recalculate" button on the Images storage card fixes the count instantly if it ever looks off
+- [Add] History now has a filter row: search by keyword, jump to a specific date, switch between all content or canvas pages only, and hide empty days
+- [Update] "View all" on Continue Writing now opens History already filtered to canvas pages
+- [Fix] Opening a canvas page and coming back could leave every other screen's content sliding up underneath the top bar
+- [Fix] Continue Writing cards now show the canvas page's icon when it has one
+
 ### v0.33.0 [September 6, 2026]
 
 > Much-needed image uploads and multiple canvas pages are finally here. A canvas page is now a full-fledged document editor, like Google Docs or Notion.

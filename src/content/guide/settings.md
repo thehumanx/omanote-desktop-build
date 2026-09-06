@@ -4,26 +4,26 @@ Settings is organized into categories so each kind of control is easy to find.
 
 ## Appearance
 
-- **Theme** — System, Light, or Dark.
-- **Font** — Sans (Lato) or Serif (Aleo) for your content.
-- **Navigation labels** — show active label only, icon & label, or label only.
-- **Canvas dot grid** — toggle the dotted backdrop on the canvas.
+- **Theme:** System, Light, or Dark.
+- **Font:** Sans (Lato) or Serif (Aleo) for your content.
+- **Navigation labels:** active label only, icon and label, or label only.
+- **Canvas dot grid:** toggle the dotted backdrop on the canvas.
 
 ## Features
 
-Turn optional features on or off — for example, the **RSS reader**, or **Google Calendar sync**.
+Turn optional features on or off, such as the **RSS reader** or **Google Calendar sync**.
 
 ## Notifications
 
-- **In-app reminders** — the toast that appears when a todo is due.
-- **Browser reminders** — native notifications when the tab isn't focused (needs permission).
-- **Lead time** — get reminded a few minutes before the due time.
-- **Snooze default** — how long the snooze button defers a reminder.
-- **Toast duration** — how long reminder toasts stay on screen.
+- **In-app reminders:** the toast that appears when a todo is due.
+- **Browser reminders:** native notifications when the tab isn't focused (needs permission).
+- **Lead time:** get reminded a set number of minutes before the due time.
+- **Snooze default:** how long the snooze button defers a reminder.
+- **Toast duration:** how long reminder toasts stay on screen.
 
 ## Security
 
-Manage your passphrase and app-lock behavior. This is also where your encryption and recovery-key controls live — see **How your data is protected**.
+Manage your passphrase and app-lock behavior. Your encryption and recovery-key controls are here too. See **How your data is protected**.
 
 ## Devices
 
@@ -37,7 +37,7 @@ Import and export your data for backup or migration.
 
 See how much of your 200MB storage limit you've used, split between images and everything else (notes, todos, bookmarks, canvas pages, events), with a breakdown by type and count. A summary also appears in your profile menu.
 
-Deleting something frees up its space right away. Large images are shrunk automatically when you add them to a canvas page, so a handful of photos won't eat your whole limit.
+Deleting something frees up its space right away. Large images are compressed automatically when you add them to a canvas page.
 
 ## Account
 

@@ -32,7 +32,7 @@ export const TODOS = [
     color: "text-app-ink-muted",
     items: [
       { text: "Todo folder sharing review", tag: "#work", done: false, due: "tomorrow" },
-      { text: "Read Atomic Habits ch.5", tag: "#books", done: false, due: "this weekend" },
+      { text: "Read On Emotional Intelligence ch.5", tag: "#books", done: false, due: "this weekend" },
     ],
   },
   {
@@ -58,7 +58,7 @@ export const NOTES_FOLDERS = [
     folder: "Personal",
     icon: "🏠",
     items: [
-      { title: "Book notes: Atomic Habits", preview: "The aggregation of marginal gains..." },
+      { title: "Book notes: On Emotional Intelligence", preview: "Goleman's five components: self-awareness, self-regulation..." },
       { title: "Morning run thoughts", preview: "Woke up at 6am, matcha was perfect..." },
     ],
   },
@@ -103,72 +103,82 @@ export const FAQ_ITEMS = [
   {
     question: "What is omanote?",
     answer:
-      "omanote (stylized in smallcase) is an opinionated and personal daily canvas for capturing notes, todos, bookmarks, events, and the small moments of a day in one place.",
+      "omanote (stylized in smallcase) is a personal daily canvas for capturing notes, todos, bookmarks, and events in one place, organized by the day you captured them.",
   },
   {
     question: "Is omanote an AI note-taking app?",
     answer:
-      "It's a note-taking app, just not an AI one. omanote is built around simple capture, organization, hashtags, and private daily context — nothing AI-written or AI-summarized in the mix.",
+      "No. omanote has no AI features. Nothing is AI-written, AI-summarized, or sent to a model. It is built around manual capture, folders, and hashtags.",
   },
   {
     question: "What is the canvas?",
     answer:
-      "The canvas is your day-first inbox. It's your daily dumping ground — in the best way. Anything you capture today lands there first, then can also live in Notes, Todos, Bookmarks, or Events.",
+      "The canvas shows one day at a time. Anything you capture lands there first, and also appears in Notes, Todos, Bookmarks, or Events. For longer writing, create a canvas page: a full document that sits alongside the daily canvas.",
+  },
+  {
+    question: "Can I write longer documents?",
+    answer:
+      "Yes. Canvas pages are full documents, similar to a Notion page or Google Doc. Create as many as you want, each with its own title, checklists, links, and images. Any page can be shared as a public link.",
+  },
+  {
+    question: "Can I add images to omanote?",
+    answer:
+      "Yes, inside canvas pages. Drop an image in, resize it, and add a caption. Images are encrypted on your device before upload. Storage is capped at 200MB per account while accounts are free.",
   },
   {
     question: "Do I need slash commands?",
     answer:
-      "No. You can type plain notes, paste links, or use slash commands when you want to create a todo, bookmark, or event entry directly.",
+      "No, but pressing / is the fastest way in. It opens the composer from anywhere in the app, already set to match the tab you are on. From there you can type a plain note, paste a link, or use /todo or /bookmark to pick a type directly. Inside a canvas page, / opens a block menu for headings, checklists, lists, images, quotes, and code blocks.",
   },
   {
     question: "How are notes, todos, bookmarks, and events connected?",
     answer:
-      "They are specialist views for the same day. The canvas captures the moment; each view organizes and helps you manage that item later.",
+      "Each one is a focused view of the same day. You capture on the canvas, then use the specific view to organize and manage that item later.",
   },
   {
     question: "Can I organize todos into folders?",
     answer:
-      "Yes. Todos have folders, can be shared, and remember your last-used folder when you capture, so you don't have to sort everything twice.",
+      "Yes. Todos have folders, can be shared, and remember your last-used folder when you capture, so you do not have to sort everything twice.",
   },
   {
     question: "Can scheduled todos show up in the calendar?",
     answer:
-      "Yes. Date-only todos stack at the top of the day, timed todos land in the right slot, and completed ones still keep their scheduled context.",
+      "Yes. Date-only todos stack at the top of the day, timed todos land in the right slot, and completed ones keep their scheduled context.",
   },
   {
     question: "How does Explore work?",
     answer:
-      "Hashtags act like a thread running through related things. Add #work or #health to a note, a todo, and an event, and Explore pulls them all together. It's a surprisingly satisfying way to revisit how your days connect.",
+      "Add the same hashtag to a note, a todo, and an event, and Explore shows them together as a map. It is a way to browse by topic instead of by date.",
   },
   {
     question: "Can I share my bookmarks, notes, or todos with someone?",
     answer:
-      "Yes. Bookmark folders, note folders, and todo folders can each be turned into a public link — just toggle it on in the folder settings. Visitors get a clean, read-only page. One honest caveat: a public page has to be readable without your passphrase, so that one folder is stored unencrypted while the link is on. Switch it off and that copy is deleted. Everything you haven't shared stays encrypted.",
+      "Yes. Bookmark folders, note folders, todo folders, and canvas pages can each be turned into a public link from their settings. Visitors get a read-only page. One caveat: a public page has to be readable without your passphrase, so that folder or page is stored unencrypted while the link is on. Switch it off and that copy is deleted. Anything you have not shared stays encrypted.",
   },
   {
     question: "Does omanote have a dark mode?",
     answer:
-      "Yes. Light, dark, or system — pick in settings, and it syncs across all your devices. Public pages (landing, shared folders) stay light so links look right when you share them.",
+      "Yes. Light, dark, or system. Pick it in settings and it syncs across your devices. Public pages stay light so shared links look consistent.",
   },
   {
     question: "Does omanote work offline?",
     answer:
-      "Yes. Lose the wifi, keep capturing. Changes save locally and sync when your connection comes back. No dramatic data loss, just a quiet queue.",
+      "Yes. Changes save locally and sync when your connection comes back, so you can keep capturing without a connection.",
   },
   {
     question: "Is my data private?",
     answer:
-      "User content is encrypted on the client before storage. You unlock it with your passphrase, so the app is designed around private personal use.",
+      "User content is encrypted on your device before it is stored. You unlock it with your passphrase, so the app is designed around private personal use.",
   },
   {
     question: "What if I forget my passphrase?",
     answer:
-      "During setup, omanote gives you a recovery key to download. Keep it somewhere you'll actually find it — because if you forget your passphrase, that key is the way back in.",
+      "During setup, omanote gives you a recovery key to download. Store it somewhere safe. If you forget your passphrase, that key is the only way back into your account.",
   },
   {
     question: "Can I move my data to another account?",
     answer:
-      "Yes. Settings has export and import tools. Your exported data is plain text once decrypted, so treat it like the private journal it basically is.",
+      "Yes. Settings has export and import tools. Exported data is decrypted plain text, so keep the file somewhere safe.",
   },
 ];
 
@@ -202,6 +212,23 @@ export function getModeFromText(text: string): string {
 }
 
 // ─── Mockup artwork ───────────────────────────────────────────────────────────
+
+/**
+ * Real photography used inside the landing-page mockups, where a gradient
+ * placeholder would undersell the feature being shown (the canvas-page image
+ * block, specifically).
+ *
+ * Source: https://www.pexels.com/photo/31291321/ (aurora borealis over Iceland).
+ * Pexels licence: free for commercial use, no attribution required.
+ *
+ * Served pre-cropped to 880x293 (3:1) WebP, ~17KB, which is 2x the widest spot
+ * it renders at. Both call sites set explicit width/height so the layout does
+ * not shift while it loads. If you swap the file, keep the same aspect ratio or
+ * update those attributes too.
+ */
+export const MOCKUP_PHOTO = {
+  aurora: "/mockup-aurora.webp",
+} as const;
 
 /**
  * Decorative gradients for the landing-page mockups: fake article thumbnails,

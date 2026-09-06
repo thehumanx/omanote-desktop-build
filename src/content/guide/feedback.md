@@ -1,6 +1,6 @@
 # Send feedback & request features
 
-omanote is built for personal use and shared publicly. Feedback and feature requests go straight to the developer, and every submission is read.
+omanote is built for personal use and shared publicly. Feedback and feature requests go to the developer, and every submission is read.
 
 ## How to send feedback
 
@@ -8,15 +8,15 @@ Open your **profile menu** (tap your avatar in the top bar on mobile, or in the 
 
 From there you can:
 
-- **Toggle between Feedback and Feature request** — if you're reporting a problem, use Feedback. If you're suggesting something new, use Feature request. Both go to the same inbox but are labeled differently.
-- **Write your message** — up to 1,000 characters.
-- **Share your email** for a follow-up — your email is pre-filled from your account and shown masked, but you can opt to submit anonymously by checking the box.
-- **Submit** — after sending, you'll see a confirmation screen.
+- **Toggle between Feedback and Feature request.** Use Feedback to report a problem and Feature request to suggest something new. Both go to the same inbox, labeled differently.
+- **Write your message,** up to 1,000 characters.
+- **Share your email** for a follow-up. It's pre-filled from your account and shown masked, and you can submit anonymously by checking the box.
+- **Submit.** After sending, you'll see a confirmation screen.
 
 ## Rate limits
 
-You can submit up to **10 messages per month** to keep the channel focused. If you hit the limit, you'll see a message asking you to try again next month.
+You can submit up to **10 messages per month**. If you hit the limit, you'll see a message asking you to try again next month.
 
 ## Found a bug?
 
-Use the **Feedback** option in the same modal. Include what you were doing, what you expected to happen, and what actually happened. Screenshots aren't supported in the modal yet — if you have a screenshot, describe what it shows, or reach out on social media if you prefer.
+Use the **Feedback** option in the same modal. Include what you were doing, what you expected to happen, and what actually happened. Screenshots aren't supported in the modal yet, so describe what a screenshot would show, or reach out on social media instead.

@@ -1,6 +1,6 @@
 # Search
 
-Search looks across everything you've captured — notes, todos, bookmarks, and events — from one place, so you don't have to remember which kind of thing you're looking for or which day it's on.
+Search looks across everything you've captured, including notes, todos, bookmarks, and events, from one place. You don't have to remember which kind of thing you're looking for or which day it's on.
 
 ## Finding things
 
@@ -8,10 +8,10 @@ Open Search and type what you remember: a word from a note, part of a todo, a si
 
 ## Search stays private
 
-Because your content is encrypted, search runs on your own device against your decrypted data — your words are never searched on a server in plain text. See **How your data is protected** for more.
+Because your content is encrypted, search runs on your own device against your decrypted data. Your words are never searched on a server in plain text. See **How your data is protected** for more.
 
 ## Related ways to find things
 
-- **Hashtags & Explore** — browse by topic instead of by keyword.
-- **Todo views** — Today, Overdue, Later, and All for tasks specifically.
-- **Date navigation** — move to a day on the canvas to see everything from it.
+- **Hashtags & Explore:** browse by topic instead of by keyword.
+- **Todo views:** Today, Overdue, Later, and All, for tasks specifically.
+- **Date navigation:** move to a day on the canvas to see everything from it.

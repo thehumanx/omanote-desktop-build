@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { CalendarDays, ChevronLeft } from "lucide-react";
-import { addDays, buildRecurringCompletionIndex, parseVirtualOccurrenceId, toDateKey } from "@omanote/shared";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { ChevronLeft } from "lucide-react";
+import { addDays, buildRecurringCompletionIndex, parseVirtualOccurrenceId, searchArtifacts, toDateKey } from "@omanote/shared";
 import type { DateKey, TodoItem } from "@omanote/shared";
 import { useApp } from "../app/AppProvider";
 import { buildCanvasDayItems } from "../app/reducer";
@@ -9,7 +9,7 @@ import { buildDateKeyRangeDescending, buildDatesWithContentSet, earliestDateKeyF
 import { CanvasDateRow } from "../components/CanvasDateRow";
 import { CanvasDayArtifacts } from "../components/CanvasDayArtifacts";
 import { HistoryDateStrip } from "../components/HistoryDateStrip";
-import { HistoryDatePicker } from "../components/HistoryDatePicker";
+import { HistoryFilterBar } from "../components/HistoryFilterBar";
 import { ModalPortal } from "../components/ModalPortal";
 import { cn } from "../components/ui";
 import { BookmarkEditorModal } from "../components/BookmarkEditorModal";
@@ -18,6 +18,11 @@ import { useTopChrome } from "../components/layout/useTopChrome";
 import { useIsMobileViewport } from "../lib/mobile";
 import { useHistoryBackClose } from "../lib/useHistoryBackClose";
 import { useEdgeSwipeBack } from "../lib/useEdgeSwipeBack";
+
+const DAY_PANE_FADE_SIZE = 56;
+// Same edge-fade treatment as HistoryDateStrip's day list, so the selected
+// day's content scrolls under a soft edge instead of hard-clipping mid-line.
+const DAY_PANE_FADE_MASK = `linear-gradient(to bottom, transparent, black ${DAY_PANE_FADE_SIZE}px, black calc(100% - ${DAY_PANE_FADE_SIZE}px), transparent)`;
 
 function formatDayHeading(dateKey: DateKey): string {
   const date = new Date(`${dateKey}T12:00:00`);
@@ -28,13 +33,16 @@ function formatDayHeading(dateKey: DateKey): string {
  * `/history` — the past, one day at a time. Desktop puts the day list and the
  * selected day side by side, each filling the page height with its own
  * scroll; mobile makes the list the whole screen and pushes a full-page view
- * of the day over it, folder-style. The page itself never scrolls, there's no
- * bottom nav here (see BottomNav), and a floating button jumps to any date.
- * Today is deliberately absent — that's Canvas.
+ * of the day over it, folder-style. The page itself never scrolls and there's
+ * no bottom nav here (see BottomNav). A filter row above both (hidden while a
+ * mobile day is drilled into) holds search, jump-to-date, the all/pages-only
+ * toggle, and "hide empty days". Today is deliberately absent — that's
+ * Canvas.
  */
 export function HistoryScreen() {
   const { state, dispatch } = useApp();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const todayKey = useMemo(() => toDateKey(new Date()), []);
   const yesterdayKey = useMemo(() => toDateKey(addDays(new Date(), -1)), []);
@@ -42,6 +50,14 @@ export function HistoryScreen() {
 
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
   const [editingBookmarkId, setEditingBookmarkId] = useState<string | null>(null);
+
+  // Filter row state. `pagesOnly` can arrive pre-set via `?only=pages` — the
+  // "View all" link on Continue Writing sends readers straight into
+  // pages-only mode instead of the full mixed history.
+  const [query, setQuery] = useState("");
+  const [pagesOnly, setPagesOnly] = useState(() => searchParams.get("only") === "pages");
+  const [hideEmptyDays, setHideEmptyDays] = useState(true);
+  const [dateFilterKey, setDateFilterKey] = useState<DateKey | null>(null);
 
   // Mobile has no room for two columns, so it's a drill-in instead: the day
   // list owns the screen, and picking a day pushes that day's content over it
@@ -54,8 +70,6 @@ export function HistoryScreen() {
   // same as the Notes/Todos/Bookmarks mobile panels.
   useHistoryBackClose(isMobile && mobileDayOpen, closeMobileDay);
   const { dragOffset, isDragging, edgeSwipeProps } = useEdgeSwipeBack(closeMobileDay);
-
-  const [pickerOpen, setPickerOpen] = useState(false);
 
   const contentPaneRef = useRef<HTMLDivElement | null>(null);
   // One persistent scroller across every day you browse — switching days only
@@ -73,6 +87,17 @@ export function HistoryScreen() {
     [],
   );
 
+  // The filter row's date picker both jumps to the picked day (same as
+  // clicking it in the list) and remembers it as the active filter label;
+  // "All dates" clears the label back to its resting state.
+  const handleDateFilterSelect = useCallback(
+    (dateKey: DateKey | null) => {
+      setDateFilterKey(dateKey);
+      if (dateKey) selectDateKey(dateKey);
+    },
+    [selectDateKey],
+  );
+
   const closeHistory = useCallback(() => navigate("/canvas"), [navigate]);
   const showingMobileDay = isMobile && mobileDayOpen;
   // The shared top bar keeps showing "History ×" for the list; the drilled-in
@@ -88,22 +113,83 @@ export function HistoryScreen() {
 
   const earliestKey = useMemo(
     () => earliestDateKeyFromState(state, todayKey),
-    [state.todos, state.notes, state.deletedNotes, state.bookmarks, state.deletedBookmarks, state.events, todayKey],
+    [state.todos, state.notes, state.deletedNotes, state.bookmarks, state.deletedBookmarks, state.events, state.pages, todayKey],
   );
   const dateKeys = useMemo(
     () => (earliestKey <= yesterdayKey ? buildDateKeyRangeDescending(earliestKey, yesterdayKey) : []),
     [earliestKey, yesterdayKey],
   );
+  // Mode-aware: in pages-only mode a day with only todos/notes counts as
+  // empty, both for the list's dot markers and the "hide empty days" filter.
   const datesWithContent = useMemo(
-    () => buildDatesWithContentSet(state),
-    [state.todos, state.notes, state.bookmarks, state.events],
+    () => buildDatesWithContentSet(state, { pagesOnly }),
+    [state.todos, state.notes, state.bookmarks, state.events, state.pages, pagesOnly],
   );
 
+  const trimmedQuery = query.trim();
+  // Reusing the global search matcher scoped to pages only when that filter
+  // is on, so "search in history" and "pages only" compose instead of the
+  // search box surfacing todo/note/bookmark/event matches that mode hides.
+  const searchHits = useMemo(() => {
+    if (!trimmedQuery) return null;
+    return searchArtifacts({
+      query: trimmedQuery,
+      todos: pagesOnly ? [] : state.todos,
+      notes: pagesOnly ? [] : state.notes,
+      bookmarks: pagesOnly ? [] : state.bookmarks,
+      events: pagesOnly ? [] : state.events,
+      pages: state.pages,
+    });
+  }, [trimmedQuery, pagesOnly, state.todos, state.notes, state.bookmarks, state.events, state.pages]);
+
+  const matchDateKeys = useMemo(() => {
+    if (!searchHits) return null;
+    const keys = new Set<DateKey>();
+    for (const hit of searchHits) {
+      const key = hit.canvasDateKey ?? hit.dateKey;
+      if (key) keys.add(key as DateKey);
+    }
+    return keys;
+  }, [searchHits]);
+
+  const matchIdsByKind = useMemo(() => {
+    if (!searchHits) return null;
+    const map = new Map<string, Set<string>>();
+    for (const hit of searchHits) {
+      if (!map.has(hit.kind)) map.set(hit.kind, new Set());
+      map.get(hit.kind)!.add(hit.id);
+    }
+    return map;
+  }, [searchHits]);
+
+  // Search implies its own filtering (only days/items with a match), so
+  // "hide empty days" only kicks in when there's no active search query.
+  const filteredDateKeys = useMemo(() => {
+    if (matchDateKeys) return dateKeys.filter((key) => matchDateKeys.has(key));
+    if (hideEmptyDays) return dateKeys.filter((key) => datesWithContent.has(key));
+    return dateKeys;
+  }, [dateKeys, matchDateKeys, hideEmptyDays, datesWithContent]);
+
+  // If the currently viewed day drops out of the filtered list (a filter
+  // just hid it), fall back to the newest day that's still visible rather
+  // than silently showing content that no longer matches the filters.
+  useEffect(() => {
+    if (!filteredDateKeys.length) return;
+    if (filteredDateKeys.includes(selectedDateKey)) return;
+    setSelectedDateKey(filteredDateKeys[0]!);
+  }, [filteredDateKeys, selectedDateKey]);
+
   const recurringCompletionIndex = useMemo(() => buildRecurringCompletionIndex(state.todos), [state.todos]);
-  const dayItems = useMemo(
+  const dayItemsRaw = useMemo(
     () => buildCanvasDayItems(state, selectedDateKey, recurringCompletionIndex),
-    [state.todos, state.notes, state.bookmarks, state.events, selectedDateKey, recurringCompletionIndex],
+    [state.todos, state.notes, state.bookmarks, state.events, state.pages, selectedDateKey, recurringCompletionIndex],
   );
+  const dayItems = useMemo(() => {
+    let items = dayItemsRaw;
+    if (pagesOnly) items = items.filter((item) => item.kind === "page");
+    if (matchIdsByKind) items = items.filter((item) => matchIdsByKind.get(item.kind)?.has(item.data.id));
+    return items;
+  }, [dayItemsRaw, pagesOnly, matchIdsByKind]);
 
   const categoryNameById = useMemo(
     () => new Map(state.bookmarkCategories.map((category) => [category.id, category.name] as const)),
@@ -123,7 +209,7 @@ export function HistoryScreen() {
 
   const dayList = (
     <HistoryDateStrip
-      dateKeys={dateKeys}
+      dateKeys={filteredDateKeys}
       datesWithContent={datesWithContent}
       todayKey={todayKey}
       selectedDateKey={selectedDateKey}
@@ -140,7 +226,11 @@ export function HistoryScreen() {
     <div
       ref={contentPaneRef}
       className="scrollbar-hide flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto pt-6"
-      style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 6rem)" }}
+      style={{
+        paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 6rem)",
+        maskImage: DAY_PANE_FADE_MASK,
+        WebkitMaskImage: DAY_PANE_FADE_MASK,
+      }}
     >
       {withHeading ? <h1 className="text-lg font-bold text-app-ink md:text-2xl">{formatDayHeading(selectedDateKey)}</h1> : null}
       {dayItems.length ? (
@@ -158,15 +248,42 @@ export function HistoryScreen() {
           onEditBookmark={setEditingBookmarkId}
         />
       ) : (
-        <p className="text-sm text-app-ink-faint">Nothing was added on this day.</p>
+        <p className="text-sm text-app-ink-faint">
+          {trimmedQuery
+            ? "No matches on this day."
+            : pagesOnly
+              ? "No canvas pages on this day."
+              : "Nothing was added on this day."}
+        </p>
       )}
     </div>
   );
 
   return (
-    <div className="flex min-h-0 w-full flex-1 gap-4 overflow-hidden md:gap-6">
+    <div className="flex min-h-0 w-full flex-1 flex-col gap-3 overflow-hidden">
+      {dateKeys.length && !(isMobile && mobileDayOpen) ? (
+        <div className="pt-4">
+          <HistoryFilterBar
+            query={query}
+            onQueryChange={setQuery}
+            pagesOnly={pagesOnly}
+            onPagesOnlyChange={setPagesOnly}
+            hideEmptyDays={hideEmptyDays}
+            onHideEmptyDaysChange={setHideEmptyDays}
+            dateFilterKey={dateFilterKey}
+            onSelectDateFilter={handleDateFilterSelect}
+            todayKey={todayKey}
+            minDateKey={earliestKey}
+            maxDateKey={yesterdayKey}
+            datesWithContent={datesWithContent}
+          />
+        </div>
+      ) : null}
+      <div className="flex min-h-0 w-full flex-1 gap-4 overflow-hidden md:gap-6">
       {!dateKeys.length ? (
         <p className="pt-6 text-sm text-app-ink-faint">No history yet — everything you’ve captured so far is on today’s canvas.</p>
+      ) : !filteredDateKeys.length ? (
+        <p className="pt-6 text-sm text-app-ink-faint">No days match these filters.</p>
       ) : isMobile ? (
         dayList
       ) : (
@@ -182,6 +299,7 @@ export function HistoryScreen() {
           {renderDayPane(true)}
         </>
       )}
+      </div>
 
       {/* Mobile drill-in: a real full-page view over everything (including the
           app's top bar), with its own back button and the date as the title —
@@ -218,42 +336,6 @@ export function HistoryScreen() {
             ) : null}
           </section>
         </ModalPortal>
-      ) : null}
-
-      {/* Jump-to-a-date. Sits where the bottom nav would be (this route hides
-          it), capped to the same content column so it lines up with the page. */}
-      {dateKeys.length ? (
-        <div className="pointer-events-none fixed bottom-4 left-1/2 z-app-bottom-nav flex w-[min(calc(100vw-2rem),1024px)] -translate-x-1/2 justify-end">
-          <div className="pointer-events-auto relative">
-            {pickerOpen ? (
-              <>
-                <div aria-hidden="true" className="fixed inset-0 -z-10" onClick={() => setPickerOpen(false)} />
-                <div className="absolute bottom-14 right-0">
-                  <HistoryDatePicker
-                    selectedDateKey={selectedDateKey}
-                    minDateKey={earliestKey}
-                    maxDateKey={yesterdayKey}
-                    datesWithContent={datesWithContent}
-                    onSelect={(dateKey) => {
-                      selectDateKey(dateKey);
-                      setPickerOpen(false);
-                    }}
-                    onClose={() => setPickerOpen(false)}
-                  />
-                </div>
-              </>
-            ) : null}
-            <button
-              type="button"
-              aria-label="Jump to a date"
-              aria-expanded={pickerOpen}
-              onClick={() => setPickerOpen((open) => !open)}
-              className="flex h-12 w-12 items-center justify-center rounded-full border border-app-line bg-app-surface p-0 text-app-ink-muted shadow-soft transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-app-surface-hover active:translate-y-px active:scale-[0.98]"
-            >
-              <CalendarDays className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
       ) : null}
 
       {editingBookmark ? (
