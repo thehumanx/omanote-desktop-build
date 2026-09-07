@@ -77,6 +77,14 @@ export default {
         "app-card-compact": "var(--space-card-compact-padding)",
       },
       borderRadius: {
+        sm: "var(--radius-sm)",
+        DEFAULT: "var(--radius-DEFAULT)",
+        md: "var(--radius-md)",
+        lg: "var(--radius-lg)",
+        xl: "var(--radius-xl)",
+        "2xl": "var(--radius-2xl)",
+        "3xl": "var(--radius-3xl)",
+        full: "var(--radius-full)",
         "app-field": "var(--radius-app-field)",
         "app-button": "var(--radius-app-button)",
         "app-chip": "var(--radius-app-chip)",
@@ -84,6 +92,8 @@ export default {
         "app-card": "var(--radius-app-card)",
         "app-dialog": "var(--radius-app-dialog)",
         "app-drawer": "var(--radius-app-drawer)",
+        "app-icon": "var(--radius-app-icon)",
+        "segmented-vertical": "var(--component-segmented-vertical-radius)",
       },
       boxShadow: {
         soft: "var(--shadow-soft)",
