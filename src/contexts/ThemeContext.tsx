@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ThemeMode } from "../lib/user-settings";
-import { applyResolvedTheme, applyTypographySettings, resolveThemeMode, setStoredThemeMode, type ResolvedTheme } from "../design-system/theme";
+import { applyCornerStyle, applyResolvedTheme, applyTypographySettings, resolveThemeMode, setStoredThemeMode, type ResolvedTheme } from "../design-system/theme";
 import { useUserSettings } from "./UserSettingsContext";
 
 type ThemeContextValue = {
@@ -45,6 +45,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     if (loading) return;
     applyTypographySettings(settings.fontFamily);
   }, [loading, settings.fontFamily]);
+
+  useEffect(() => {
+    if (loading) return;
+    applyCornerStyle(settings.cornerStyle);
+    // Unlike theme/font, this is scoped to `html` and directly zeroes the
+    // same `rounded-*` utilities the public pages use (via `.public-page`
+    // redeclaring them) — clear it on unmount so a stray dialog portaled
+    // from a public page right after sign-out never inherits "sharp".
+    return () => applyCornerStyle("rounded");
+  }, [loading, settings.cornerStyle]);
 
   const setThemeMode = useCallback(
     async (mode: ThemeMode) => {

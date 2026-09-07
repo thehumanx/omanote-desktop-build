@@ -4,7 +4,7 @@ import { useMutation, useQuery } from "convex/react";
 import { useParams, Link } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
 import { getShareViewerToken } from "../lib/share-viewer-token";
-import { cn, TodoCheckmark } from "../components/ui";
+import { cn, LoadingSpinner, TodoCheckmark } from "../components/ui";
 import { RichTextPreview } from "../components/rich-text";
 import { extractAllPreviewableUrls } from "../lib/attachment-link-preview";
 import { LinkListItem, UrlLinkPreview } from "../components/AttachmentLinkPreview";
@@ -323,7 +323,7 @@ export function SharedFolderPage() {
       <>
         <SeoHead title="omanote | Shared folder" noIndex />
         <div className="public-page flex min-h-screen items-center justify-center bg-app-canvas">
-          <div className="h-8 w-8 animate-pulse rounded-full bg-app-line" />
+          <LoadingSpinner className="h-8 w-8" />
         </div>
       </>
     );

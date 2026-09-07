@@ -74,6 +74,8 @@ export function mapPage(page: Doc<"pages">): PageItem {
     docJson: page.docJson,
     preview: page.preview,
     hashtags: page.hashtags ?? undefined,
+    starred: page.starred ?? undefined,
+    hidden: page.hidden ?? undefined,
     deletedAt: page.deletedAt ?? undefined,
     createdAt: page.createdAt,
     updatedAt: page.updatedAt,

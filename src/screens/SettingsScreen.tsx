@@ -8,7 +8,7 @@ import {
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { Button, CheckboxField, cn, Input, OptionCard } from "../components/ui";
-import { applyTypographySettings } from "../design-system/theme";
+import { applyCornerStyle, applyTypographySettings } from "../design-system/theme";
 import { GoogleSyncEncryptionNotice } from "../components/ShareEncryptionNotice";
 import { ModalPortal } from "../components/ModalPortal";
 import { BaseModal } from "../components/BaseModal";
@@ -24,6 +24,7 @@ import {
   DEFAULT_SNOOZE_MINUTES,
   REMINDER_LEAD_MINUTES,
   REMINDER_TOAST_DURATION_SECONDS,
+  type CornerStyle,
   type FontFamily,
   type NavLabelStyle,
 } from "../lib/user-settings";
@@ -44,6 +45,7 @@ import { detectWebClientType, getCurrentDeviceMetadata } from "../lib/device-inf
 import { useDrawerDrag } from "../lib/useDrawerDrag";
 import {
   CATEGORIES,
+  CornerStylePicker,
   FontFamilyPicker,
   NavLabelPreview,
   appearanceDraftsMatch,
@@ -147,9 +149,10 @@ export function SettingsScreen() {
       themeMode,
       navLabelStyle: settings.navLabelStyle,
       fontFamily: settings.fontFamily,
+      cornerStyle: settings.cornerStyle,
       canvasDotGrid: settings.canvasDotGrid,
     }),
-    [settings.navLabelStyle, settings.fontFamily, settings.canvasDotGrid, themeMode],
+    [settings.navLabelStyle, settings.fontFamily, settings.cornerStyle, settings.canvasDotGrid, themeMode],
   );
   const notificationSettingsDraft = useMemo<NotificationDraft>(
     () => ({
@@ -318,6 +321,10 @@ export function SettingsScreen() {
     applyTypographySettings(appearanceDraft.fontFamily);
   }, [appearanceDraft.fontFamily]);
 
+  useEffect(() => {
+    applyCornerStyle(appearanceDraft.cornerStyle);
+  }, [appearanceDraft.cornerStyle]);
+
   const disableAppearanceSave = loading || savingAppearance || !hasPendingAppearanceChanges;
   const disableNotificationSave = loading || savingNotifications || !hasPendingNotificationChanges;
   const canChangePassphrase = currentPassphrase.length > 0 && nextPassphrase.length > 0 && confirmPassphrase.length > 0;
@@ -359,12 +366,20 @@ export function SettingsScreen() {
       if (nextDraft.themeMode !== themeMode) {
         await setThemeMode(nextDraft.themeMode);
       }
-      const appearancePatch: { navLabelStyle?: NavLabelStyle; fontFamily?: FontFamily; canvasDotGrid?: boolean } = {};
+      const appearancePatch: {
+        navLabelStyle?: NavLabelStyle;
+        fontFamily?: FontFamily;
+        cornerStyle?: CornerStyle;
+        canvasDotGrid?: boolean;
+      } = {};
       if (nextDraft.navLabelStyle !== settings.navLabelStyle) {
         appearancePatch.navLabelStyle = nextDraft.navLabelStyle;
       }
       if (nextDraft.fontFamily !== settings.fontFamily) {
         appearancePatch.fontFamily = nextDraft.fontFamily;
+      }
+      if (nextDraft.cornerStyle !== settings.cornerStyle) {
+        appearancePatch.cornerStyle = nextDraft.cornerStyle;
       }
       if (nextDraft.canvasDotGrid !== settings.canvasDotGrid) {
         appearancePatch.canvasDotGrid = nextDraft.canvasDotGrid;
@@ -740,6 +755,25 @@ export function SettingsScreen() {
                   cancelWaitingAppearanceContextSync();
                   setAppearanceSaveError(null);
                   setAppearanceDraft((cur) => ({ ...cur, fontFamily: value }));
+                }}
+              />
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm font-bold text-app-ink">Corner style</p>
+                <p className="mt-0.5 text-xs text-app-ink-faint">
+                  Choose between rounded corners or sharp, square edges across the app.
+                </p>
+              </div>
+
+              <CornerStylePicker
+                value={appearanceDraft.cornerStyle}
+                currentValue={appearanceSettingsDraft.cornerStyle}
+                onSelect={(value) => {
+                  cancelWaitingAppearanceContextSync();
+                  setAppearanceSaveError(null);
+                  setAppearanceDraft((cur) => ({ ...cur, cornerStyle: value }));
                 }}
               />
             </div>

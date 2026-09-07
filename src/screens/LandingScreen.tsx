@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { SignInButton } from "@clerk/react";
 import { CookieNotice } from "../components/CookieNotice";
-import { ArrowRight, Bookmark, CheckCheck, CheckSquare, Clock3, Plus, FileText, CalendarDays, SquarePen, Folder, Link2, List, Settings, Zap, MousePointerClick, Lock, Puzzle, LayoutDashboard, Hash, Share2, Moon, Monitor, Bell, RefreshCw, Download, Rss, BookOpen, ChevronDown, X, Layers, Image as ImageIcon, ExternalLink, FilePlus2 } from "lucide-react";
+import { ArrowRight, Bookmark, CheckCheck, CheckSquare, Clock3, Plus, FileText, CalendarDays, SquarePen, Folder, Link2, List, Settings, Zap, MousePointerClick, Lock, Puzzle, LayoutDashboard, Hash, Share2, Monitor, Bell, RefreshCw, Download, Rss, BookOpen, ChevronDown, X, Layers, Image as ImageIcon, ExternalLink, FilePlus2 } from "lucide-react";
 import changelogMarkdown from "../../CHANGELOG.md?raw";
 import { SeoHead } from "../seo/SeoHead";
 import { color } from "../design-system/tokens";
@@ -1418,7 +1418,7 @@ function AppMockup() {
           : "";
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-app-line bg-app-surface text-left shadow-app-dialog">
+    <div className="relative overflow-hidden rounded-2xl border border-app-line bg-app-surface text-left shadow-app-soft">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.92),transparent_62%)]" />
       {/* The real Write/Read pill isn't in the header row at all — it's a
           separate fixed rail pinned to the left edge of the viewport,
@@ -1683,7 +1683,7 @@ function AppMockup() {
 // ─── Extension popup mockup ───────────────────────────────────────────────────
 function ExtensionPopupMockup() {
   return (
-    <div className="w-[300px] rounded-2xl border border-app-line bg-app-surface shadow-app-dialog overflow-hidden text-left">
+    <div className="w-[300px] rounded-2xl border border-app-line bg-app-surface shadow-app-soft overflow-hidden text-left">
       {/* Header */}
       <div className="border-b border-app-line px-3.5 py-2.5 flex items-center justify-between bg-app-surface shrink-0">
         <img src="/logo.svg" alt="omanote" className="h-5 w-auto" />
@@ -1795,7 +1795,7 @@ function RssBanner() {
 // ─── Canvas page mockup ────────────────────────────────────────────────────────
 function PageMockup() {
   return (
-    <div className="overflow-hidden rounded-2xl border border-app-line bg-app-surface-raised text-left shadow-app-dialog">
+    <div className="overflow-hidden rounded-2xl border border-app-line bg-app-surface-raised text-left shadow-app-soft">
       <div className="flex items-center justify-between border-b border-app-line px-5 py-2.5">
         <div className="flex gap-1.5">
           <div className="h-2.5 w-2.5 rounded-full bg-app-line" />
@@ -1863,7 +1863,7 @@ function RssReaderMockup() {
     { title: "OpenAI announces new developer tools", feed: "The Verge", time: "Yesterday", read: true },
   ];
   return (
-    <div className="rounded-2xl border border-app-line bg-app-surface shadow-app-dialog overflow-hidden text-left w-full max-w-[520px]">
+    <div className="rounded-2xl border border-app-line bg-app-surface shadow-app-soft overflow-hidden text-left w-full max-w-[520px]">
       {/* Top chrome */}
       <div className="border-b border-app-line h-9 bg-app-surface flex items-center justify-between px-4 shrink-0">
         <div className="flex gap-1.5">
@@ -2121,87 +2121,6 @@ export function LandingScreen() {
         </section>
 
         {/* Why omanote */}
-        <section id="why" className="border-t border-app-line">
-          <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-16 sm:py-20 lg:py-24">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-20 items-start">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">
-                  The name
-                </p>
-                <h2 className="font-serif-heading font-serif-heading-smooth mt-4 text-3xl sm:text-4xl font-black tracking-[-0.025em] leading-tight">
-                  An opinionated daily canvas, set up in advance.
-                </h2>
-                <p className="mt-5 text-app-ink-muted leading-relaxed text-[15px]">
-                  <strong className="text-app-ink">Omakase</strong> (お任せ) is Japanese for "I'll
-                  leave it to you", the trust you place in a chef who handles the menu for you. No
-                  menu, no decisions.
-                </p>
-                <p className="mt-4 text-app-ink-muted leading-relaxed text-[15px]">
-                  omanote takes the same approach to your day. The structure is already there: the
-                  canvas to start, then notes, todos, bookmarks, events, pages, RSS, Insights, and
-                  Explore when you need them.
-                </p>
-                <p className="mt-4 text-app-ink-muted leading-relaxed text-[15px]">
-                  It's for people who want to open an app and start typing, without setting up a
-                  system first.
-                </p>
-                <p className="mt-4 text-app-ink-muted leading-relaxed text-[15px]">
-                  Inspired by{" "}
-                  <a
-                    href="https://omarchy.org"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-app-ink underline underline-offset-2 hover:no-underline"
-                  >
-                    Omarchy by DHH
-                  </a>{" "}
-                  and its ready-to-use approach. Oh, I use Omarchy btw.
-                </p>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {[
-                  {
-                    icon: LayoutDashboard,
-                    title: "Already structured",
-                    body: "A quick, one-time setup and everything's in place. From then on: open it, start typing.",
-                  },
-                  {
-                    icon: Zap,
-                    title: "Low ceremony",
-                    body: "Capture first, sort later. Nothing needs a folder or a tag at the moment you write it down.",
-                  },
-                  {
-                    icon: Hash,
-                    title: "Hashtags connect everything",
-                    body: "Tag a note, a todo, and an event with #health. Now they're connected. Explore and Insights make the pattern easier to revisit.",
-                  },
-                  {
-                    icon: CalendarDays,
-                    title: "Day-first capture",
-                    body: "Every capture is rooted in today, with calendar jumps and scheduled todos so things stay anchored to the right day.",
-                  },
-                  {
-                    icon: Moon,
-                    title: "Light, dark, or system",
-                    body: "Full dark mode support, synced across devices. Switch it in settings, or let it follow your OS.",
-                  },
-                  {
-                    icon: Rss,
-                    title: "Built-in RSS reader",
-                    body: "Subscribe to any feed, read in-app, and save articles to your bookmarks. Opt in from Settings when you're ready.",
-                  },
-                ].map((card) => (
-                  <div key={card.title} className="rounded-2xl border border-app-line bg-app-surface p-5">
-                    <card.icon className="h-6 w-6 text-app-ink-muted" />
-                    <p className="mt-3 text-sm font-bold text-app-ink">{card.title}</p>
-                    <p className="mt-1.5 text-sm text-app-ink-muted leading-snug">{card.body}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
         {/* Write & Read mode */}
         <section id="how-it-works" className="border-t border-app-line">
           <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-16 sm:py-20 lg:py-24">
@@ -2319,53 +2238,79 @@ export function LandingScreen() {
                 A running list of what has shipped since the first version.
               </p>
             </div>
-            <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {[
                 {
                   icon: Layers,
                   title: "Multi-page canvas",
                   body: "Full documents inside Canvas, with headings, checklists, links, and images. Create as many as you want, and share any single page as a read-only link.",
+                  span: "sm:col-span-2 lg:col-span-2 lg:row-span-2",
+                  large: true,
                 },
                 {
-                  icon: ImageIcon,
-                  title: "Image uploads",
-                  body: "Drop images into a canvas page, then resize and caption them inline. Encrypted on your device before upload, with 200MB of storage per free account.",
+                  icon: Hash,
+                  title: "Hashtags connect everything",
+                  body: "Tag a note, a todo, and an event with #health. Now they're linked — Explore and Insights turn the pattern into something you can revisit.",
+                  span: "sm:col-span-2 lg:col-span-2",
                 },
                 {
                   icon: RefreshCw,
                   title: "Recurring todos",
                   body: "Type \"every mon and fri\" or \"pay rent every month until December\" and omanote sets the schedule. Repeats daily, weekly, monthly, or on chosen weekdays, with an end date or a fixed count.",
+                  span: "sm:col-span-2 lg:col-span-2",
                 },
                 {
                   icon: CalendarDays,
                   title: "Google Calendar sync",
-                  body: "Connect your Google account and todos flow both ways. Open todos land on a dedicated omanote calendar, and events you create in Google become todos automatically.",
+                  body: "Todos and Google Calendar events flow both ways, automatically.",
+                  span: "",
                 },
                 {
                   icon: LayoutDashboard,
                   title: "Insights",
-                  body: "Completion rate, overdue rate, and week-over-week deltas. Content breakdown by type. A 365-day activity heatmap.",
+                  body: "Completion rate, overdue rate, and a 365-day activity heatmap.",
+                  span: "",
                 },
                 {
                   icon: Bell,
                   title: "Natural-language reminders",
-                  body: "\"Drink water every 30 minutes for the next 6 hours\" pings on that cadence without adding copies to your list. Dates and times are parsed as you type.",
+                  body: "\"Drink water every 30 minutes for 6 hours\" — parsed and scheduled as you type.",
+                  span: "",
+                },
+                {
+                  icon: ImageIcon,
+                  title: "Image uploads",
+                  body: "Drop images into a page, resize and caption inline. Encrypted before upload.",
+                  span: "",
                 },
                 {
                   icon: Share2,
                   title: "Share any folder",
                   body: "Todo folders, note folders, and bookmark categories can each become a read-only public link. The rest of your canvas stays encrypted and private.",
+                  span: "sm:col-span-2 lg:col-span-2",
                 },
                 {
                   icon: Download,
                   title: "Export & import",
                   body: "Export everything as plain text once decrypted, and import it back. Use it to move accounts or keep your own backup.",
+                  span: "sm:col-span-2 lg:col-span-2",
                 },
               ].map((card) => (
-                <div key={card.title} className="rounded-2xl border border-app-line bg-app-surface p-5 text-left">
-                  <card.icon className="h-6 w-6 text-app-ink-muted" />
-                  <p className="mt-3 text-sm font-bold text-app-ink">{card.title}</p>
-                  <p className="mt-1.5 text-sm text-app-ink-muted leading-snug">{card.body}</p>
+                <div
+                  key={card.title}
+                  className={[
+                    "flex flex-col rounded-2xl border border-app-line bg-app-surface p-5 text-left",
+                    card.large ? "justify-between lg:p-6" : "",
+                    card.span,
+                  ].join(" ")}
+                >
+                  <card.icon className={card.large ? "h-8 w-8 text-app-ink-muted" : "h-6 w-6 text-app-ink-muted"} />
+                  <div className={card.large ? "mt-6" : "mt-3"}>
+                    <p className={card.large ? "text-base font-bold text-app-ink" : "text-sm font-bold text-app-ink"}>
+                      {card.title}
+                    </p>
+                    <p className="mt-1.5 text-sm text-app-ink-muted leading-snug">{card.body}</p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -2413,6 +2358,45 @@ export function LandingScreen() {
                 </div>
               ))}
             </div>
+          </div>
+        </section>
+
+        {/* The name */}
+        <section id="why" className="border-t border-app-line">
+          <div className="max-w-[620px] mx-auto px-4 sm:px-6 py-16 sm:py-20 lg:py-24 text-center">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">
+              The name
+            </p>
+            <h2 className="font-serif-heading font-serif-heading-smooth mt-4 text-3xl sm:text-4xl font-black tracking-[-0.025em] leading-tight">
+              Built for an audience of one, <br /> shared publicly.
+            </h2>
+            <p className="mt-5 text-app-ink-muted leading-relaxed text-[15px]">
+              omanote is the all-in-one daily canvas I wanted for myself. It isn't here to
+              replace your other tools, so it's opinionated about how you save things — built
+              on a "dump it all in, one canvas per day" philosophy.
+            </p>
+            <p className="mt-4 text-app-ink-muted leading-relaxed text-[15px]">
+              Thus the name. <strong className="text-app-ink">Omakase</strong> (お任せ) is
+              Japanese for "I'll leave it to you", the trust you place in a chef who handles
+              the menu for you. No menu, no decisions.
+            </p>
+            <p className="mt-4 text-app-ink-muted leading-relaxed text-[15px]">
+              The structure is already there: the canvas to start, then notes, todos,
+              bookmarks, events, pages, RSS, Insights, and Explore, already there when you
+              need them.
+            </p>
+            <p className="mt-4 text-app-ink-muted leading-relaxed text-[15px]">
+              Inspired by the concept behind{" "}
+              <a
+                href="https://omarchy.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-app-ink underline underline-offset-2 hover:no-underline"
+              >
+                Omarchy by DHH
+              </a>{" "}
+              and its ready-to-use approach. Oh, I use Omarchy btw.
+            </p>
           </div>
         </section>
 

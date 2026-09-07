@@ -4,6 +4,19 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.33.2 [September 7, 2026]
+
+> Canvas pages save reliably now and can be starred or hidden, plus two new looks in Settings: sharp corners across the whole app, and a font option that mixes a serif for titles with a sans body.
+
+- [Fix] Content typed into a brand-new canvas page isn't lost if you close the page now
+- [Fix] Fixed browser getting stuck when sharing canvas page
+- [Fix] The publicly shared canvas page now renders perfectly like you added
+- [Add] Canvas pages can now be starred or hidden. A starred page always shows up in "Continue writing"; a hidden page never does. By default last 3 edited pages shows up as well
+- [Update] "Continue writing" and "Your today" cards now show page stats (word count, todos, links, images, last edited) instead of a content preview
+- [Update] Multiple canvas pages created back-to-back now sit side by side instead of stacking full width
+- [Add] A new "Corner style" setting under Look & feel to switch every rounded corner in the app
+- [Add] The Font setting now has a third option, "Both" — titles and headings to Aleo and body to Lato
+
 ### v0.33.1 [September 6, 2026]
 
 > Storage numbers now add up, History gets a filter row, and a canvas-page layout glitch is fixed.

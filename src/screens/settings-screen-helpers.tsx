@@ -15,6 +15,7 @@ import {
   UserCircle,
 } from "lucide-react";
 import type {
+  CornerStyle,
   DefaultSnoozeMinutes,
   FontFamily,
   NavLabelStyle,
@@ -28,6 +29,7 @@ export type AppearanceDraft = {
   themeMode: ThemeMode;
   navLabelStyle: NavLabelStyle;
   fontFamily: FontFamily;
+  cornerStyle: CornerStyle;
   canvasDotGrid: boolean;
 };
 
@@ -43,14 +45,27 @@ export type BrowserPermissionState = NotificationPermission | "unsupported";
 
 export type CategoryId = "appearance" | "notifications" | "security" | "devices" | "data" | "storage" | "account" | "features";
 
+const LATO_STACK = '"Lato", ui-sans-serif, system-ui, sans-serif';
+const SERIF_STACK = '"Aleo", Georgia, ui-serif, serif';
+
 const FONT_FAMILY_OPTIONS: readonly {
   value: FontFamily;
   label: string;
   sub: string;
-  fontFamily: string;
+  /** Font for the leading "A" of the preview glyph — the heading font. */
+  headingFontFamily: string;
+  /** Font for the trailing "a" of the preview glyph — the body font. */
+  bodyFontFamily: string;
 }[] = [
-  { value: "sans", label: "Sans", sub: "Lato", fontFamily: '"Lato", ui-sans-serif, system-ui, sans-serif' },
-  { value: "serif", label: "Serif", sub: "Aleo", fontFamily: '"Aleo", Georgia, ui-serif, serif' },
+  { value: "sans", label: "Sans", sub: "Lato", headingFontFamily: LATO_STACK, bodyFontFamily: LATO_STACK },
+  { value: "serif", label: "Serif", sub: "Aleo", headingFontFamily: SERIF_STACK, bodyFontFamily: SERIF_STACK },
+  {
+    value: "both",
+    label: "Both",
+    sub: "Aleo headings, Lato body",
+    headingFontFamily: SERIF_STACK,
+    bodyFontFamily: LATO_STACK,
+  },
 ];
 
 /**
@@ -69,7 +84,7 @@ export function FontFamilyPicker({
   onSelect: (value: FontFamily) => void;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <div className="grid gap-2 sm:grid-cols-3">
       {FONT_FAMILY_OPTIONS.map((option) => {
         const selected = value === option.value;
         const current = currentValue !== undefined && currentValue === option.value;
@@ -90,11 +105,60 @@ export function FontFamilyPicker({
             )}
             <span
               className={cn("text-2xl leading-none", selected ? "text-app-ink" : "text-app-ink-muted")}
-              style={{ fontFamily: option.fontFamily }}
               aria-hidden="true"
             >
-              Aa
+              <span style={{ fontFamily: option.headingFontFamily }}>A</span>
+              <span style={{ fontFamily: option.bodyFontFamily }}>a</span>
             </span>
+            <span className={cn("text-sm font-bold", selected ? "text-app-ink" : "text-app-ink-muted")}>
+              {option.label}
+            </span>
+            <span className="text-xs text-app-ink-faint">{option.sub}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+const CORNER_STYLE_OPTIONS: readonly { value: CornerStyle; label: string; sub: string}[] = [
+  { value: "rounded", label: "Rounded", sub: "Default"},
+  { value: "sharp", label: "Sharp", sub: "Square corners"},
+];
+
+/**
+ * Corner-style picker for the Settings screen — mirrors `FontFamilyPicker`'s
+ * shape (swatch + label + sub-label, `currentValue` dot for unsaved drafts).
+ */
+export function CornerStylePicker({
+  value,
+  currentValue,
+  onSelect,
+}: {
+  value: CornerStyle;
+  currentValue?: CornerStyle;
+  onSelect: (value: CornerStyle) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {CORNER_STYLE_OPTIONS.map((option) => {
+        const selected = value === option.value;
+        const current = currentValue !== undefined && currentValue === option.value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onSelect(option.value)}
+            className={cn(
+              "relative flex flex-col items-start gap-1.5 rounded-app-panel border px-4 py-3.5 text-left transition-[background-color,border-color] duration-app-fast",
+              selected
+                ? "border-app-line-strong bg-app-surface-muted"
+                : "border-app-line bg-app-surface hover:bg-app-surface-hover",
+            )}
+          >
+            {current && !selected && (
+              <span className="absolute right-3 top-3 h-1.5 w-1.5 rounded-full bg-app-ink-faint" aria-hidden="true" />
+            )}
             <span className={cn("text-sm font-bold", selected ? "text-app-ink" : "text-app-ink-muted")}>
               {option.label}
             </span>
@@ -167,6 +231,7 @@ export function appearanceDraftsMatch(left: AppearanceDraft, right: AppearanceDr
     left.themeMode === right.themeMode &&
     left.navLabelStyle === right.navLabelStyle &&
     left.fontFamily === right.fontFamily &&
+    left.cornerStyle === right.cornerStyle &&
     left.canvasDotGrid === right.canvasDotGrid
   );
 }

@@ -121,10 +121,13 @@ export type AppAction =
   // pending updates for one page coalesce rather than queueing.
   | { type: "page/create"; dateKey: DateKey; title?: string; icon?: string; docJson: string; preview: string; hashtags?: string[]; clientKey?: string }
   | { type: "page/update"; pageId: string; title?: string; icon?: string; docJson: string; preview: string; hashtags?: string[] }
-  // `silent` skips the delete toast/undo — used when discarding a page the
-  // user never actually wrote anything into (see PageScreen's unmount cleanup).
+  // `silent` skips the delete toast/undo — used for non-user-initiated deletes.
   | { type: "page/delete"; pageId: string; silent?: boolean }
   | { type: "page/restore"; pageId: string }
+  // Plaintext flags, not document edits — see pages.ts's setPageFlags, which
+  // deliberately doesn't bump updatedAt so toggling either never reorders
+  // "Continue writing" or the day feed.
+  | { type: "page/set-flags"; pageId: string; starred?: boolean; hidden?: boolean }
   | { type: "todo-folder/create"; name: string; icon?: string }
   | { type: "todo-folder/update"; folderId: string; name: string; icon?: string }
   | { type: "todo-folder/delete"; folderId: string }

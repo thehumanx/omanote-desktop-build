@@ -683,7 +683,7 @@ export const BookmarkCard = memo(function BookmarkCard({
                       </div>
                       <p className="min-w-0 truncate text-xs font-medium text-app-ink-faint">{siteLabel}</p>
                   </div>
-                  <p className="line-clamp-2 text-base font-bold leading-6 text-app-ink">{highlightText(displayTitle, highlightQuery, "bm-title")}</p>
+                  <p className="app-title-font line-clamp-2 text-base font-bold leading-6 text-app-ink">{highlightText(displayTitle, highlightQuery, "bm-title")}</p>
                   {displayDescription ? <p className="mt-1 line-clamp-2 text-xs leading-5 text-app-ink-muted">{highlightText(displayDescription, highlightQuery, "bm-desc")}</p> : null}
                   <div className="mt-2 flex flex-wrap items-center">
                     {categoryBadge}
@@ -768,7 +768,7 @@ export const BookmarkCard = memo(function BookmarkCard({
                   </div>
                   <p className="min-w-0 truncate text-[11px] font-medium text-app-ink-faint">{siteLabel}</p>
                 </div>
-                <p className="line-clamp-2 text-sm font-bold leading-[1.35] text-app-ink">{highlightText(displayTitle, highlightQuery, "bm-title")}</p>
+                <p className="app-title-font line-clamp-2 text-sm font-bold leading-[1.35] text-app-ink">{highlightText(displayTitle, highlightQuery, "bm-title")}</p>
                 <p className="mt-1 line-clamp-2 text-xs leading-[1.4] text-app-ink-faint">{highlightText(displayDescription, highlightQuery, "bm-desc")}</p>
               </div>
               <div className="flex flex-none flex-col items-end justify-between gap-1 pl-1">
@@ -848,7 +848,7 @@ export const BookmarkCard = memo(function BookmarkCard({
                   )}
                 </div>
                 <div className="min-h-[68px] space-y-1">
-                  <p className="line-clamp-2 text-sm font-bold leading-5 text-app-ink">{highlightText(displayTitle, highlightQuery, "bm-title")}</p>
+                  <p className="app-title-font line-clamp-2 text-sm font-bold leading-5 text-app-ink">{highlightText(displayTitle, highlightQuery, "bm-title")}</p>
                   <p className="line-clamp-1 text-sm leading-5 text-app-ink-faint">{highlightText(displayDescription, highlightQuery, "bm-desc")}</p>
                 </div>
                 <div className="flex items-center gap-2">

@@ -9,6 +9,11 @@
   color-scheme: light;
   --app-font-family: "Lato", ui-sans-serif, system-ui, sans-serif;
   --app-font-family-serif: "Aleo", Georgia, ui-serif, serif;
+  /* Headings/titles font — matches --app-font-family by default (sans and
+     serif modes just inherit the body font); the "both" font-family setting
+     is the only mode that points this at --app-font-family-serif while
+     --app-font-family stays sans. Set in JS by applyTypographySettings. */
+  --app-heading-font-family: var(--app-font-family);
   --app-font-variation-settings: normal;
   --app-font-bold-weight: 700;
   --app-font-letter-spacing: normal;
@@ -75,6 +80,21 @@
   --radius-app-dialog: 1rem;
   --radius-app-drawer: 1rem;
   --radius-app-icon: 1.375rem;
+  /* Tailwind's default border-radius scale, re-pointed at variables so the
+     Settings > Look & feel "Corner style" toggle can zero out every
+     `rounded-*` utility in the app at once — see the
+     `html[data-corner-style="sharp"]` rule below. `.public-page` re-declares
+     these to fixed values so the landing page and other public-facing
+     surfaces are never affected by the toggle regardless of what's set on
+     `html`. */
+  --radius-sm: 0.125rem;
+  --radius-DEFAULT: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
+  --radius-full: 9999px;
   --component-segmented-radius: 90px;
   --component-segmented-vertical-radius: 24px;
   --component-segmented-item-radius: 70px;
@@ -134,6 +154,33 @@
   --color-founder-note-margin: 228 128 128;
   --color-founder-note-rule-step: 2.5rem;
   --color-founder-note-rule-offset: 1.875rem;
+}
+
+/* Settings > Look & feel > Corner style = "Sharp". Applied to `html` (see
+   `applyCornerStyle` in src/design-system/theme.ts), so every `rounded-*`
+   utility and `radius.app.*` token in the authenticated app collapses to 0.
+   `.public-page` (landing, login/signup, privacy/terms, share links, 404)
+   redeclares the unzeroed values above, so this rule never reaches them. */
+html[data-corner-style="sharp"] {
+  --radius-app-field: 0px;
+  --radius-app-button: 0px;
+  --radius-app-chip: 0px;
+  --radius-app-panel: 0px;
+  --radius-app-card: 0px;
+  --radius-app-dialog: 0px;
+  --radius-app-drawer: 0px;
+  --radius-app-icon: 0px;
+  --radius-sm: 0px;
+  --radius-DEFAULT: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-full: 0px;
+  --component-segmented-radius: 0px;
+  --component-segmented-vertical-radius: 0px;
+  --component-segmented-item-radius: 0px;
 }
 
 .dark {
@@ -233,15 +280,28 @@ body {
   font-weight: var(--app-font-bold-weight);
 }
 
+/* Settings > Look & feel > Font = "Both": headings/titles use the serif
+   stack while body text stays sans (--app-heading-font-family only
+   diverges from --app-font-family in that mode — see index.css :root and
+   applyTypographySettings). `.app-title-font` covers title fields that
+   aren't semantic heading elements, e.g. the page/note title input. */
+h1, h2, h3, h4, h5, h6, .app-title-font {
+  font-family: var(--app-heading-font-family);
+}
+
 /* Make the landing heading utility resolve to the shared app serif stack. */
 .font-serif-heading {
   font-family: var(--app-font-family-serif);
+  font-weight: 400;
+  font-optical-sizing: none;
+  letter-spacing: -0.015em;
 }
 
 /* Landing hero heading emphasis for the shared serif stack. */
 .font-serif-heading-smooth {
-  font-weight: 700;
+  font-weight: 500;
   letter-spacing: -0.015em;
+  font-optical-sizing: none;
 }
 
 @layer components {
@@ -547,7 +607,7 @@ body {
   appearance: none;
   width: 100%;
   height: 4px;
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
   background: rgb(var(--color-line));
   outline: none;
   cursor: pointer;
@@ -558,7 +618,7 @@ body {
   appearance: none;
   width: 18px;
   height: 18px;
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
   background: rgb(var(--color-ink));
   border: 2px solid rgb(var(--color-surface));
   box-shadow: 0 0 0 1px rgb(var(--color-line-strong));
@@ -569,7 +629,7 @@ body {
 .app-range-slider::-moz-range-thumb {
   width: 18px;
   height: 18px;
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
   background: rgb(var(--color-ink));
   border: 2px solid rgb(var(--color-surface));
   box-shadow: 0 0 0 1px rgb(var(--color-line-strong));

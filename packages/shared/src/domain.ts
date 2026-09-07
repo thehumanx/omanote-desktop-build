@@ -104,6 +104,10 @@ export interface PageItem {
   docJson: string;
   preview: string;
   hashtags?: string[];
+  /** Surfaces this canvas in "Continue writing" regardless of last-edit recency. */
+  starred?: boolean;
+  /** Excludes this canvas from "Continue writing" entirely, even if starred. */
+  hidden?: boolean;
   deletedAt?: number;
   createdAt: number;
   updatedAt: number;

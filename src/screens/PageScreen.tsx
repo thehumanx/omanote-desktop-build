@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Check, Copy, ExternalLink, Share2, Trash2, X } from "lucide-react";
+import { Check, Copy, ExternalLink, Share2, Star, Trash2, X } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
 import { useApp } from "../app/AppProvider";
 import { randomId, type BookmarkItem, type PageItem } from "@omanote/shared";
@@ -11,7 +11,7 @@ import { SharePageModal } from "../components/page/SharePageModal";
 import { BookmarkCategoryIconPicker } from "../components/BookmarkCategoryIconPicker";
 import { CategoryIconView } from "../lib/bookmark-category-icon";
 import { cn } from "../components/ui";
-import { emptyPageDoc, isPageDocEmpty, pageDocToHashtags, pageDocToPreview, pageDocToShareBlocks, pageDocToText } from "../lib/page-doc";
+import { emptyPageDoc, pageDocStats, pageDocToHashtags, pageDocToPreview, pageDocToShareBlocks } from "../lib/page-doc";
 import { usePageAutosave } from "../lib/use-page-autosave";
 import { usePageArtifactSync } from "../lib/use-page-artifact-sync";
 import { SeoHead } from "../seo/SeoHead";
@@ -27,16 +27,7 @@ function formatMetaDate(timestamp: number) {
 
 /** Below the title, same "·"-separated idiom as NotesScreen's folder summary row. */
 function PageMetadataRow({ page, docJson }: { page: PageItem; docJson: string }) {
-  const stats = useMemo(() => {
-    const blocks = pageDocToShareBlocks(docJson);
-    const words = pageDocToText(docJson).split(/\s+/).filter(Boolean).length;
-    return {
-      words,
-      todos: blocks.filter((block) => block.type === "todo").length,
-      links: blocks.filter((block) => block.type === "link").length,
-      images: blocks.filter((block) => block.type === "image").length,
-    };
-  }, [docJson]);
+  const stats = useMemo(() => pageDocStats(docJson), [docJson]);
 
   const items = [
     `Created ${formatMetaDate(page.createdAt)}`,
@@ -72,16 +63,21 @@ function HeaderActionButton({
   onClick,
   href,
   danger,
+  active,
 }: {
   icon: typeof Share2;
   label: string;
   onClick?: () => void;
   href?: string;
   danger?: boolean;
+  /** Filled rather than the default outline — used for the star toggle. Stays
+   * neutral ink rather than a tint, matching every other active/selected
+   * state in the app (SegmentedPill, option cards, etc). */
+  active?: boolean;
 }) {
   const className = cn(
     "inline-flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-app-surface-hover active:scale-[0.98]",
-    danger ? "text-danger-ink" : "text-app-ink-muted hover:text-app-ink",
+    danger ? "text-danger-ink" : active ? "text-app-ink" : "text-app-ink-muted hover:text-app-ink",
   );
   if (href) {
     return (
@@ -92,7 +88,7 @@ function HeaderActionButton({
   }
   return (
     <button type="button" aria-label={label} title={label} onClick={onClick} className={className}>
-      <Icon className="h-4 w-4" />
+      <Icon className={cn("h-4 w-4", active && "fill-current")} />
     </button>
   );
 }
@@ -164,24 +160,6 @@ export function PageScreen() {
   // blocks simply stay unassigned — their text lives safely in the document
   // until a later pass materialises them.
   const serverPageId = page && page.id !== page.clientKey ? page.id : null;
-  const serverPageIdRef = useRef(serverPageId);
-  serverPageIdRef.current = serverPageId;
-
-  // A page nobody typed anything into is discarded rather than left behind
-  // as a persistent "Untitled page" row — see useCreateCanvas, which reuses
-  // exactly this kind of empty page instead of creating another one. Only
-  // fires for a page the server actually knows about; a still-optimistic
-  // (clientKey-only) empty page is left alone and gets picked up by that
-  // same reuse check next time, since deleting it here could race the
-  // in-flight create.
-  useEffect(() => {
-    return () => {
-      if (!serverPageIdRef.current) return;
-      if (iconRef.current) return;
-      if (!isPageDocEmpty(docJsonRef.current, titleRef.current)) return;
-      dispatch({ type: "page/delete", pageId: serverPageIdRef.current, silent: true });
-    };
-  }, [dispatch]);
 
   const { reconcile, todosByClientKey, bookmarksByClientKey, onToggle } = usePageArtifactSync({
     editor,
@@ -301,7 +279,11 @@ export function PageScreen() {
         // decrypted copy of every image in the document and abandoned the
         // previous set with nothing left pointing at them.
         const { blocks, published, obsolete } = await publishBlockImages(
-          pageDocToShareBlocks(docJson, (todoKey) => todosByClientKey.get(todoKey)?.status === "done"),
+          pageDocToShareBlocks(
+            docJson,
+            (todoKey) => todosByClientKey.get(todoKey)?.status === "done",
+            (bookmarkKey) => bookmarksByClientKey.get(bookmarkKey),
+          ),
           token,
           { encryptBinary, decryptBinary },
           publishedImagesRef.current,
@@ -318,7 +300,7 @@ export function PageScreen() {
       })();
     }, SHARE_SNAPSHOT_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
-  }, [isShared, serverPageId, title, docJson, todosByClientKey, updateShareSnapshot, getToken, encryptBinary, decryptBinary]);
+  }, [isShared, serverPageId, title, docJson, todosByClientKey, bookmarksByClientKey, updateShareSnapshot, getToken, encryptBinary, decryptBinary]);
 
   const close = useCallback(() => {
     // The autosave hook flushes on unmount, so nothing needs saving here.
@@ -360,6 +342,11 @@ export function PageScreen() {
     dispatch({ type: "page/delete", pageId: page.id });
     navigate("/canvas");
   }, [dispatch, navigate, page, getToken]);
+
+  const toggleStar = useCallback(() => {
+    if (!serverPageId) return;
+    dispatch({ type: "page/set-flags", pageId: serverPageId, starred: !page?.starred });
+  }, [dispatch, serverPageId, page?.starred]);
 
   // The row genuinely doesn't exist (bad link, deleted page, or a cache that
   // hasn't synced yet). Distinguishing those three needs server state we don't
@@ -405,6 +392,7 @@ export function PageScreen() {
           <SharePageModal
             page={page}
             isTodoDone={(todoKey) => todosByClientKey.get(todoKey)?.status === "done"}
+            getBookmark={(bookmarkKey) => bookmarksByClientKey.get(bookmarkKey)}
             onClose={() => setShareOpen(false)}
           />
         ) : null}
@@ -435,6 +423,12 @@ export function PageScreen() {
                         onClick={copyLink}
                       />
                     ) : null}
+                    <HeaderActionButton
+                      icon={Star}
+                      label={page.starred ? "Unstar" : "Star"}
+                      onClick={toggleStar}
+                      active={page.starred}
+                    />
                     <HeaderActionButton icon={Share2} label="Share" onClick={() => setShareOpen(true)} />
                     <HeaderActionButton icon={Trash2} label="Delete" onClick={handleDelete} danger />
                   </>
@@ -477,7 +471,7 @@ export function PageScreen() {
                     focusBodyRef.current?.();
                   }
                 }}
-                className="mb-2 w-full border-none bg-transparent text-3xl font-bold text-app-ink outline-none placeholder:text-app-ink-faint md:text-4xl"
+                className="app-title-font mb-2 w-full border-none bg-transparent text-3xl font-bold text-app-ink outline-none placeholder:text-app-ink-faint md:text-4xl"
               />
               <PageMetadataRow page={page} docJson={docJson} />
             </div>

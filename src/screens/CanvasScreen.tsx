@@ -228,7 +228,7 @@ export function CanvasScreen() {
 
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-4">
-              <p className="flex flex-col text-left text-4xl font-bold text-app-ink md:flex-row md:gap-2">
+              <p className="app-title-font flex flex-col text-left text-4xl font-bold text-app-ink md:flex-row md:gap-2">
                 <span>{greeting.emoji}</span>
                 <span>{greeting.text}</span>
               </p>
@@ -237,7 +237,7 @@ export function CanvasScreen() {
 
             <CanvasSystemNotice />
 
-            <CanvasContinueWriting pages={state.pages} todayKey={todayKey} />
+            <CanvasContinueWriting pages={state.pages} todayKey={todayKey} dispatch={dispatch} />
 
             <CanvasOverdueSection
               overdueTodos={overdueTodos}
@@ -311,6 +311,7 @@ export function CanvasScreen() {
           isTodoDone={(todoKey) =>
             state.todos.some((todo) => todo.clientKey === todoKey && todo.status === "done")
           }
+          getBookmark={(bookmarkKey) => state.bookmarks.find((bookmark) => bookmark.clientKey === bookmarkKey)}
           onClose={() => setSharingPageId(null)}
         />
       ) : null}

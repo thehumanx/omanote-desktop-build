@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useUserSettings } from "../../../contexts/UserSettingsContext";
 import type { NavLabelStyle, ThemeMode } from "../../../lib/user-settings";
-import { FontFamilyPicker, NavLabelPreview } from "../../../screens/settings-screen-helpers";
+import { CornerStylePicker, FontFamilyPicker, NavLabelPreview } from "../../../screens/settings-screen-helpers";
 import { Button, OptionCard, cn } from "../../ui";
 import { OnboardingFooter } from "../OnboardingChrome";
 
@@ -83,12 +83,22 @@ export function MakeItYoursStep({ onNext }: { onNext: () => void }) {
           )}
 
           {configIndex === 1 && (
-            <div className="space-y-2">
-              <p className="text-sm font-bold text-app-ink">Typography</p>
-              <FontFamilyPicker
-                value={settings.fontFamily}
-                onSelect={(value) => void updateSettings({ fontFamily: value })}
-              />
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <p className="text-sm font-bold text-app-ink">Typography</p>
+                <FontFamilyPicker
+                  value={settings.fontFamily}
+                  onSelect={(value) => void updateSettings({ fontFamily: value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm font-bold text-app-ink">Corner style</p>
+                <CornerStylePicker
+                  value={settings.cornerStyle}
+                  onSelect={(value) => void updateSettings({ cornerStyle: value })}
+                />
+              </div>
             </div>
           )}
 

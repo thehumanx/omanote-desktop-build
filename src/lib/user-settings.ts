@@ -1,6 +1,7 @@
 export type ThemeMode = "system" | "light" | "dark";
 export type NavLabelStyle = "label-only" | "icon-label" | "active-label";
-export type FontFamily = "sans" | "serif";
+export type FontFamily = "sans" | "serif" | "both";
+export type CornerStyle = "rounded" | "sharp";
 export type RealDashboardStat = "completion_rate" | "todos_done_today" | "habit_streak" | "notes_this_week" | "bookmarks_this_week";
 export type DashboardStat = RealDashboardStat | "random";
 export type SaveShortcut = "mod_enter" | "enter" | "shift_enter";
@@ -23,6 +24,7 @@ export interface UserSettings {
   navLabelStyle: NavLabelStyle;
   dashboardStat: DashboardStat;
   fontFamily: FontFamily;
+  cornerStyle: CornerStyle;
   canvasDotGrid: boolean;
   founderNoteSeen: boolean;
   rssReaderEnabled: boolean;
@@ -50,6 +52,7 @@ export interface UserSettingsPatch {
   navLabelStyle?: NavLabelStyle;
   dashboardStat?: DashboardStat;
   fontFamily?: FontFamily;
+  cornerStyle?: CornerStyle;
   canvasDotGrid?: boolean;
   founderNoteSeen?: boolean;
   rssReaderEnabled?: boolean;
@@ -62,7 +65,8 @@ export interface UserSettingsPatch {
 
 export const THEME_MODES = ["system", "light", "dark"] as const satisfies readonly ThemeMode[];
 export const NAV_LABEL_STYLES = ["label-only", "icon-label", "active-label"] as const satisfies readonly NavLabelStyle[];
-export const FONT_FAMILIES = ["sans", "serif"] as const satisfies readonly FontFamily[];
+export const FONT_FAMILIES = ["sans", "serif", "both"] as const satisfies readonly FontFamily[];
+export const CORNER_STYLES = ["rounded", "sharp"] as const satisfies readonly CornerStyle[];
 export const REAL_DASHBOARD_STATS = ["completion_rate", "todos_done_today", "habit_streak", "notes_this_week", "bookmarks_this_week"] as const satisfies readonly RealDashboardStat[];
 export const DASHBOARD_STATS: readonly DashboardStat[] = [...REAL_DASHBOARD_STATS, "random"];
 export const DASHBOARD_STAT_LABELS: Record<DashboardStat, string> = {
@@ -92,6 +96,7 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   navLabelStyle: "active-label",
   dashboardStat: "completion_rate",
   fontFamily: "sans",
+  cornerStyle: "rounded",
   canvasDotGrid: true,
   founderNoteSeen: false,
   rssReaderEnabled: false,
@@ -112,6 +117,10 @@ function isNavLabelStyle(value: unknown): value is NavLabelStyle {
 
 function isFontFamily(value: unknown): value is FontFamily {
   return typeof value === "string" && (FONT_FAMILIES as readonly string[]).includes(value);
+}
+
+function isCornerStyle(value: unknown): value is CornerStyle {
+  return typeof value === "string" && (CORNER_STYLES as readonly string[]).includes(value);
 }
 
 function isDashboardStat(value: unknown): value is DashboardStat {
@@ -181,6 +190,7 @@ export function normalizeUserSettings(input: Record<string, unknown> | null | un
       : (source.fontFamily === "fraunces" || source.fontFamily === "lora" || source.fontFamily === "literata" || source.fontFamily === "source-serif-4")
         ? "serif"
         : DEFAULT_USER_SETTINGS.fontFamily,
+    cornerStyle: isCornerStyle(source.cornerStyle) ? source.cornerStyle : DEFAULT_USER_SETTINGS.cornerStyle,
     canvasDotGrid: isBoolean(source.canvasDotGrid) ? source.canvasDotGrid : DEFAULT_USER_SETTINGS.canvasDotGrid,
     founderNoteSeen: isBoolean(source.founderNoteSeen) ? source.founderNoteSeen : DEFAULT_USER_SETTINGS.founderNoteSeen,
     rssReaderEnabled: isBoolean(source.rssReaderEnabled) ? source.rssReaderEnabled : DEFAULT_USER_SETTINGS.rssReaderEnabled,

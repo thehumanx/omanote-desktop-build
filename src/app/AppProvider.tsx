@@ -898,6 +898,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updatePage = useMutation(api.pages.updatePage);
   const deletePage = useMutation(api.pages.deletePage);
   const restorePage = useMutation(api.pages.restorePage);
+  const setPageFlagsMutation = useMutation(api.pages.setPageFlags);
   const createBookmark = useMutation(api.bookmarks.createBookmark);
   const updateBookmark = useMutation(api.bookmarks.updateBookmark);
   const deleteBookmark = useMutation(api.bookmarks.deleteBookmark);
@@ -2699,12 +2700,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // A canvas still identified by its clientKey has never reached the
         // server, so there is no row to patch. Keep the edit in the optimistic
         // copy and fold it into the queued create, which is idempotent on
-        // clientKey and will carry the newest content when it flushes.
-        const pending = localState.optimisticPages.find((p) => p.clientKey === action.pageId);
+        // clientKey and carries the newest content when it flushes (see
+        // pages.ts's createPage, which patches rather than no-ops on a
+        // duplicate clientKey).
+        //
+        // Read the pending/synced verdict off `stateRef.current.pages` —
+        // the same merged view PageScreen itself uses to decide serverPageId —
+        // rather than `localState.optimisticPages` directly. That array is
+        // trimmed by a *separate* effect once the row is confirmed synced, so
+        // there was a window where PageScreen already saw a real id (and thus
+        // dispatched page/update with that real id) while this reducer's
+        // closure still held the stale optimistic entry, or vice versa. Either
+        // mismatch sent a clientKey string into updatePage's `v.id("pages")`
+        // argument, which Convex rejects every time and re-queues forever.
+        const target = stateRef.current?.pages.find(
+          (p) => p.id === action.pageId || p.clientKey === action.pageId,
+        );
+        const pending = target && target.id === target.clientKey ? target : undefined;
         if (pending) {
           localDispatch({
             type: "page/patch-optimistic",
-            clientKey: action.pageId,
+            clientKey: pending.clientKey!,
             title: action.title,
             icon: action.icon,
             docJson: action.docJson,
@@ -2717,7 +2733,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const encPreview = await encrypt(action.preview);
           const encTitle = action.title ? await encrypt(action.title) : undefined;
           if (pending) {
-            enqueueCanvasMutation("page/create", { clientKey: action.pageId, docJson: encDoc, preview: encPreview, title: encTitle, icon: action.icon, hashtags: action.hashtags, dateKey: pending.createdDateKey });
+            await enqueueCanvasMutation("page/create", { clientKey: pending.clientKey!, docJson: encDoc, preview: encPreview, title: encTitle, icon: action.icon, hashtags: action.hashtags, dateKey: pending.createdDateKey });
+            // Otherwise this sits in the outbox until the next full app load
+            // or an online/offline toggle — neither of which happens during
+            // a normal, continuously-online editing session, so the edit
+            // would never actually reach the server.
+            flushCanvasQueue();
             return;
           }
           try {
@@ -2727,6 +2748,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             enqueueCanvasMutation("page/update", { pageId: action.pageId, docJson: encDoc, preview: encPreview, title: encTitle, icon: action.icon, hashtags: action.hashtags });
           }
         })();
+        return true;
+      }
+      case "page/set-flags": {
+        // Only a synced canvas can be starred/hidden — PageScreen and PageCard
+        // both gate their star/hide buttons behind serverPageId, so a
+        // clientKey ever reaching here would mean a caller bypassed that gate.
+        setDecryptedPages((prev) =>
+          prev.map((p) => (p.id === action.pageId ? { ...p, starred: action.starred ?? p.starred, hidden: action.hidden ?? p.hidden } : p)),
+        );
+        void setPageFlagsMutation({ pageId: action.pageId as any, starred: action.starred, hidden: action.hidden })
+          .then(() => scheduleSync())
+          .catch(() => {
+            // Best-effort: revert the optimistic flip rather than queueing a
+            // retry — a missed star/hide toggle is low-stakes compared to the
+            // outbox machinery document edits need, and the user can just
+            // press the button again.
+            setDecryptedPages((prev) =>
+              prev.map((p) =>
+                p.id === action.pageId
+                  ? {
+                      ...p,
+                      starred: action.starred === undefined ? p.starred : !action.starred,
+                      hidden: action.hidden === undefined ? p.hidden : !action.hidden,
+                    }
+                  : p,
+              ),
+            );
+          });
         return true;
       }
       case "page/delete": {
@@ -2836,7 +2885,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       default:
         return false;
     }
-  }, [authUser?.id, createNote, updateNote, deleteNote, restoreNote, createNoteFolder, updateNoteFolder, deleteNoteFolder, deleteNoteFolderWithNotes, createPage, updatePage, deletePage, restorePage, localState.optimisticPages, pushHistory, showDeleteToast, encrypt, encryptArray, scheduleSync, setDecryptedNoteFolders]);
+  }, [authUser?.id, createNote, updateNote, deleteNote, restoreNote, createNoteFolder, updateNoteFolder, deleteNoteFolder, deleteNoteFolderWithNotes, createPage, updatePage, deletePage, restorePage, setPageFlagsMutation, flushCanvasQueue, pushHistory, showDeleteToast, encrypt, encryptArray, scheduleSync, setDecryptedNoteFolders, setDecryptedPages]);
 
   const handleBookmarkAction = useCallback((action: AppAction): boolean => {
     switch (action.type) {
@@ -3203,23 +3252,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       decryptedNotes,
       decryptedDeletedNotes,
       decryptedNoteFolders,
+      decryptedPages,
       decryptedEvents,
       decryptedTodos,
       localState.deletingTodoIds,
       localState.deletingNoteIds,
       localState.deletingBookmarkIds,
       localState.deletingEventIds,
+      localState.deletingPageIds,
       localState.togglingTodos,
       localState.optimisticBookmarks,
       localState.optimisticNotes,
       localState.optimisticEvents,
       localState.optimisticTodos,
+      localState.optimisticPages,
       localState.toasts,
       localState.recurringDeletePrompt,
       localState.ui,
       serverBookmarkClientKeys,
       serverNoteClientKeys,
       serverEventClientKeys,
+      serverPageClientKeys,
       serverTodoClientKeys,
     ],
   );

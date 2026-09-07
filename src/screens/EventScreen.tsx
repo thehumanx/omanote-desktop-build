@@ -252,7 +252,7 @@ function TimelineView({
               <div className="relative z-10 flex h-[14px] w-[22px] shrink-0 items-center justify-center">
                 <div className="h-[10px] w-[10px] rounded-full border-2 border-app-ink-faint bg-app-canvas" />
               </div>
-              <span className="text-sm font-bold text-app-ink">{label}</span>
+              <span className="app-title-font text-sm font-bold text-app-ink">{label}</span>
               <span className="rounded-full bg-app-surface-muted px-2 py-0.5 text-[11px] font-bold text-app-ink-muted">
                 {dayEvents.length}
               </span>

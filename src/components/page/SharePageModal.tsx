@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { Check, Copy, X } from "lucide-react";
-import type { PageItem } from "@omanote/shared";
+import type { BookmarkItem, PageItem } from "@omanote/shared";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { BaseModal } from "../BaseModal";
@@ -53,11 +53,14 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 export function SharePageModal({
   page,
   isTodoDone,
+  getBookmark,
   onClose,
 }: {
   page: PageItem;
   /** Resolves a checklist block's key to its status, for the published copy. */
   isTodoDone: (todoKey: string) => boolean;
+  /** Resolves a link block's bookmark key to its row, for the published preview fields. */
+  getBookmark: (bookmarkKey: string) => BookmarkItem | undefined;
   onClose: () => void;
 }) {
   const pageId = page.id as Id<"pages">;
@@ -104,6 +107,15 @@ export function SharePageModal({
   const publishedImagesRef = useRef<PublishedImage[]>([]);
   publishedImagesRef.current = share?.publishedImages ?? [];
 
+  // Same reasoning: callers pass this inline (new function identity every
+  // render), so depending on it directly would rebuild pushSnapshot every
+  // render, re-firing the effect below and publishing forever.
+  const isTodoDoneRef = useRef(isTodoDone);
+  isTodoDoneRef.current = isTodoDone;
+
+  const getBookmarkRef = useRef(getBookmark);
+  getBookmarkRef.current = getBookmark;
+
   const pushSnapshot = useCallback(async () => {
     const token = () => getToken({ template: "convex" });
     // Images have to be copied to the public prefix before the snapshot goes
@@ -114,7 +126,7 @@ export function SharePageModal({
     // image reuses its copy rather than uploading a second one every time this
     // runs (which is on every open of this modal, see the effect below).
     const { blocks, published, obsolete } = await publishBlockImages(
-      pageDocToShareBlocks(page.docJson, isTodoDone),
+      pageDocToShareBlocks(page.docJson, isTodoDoneRef.current, getBookmarkRef.current),
       token,
       { encryptBinary, decryptBinary },
       publishedImagesRef.current,
@@ -127,7 +139,7 @@ export function SharePageModal({
     });
     // Only after the snapshot no longer references them.
     await unpublishPageImages(obsolete, token);
-  }, [updateShareSnapshot, pageId, page.title, page.docJson, isTodoDone, getToken, encryptBinary, decryptBinary]);
+  }, [updateShareSnapshot, pageId, page.title, page.docJson, getToken, encryptBinary, decryptBinary]);
 
   // Refresh the published copy whenever the modal is open on an active share —
   // the canvas may have been edited since it was last shared.
