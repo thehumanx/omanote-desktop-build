@@ -4,6 +4,13 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.33.3 [September 8, 2026]
+
+> Mention someone's email in a todo to invite them to the synced Google Calendar event, plus a tighter, more consistent corner rounding across cards, chips, and badges throughout the app.
+
+- [Add] Typing `@someone@email.com` in a todo now invites that person as a guest on the todo's synced Google Calendar event. It's highlighted while you type and shown as a chip once saved. Removing the mention later removes the guest on the next sync
+- [Update] Tightened and unified corner rounding across cards, chips, badges, dialogs, and canvas pages for a more consistent, precise look
+
 ### v0.33.2 [September 7, 2026]
 
 > Canvas pages save reliably now and can be starred or hidden, plus two new looks in Settings: sharp corners across the whole app, and a font option that mixes a serif for titles with a sans body.

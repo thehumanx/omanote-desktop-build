@@ -88,6 +88,7 @@ export default {
         "app-field": "var(--radius-app-field)",
         "app-button": "var(--radius-app-button)",
         "app-chip": "var(--radius-app-chip)",
+        "app-badge": "var(--radius-app-badge)",
         "app-panel": "var(--radius-app-panel)",
         "app-card": "var(--radius-app-card)",
         "app-dialog": "var(--radius-app-dialog)",

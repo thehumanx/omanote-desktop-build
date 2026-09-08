@@ -74,7 +74,7 @@ function AddPageCard() {
     <button
       type="button"
       onClick={createCanvas}
-      className="flex min-h-[6.5rem] min-w-0 flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-app-line px-4 py-3 text-app-ink-faint transition-colors duration-150 hover:bg-app-surface-hover hover:text-app-ink active:scale-[0.99]"
+      className="flex min-h-[6.5rem] min-w-0 flex-col items-center justify-center gap-1.5 rounded-app-card border border-dashed border-app-line px-4 py-3 text-app-ink-faint transition-colors duration-150 hover:bg-app-surface-hover hover:text-app-ink active:scale-[0.99]"
     >
       <FilePlus2 className="h-5 w-5" />
       <span className="text-sm font-medium">New page</span>
@@ -99,7 +99,7 @@ function ContinueWritingCard({
   const serverPageId = page.id !== page.clientKey ? page.id : null;
 
   return (
-    <div className="group flex min-w-0 flex-col gap-1.5 rounded-2xl border border-app-line bg-app-surface px-4 py-3 transition-colors duration-150 hover:bg-app-surface-hover">
+    <div className="group flex min-w-0 flex-col gap-1.5 rounded-app-card border border-app-line bg-app-surface px-4 py-3 transition-colors duration-150 hover:bg-app-surface-hover">
       <div className="flex items-center justify-between gap-2">
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-app-surface-muted text-app-ink-faint">
           {page.icon ? <CategoryIconView icon={page.icon} /> : <FileText className="h-3.5 w-3.5" />}

@@ -99,7 +99,7 @@ export function HashtagChip({ name, onClick, withTooltip = false, className }: H
   }, [showTooltip]);
 
   const base = [
-    "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium leading-none",
+    "inline-flex items-center rounded-app-badge px-2 py-0.5 text-xs font-medium leading-none",
     color.bg,
     color.darkBg,
     color.text,

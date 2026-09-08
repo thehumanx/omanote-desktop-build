@@ -1323,7 +1323,7 @@ export function SettingsScreen() {
         >
           <div
             className={cn(
-              "w-full max-w-sm transform-gpu rounded-2xl border border-app-line bg-app-surface shadow-dialog transition-[transform,opacity] duration-200 ease-out",
+              "w-full max-w-sm transform-gpu rounded-app-dialog border border-app-line bg-app-surface shadow-dialog transition-[transform,opacity] duration-200 ease-out",
               "translate-y-0 scale-100 opacity-100",
             )}
             onClick={(e) => e.stopPropagation()}

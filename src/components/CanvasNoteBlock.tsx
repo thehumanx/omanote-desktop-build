@@ -236,7 +236,7 @@ function CanvasNoteBlockComponent({ note, pendingSync, dispatch, noteFolders }: 
       className={
         editingInline
           ? "group relative -ml-3 -mr-2 -my-1 px-2 py-1 pl-3 overflow-visible"
-          : "group relative -ml-3 -mr-2 -my-1 rounded-xl px-2 py-1 pl-3 transition hover:bg-app-surface-hover focus-within:bg-app-surface-muted focus-within:ring-1 focus-within:ring-app-focus/15 before:pointer-events-none before:absolute before:inset-y-2 before:left-0 before:w-px before:rounded-full before:bg-transparent focus-within:before:bg-app-line-strong"
+          : "group relative -ml-3 -mr-2 -my-1 rounded-app-panel px-2 py-1 pl-3 transition hover:bg-app-surface-hover focus-within:bg-app-surface-muted focus-within:ring-1 focus-within:ring-app-focus/15 before:pointer-events-none before:absolute before:inset-y-2 before:left-0 before:w-px before:rounded-full before:bg-transparent focus-within:before:bg-app-line-strong"
       }
     >
       {pendingSync && (

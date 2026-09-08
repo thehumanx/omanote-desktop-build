@@ -3,6 +3,7 @@ import type { ReactNode, RefObject } from "react";
 import { createMarkdownLink, normalizeLinkUrl } from "@omanote/shared";
 import { cn } from "./ui";
 import { HashtagChip } from "./HashtagChip";
+import { MentionChip } from "./MentionChip";
 import { useLinkCopyPopover } from "./LinkCopyPopover";
 
 export type RichTextFormat = "bold" | "italic" | "bullet" | "ordered" | "code";
@@ -173,7 +174,7 @@ function inlineNodes(
   onHashtagClick?: (name: string) => void,
   highlightQuery?: string | null,
 ): ReactNode[] {
-  const pattern = /(\[[^\]]+\]\([^)]+\)|(https?:\/\/|mailto:|tel:)[^\s<]+|`[^`]+`|\*\*[^*]+\*\*|\*[^*\s][^*]*\*|(?:^|\s)#[a-zA-Z]\w*)/g;
+  const pattern = /(\[[^\]]+\]\([^)]+\)|(https?:\/\/|mailto:|tel:)[^\s<]+|`[^`]+`|\*\*[^*]+\*\*|\*[^*\s][^*]*\*|(?:^|\s)#[a-zA-Z]\w*|(?:^|\s)@[^\s@]+@[^\s@]+\.[^\s@]+)/g;
   const nodes: ReactNode[] = [];
   let lastIndex = 0;
 
@@ -208,6 +209,23 @@ function inlineNodes(
           className="mx-0.5 align-middle"
         />,
       );
+    } else if (
+      (() => {
+        const atIndex = token.indexOf("@");
+        return atIndex !== -1 && (atIndex === 0 || /\s/.test(token[atIndex - 1]));
+      })()
+    ) {
+      const atIndex = token.indexOf("@");
+      const leadingWhitespace = token.slice(0, atIndex);
+      const email = token.slice(atIndex + 1).toLowerCase();
+      if (leadingWhitespace) {
+        nodes.push(
+          <span key={`text-${baseOffset + index}`} data-rich-text-source-start={baseOffset + index}>
+            {leadingWhitespace}
+          </span>,
+        );
+      }
+      nodes.push(<MentionChip key={`${index}-${token}`} email={email} className="mx-0.5 align-middle" />);
     } else if (token.startsWith("[") || token.startsWith("http") || token.startsWith("mailto:") || token.startsWith("tel:")) {
       const linkToken = parseLinkToken(token);
       if (linkToken) {

@@ -1,10 +1,40 @@
 import React from "react";
 import { createPortal } from "react-dom";
-import { twMerge } from "tailwind-merge";
+import { extendTailwindMerge } from "tailwind-merge";
 import { clsx } from "clsx";
 import { Check as CheckIcon } from "lucide-react";
 import { useMeasuredHighlight } from "../hooks/useMeasuredHighlight";
 import { OmanoteMark } from "./OmanoteMark";
+
+// twMerge's default config only recognizes Tailwind's built-in radius scale
+// (rounded-sm/md/lg/xl/2xl/full) as one conflict group. Without this
+// extension it doesn't know our app-specific radius tokens belong to that
+// same group, so e.g. Badge's own `rounded-app-chip` and a caller's
+// `className="rounded-app-badge ..."` override both survive as separate
+// classes -- and whichever one Tailwind happens to generate later in the
+// stylesheet wins the cascade, silently ignoring the override. See
+// tailwind.config.ts's borderRadius block for the full token list.
+const twMerge = extendTailwindMerge({
+  extend: {
+    classGroups: {
+      rounded: [
+        {
+          rounded: [
+            "app-field",
+            "app-button",
+            "app-chip",
+            "app-badge",
+            "app-panel",
+            "app-card",
+            "app-dialog",
+            "app-drawer",
+            "app-icon",
+          ],
+        },
+      ],
+    },
+  },
+});
 
 export function cn(...inputs: Array<string | undefined | false | null>) {
   return twMerge(clsx(inputs));

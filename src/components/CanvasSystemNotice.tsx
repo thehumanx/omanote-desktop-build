@@ -79,7 +79,7 @@ export function CanvasSystemNotice() {
       {hasNotice ? (
         <div className="flex flex-col gap-3">
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-app-ink-faint">omanote updates</p>
-          <div className="divide-y divide-app-line overflow-hidden rounded-lg border border-app-line bg-app-surface">
+          <div className="divide-y divide-app-line overflow-hidden rounded-app-card border border-app-line bg-app-surface">
             {showUpdateBanner ? <UpdateNotificationBanner inline /> : null}
             {showStorageWarning ? (
               <button

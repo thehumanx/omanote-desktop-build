@@ -80,7 +80,7 @@ export function PageCard({
   ].filter((item): item is string => item !== null);
 
   return (
-    <div className="group flex min-w-0 flex-col gap-1.5 rounded-2xl border border-app-line bg-app-surface p-3 transition hover:bg-app-surface-hover">
+    <div className="group flex min-w-0 flex-col gap-1.5 rounded-app-card border border-app-line bg-app-surface p-3 transition hover:bg-app-surface-hover">
       {/* Row 1: page icon, then the action cluster — spaced apart. */}
       <div className="flex items-center justify-between gap-2">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-app-surface-muted text-app-ink-faint">

@@ -1,6 +1,6 @@
 [package]
 name = "omanote-desktop"
-version = "0.33.2"
+version = "0.33.3"
 description = "omanote desktop app"
 edition = "2021"
 

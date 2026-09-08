@@ -244,26 +244,51 @@ export interface SyncResult {
   rssReadState: number;
 }
 
+// The non-RSS tables `runIncrementalSync` can be scoped to. RSS tables are
+// controlled separately via `includeRss` since they're gated on a different
+// condition (the reader being open), not on which mutation just ran.
+export const SYNC_TABLE_NAMES = [
+  "todos",
+  "todoFolders",
+  "notes",
+  "noteFolders",
+  "pages",
+  "bookmarks",
+  "bookmarkCategories",
+  "events",
+  "activityHistory",
+] as const;
+
+export type SyncTableName = (typeof SYNC_TABLE_NAMES)[number];
+
 interface SyncOptions {
   includeRss?: boolean;
+  // Restrict the pass to these tables (plus RSS, if includeRss). Omit to
+  // sync everything — used by the interval poller and the cross-tab/device
+  // staleness signal, which can't tell which table changed remotely.
+  tables?: readonly SyncTableName[];
 }
 
-// Run a full incremental sync pass. Safe to call concurrently — each table
-// advances its own cursor independently, so a failure in one table doesn't
-// block others and the next call retries from the last good cursor.
+// Run an incremental sync pass, optionally scoped to a subset of tables.
+// Safe to call concurrently — each table advances its own cursor
+// independently, so a failure in one table doesn't block others and the
+// next call retries from the last good cursor.
 export async function runIncrementalSync(queryFn: SyncQueryFn, options: SyncOptions = {}): Promise<SyncResult> {
   const includeRss = options.includeRss ?? true;
+  const wanted = options.tables;
+  const want = (table: SyncTableName) => wanted === undefined || wanted.includes(table);
+
   const [todos, todoFolders, notes, noteFolders, pages, bookmarks, bookmarkCategories, events, activityHistoryCount] =
     await Promise.all([
-      syncTable(queryFn, "todos", api.todos.listTodosUpdatedAfter, db.todos, (i) => i.updatedAt ?? 0),
-      syncTable(queryFn, "todoFolders", api.todos.listTodoFoldersUpdatedAfter, db.todoFolders, (i) => i.updatedAt ?? 0),
-      syncTable(queryFn, "notes", api.notes.listNotesUpdatedAfter, db.notes, (i) => i.updatedAt ?? 0),
-      syncTable(queryFn, "noteFolders", api.notes.listNoteFoldersUpdatedAfter, db.noteFolders, (i) => i.updatedAt ?? 0),
-      syncTable(queryFn, "pages", api.pages.listPagesUpdatedAfter, db.pages, (i) => i.updatedAt ?? 0),
-      syncTable(queryFn, "bookmarks", api.bookmarks.listBookmarksUpdatedAfter, db.bookmarks, (i) => i.updatedAt ?? 0),
-      syncTable(queryFn, "bookmarkCategories", api.bookmarks.listBookmarkCategoriesUpdatedAfter, db.bookmarkCategories, (i) => i.updatedAt ?? 0),
-      syncTable(queryFn, "events", api.events.listEventsUpdatedAfter, db.events, eventCursor),
-      syncHistory(queryFn),
+      want("todos") ? syncTable(queryFn, "todos", api.todos.listTodosUpdatedAfter, db.todos, (i) => i.updatedAt ?? 0) : 0,
+      want("todoFolders") ? syncTable(queryFn, "todoFolders", api.todos.listTodoFoldersUpdatedAfter, db.todoFolders, (i) => i.updatedAt ?? 0) : 0,
+      want("notes") ? syncTable(queryFn, "notes", api.notes.listNotesUpdatedAfter, db.notes, (i) => i.updatedAt ?? 0) : 0,
+      want("noteFolders") ? syncTable(queryFn, "noteFolders", api.notes.listNoteFoldersUpdatedAfter, db.noteFolders, (i) => i.updatedAt ?? 0) : 0,
+      want("pages") ? syncTable(queryFn, "pages", api.pages.listPagesUpdatedAfter, db.pages, (i) => i.updatedAt ?? 0) : 0,
+      want("bookmarks") ? syncTable(queryFn, "bookmarks", api.bookmarks.listBookmarksUpdatedAfter, db.bookmarks, (i) => i.updatedAt ?? 0) : 0,
+      want("bookmarkCategories") ? syncTable(queryFn, "bookmarkCategories", api.bookmarks.listBookmarkCategoriesUpdatedAfter, db.bookmarkCategories, (i) => i.updatedAt ?? 0) : 0,
+      want("events") ? syncTable(queryFn, "events", api.events.listEventsUpdatedAfter, db.events, eventCursor) : 0,
+      want("activityHistory") ? syncHistory(queryFn) : 0,
     ]);
 
   let rssSubscriptionsCount = 0;

@@ -119,8 +119,8 @@ function PageImageView({ node, updateAttributes, deleteNode }: ReactNodeViewProp
               alt={alt}
               className={
                 width
-                  ? "block h-auto w-full rounded-2xl border border-app-line"
-                  : "block max-h-[520px] max-w-full rounded-2xl border border-app-line"
+                  ? "block h-auto w-full rounded-app-card border border-app-line"
+                  : "block max-h-[520px] max-w-full rounded-app-card border border-app-line"
               }
             />
             <button
@@ -159,7 +159,7 @@ function PageImageView({ node, updateAttributes, deleteNode }: ReactNodeViewProp
             </div>
           </>
         ) : (
-          <div className="flex h-40 w-full items-center justify-center gap-2 rounded-2xl border border-app-line bg-app-surface-muted text-sm text-app-ink-faint">
+          <div className="flex h-40 w-full items-center justify-center gap-2 rounded-app-card border border-app-line bg-app-surface-muted text-sm text-app-ink-faint">
             {state.failed ? (
               <>
                 <ImageOff className="h-4 w-4" />

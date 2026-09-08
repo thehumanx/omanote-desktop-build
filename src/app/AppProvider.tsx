@@ -38,12 +38,13 @@ import {
 } from "./canvas-outbox";
 import { runIncrementalSync } from "./sync";
 import { reportError } from "../lib/error-reporting";
-import type { SyncQueryFn } from "./sync";
+import type { SyncQueryFn, SyncTableName } from "./sync";
 import type { FunctionReference, FunctionArgs } from "convex/server";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "./db";
 import { useAuth } from "./auth/AuthContext";
 import { parseHashtags } from "../lib/hashtags";
+import { parseMentions } from "../lib/mentions";
 import { detectWebClientType, getCurrentDeviceMetadata } from "../lib/device-info";
 import { readLocalStorage, stringCodec, writeLocalStorage } from "../lib/local-storage";
 import type { AppAction, AppState, DraftMode, RecurringDeletePrompt, ToastItem } from "./types";
@@ -55,20 +56,24 @@ import { mapActivity, mapBookmark, mapBookmarkCategory, mapEvent, mapNote, mapNo
 // render, making effect dependency arrays unstable and causing render loops.
 const EMPTY: never[] = [];
 
+// Shared by both todo-folder and note-folder deletes — despite the name,
+// `table` tells it which cache to scope the resync to.
 export async function deleteRemoteNoteFolderAndLocalCache({
   folderId,
   deleteRemote,
   deleteLocal,
   scheduleSync,
+  table,
 }: {
   folderId: string;
   deleteRemote: (folderId: string) => Promise<unknown>;
   deleteLocal: (folderId: string) => Promise<unknown>;
-  scheduleSync: () => void;
+  scheduleSync: (tables?: readonly SyncTableName[]) => void;
+  table: "todoFolders" | "noteFolders";
 }) {
   await deleteRemote(folderId);
   await deleteLocal(folderId);
-  scheduleSync();
+  scheduleSync([table]);
 }
 
 export async function deleteRemoteBookmarkCategoryAndLocalCache({
@@ -80,11 +85,26 @@ export async function deleteRemoteBookmarkCategoryAndLocalCache({
   categoryId: string;
   deleteRemote: (categoryId: string) => Promise<unknown>;
   deleteLocal: (categoryId: string) => Promise<unknown>;
-  scheduleSync: () => void;
+  scheduleSync: (tables?: readonly SyncTableName[]) => void;
 }) {
   await deleteRemote(categoryId);
   await deleteLocal(categoryId);
-  scheduleSync();
+  scheduleSync(["bookmarkCategories"]);
+}
+
+// `createPage`/`updatePage` return the full patched row (an echo of what the
+// client just uploaded). Writing it straight into Dexie — instead of calling
+// scheduleSync(["pages"]) and re-fetching it a moment later — skips
+// re-downloading the (potentially large) docJson content on every canvas
+// autosave. The cursor only ever advances (never regresses one a concurrent
+// full sync already moved further), so this can't undo progress made
+// elsewhere; the periodic interval sync remains the safety net for the rare
+// tie where another device writes a different page in the same millisecond.
+async function persistSyncedPageLocally(doc: Doc<"pages">) {
+  await db.pages.put(doc);
+  const stored = await db.syncCursors.get("pages");
+  const cursor = Math.max(stored?.cursor ?? 0, doc.updatedAt);
+  await db.syncCursors.put({ table: "pages", cursor });
 }
 
 type UiState = AppState["ui"];
@@ -94,7 +114,7 @@ interface AppContextValue {
   dispatch: (action: AppAction) => void;
   undo: () => Promise<void>;
   redo: () => Promise<void>;
-  scheduleSync: () => void;
+  scheduleSync: (tables?: readonly SyncTableName[]) => void;
   googleImportedTodoIds: Set<string>;
   // True until todos/notes/bookmarks/events have each decrypted at least
   // once this session — lets a screen show a loading skeleton for the first
@@ -452,6 +472,10 @@ function normalizeTodoDueInput(args: { dueDateKey?: DateKey; dueTime?: string })
 
 function buildHashtagsFromText(...parts: Array<string | undefined>) {
   return parseHashtags(parts.filter((part): part is string => Boolean(part)).join(" "));
+}
+
+function buildGuestEmailsFromText(...parts: Array<string | undefined>) {
+  return parseMentions(parts.filter((part): part is string => Boolean(part)).join(" "));
 }
 
 function needsHashtagRepair(existing: string[] | undefined, parsed: string[]) {
@@ -1030,7 +1054,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, [backfillGoogleCalendarTodoFolders, googleImportedTodoIds]);
 
-  const doSync = useCallback(async () => {
+  const doSync = useCallback(async (tables?: readonly SyncTableName[]) => {
     if (syncRunningRef.current) return;
     if (!syncQueryFnRef.current) return;
     const fn = syncQueryFnRef.current;
@@ -1039,20 +1063,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if ("locks" in navigator) {
         await navigator.locks.request("omanote-sync", { ifAvailable: true }, async (lock) => {
           if (!lock) return; // another tab is syncing
-          await runIncrementalSync(fn, { includeRss: includeRssSync });
+          await runIncrementalSync(fn, { includeRss: includeRssSync, tables });
         });
       } else {
-        await runIncrementalSync(fn, { includeRss: includeRssSync });
+        await runIncrementalSync(fn, { includeRss: includeRssSync, tables });
       }
     } finally {
       syncRunningRef.current = false;
     }
   }, [includeRssSync]);
 
-  // Call after any mutation to pull its result into Dexie within ~300ms.
-  const scheduleSync = useCallback(() => {
+  // Call after a mutation to pull its result into Dexie within ~300ms. Pass
+  // the table(s) that mutation touched to skip re-querying the other tables;
+  // omit it (e.g. for the interval poller or a cross-tab/device staleness
+  // signal, which can't tell what changed) to sync everything. Calls within
+  // the same debounce window accumulate their table sets rather than the
+  // last caller winning, so two different mutations scheduled back-to-back
+  // both get synced.
+  const pendingSyncTablesRef = useRef<Set<SyncTableName> | "all" | null>(null);
+  const scheduleSync = useCallback((tables?: readonly SyncTableName[]) => {
+    if (pendingSyncTablesRef.current !== "all") {
+      if (tables === undefined) {
+        pendingSyncTablesRef.current = "all";
+      } else {
+        const set = pendingSyncTablesRef.current ?? new Set<SyncTableName>();
+        for (const t of tables) set.add(t);
+        pendingSyncTablesRef.current = set;
+      }
+    }
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
-    syncTimerRef.current = setTimeout(() => void doSync(), 300);
+    syncTimerRef.current = setTimeout(() => {
+      const pending = pendingSyncTablesRef.current;
+      pendingSyncTablesRef.current = null;
+      void doSync(pending === "all" || pending === null ? undefined : Array.from(pending));
+    }, 300);
   }, [doSync]);
 
   // Backfill updatedAt on bookmarks, bookmark categories, and events that were
@@ -1496,7 +1540,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
 
           await completeGoogleImportMutation({ stagingId: row._id, resultTodoId: todoId as any });
-          scheduleSync();
+          scheduleSync(["todos", "todoFolders"]);
         } catch (err) {
           await failGoogleImportMutation({
             stagingId: row._id,
@@ -1791,6 +1835,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           dueDateKey: payload.dueDateKey,
           dueTime: payload.dueTime,
           hashtags: payload.hashtags,
+          guestEmails: payload.guestEmails,
           folderId: payload.folderId as any,
           folderName: payload.folderName,
           recurrence: payload.recurrence,
@@ -1805,6 +1850,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           dueDateKey: payload.dueDateKey,
           dueTime: payload.dueTime,
           hashtags: payload.hashtags,
+          guestEmails: payload.guestEmails,
           folderId: payload.folderId as any,
           folderName: payload.folderName,
           recurrence: payload.recurrence,
@@ -1998,6 +2044,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       case "todo/create": {
         const normalizedDue = normalizeTodoDueInput({ dueDateKey: action.dueDateKey, dueTime: action.dueTime });
         const hashtags = action.hashtags ?? buildHashtagsFromText(action.title);
+        const guestEmails = action.guestEmails ?? buildGuestEmailsFromText(action.title);
         // Callers that need to reference the todo before the server answers
         // supply their own key — a canvas checklist block stores it as the
         // node's identity, so the block survives the optimistic-to-server
@@ -2042,6 +2089,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               dueDateKey: normalizedDue.dueDateKey,
               dueTime: normalizedDue.dueTime,
               hashtags,
+              guestEmails,
               folderId: resolvedFolder.folderId as any,
               folderName: resolvedFolder.folderId ? undefined : resolvedFolder.folderName ? await encrypt(resolvedFolder.folderName) : undefined,
               pageId: action.pageId as any,
@@ -2050,7 +2098,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               reminderUntil: action.reminderUntil,
             })) as string;
             localDispatch({ type: "todo/confirm-optimistic", clientKey });
-            scheduleSync();
+            scheduleSync(["todos", "todoFolders"]);
             syncTodoToGoogle(todoId, action.title);
             pushHistory({
               key: `todo:create:${todoId}`,
@@ -2074,6 +2122,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               dueDateKey: normalizedDue.dueDateKey,
               dueTime: normalizedDue.dueTime,
               hashtags,
+              guestEmails,
               folderId: resolvedFolder.folderId,
               folderName: resolvedFolder.folderId ? undefined : resolvedFolder.folderName ? await encrypt(resolvedFolder.folderName) : undefined,
               recurrence: action.recurrence,
@@ -2099,7 +2148,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           void (async () => {
             try {
               await uncompleteRecurringOccurrence({ todoId: cloneId as any });
-              scheduleSync();
+              scheduleSync(["todos", "events"]);
               // Uncompleting soft-deletes the derived event entry server-side
               // (same as the plain-toggle path) -- remove its Calendar event too.
               void convexClient
@@ -2154,7 +2203,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 eventLabel,
                 completedAt,
               });
-              scheduleSync();
+              scheduleSync(["todos", "events"]);
               const derivedLabel = conjugateTitleToPastTense(master.title);
               void convexClient
                 .query(api.events.getDerivedEventEntryForTodo, { todoId: cloneId as any })
@@ -2222,7 +2271,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               eventDateKey: completedEventDateKey,
               completedAt,
             });
-            scheduleSync();
+            scheduleSync(["todos", "events"]);
             if (isCompleting) {
               // The upcoming Calendar event stays as a record of when this
               // was due (and so the completed event's "Originally scheduled"
@@ -2293,7 +2342,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         void (async () => {
           try {
             await deleteTodo({ todoId: action.todoId as any });
-            scheduleSync();
+            scheduleSync(["todos"]);
             removeTodoFromGoogleCalendar(action.todoId);
             if (snapshot) {
               pushHistory({
@@ -2323,7 +2372,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         void (async () => {
           try {
             await deleteTodo({ todoId: action.todoId as any });
-            scheduleSync();
+            scheduleSync(["todos"]);
           } catch {
             enqueueCanvasMutation("todo/delete", { todoId: action.todoId });
           }
@@ -2335,7 +2384,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         void (async () => {
           try {
             await deleteRecurringOccurrence({ todoId: action.todoId as any, occurrenceDateKey: action.occurrenceDateKey });
-            scheduleSync();
+            scheduleSync(["todos"]);
             // The occurrence is now an exception in the master's recurrence
             // rule -- re-push so the Google-side RRULE's EXDATE stays in sync.
             if (seriesSnapshot?.title) refreshRecurringMasterCalendarSync(action.todoId, seriesSnapshot.title);
@@ -2350,7 +2399,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         void (async () => {
           try {
             await truncateRecurringSeries({ todoId: action.todoId as any, fromDateKey: action.fromDateKey });
-            scheduleSync();
+            scheduleSync(["todos"]);
             // Either the master's UNTIL moved (re-push) or the whole series
             // got deleted because nothing remained before the cut (remove).
             if (seriesSnapshot?.title) refreshRecurringMasterCalendarSync(action.todoId, seriesSnapshot.title);
@@ -2366,7 +2415,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         void (async () => {
           try {
             await restoreTodo({ todoId: action.todoId as any });
-            scheduleSync();
+            scheduleSync(["todos"]);
             if (snapshot?.title) {
               syncTodoToGoogle(action.todoId, snapshot.title);
             }
@@ -2381,6 +2430,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         void (async () => {
           const snapshot = stateRef.current?.todos.find((t) => t.id === action.todoId);
           const hashtags = action.hashtags ?? buildHashtagsFromText(action.title, snapshot?.notes);
+          const guestEmails = action.guestEmails ?? buildGuestEmailsFromText(action.title, snapshot?.notes);
           const encTitle = await encrypt(action.title);
           const resolvedFolder = await resolveTodoFolderInput(action.folderId ?? snapshot?.folderId, action.folderName ?? snapshot?.folderName);
           try {
@@ -2390,13 +2440,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               dueDateKey: normalizedDue.dueDateKey,
               dueTime: normalizedDue.dueTime,
               hashtags,
+              guestEmails,
               folderId: resolvedFolder.folderId as any,
               folderName: resolvedFolder.folderId ? undefined : resolvedFolder.folderName ? await encrypt(resolvedFolder.folderName) : undefined,
               recurrence: action.recurrence,
               reminderEveryMinutes: action.reminderEveryMinutes,
               reminderUntil: action.reminderUntil,
             });
-            scheduleSync();
+            scheduleSync(["todos", "todoFolders"]);
             syncTodoToGoogle(action.todoId, action.title);
             if (snapshot) {
               const snapshotHashtags = buildHashtagsFromText(snapshot.title, snapshot.notes);
@@ -2431,6 +2482,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               dueDateKey: normalizedDue.dueDateKey,
               dueTime: normalizedDue.dueTime,
               hashtags,
+              guestEmails,
               folderId: resolvedFolder.folderId,
               folderName: resolvedFolder.folderId ? undefined : resolvedFolder.folderName ? await encrypt(resolvedFolder.folderName) : undefined,
               recurrence: action.recurrence,
@@ -2446,7 +2498,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const snapshot = stateRef.current?.todos.find((t) => t.id === action.todoId);
           try {
             await snoozeTodo({ todoId: action.todoId as any, minutes: action.minutes });
-            scheduleSync();
+            scheduleSync(["todos"]);
             if (snapshot) {
               const snapshotHashtags = buildHashtagsFromText(snapshot.title, snapshot.notes);
               pushHistory({
@@ -2471,7 +2523,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const snapshot = stateRef.current?.todos.find((t) => t.id === action.todoId);
           try {
             await markFired({ todoId: action.todoId as any });
-            scheduleSync();
+            scheduleSync(["todos"]);
             if (snapshot) {
               const snapshotHashtags = buildHashtagsFromText(snapshot.title, snapshot.notes);
               pushHistory({
@@ -2511,7 +2563,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             return [...prev, { id: folderId, name: action.name, icon: action.icon, createdAt: now, updatedAt: now }];
           });
           await db.syncCursors.delete("todoFolders");
-          scheduleSync();
+          scheduleSync(["todoFolders"]);
         })();
         return true;
       case "todo-folder/update":
@@ -2536,7 +2588,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           );
           await updateTodoFolder({ folderId: action.folderId as any, name: encryptedName, icon: action.icon });
           await db.syncCursors.delete("todoFolders");
-          scheduleSync();
+          scheduleSync(["todoFolders"]);
         })();
         return true;
       case "todo-folder/delete":
@@ -2546,6 +2598,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           deleteRemote: (folderId) => deleteTodoFolder({ folderId: folderId as any }),
           deleteLocal: (folderId) => db.todoFolders.delete(folderId),
           scheduleSync,
+          table: "todoFolders",
         }).catch((error) => console.error("[omanote] failed to delete todo folder:", error));
         return true;
       case "todo-folder/delete-with-todos":
@@ -2554,7 +2607,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           folderId: action.folderId,
           deleteRemote: (folderId) => deleteTodoFolderWithTodos({ folderId: folderId as any }),
           deleteLocal: (folderId) => db.todoFolders.delete(folderId),
-          scheduleSync,
+          // Cascades a soft-delete onto every todo in the folder, so `todos`
+          // needs resyncing too, not just the folder table.
+          scheduleSync: () => scheduleSync(["todoFolders", "todos"]),
+          table: "todoFolders",
         }).catch((error) => console.error("[omanote] failed to delete todo folder with todos:", error));
         return true;
       default:
@@ -2592,7 +2648,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           try {
             const noteId = (await createNote({ clientKey, body: encBody, title: encTitle, tags: encTags, hashtags: action.hashtags, folderId: action.folderId as any, folderName: encFolderName, dateKey: action.dateKey, source: "web" })) as string;
             localDispatch({ type: "note/confirm-optimistic", clientKey });
-            scheduleSync();
+            scheduleSync(["notes", "noteFolders"]);
             pushHistory({
               key: `note:create:${noteId}`,
               undo: () => dispatchRef.current({ type: "note/delete", noteId }),
@@ -2613,7 +2669,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const encFolderName = action.folderName ? await encrypt(action.folderName) : undefined;
           try {
             await updateNote({ noteId: action.noteId as any, body: encBody, title: encTitle, tags: encTags, hashtags: action.hashtags, folderId: action.folderId as any, folderName: encFolderName });
-            scheduleSync();
+            scheduleSync(["notes", "noteFolders"]);
             if (snapshot) {
               pushHistory({
                 key: `note:update:${snapshot.id}`,
@@ -2639,7 +2695,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         void (async () => {
           try {
             await deleteNote({ noteId: action.noteId as any });
-            scheduleSync();
+            scheduleSync(["notes"]);
             if (snapshot) {
               pushHistory({
                 key: `note:delete:${snapshot.id}`,
@@ -2658,7 +2714,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         void (async () => {
           try {
             await restoreNote({ noteId: action.noteId as any });
-            scheduleSync();
+            scheduleSync(["notes"]);
           } catch {
             enqueueCanvasMutation("note/restore", { noteId: action.noteId });
           }
@@ -2688,8 +2744,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const encPreview = await encrypt(action.preview);
           const encTitle = action.title ? await encrypt(action.title) : undefined;
           try {
-            await createPage({ clientKey, docJson: encDoc, preview: encPreview, title: encTitle, icon: action.icon, hashtags: action.hashtags, dateKey: action.dateKey });
-            scheduleSync();
+            const doc = await createPage({ clientKey, docJson: encDoc, preview: encPreview, title: encTitle, icon: action.icon, hashtags: action.hashtags, dateKey: action.dateKey });
+            if (doc) await persistSyncedPageLocally(doc);
+            else scheduleSync(["pages"]);
           } catch {
             enqueueCanvasMutation("page/create", { clientKey, docJson: encDoc, preview: encPreview, title: encTitle, icon: action.icon, hashtags: action.hashtags, dateKey: action.dateKey });
           }
@@ -2742,8 +2799,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             return;
           }
           try {
-            await updatePage({ pageId: action.pageId as any, docJson: encDoc, preview: encPreview, title: encTitle, icon: action.icon, hashtags: action.hashtags });
-            scheduleSync();
+            const doc = await updatePage({ pageId: action.pageId as any, docJson: encDoc, preview: encPreview, title: encTitle, icon: action.icon, hashtags: action.hashtags });
+            if (doc) await persistSyncedPageLocally(doc);
+            else scheduleSync(["pages"]);
           } catch {
             enqueueCanvasMutation("page/update", { pageId: action.pageId, docJson: encDoc, preview: encPreview, title: encTitle, icon: action.icon, hashtags: action.hashtags });
           }
@@ -2758,7 +2816,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           prev.map((p) => (p.id === action.pageId ? { ...p, starred: action.starred ?? p.starred, hidden: action.hidden ?? p.hidden } : p)),
         );
         void setPageFlagsMutation({ pageId: action.pageId as any, starred: action.starred, hidden: action.hidden })
-          .then(() => scheduleSync())
+          .then(() => scheduleSync(["pages"]))
           .catch(() => {
             // Best-effort: revert the optimistic flip rather than queueing a
             // retry — a missed star/hide toggle is low-stakes compared to the
@@ -2791,7 +2849,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         void (async () => {
           try {
             await deletePage({ pageId: action.pageId as any });
-            scheduleSync();
+            scheduleSync(["pages"]);
             if (snapshot) {
               pushHistory({
                 key: `page:delete:${snapshot.id}`,
@@ -2810,7 +2868,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         void (async () => {
           try {
             await restorePage({ pageId: action.pageId as any });
-            scheduleSync();
+            scheduleSync(["pages"]);
           } catch {
             enqueueCanvasMutation("page/restore", { pageId: action.pageId });
           }
@@ -2836,7 +2894,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             return [...prev, { id: folderId, name: action.name, icon: action.icon, createdAt: now, updatedAt: now }];
           });
           await db.syncCursors.delete("noteFolders");
-          scheduleSync();
+          scheduleSync(["noteFolders"]);
         })();
         return true;
       case "note-folder/update":
@@ -2861,7 +2919,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           );
           await updateNoteFolder({ folderId: action.folderId as any, name: encryptedName, icon: action.icon });
           await db.syncCursors.delete("noteFolders");
-          scheduleSync();
+          scheduleSync(["noteFolders"]);
         })();
         return true;
       case "note-folder/delete":
@@ -2871,6 +2929,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           deleteRemote: (folderId) => deleteNoteFolder({ folderId: folderId as any }),
           deleteLocal: (folderId) => db.noteFolders.delete(folderId),
           scheduleSync,
+          table: "noteFolders",
         }).catch((error) => console.error("[omanote] failed to delete note folder:", error));
         return true;
       case "note-folder/delete-with-notes":
@@ -2879,7 +2938,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           folderId: action.folderId,
           deleteRemote: (folderId) => deleteNoteFolderWithNotes({ folderId: folderId as any }),
           deleteLocal: (folderId) => db.noteFolders.delete(folderId),
-          scheduleSync,
+          // Cascades a soft-delete onto every note in the folder, so `notes`
+          // needs resyncing too, not just the folder table.
+          scheduleSync: () => scheduleSync(["noteFolders", "notes"]),
+          table: "noteFolders",
         }).catch((error) => console.error("[omanote] failed to delete note folder with notes:", error));
         return true;
       default:
@@ -2898,7 +2960,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         void runWithCanvasOutboxFallback("bookmark/create", actionWithKey, async () => {
           const bookmarkId = await saveBookmarkCreate(actionWithKey);
           if (bookmarkId) {
-            scheduleSync();
+            scheduleSync(["bookmarks"]);
             pushHistory({
               key: `bookmark:create:${bookmarkId}`,
               undo: () => dispatchRef.current({ type: "bookmark/delete", bookmarkId }),
@@ -2912,7 +2974,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         void runWithCanvasOutboxFallback("bookmark/update", action, async () => {
           const snapshot = stateRef.current?.bookmarks.find((b) => b.id === action.bookmarkId);
           await saveBookmarkUpdate(action);
-          scheduleSync();
+          scheduleSync(["bookmarks"]);
           if (snapshot) {
             pushHistory({
               key: `bookmark:update:${snapshot.id}`,
@@ -2935,7 +2997,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         void (async () => {
           try {
             await deleteBookmark({ bookmarkId: action.bookmarkId as any });
-            scheduleSync();
+            scheduleSync(["bookmarks"]);
             if (snapshot) {
               pushHistory({
                 key: `bookmark:delete:${snapshot.id}`,
@@ -2951,7 +3013,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       case "bookmark/restore":
         localDispatch({ type: "bookmark/clear-deleting", bookmarkIds: [action.bookmarkId] });
-        void restoreBookmark({ bookmarkId: action.bookmarkId as any }).then(() => scheduleSync());
+        void restoreBookmark({ bookmarkId: action.bookmarkId as any }).then(() => scheduleSync(["bookmarks"]));
         return true;
       case "bookmark-category/create":
         void (async () => {
@@ -2971,7 +3033,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             if (prev.some((c) => c.id === categoryId)) return prev;
             return [...prev, { id: categoryId, name: action.name, icon: action.icon, createdAt: now }];
           });
-          scheduleSync();
+          scheduleSync(["bookmarkCategories"]);
         })();
         return true;
       case "bookmark-category/update":
@@ -2981,7 +3043,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         );
         void (async () => {
           await updateBookmarkCategory({ categoryId: action.categoryId as any, name: await encrypt(action.name), icon: action.icon });
-          scheduleSync();
+          scheduleSync(["bookmarkCategories"]);
         })();
         return true;
       case "bookmark-category/delete":
@@ -2999,7 +3061,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           categoryId: action.categoryId,
           deleteRemote: (categoryId) => deleteBookmarkCategoryWithBookmarks({ categoryId: categoryId as any }),
           deleteLocal: (categoryId) => db.bookmarkCategories.delete(categoryId),
-          scheduleSync,
+          // Cascades a soft-delete onto every bookmark in the category, so
+          // `bookmarks` needs resyncing too, not just the category table.
+          scheduleSync: () => scheduleSync(["bookmarkCategories", "bookmarks"]),
         }).catch((error) => console.error("[omanote] failed to delete bookmark category with bookmarks:", error));
         return true;
       default:
@@ -3033,7 +3097,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           try {
             const eventId = (await createEventEntry({ clientKey, label: encLabel, dateKey: action.dateKey, loggedAt: action.loggedAt, notes: encNotes, hashtags })) as string;
             localDispatch({ type: "event/confirm-optimistic", clientKey });
-            scheduleSync();
+            scheduleSync(["events"]);
             pushEventEntryToGoogleCalendar(eventId, action.label, action.notes);
             pushHistory({
               key: `event:create:${eventId}`,
@@ -3061,7 +3125,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const encNotes = await encryptOptional(action.notes);
           try {
             await updateEventEntry({ eventId: action.eventId as any, label: encLabel, loggedAt: action.loggedAt, notes: encNotes, hashtags });
-            scheduleSync();
+            scheduleSync(["events"]);
             pushEventEntryToGoogleCalendar(action.eventId, action.label, action.notes);
             if (snapshot) {
               const snapshotHashtags = buildHashtagsFromText(snapshot.label, snapshot.notes);
@@ -3103,7 +3167,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         void (async () => {
           try {
             await deleteEventEntry({ eventId: action.eventId as any });
-            scheduleSync();
+            scheduleSync(["events"]);
             removeEventEntryFromGoogleCalendar(action.eventId);
             if (snapshot) {
               pushHistory({
@@ -3124,7 +3188,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         void (async () => {
           try {
             await restoreEventEntry({ eventId: action.eventId as any });
-            scheduleSync();
+            scheduleSync(["events"]);
             if (snapshot?.label) {
               pushEventEntryToGoogleCalendar(action.eventId, snapshot.label, snapshot.notes);
             }

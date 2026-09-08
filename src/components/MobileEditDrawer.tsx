@@ -80,7 +80,7 @@ export function MobileEditDrawer({
         role="dialog"
         aria-label={ariaLabel}
         className={[
-          "fixed inset-x-4 z-app-drawer flex max-h-[85dvh] min-h-0 flex-col rounded-2xl bg-app-surface-raised shadow-drawer transform-gpu",
+          "fixed inset-x-4 z-app-drawer flex max-h-[85dvh] min-h-0 flex-col rounded-app-drawer bg-app-surface-raised shadow-drawer transform-gpu",
           isDragging ? "" : "transition-transform duration-app-drawer ease-app-drawer",
           isEntered ? "translate-y-0" : "translate-y-[calc(100%+1rem+env(safe-area-inset-bottom))]",
         ].join(" ")}

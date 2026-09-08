@@ -107,7 +107,7 @@ export function UpdateModal() {
     >
         <div
           className={[
-            "w-full max-w-md transform-gpu rounded-2xl border border-app-line bg-app-surface shadow-app-dialog transition-[transform,opacity,box-shadow,border-color] duration-app-slow ease-app-in-out",
+            "w-full max-w-md transform-gpu rounded-app-dialog border border-app-line bg-app-surface shadow-app-dialog transition-[transform,opacity,box-shadow,border-color] duration-app-slow ease-app-in-out",
             isEntered ? "translate-y-0 scale-100 opacity-100" : "translate-y-4 scale-[0.96] opacity-0",
             isTransitioningToModal ? "will-change-transform" : "",
           ].join(" ")}

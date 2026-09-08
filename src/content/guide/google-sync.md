@@ -10,6 +10,12 @@ Connect your Google account in **Settings → Features** to keep todos and event
 - **Manually logged events** also mirror to the "omanote" calendar.
 - **Events you create directly in your primary Google Calendar** appear as new open todos in omanote automatically, including recurring events.
 
+## Inviting guests via @email mentions
+
+Type `@` followed by an email address anywhere in a todo's title or notes — for example "meeting tomorrow 4pm @sam@example.com" — and that address is highlighted as you type, shown as a chip once saved, and added as a guest on the todo's synced Google Calendar event. Mention more than one email to invite multiple guests. Remove a mention and save again, and that guest is dropped from the event on the next sync.
+
+This needs Google Calendar connected and syncing — if it isn't, omanote shows a prompt to connect right where you typed the mention, and the todo still saves normally either way; only the calendar invite is held back until you connect.
+
 ## Where imported events land
 
 Todos imported from Google Calendar are filed into their own **"Synced from GCal"** todo folder, separate from your other folders. If the event had a Google Meet link, it also shows up as a bookmark card in a matching **"Synced from GCal"** bookmarks folder, titled with the calendar event's name.

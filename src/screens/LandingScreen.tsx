@@ -2262,7 +2262,7 @@ export function LandingScreen() {
                 {
                   icon: CalendarDays,
                   title: "Google Calendar sync",
-                  body: "Todos and Google Calendar events flow both ways, automatically.",
+                  body: "Todos and Google Calendar events flow both ways, automatically. Mention @someone's email in a todo to invite them.",
                   span: "",
                 },
                 {

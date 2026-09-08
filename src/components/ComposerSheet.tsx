@@ -141,7 +141,7 @@ export function ComposerSheet() {
           // Same 1024px the page content and bottom nav are capped to.
           // Softer than the standard --shadow-drawer (this sheet is small
           // relative to the page, a heavy shadow felt out of proportion).
-          "fixed inset-x-4 z-app-drawer flex max-h-[85dvh] min-h-0 flex-col rounded-2xl bg-app-surface-raised shadow-soft transform-gpu md:inset-x-auto md:left-1/2 md:w-[min(calc(100vw-2rem),1024px)] md:-translate-x-1/2",
+          "fixed inset-x-4 z-app-drawer flex max-h-[85dvh] min-h-0 flex-col rounded-app-drawer bg-app-surface-raised shadow-soft transform-gpu md:inset-x-auto md:left-1/2 md:w-[min(calc(100vw-2rem),1024px)] md:-translate-x-1/2",
           isDragging ? "" : "transition-transform duration-app-drawer ease-app-drawer",
           isEntered ? "translate-y-0" : "translate-y-[calc(100%+1rem+env(safe-area-inset-bottom))]",
           open ? "pointer-events-auto" : "pointer-events-none",

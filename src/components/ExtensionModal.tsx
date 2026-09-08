@@ -48,7 +48,7 @@ export function ExtensionModal({ onClose }: ExtensionModalProps) {
     >
         <div
           className={[
-            "w-full max-w-sm transform-gpu rounded-2xl border border-app-line bg-app-surface shadow-app-dialog transition-[transform,opacity] duration-app-slow ease-app-in-out",
+            "w-full max-w-sm transform-gpu rounded-app-dialog border border-app-line bg-app-surface shadow-app-dialog transition-[transform,opacity] duration-app-slow ease-app-in-out",
             isEntered ? "translate-y-0 scale-100 opacity-100" : "translate-y-4 scale-[0.96] opacity-0",
           ].join(" ")}
           onClick={(e) => e.stopPropagation()}

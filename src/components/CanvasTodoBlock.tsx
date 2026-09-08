@@ -120,8 +120,8 @@ function CanvasTodoBlockComponent({
       data-testid="canvas-todo-block"
       className={
         isMobile
-          ? "group relative -ml-3 -mr-2 -my-1 w-full select-none rounded-xl px-2 py-1 pl-3 transition-[transform,opacity,background-color,box-shadow] duration-200 ease-out hover:bg-app-surface-hover focus-within:bg-app-surface-muted focus-within:ring-1 focus-within:ring-app-focus/15 before:pointer-events-none before:absolute before:inset-y-2 before:left-0 before:w-px before:rounded-full before:bg-transparent focus-within:before:bg-app-line-strong [-webkit-touch-callout:none]"
-          : "group relative -ml-3 -mr-2 -my-1 w-full rounded-xl px-2 py-1 pl-3 transition-[transform,opacity,background-color,box-shadow] duration-200 ease-out hover:bg-app-surface-hover focus-within:bg-app-surface-muted focus-within:ring-1 focus-within:ring-app-focus/15 before:pointer-events-none before:absolute before:inset-y-2 before:left-0 before:w-px before:rounded-full before:bg-transparent focus-within:before:bg-app-line-strong"
+          ? "group relative -ml-3 -mr-2 -my-1 w-full select-none rounded-app-panel px-2 py-1 pl-3 transition-[transform,opacity,background-color,box-shadow] duration-200 ease-out hover:bg-app-surface-hover focus-within:bg-app-surface-muted focus-within:ring-1 focus-within:ring-app-focus/15 before:pointer-events-none before:absolute before:inset-y-2 before:left-0 before:w-px before:rounded-full before:bg-transparent focus-within:before:bg-app-line-strong [-webkit-touch-callout:none]"
+          : "group relative -ml-3 -mr-2 -my-1 w-full rounded-app-panel px-2 py-1 pl-3 transition-[transform,opacity,background-color,box-shadow] duration-200 ease-out hover:bg-app-surface-hover focus-within:bg-app-surface-muted focus-within:ring-1 focus-within:ring-app-focus/15 before:pointer-events-none before:absolute before:inset-y-2 before:left-0 before:w-px before:rounded-full before:bg-transparent focus-within:before:bg-app-line-strong"
       }
       onDoubleClick={() => onOpenEditor(todo)}
       onTouchStart={isMobile ? handleTouchStart : undefined}
@@ -143,7 +143,7 @@ function CanvasTodoBlockComponent({
               event.stopPropagation();
               onOpenEditor(todo);
             }}
-            className="rounded-lg bg-info-surface px-2 py-0.5 text-left text-[15px] font-medium leading-6 text-info-ink transition hover:bg-app-surface-hover"
+            className="rounded-app-badge bg-info-surface px-2 py-0.5 text-left text-[15px] font-medium leading-6 text-info-ink transition hover:bg-app-surface-hover"
           >
             {futureCanvasLabel}
           </button>
@@ -181,12 +181,12 @@ function CanvasTodoBlockComponent({
             >
               <RichTextPreview value={todo.title} onLinkEdit={editTodoTitle} />
             </div>
-            {todo.priority === "high" ? <span className="rounded-full border border-app-line px-2 py-0.5 text-[11px] uppercase tracking-wide text-app-ink-muted">High</span> : null}
+            {todo.priority === "high" ? <span className="rounded-app-badge border border-app-line px-2 py-0.5 text-[11px] uppercase tracking-wide text-app-ink-muted">High</span> : null}
             {todo.recurrence || todo.recurringSourceId ? (
               <span
                 title={todo.recurrence ? describeRecurrenceRule(todo.recurrence) : "recurring"}
                 className={cn(
-                  "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px]",
+                  "inline-flex items-center gap-1 rounded-app-badge px-2 py-0.5 text-[11px]",
                   todo.occurrenceState === "missed"
                     ? "bg-warning-surface text-warning-ink"
                     : "bg-app-surface-muted text-app-ink-faint",
@@ -197,7 +197,7 @@ function CanvasTodoBlockComponent({
               </span>
             ) : null}
             {!isFutureTodo && dueChip ? (
-              <span className="rounded-md bg-app-surface-muted px-2 py-0.5 text-[11px] text-app-ink-faint">
+              <span className="rounded-app-badge bg-app-surface-muted px-2 py-0.5 text-[11px] text-app-ink-faint">
                 {dueChip}
                 {overdueDays > 0 ? <span className="text-warning-ink"> · overdue {overdueDays}d</span> : null}
               </span>

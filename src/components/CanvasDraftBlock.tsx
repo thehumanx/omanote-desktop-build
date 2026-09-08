@@ -10,6 +10,7 @@ import { cn, SegmentedHighlight, SegmentedItem, SegmentedShell, TodoCheckmark } 
 import { hasMeaningfulNoteInput, isUncategorizedFolderName, readLastNoteFolder, resolveNoteFolderByName, writeLastNoteFolder } from "../lib/note-folder-utils";
 import { MobileSaveButton } from "./MobileSaveButton";
 import { hashtagColor, hashtagHighlightSegments, parseHashtags } from "../lib/hashtags";
+import { mentionHighlightSegments } from "../lib/mentions";
 import { useUserSettings } from "../contexts/UserSettingsContext";
 import { isNewlineShortcutEvent, isSaveShortcutEvent } from "../lib/editor-shortcuts";
 import { useMeasuredHighlight } from "../hooks/useMeasuredHighlight";
@@ -1481,7 +1482,20 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                               </span>
                             );
                           }
-                          return <span key={i}>{text}</span>;
+                          return mentionHighlightSegments(text).map(({ text: mentionText, isMention, email }, j) => {
+                            if (isMention && email) {
+                              const leading = mentionText.length > email.length + 1 ? mentionText[0] : "";
+                              return (
+                                <span key={`${i}-${j}`}>
+                                  {leading}
+                                  <mark className="rounded-full bg-emerald-100 dark:bg-emerald-950/50" style={{ color: "transparent" }}>
+                                    @{email}
+                                  </mark>
+                                </span>
+                              );
+                            }
+                            return <span key={`${i}-${j}`}>{mentionText}</span>;
+                          });
                         })}
                         {line.text === "" && "\u200b"}
                       </div>

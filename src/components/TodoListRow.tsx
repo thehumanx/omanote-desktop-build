@@ -87,13 +87,13 @@ export const TodoListRow = memo(function TodoListRow({
             {todo.recurrence || todo.recurringSourceId ? (
               <Badge
                 title={todo.recurrence ? describeRecurrenceRule(todo.recurrence) : "recurring"}
-                className="inline-flex items-center gap-1 rounded-md text-app-ink-faint"
+                className="inline-flex items-center gap-1 rounded-app-badge text-app-ink-faint"
               >
                 <Repeat className="h-3 w-3" />
                 {todo.recurrence ? describeRecurrenceRule(todo.recurrence) : null}
               </Badge>
             ) : null}
-            {dueChip ? <Badge className="rounded-md text-app-ink-faint">{dueChip}</Badge> : null}
+            {dueChip ? <Badge className="rounded-app-badge text-app-ink-faint">{dueChip}</Badge> : null}
           </div>
           {todo.notes ? <p className="mt-1 text-sm leading-6 text-app-ink-muted">{highlightText(todo.notes, highlightQuery, "todo-row-notes")}</p> : null}
           {completedLabel ? (

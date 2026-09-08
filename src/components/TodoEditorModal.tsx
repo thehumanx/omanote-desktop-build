@@ -9,12 +9,14 @@ import {
   ruleToEditablePhrase,
   toDateKey,
 } from "@omanote/shared";
-import { CheckCircle2, RefreshCw, Repeat } from "lucide-react";
+import { CheckCircle2, RefreshCw, Repeat, UserPlus } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { handlePasteAsLink } from "../lib/link-utils";
 import { BaseModal } from "./BaseModal";
 import { parseHashtags } from "../lib/hashtags";
+import { parseMentions, mentionHighlightSegments } from "../lib/mentions";
 import { useUserSettings } from "../contexts/UserSettingsContext";
 import { isNewlineShortcutEvent, isSaveShortcutEvent } from "../lib/editor-shortcuts";
 import { SaveShortcutHint } from "./settings/SaveShortcutHint";
@@ -33,7 +35,7 @@ function GoogleSyncIndicator({ htmlLink, className }: { htmlLink: string | null;
   return (
     <div
       title={GOOGLE_SYNC_TOOLTIP}
-      className={["inline-flex w-fit items-center gap-1.5 rounded-md bg-app-surface-muted px-2 py-1 text-xs text-app-ink-muted", className]
+      className={["inline-flex w-fit items-center gap-1.5 rounded-app-badge bg-app-surface-muted px-2 py-1 text-xs text-app-ink-muted", className]
         .filter(Boolean)
         .join(" ")}
     >
@@ -60,7 +62,7 @@ function GoogleSyncIndicator({ htmlLink, className }: { htmlLink: string | null;
 // used (Todos, Event/Calendar, and Canvas).
 const BACKDROP_CLASS = "items-end px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:items-center md:px-app-page md:pb-0";
 const SURFACE_CLASS =
-  "w-full rounded-2xl border border-app-line bg-app-surface-raised px-5 py-5 shadow-app-drawer max-h-[85vh] overflow-y-auto md:max-w-4xl md:max-h-none md:overflow-visible md:rounded-app-dialog md:bg-app-surface md:px-7 md:py-6 md:shadow-soft";
+  "w-full rounded-app-card border border-app-line bg-app-surface-raised px-5 py-5 shadow-app-drawer max-h-[85vh] overflow-y-auto md:max-w-4xl md:max-h-none md:overflow-visible md:rounded-app-dialog md:bg-app-surface md:px-7 md:py-6 md:shadow-soft";
 // Larger tap targets on the mobile drawer; unchanged on desktop.
 const FIELD_ROW_PADDING = "py-2 md:py-1";
 
@@ -92,6 +94,7 @@ export function TodoEditorModal({
   onSave: (payload: {
     title: string;
     hashtags: string[];
+    guestEmails: string[];
     dueDateKey?: string;
     dueTime?: string;
     folderId?: string;
@@ -136,6 +139,12 @@ export function TodoEditorModal({
     : "";
   const completedLabel = formatCompletedAt(todo?.completedAt);
   const googleLink = useQuery(api.googleCalendar.getTodoGoogleLinkSummary, todo ? { todoId: todo.id as any } : "skip");
+  const draftGuestEmails = useMemo(() => parseMentions(draftTitle), [draftTitle]);
+  const googleConnection = useQuery(api.googleAuth.getConnectionStatus, draftGuestEmails.length ? {} : "skip");
+  const needsGoogleConnect =
+    draftGuestEmails.length > 0 &&
+    googleConnection !== undefined &&
+    (!googleConnection.connected || googleConnection.status === "needs_reconnect" || googleConnection.syncEnabled === false);
 
   // Live parse of the Repeat field for the confirmation chip.
   const parsedRepeat = useMemo(() => {
@@ -240,6 +249,7 @@ export function TodoEditorModal({
     onSave({
       title,
       hashtags: parseHashtags(draftTitle),
+      guestEmails: parseMentions(draftTitle),
       dueDateKey,
       dueTime,
       recurrence,
@@ -290,7 +300,7 @@ export function TodoEditorModal({
                   {todo.title}
                 </span>
                 {dueChip ? (
-                  <span className="shrink-0 rounded-full bg-app-surface-muted px-2 py-0.5 text-xs font-medium text-app-ink-muted">
+                  <span className="shrink-0 rounded-app-badge bg-app-surface-muted px-2 py-0.5 text-xs font-medium text-app-ink-muted">
                     {dueChip}
                   </span>
                 ) : null}
@@ -333,27 +343,51 @@ export function TodoEditorModal({
             }}
             align="text"
           />
-          <textarea
-            ref={titleRef}
-            aria-label="Todo title"
-            value={draftTitle}
-            onChange={(event) => {
-              setDraftTitle(event.target.value);
-              setError("");
-            }}
-            onPaste={(event) => {
-              handlePasteAsLink(event, draftTitle, setDraftTitle);
-            }}
-            onKeyDown={handleKeyDown}
-            rows={1}
-            placeholder="Todo title"
-            // No top padding: the checkmark's optical "align to text" offset
-            // (`--component-todo-checkmark-text-align-offset`) is tuned
-            // against a title sitting flush at the top, the same way
-            // TodoListRow's title div has none -- adding top padding here
-            // would push the first line down past what that offset assumes.
-            className="min-w-0 flex-1 resize-none overflow-hidden border-0 border-b border-app-line bg-transparent px-0 pb-2 pt-0 text-base leading-6 text-app-ink outline-none placeholder:text-app-line-strong focus:border-app-line-strong md:pb-1"
-          />
+          <div className="relative min-w-0 flex-1">
+            {/* Highlight backdrop for @email mentions -- same technique as
+                EventEditorModal's #hashtag backdrop. */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute left-0 top-0 w-full select-none whitespace-pre-wrap break-words p-0 pb-2 text-base leading-6 text-transparent md:pb-1"
+            >
+              {mentionHighlightSegments(draftTitle).map(({ text, isMention, email }, i) => {
+                if (isMention && email) {
+                  const leading = text.length > email.length + 1 ? text[0] : "";
+                  return (
+                    <span key={i}>
+                      {leading}
+                      <mark className="rounded-full bg-emerald-100 dark:bg-emerald-950/50" style={{ color: "transparent" }}>
+                        @{email}
+                      </mark>
+                    </span>
+                  );
+                }
+                return <span key={i}>{text}</span>;
+              })}
+              {draftTitle === "" && "​"}
+            </div>
+            <textarea
+              ref={titleRef}
+              aria-label="Todo title"
+              value={draftTitle}
+              onChange={(event) => {
+                setDraftTitle(event.target.value);
+                setError("");
+              }}
+              onPaste={(event) => {
+                handlePasteAsLink(event, draftTitle, setDraftTitle);
+              }}
+              onKeyDown={handleKeyDown}
+              rows={1}
+              placeholder="Todo title"
+              // No top padding: the checkmark's optical "align to text" offset
+              // (`--component-todo-checkmark-text-align-offset`) is tuned
+              // against a title sitting flush at the top, the same way
+              // TodoListRow's title div has none -- adding top padding here
+              // would push the first line down past what that offset assumes.
+              className="relative min-w-0 w-full resize-none overflow-hidden border-0 border-b border-app-line bg-transparent px-0 pb-2 pt-0 text-base leading-6 text-app-ink outline-none placeholder:text-app-line-strong focus:border-app-line-strong md:pb-1"
+            />
+          </div>
         </div>
 
         <div className="mt-3 space-y-3">
@@ -428,13 +462,25 @@ export function TodoEditorModal({
           {error ? <p className="text-xs text-danger-ink">{error}</p> : null}
 
           {recurrenceChipLabel ? (
-            <div className="inline-flex items-center gap-1.5 rounded-md bg-app-surface-muted px-2 py-1 text-xs text-app-ink-muted">
+            <div className="inline-flex items-center gap-1.5 rounded-app-badge bg-app-surface-muted px-2 py-1 text-xs text-app-ink-muted">
               <Repeat className="h-3 w-3" />
               <span>{recurrenceChipLabel}</span>
             </div>
           ) : null}
 
           {googleLink ? <GoogleSyncIndicator htmlLink={googleLink.htmlLink} /> : null}
+
+          {draftGuestEmails.length > 0 && needsGoogleConnect ? (
+            <div className="flex items-start gap-2 rounded-app-badge bg-warning-surface px-2.5 py-2 text-xs text-warning-ink">
+              <UserPlus className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                Connect Google Calendar to invite {draftGuestEmails.join(", ")}.{" "}
+                <Link to="/settings?category=features" className="underline decoration-dotted hover:no-underline">
+                  Connect now
+                </Link>
+              </span>
+            </div>
+          ) : null}
 
           <div className="sticky bottom-0 -mx-5 -mb-5 mt-2 flex flex-col gap-3 border-t border-app-line bg-app-surface-raised px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 md:static md:mx-0 md:mb-0 md:flex-row md:flex-wrap md:items-center md:justify-between md:border-0 md:bg-transparent md:px-0 md:pb-0 md:pt-0">
             <div className="flex flex-wrap items-center gap-2">

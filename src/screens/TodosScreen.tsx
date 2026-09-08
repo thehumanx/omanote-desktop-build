@@ -23,6 +23,7 @@ import { useEdgeSwipeBack } from "../lib/useEdgeSwipeBack";
 import { useHistoryBackClose } from "../lib/useHistoryBackClose";
 import { useMeasuredHighlight } from "../hooks/useMeasuredHighlight";
 import { parseHashtags } from "../lib/hashtags";
+import { parseMentions } from "../lib/mentions";
 import { useOutsideClick } from "../lib/useOutsideClick";
 import { CategoryIconView } from "../lib/bookmark-category-icon";
 import { useIsDesktop, usePersistedFolderSort, usePersistedFolderViewMode } from "../hooks/useFolderNavigation";
@@ -253,6 +254,7 @@ function TodoSection({
                     dueDateKey: payload.dueDateKey as DateKey,
                     dueTime: payload.dueTime,
                     hashtags: parseHashtags(payload.title + (todo.notes ? " " + todo.notes : "")),
+                    guestEmails: parseMentions(payload.title + (todo.notes ? " " + todo.notes : "")),
                   });
                 }}
                 onOpenEditor={onOpenEditor}
@@ -268,7 +270,7 @@ function TodoSection({
 
 function TodoTodayEmptyCard({ onAdd }: { onAdd: () => void }) {
   return (
-    <div className="flex flex-col items-start gap-2 rounded-xl border border-dashed border-app-line bg-app-surface-muted/40 px-4 py-4">
+    <div className="flex flex-col items-start gap-2 rounded-app-card border border-dashed border-app-line bg-app-surface-muted/40 px-4 py-4">
       <p className="text-sm font-bold text-app-ink">Nothing due today</p>
       <p className="text-sm text-app-ink-faint">Add something to your day, or enjoy the quiet.</p>
       <Button variant="soft" className="mt-1 h-8 px-3 text-xs" onClick={onAdd}>
@@ -1606,6 +1608,7 @@ export function TodosScreen() {
               type: "todo/create",
               title: payload.title,
               hashtags: payload.hashtags,
+              guestEmails: payload.guestEmails,
               dateKey: state.ui.selectedDateKey,
               dueDateKey: payload.dueDateKey as DateKey,
               dueTime: payload.dueTime,
@@ -1635,6 +1638,7 @@ export function TodosScreen() {
               dueDateKey: payload.dueDateKey as DateKey,
               dueTime: payload.dueTime,
               hashtags: payload.hashtags,
+              guestEmails: payload.guestEmails,
               folderId: payload.folderId,
               folderName: payload.folderName,
               recurrence: payload.recurrence,

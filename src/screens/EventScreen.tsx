@@ -253,14 +253,14 @@ function TimelineView({
                 <div className="h-[10px] w-[10px] rounded-full border-2 border-app-ink-faint bg-app-canvas" />
               </div>
               <span className="app-title-font text-sm font-bold text-app-ink">{label}</span>
-              <span className="rounded-full bg-app-surface-muted px-2 py-0.5 text-[11px] font-bold text-app-ink-muted">
+              <span className="rounded-app-badge bg-app-surface-muted px-2 py-0.5 text-[11px] font-bold text-app-ink-muted">
                 {dayEvents.length}
               </span>
             </div>
 
             {/* Today empty state */}
             {dateKey === todayKey && dayEvents.length === 0 && (
-              <div className="ml-10 mb-3 rounded-2xl bg-app-surface-muted px-5 py-6">
+              <div className="ml-10 mb-3 rounded-app-card bg-app-surface-muted px-5 py-6">
                 <div className="flex flex-col items-center gap-3 text-center">
                   <div className="flex h-9 w-9 items-center justify-center rounded-full bg-app-surface">
                     <CalendarDays className="h-4 w-4 text-app-ink-faint" />
@@ -479,7 +479,7 @@ function EventClusterModal({
               {todo ? (
                 <div className="flex items-start gap-3 py-1.5">
                   {timeLabel ? (
-                    <div className="min-w-[76px] rounded-md bg-app-surface-muted px-2 py-1 text-xs font-bold text-app-ink-faint">
+                    <div className="min-w-[76px] rounded-app-badge bg-app-surface-muted px-2 py-1 text-xs font-bold text-app-ink-faint">
                       {timeLabel}
                     </div>
                   ) : null}
@@ -497,7 +497,7 @@ function EventClusterModal({
               ) : (
               <div className="flex items-start gap-3 py-1.5">
                 {timeLabel ? (
-                  <div className="min-w-[76px] rounded-md bg-app-surface-muted px-2 py-1 text-xs font-bold text-app-ink-faint">
+                  <div className="min-w-[76px] rounded-app-badge bg-app-surface-muted px-2 py-1 text-xs font-bold text-app-ink-faint">
                     {timeLabel}
                   </div>
                 ) : null}
@@ -538,7 +538,7 @@ function EventClusterModal({
 // and a centered dialog on desktop, matching TodoEditorModal/BookmarkEditorModal.
 const EVENT_CREATE_BACKDROP_CLASS = "items-end px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:items-center md:px-app-page md:pb-0";
 const EVENT_CREATE_SURFACE_CLASS =
-  "w-full max-w-2xl rounded-2xl border border-app-line bg-app-surface-raised p-5 shadow-app-drawer md:bg-app-surface md:shadow-soft";
+  "w-full max-w-2xl rounded-app-dialog border border-app-line bg-app-surface-raised p-5 shadow-app-drawer md:bg-app-surface md:shadow-soft";
 
 function EventCreateModal({
   dateKey,
@@ -577,7 +577,7 @@ function EventCreateModal({
           canSave={canSave}
         />
         <div className="flex items-center justify-between gap-2">
-          <div className="rounded-md border border-app-line bg-app-surface-muted px-2 py-0.5 text-xs font-medium text-app-ink-faint">
+          <div className="rounded-app-badge border border-app-line bg-app-surface-muted px-2 py-0.5 text-xs font-medium text-app-ink-faint">
             {new Date(startedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }).replace(":00", "").replace(/\s+/g, "")}
           </div>
           <SaveShortcutHint className="hidden text-sm md:inline" />
@@ -903,7 +903,7 @@ export function EventScreen() {
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className={["rounded-full px-2 py-0.5 text-[10px] font-bold", isToday ? "bg-app-surface-muted text-app-ink-muted" : "bg-app-line text-app-ink-faint"].join(" ")}>
+                          <span className={["rounded-app-badge px-2 py-0.5 text-[10px] font-bold", isToday ? "bg-app-surface-muted text-app-ink-muted" : "bg-app-line text-app-ink-faint"].join(" ")}>
                             {dayCount}
                           </span>
                         </div>
@@ -959,7 +959,7 @@ export function EventScreen() {
                       <div className="absolute top-2 z-10" style={{ left: "6px", width: "calc(100% - 12px)" }}>
                         {allDayTodos.length === 1 ? (
                           <div
-                            className="overflow-hidden rounded-2xl border border-app-line bg-app-surface px-2 py-1.5 text-left shadow-soft transition hover:border-app-line-strong hover:shadow-soft"
+                            className="overflow-hidden rounded-app-card border border-app-line bg-app-surface px-2 py-1.5 text-left shadow-soft transition hover:border-app-line-strong hover:shadow-soft"
                           >
                             <CalendarTodoRow
                               todo={allDayTodos[0]}
@@ -971,7 +971,7 @@ export function EventScreen() {
                         ) : (
                           <button
                             type="button"
-                            className="block w-full overflow-hidden rounded-2xl border border-app-line bg-app-surface px-2 py-1.5 text-left shadow-soft transition hover:border-app-line-strong hover:shadow-soft"
+                            className="block w-full overflow-hidden rounded-app-card border border-app-line bg-app-surface px-2 py-1.5 text-left shadow-soft transition hover:border-app-line-strong hover:shadow-soft"
                             onClick={(event) => {
                               event.stopPropagation();
                               setActiveCluster(
@@ -989,7 +989,7 @@ export function EventScreen() {
                               <p className="min-w-0 text-[10px] font-bold uppercase tracking-[0.18em] text-app-ink-faint">
                                 {allDayTodos.length} todos
                               </p>
-                              <span className="shrink-0 rounded-full bg-app-surface-muted px-2 py-0.5 text-[10px] font-bold text-app-ink-muted">
+                              <span className="shrink-0 rounded-app-badge bg-app-surface-muted px-2 py-0.5 text-[10px] font-bold text-app-ink-muted">
                                 Stack
                               </span>
                             </div>
@@ -1026,7 +1026,7 @@ export function EventScreen() {
                       return (
                         <div
                           key={cluster.id}
-                          className="absolute z-10 overflow-hidden rounded-2xl border border-app-line bg-app-surface px-2 py-1.5 text-left shadow-soft transition hover:border-app-line-strong hover:shadow-soft"
+                          className="absolute z-10 overflow-hidden rounded-app-card border border-app-line bg-app-surface px-2 py-1.5 text-left shadow-soft transition hover:border-app-line-strong hover:shadow-soft"
                           style={{
                             top: CALENDAR_TOP_PADDING + cluster.top + 8,
                             left: "6px",
@@ -1047,7 +1047,7 @@ export function EventScreen() {
                                 <p className="min-w-0 text-[10px] font-bold uppercase tracking-[0.18em] text-app-ink-faint">
                                   {calendarEntryTimeLabel(cluster.entries[0])} · {cluster.entries.length} items
                                 </p>
-                                <span className="shrink-0 rounded-full bg-app-surface-muted px-2 py-0.5 text-[10px] font-bold text-app-ink-muted">
+                                <span className="shrink-0 rounded-app-badge bg-app-surface-muted px-2 py-0.5 text-[10px] font-bold text-app-ink-muted">
                                   Stack
                                 </span>
                               </div>

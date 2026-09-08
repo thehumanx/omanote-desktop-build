@@ -158,7 +158,7 @@ export function ShareNoteFolderModal({
   return (
     <BaseModal onClose={onClose} onBackdropMouseDown={onClose} zIndex="z-app-dialog">
       <div
-        className="w-full max-w-md rounded-2xl border border-app-line bg-app-surface p-5 shadow-soft"
+        className="w-full max-w-md rounded-app-dialog border border-app-line bg-app-surface p-5 shadow-soft"
         onMouseDown={(e) => e.stopPropagation()}
       >
           <div className="mb-4 flex items-start justify-between gap-3">

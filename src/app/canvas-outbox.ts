@@ -99,6 +99,7 @@ type TodoCreatePayload = {
   dueDateKey?: string;
   dueTime?: string;
   hashtags?: string[];
+  guestEmails?: string[];
   folderId?: string;
   folderName?: string;
   recurrence?: RecurrenceRule;
@@ -112,6 +113,7 @@ type TodoUpdatePayload = {
   dueDateKey?: string;
   dueTime?: string;
   hashtags?: string[];
+  guestEmails?: string[];
   folderId?: string;
   folderName?: string;
   recurrence?: RecurrenceRule | null;

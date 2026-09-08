@@ -87,7 +87,7 @@ function PageBookmarkView({ node, deleteNode }: ReactNodeViewProps) {
           href={url}
           target="_blank"
           rel="noreferrer"
-          className="flex items-center gap-2 rounded-2xl border border-app-line bg-app-surface p-3 text-sm text-app-ink-muted no-underline"
+          className="flex items-center gap-2 rounded-app-card border border-app-line bg-app-surface p-3 text-sm text-app-ink-muted no-underline"
         >
           <Link2 className="h-4 w-4 shrink-0" />
           <span className="truncate">{hostnameOf(url)}</span>

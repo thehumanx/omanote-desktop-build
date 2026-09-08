@@ -100,7 +100,7 @@ export type AppAction =
   | { type: "ui/set-active-bookmark-category"; categoryId: string | null }
   | { type: "ui/open-composer"; mode?: DraftMode }
   | { type: "ui/close-composer" }
-  | { type: "todo/create"; title: string; dateKey: DateKey; dueDateKey?: DateKey; dueTime?: string; hashtags?: string[]; fromReminder?: boolean; folderId?: string; folderName?: string; folderIcon?: string; recurrence?: RecurrenceRule; reminderEveryMinutes?: number; reminderUntil?: number; clientKey?: string; pageId?: string }
+  | { type: "todo/create"; title: string; dateKey: DateKey; dueDateKey?: DateKey; dueTime?: string; hashtags?: string[]; guestEmails?: string[]; fromReminder?: boolean; folderId?: string; folderName?: string; folderIcon?: string; recurrence?: RecurrenceRule; reminderEveryMinutes?: number; reminderUntil?: number; clientKey?: string; pageId?: string }
   | { type: "todo/toggle"; todoId: string; completedAt?: number }
   | { type: "todo/delete"; todoId: string }
   | { type: "todo/delete-series"; todoId: string }
@@ -109,7 +109,7 @@ export type AppAction =
   | { type: "todo/prompt-recurring-delete"; prompt: RecurringDeletePrompt }
   | { type: "todo/close-recurring-delete" }
   | { type: "todo/restore"; todoId: string }
-  | { type: "todo/update"; todoId: string; title: string; dueDateKey?: DateKey; dueTime?: string; hashtags?: string[]; folderId?: string; folderName?: string; recurrence?: RecurrenceRule | null; reminderEveryMinutes?: number | null; reminderUntil?: number | null }
+  | { type: "todo/update"; todoId: string; title: string; dueDateKey?: DateKey; dueTime?: string; hashtags?: string[]; guestEmails?: string[]; folderId?: string; folderName?: string; recurrence?: RecurrenceRule | null; reminderEveryMinutes?: number | null; reminderUntil?: number | null }
   | { type: "todo/snooze"; todoId: string; minutes: number }
   | { type: "todo/mark-fired"; todoId: string; timestamp: number }
   | { type: "note/create"; body: string; dateKey: DateKey; title?: string; tags?: string[]; hashtags?: string[]; folderName?: string; folderId?: string; folderIcon?: string }

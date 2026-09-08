@@ -77,7 +77,7 @@ export function FounderNoteModal({ open, onClose }: FounderNoteModalProps) {
     >
       <div
         className={[
-          "founder-note-card relative flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-black/5 shadow-dialog dark:border-white/10",
+          "founder-note-card relative flex w-full max-w-2xl flex-col overflow-hidden rounded-app-dialog border border-black/5 shadow-dialog dark:border-white/10",
           isEntered
             ? prefersReducedMotion
               ? "opacity-100"

@@ -308,7 +308,7 @@ export function ImportDataPanel() {
 
       {!parsed ? (
         <div
-          className={`flex cursor-pointer flex-col items-center justify-center gap-2.5 rounded-xl border-2 border-dashed px-4 py-8 transition ${
+          className={`flex cursor-pointer flex-col items-center justify-center gap-2.5 rounded-app-card border-2 border-dashed px-4 py-8 transition ${
             dragging ? "border-app-line-strong bg-app-surface-muted" : "border-app-line hover:border-app-line-strong hover:bg-app-surface-hover"
           }`}
           onClick={() => fileInputRef.current?.click()}
@@ -409,7 +409,7 @@ export function ImportDataModal({ onClose }: { onClose: () => void }) {
       className="items-end bg-black/40 p-4 backdrop-blur-sm sm:items-center"
     >
       <div
-        className="w-full max-w-sm rounded-2xl border border-app-line bg-app-surface shadow-app-dialog"
+        className="w-full max-w-sm rounded-app-dialog border border-app-line bg-app-surface shadow-app-dialog"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between border-b border-app-line p-5 pb-4">

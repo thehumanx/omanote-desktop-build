@@ -23,6 +23,8 @@ export interface TodoItem {
   pendingSync?: boolean;
   title: string;
   notes?: string;
+  /** @email mentions parsed from title/notes -- invited as guests on the synced Calendar event. */
+  guestEmails?: string[];
   dueDateKey?: DateKey;
   dueTime?: string;
   priority: "normal" | "high";

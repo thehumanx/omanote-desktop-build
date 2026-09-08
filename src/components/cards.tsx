@@ -204,7 +204,7 @@ export const TodoCard = memo(function TodoCard({
                 <RichTextPreview value={todo.title} onLinkEdit={editTodoTitle} highlightQuery={highlightQuery} />
               </div>
               {dueChip ? (
-                <Badge className="rounded-md text-app-ink-faint/80">
+                <Badge className="rounded-app-badge text-app-ink-faint/80">
                   {dueChip}
                 </Badge>
               ) : null}
@@ -237,7 +237,7 @@ export const TodoCard = memo(function TodoCard({
           </div>
           {todo.priority === "high" ? <Badge variant="outline" className="uppercase tracking-wide">High</Badge> : null}
           {dueChip ? (
-            <Badge className="rounded-md text-app-ink-faint/80">
+            <Badge className="rounded-app-badge text-app-ink-faint/80">
               {dueChip}
             </Badge>
           ) : null}
@@ -308,7 +308,7 @@ export const NoteCard = memo(function NoteCard({
   }
   if (surface === "list") {
     return (
-      <div className="group relative -mr-2 -my-1 rounded-xl px-1 py-1 transition-colors hover:bg-app-surface-hover">
+      <div className="group relative -mr-2 -my-1 rounded-app-panel px-1 py-1 transition-colors hover:bg-app-surface-hover">
         <div
           role={onEdit ? "button" : onToggleExpanded ? "button" : undefined}
           tabIndex={onEdit || onToggleExpanded ? 0 : undefined}
@@ -379,7 +379,7 @@ export const NoteCard = memo(function NoteCard({
     );
   }
   return (
-    <div className="rounded-2xl border border-app-line bg-app-surface p-4 shadow-none">
+    <div className="rounded-app-card border border-app-line bg-app-surface p-4 shadow-none">
       <p className="text-xs font-bold uppercase tracking-[0.18em] text-app-ink-faint">{formatLongDateKey(note.createdDateKey)}</p>
       <div className="mt-2 text-sm leading-7 text-app-ink">
         <RichTextPreview value={normalizedBody} className="text-sm leading-7 text-app-ink" paragraphClassName="text-sm leading-7 text-app-ink" highlightQuery={highlightQuery} />
@@ -607,8 +607,8 @@ export const BookmarkCard = memo(function BookmarkCard({
   if (bookmark.previewState === "loading") {
     const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
     return (
-      <div className={surface === "canvas" ? "group relative -ml-3 -mr-2 -my-1 rounded-xl px-2 py-1 pl-3 transition hover:bg-app-surface-hover focus-within:bg-app-surface-muted focus-within:ring-1 focus-within:ring-app-focus/15 before:pointer-events-none before:absolute before:inset-y-2 before:left-0 before:w-px before:rounded-full before:bg-transparent focus-within:before:bg-app-line-strong" : "rounded-xl border border-app-line bg-app-surface p-4 shadow-soft"}>
-        <div className={surface === "canvas" ? "rounded-2xl border border-app-line bg-app-surface p-4 shadow-none" : ""}>
+      <div className={surface === "canvas" ? "group relative -ml-3 -mr-2 -my-1 rounded-app-panel px-2 py-1 pl-3 transition hover:bg-app-surface-hover focus-within:bg-app-surface-muted focus-within:ring-1 focus-within:ring-app-focus/15 before:pointer-events-none before:absolute before:inset-y-2 before:left-0 before:w-px before:rounded-full before:bg-transparent focus-within:before:bg-app-line-strong" : "rounded-app-panel border border-app-line bg-app-surface p-4 shadow-soft"}>
+        <div className={surface === "canvas" ? "rounded-lg border border-app-line bg-app-surface p-4 shadow-none" : ""}>
           <div className="flex items-center gap-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-app-surface-muted text-app-ink">
               {isOffline ? (
@@ -630,7 +630,7 @@ export const BookmarkCard = memo(function BookmarkCard({
   }
   const cardClassName =
     surface === "canvas"
-      ? "group relative -ml-3 -mr-2 -my-1 rounded-xl px-2 py-1 pl-3 transition hover:bg-app-surface-hover focus-within:bg-app-surface-muted focus-within:ring-1 focus-within:ring-app-focus/15 before:pointer-events-none before:absolute before:inset-y-2 before:left-0 before:w-px before:rounded-full before:bg-transparent focus-within:before:bg-app-line-strong"
+      ? "group relative -ml-3 -mr-2 -my-1 rounded-app-panel px-2 py-1 pl-3 transition hover:bg-app-surface-hover focus-within:bg-app-surface-muted focus-within:ring-1 focus-within:ring-app-focus/15 before:pointer-events-none before:absolute before:inset-y-2 before:left-0 before:w-px before:rounded-full before:bg-transparent focus-within:before:bg-app-line-strong"
       : "h-full";
   const categoryBadge = categoryName ? (
     <Chip
@@ -646,7 +646,7 @@ export const BookmarkCard = memo(function BookmarkCard({
     <div className={cardClassName}>
       {surface === "canvas" ? (
         <>
-          <div className="relative overflow-hidden rounded-2xl border border-app-line bg-app-surface p-3 shadow-none max-h-[260px]">
+          <div className="relative overflow-hidden rounded-lg border border-app-line bg-app-surface p-3 shadow-none max-h-[260px]">
             {pendingSync && (
               <div className="absolute right-2 top-2 z-10 flex items-center justify-center rounded-full bg-app-surface-muted p-1" title="Not synced — will upload when you reconnect">
                 <WifiOff className="h-2.5 w-2.5 text-app-ink-faint" />
@@ -747,9 +747,9 @@ export const BookmarkCard = memo(function BookmarkCard({
               href={bookmark.url.startsWith("http") ? bookmark.url : "#"}
               target={bookmark.url.startsWith("http") ? "_blank" : undefined}
               rel="noreferrer"
-              className="flex items-stretch gap-3 rounded-2xl border border-app-line bg-app-surface p-3"
+              className="flex items-stretch gap-3 rounded-app-card border border-app-line bg-app-surface p-3"
             >
-              <div className="flex-none overflow-hidden rounded-xl border border-app-line bg-app-surface-muted text-app-ink-faint" style={{ width: 88, height: 88 }}>
+              <div className="flex-none overflow-hidden rounded-md border border-app-line bg-app-surface-muted text-app-ink-faint" style={{ width: 88, height: 88 }}>
                 {thumbnailUrl ? (
                   <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" />
                 ) : (
@@ -814,7 +814,7 @@ export const BookmarkCard = memo(function BookmarkCard({
           </div>
 
           {/* Desktop: vertical card layout */}
-          <div className="group relative hidden min-h-[260px] overflow-hidden rounded-2xl border border-app-line bg-app-surface shadow-none transition duration-200 ease-out md:block">
+          <div className="group relative hidden min-h-[260px] overflow-hidden rounded-app-card border border-app-line bg-app-surface shadow-none transition duration-200 ease-out md:block">
             {hasLinkedPill ? (
               <div ref={linkedArtifactTriggerRef} className="absolute left-[16px] top-[16px] z-30">
                 <button
@@ -840,7 +840,7 @@ export const BookmarkCard = memo(function BookmarkCard({
               <div className="relative z-10 flex h-full flex-col gap-3 p-3">
                 <div className="aspect-[1.91/1] w-full overflow-hidden rounded-md bg-app-surface-muted">
                   {thumbnailUrl ? (
-                    <img src={thumbnailUrl} alt="" className="h-full w-full object-contain" />
+                    <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-app-ink-faint">
                       <Bookmark className="h-10 w-10" />
@@ -862,7 +862,7 @@ export const BookmarkCard = memo(function BookmarkCard({
                 </div>
               </div>
             </a>
-            <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden rounded-2xl">
+            <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden rounded-app-card">
               <div className="absolute inset-0 bg-black/0 transition duration-200 ease-out group-hover:bg-black/10" />
               <div className="absolute inset-0 flex items-center justify-center opacity-0 transition duration-200 ease-out group-hover:opacity-100">
                 <button
@@ -993,13 +993,13 @@ export const BookmarkCard = memo(function BookmarkCard({
                               </div>
                             ) : reference.kind === "event" ? (
                               <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-app-ink-faint">
-                                <span className="inline-flex items-center gap-1 rounded-md bg-app-surface-muted px-1.5 py-0.5">
+                                <span className="inline-flex items-center gap-1 rounded-app-badge bg-app-surface-muted px-1.5 py-0.5">
                                   <Clock3 className="h-3 w-3" />
                                   {event ? eventTimeLabel(event.loggedAt) : "Event"}
                                 </span>
                                 <span>{createdDateLabel}</span>
                                 {event?.sourceType === "todo_completed" ? (
-                                  <span className="rounded-md bg-app-surface-muted px-1.5 py-0.5">From todo</span>
+                                  <span className="rounded-app-badge bg-app-surface-muted px-1.5 py-0.5">From todo</span>
                                 ) : null}
                               </div>
                             ) : (
@@ -1081,7 +1081,7 @@ export const EventCard = memo(function EventCard({
     return (
       <div className="px-1 py-0.5">
         <div className="flex items-center gap-3">
-          <div className="rounded-md bg-app-surface-muted px-2 py-0.5 text-xs font-medium text-app-ink-faint">
+          <div className="rounded-app-badge bg-app-surface-muted px-2 py-0.5 text-xs font-medium text-app-ink-faint">
             {new Date(event.loggedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }).replace(":00", "").replace(/\s+/g, "")}
           </div>
           <div className="text-base text-app-ink">
@@ -1098,9 +1098,9 @@ export const EventCard = memo(function EventCard({
     );
   }
   return (
-    <div className="rounded-2xl border border-app-line bg-app-surface p-4 shadow-none">
+    <div className="rounded-app-card border border-app-line bg-app-surface p-4 shadow-none">
       <div className="flex items-center gap-3">
-        <div className="rounded-md border border-app-line px-2 py-1 text-xs font-bold text-app-ink-muted">
+        <div className="rounded-app-badge border border-app-line px-2 py-1 text-xs font-bold text-app-ink-muted">
           {new Date(event.loggedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }).replace(":00", "").replace(/\s+/g, "")}
         </div>
         <div className="text-sm font-bold text-app-ink">

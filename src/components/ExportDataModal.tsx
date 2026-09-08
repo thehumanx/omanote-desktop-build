@@ -230,7 +230,7 @@ export function ExportDataModal({ onClose }: { onClose: () => void }) {
       className="items-end bg-black/40 p-4 backdrop-blur-sm sm:items-center"
     >
       <div
-        className="w-full max-w-sm rounded-2xl border border-app-line bg-app-surface shadow-app-dialog"
+        className="w-full max-w-sm rounded-app-dialog border border-app-line bg-app-surface shadow-app-dialog"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between border-b border-app-line p-5 pb-4">

@@ -303,7 +303,7 @@ function CanvasEventBlockComponent({ event, pendingSync, dispatch }: CanvasEvent
             setFocusTarget("time");
             setIsEditing(true);
           }}
-          className="h-6 rounded-md border border-app-line bg-app-surface-muted px-2 py-0.5 text-xs font-medium text-app-ink-faint shadow-none"
+          className="h-6 rounded-app-badge border border-app-line bg-app-surface-muted px-2 py-0.5 text-xs font-medium text-app-ink-faint shadow-none"
         >
           {formatTimeLabel(draftTime)}
         </button>
@@ -326,7 +326,7 @@ function CanvasEventBlockComponent({ event, pendingSync, dispatch }: CanvasEvent
     <div
       ref={rootRef}
       data-testid="canvas-event-block"
-      className="group relative -ml-3 -mr-2 -my-1 w-full rounded-xl px-2 py-1 pl-3 transition hover:bg-app-surface-hover focus-within:bg-app-surface-muted focus-within:ring-1 focus-within:ring-app-focus/15 before:pointer-events-none before:absolute before:inset-y-2 before:left-0 before:w-px before:rounded-full before:bg-transparent focus-within:before:bg-app-line-strong"
+      className="group relative -ml-3 -mr-2 -my-1 w-full rounded-app-panel px-2 py-1 pl-3 transition hover:bg-app-surface-hover focus-within:bg-app-surface-muted focus-within:ring-1 focus-within:ring-app-focus/15 before:pointer-events-none before:absolute before:inset-y-2 before:left-0 before:w-px before:rounded-full before:bg-transparent focus-within:before:bg-app-line-strong"
     >
       {pendingSync && (
         <div className="absolute right-2 top-2 flex items-center justify-center rounded-full bg-app-surface-muted p-1" title="Not synced — will upload when you reconnect">
@@ -351,12 +351,12 @@ function CanvasEventBlockComponent({ event, pendingSync, dispatch }: CanvasEvent
                   saveTimerRef.current = null;
                   saveEventDraft();
                 }}
-                className="h-6 w-[92px] flex-none rounded-md border border-app-line bg-app-surface-muted px-2 py-0.5 text-xs font-medium text-app-ink-faint shadow-none absolute opacity-0 pointer-events-none"
+                className="h-6 w-[92px] flex-none rounded-app-badge border border-app-line bg-app-surface-muted px-2 py-0.5 text-xs font-medium text-app-ink-faint shadow-none absolute opacity-0 pointer-events-none"
               />
               <button
                 type="button"
                 onClick={() => timeRef.current?.click()}
-                className="h-6 w-[92px] rounded-md border border-app-line bg-app-surface-muted px-2 py-0.5 text-xs font-medium text-app-ink-faint shadow-none"
+                className="h-6 w-[92px] rounded-app-badge border border-app-line bg-app-surface-muted px-2 py-0.5 text-xs font-medium text-app-ink-faint shadow-none"
               >
                 {formatTimeLabel(draftTime)}
               </button>

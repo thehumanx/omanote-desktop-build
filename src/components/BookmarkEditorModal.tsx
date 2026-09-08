@@ -11,7 +11,7 @@ import { useOutsideClick } from "../lib/useOutsideClick";
 // and a centered dialog on desktop, matching TodoEditorModal.
 const BACKDROP_CLASS = "items-end px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:items-center md:px-app-page md:pb-0";
 const SURFACE_CLASS =
-  "w-full max-w-2xl rounded-2xl border border-app-line bg-app-surface-raised p-5 shadow-app-drawer max-h-[85vh] overflow-y-auto md:max-h-none md:overflow-visible md:bg-app-surface md:shadow-soft";
+  "w-full max-w-2xl rounded-app-dialog border border-app-line bg-app-surface-raised p-5 shadow-app-drawer max-h-[85vh] overflow-y-auto md:max-h-none md:overflow-visible md:bg-app-surface md:shadow-soft";
 
 export function BookmarkEditorModal({
   bookmark,

@@ -11,7 +11,7 @@ export function CanvasWeekAtGlance() {
       type="button"
       aria-label="View insights"
       onClick={() => navigate("/insights")}
-      className="group flex items-start justify-between gap-3 rounded-2xl border border-app-line bg-app-surface px-4 py-3 text-left transition-colors duration-150 hover:bg-app-surface-hover active:scale-[0.99]"
+      className="group flex items-start justify-between gap-3 rounded-app-card border border-app-line bg-app-surface px-4 py-3 text-left transition-colors duration-150 hover:bg-app-surface-hover active:scale-[0.99]"
     >
       <div className="flex min-w-0 flex-col gap-1.5">
         <span className="text-sm text-app-ink-faint">Your week at glance</span>
