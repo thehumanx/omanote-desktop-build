@@ -9,7 +9,7 @@ export function SignupScreen() {
     <>
       <SeoHead
         title="Create your omanote account"
-        description="Create your omanote account and start using your personal daily canvas for notes, todos, bookmarks, and events."
+        description="Create your omanote account and start your canvas for thoughts — a page for each day holding notes, todos, bookmarks and events."
         canonical="https://omanote.com/signup"
       />
       <div className="public-page flex min-h-screen items-center justify-center bg-app-canvas px-4">

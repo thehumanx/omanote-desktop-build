@@ -98,9 +98,6 @@ const NotFoundPage = lazy(() =>
 const AdminDashboardScreen = lazy(() =>
   import("./screens/AdminDashboardScreen").then((module) => ({ default: module.AdminDashboardScreen })),
 );
-const ComposerPopoutScreen = lazy(() =>
-  import("./screens/ComposerPopoutScreen").then((module) => ({ default: module.ComposerPopoutScreen })),
-);
 const PageScreen = lazy(() =>
   import("./screens/PageScreen").then((module) => ({ default: module.PageScreen })),
 );
@@ -208,12 +205,6 @@ export default function App() {
           <Route index element={<Navigate to="/canvas" replace />} />
           <Route path="canvas" element={<CanvasScreen />} />
           <Route path="history" element={<HistoryScreen />} />
-          {/* Chromeless by design — see AppShell's early return for this
-              route — so the pop-out window (see composer-popout.ts) shows
-              only the composer, not the app's nav/header. Still nested
-              under the authenticated tree so it gets the full provider
-              stack (auth, encryption, user settings) for free. */}
-          <Route path="compose-popout" element={<ComposerPopoutScreen />} />
           {/* One canvas, full page and chromeless — see AppShell's
               isChromelessRoute. A real route rather than a modal so it can be
               opened in a new tab and linked to. */}

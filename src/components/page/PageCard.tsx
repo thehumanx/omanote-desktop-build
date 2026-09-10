@@ -36,22 +36,32 @@ export function PageCard({
   onShare,
   onToggleStar,
   onToggleHidden,
+  staticPreview = false,
 }: {
   page: PageItem;
   onDelete?: (pageId: string) => void;
   onShare?: (pageId: string) => void;
   onToggleStar?: (pageId: string, starred: boolean) => void;
   onToggleHidden?: (pageId: string, hidden: boolean) => void;
+  /**
+   * Render the full card, including the actions that normally need a synced
+   * page, without asking the server anything. For the landing page's canvas
+   * preview: its pages are fixtures with no server row, but the card still has
+   * to look like the real one rather than quietly dropping controls.
+   */
+  staticPreview?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
   const href = `/p/${page.id}`;
 
   // Optimistic (clientKey-only) pages have no server id to look a share up
-  // against yet — "skip" until one lands.
-  const serverPageId = page.id !== page.clientKey ? page.id : null;
+  // against yet — "skip" until one lands. A static preview never has one and
+  // never will, so it skips too, but still shows the actions.
+  const realServerPageId = page.id !== page.clientKey ? page.id : null;
+  const serverPageId = staticPreview ? page.id : realServerPageId;
   const share = useQuery(
     api.sharedPages.getPageShare,
-    serverPageId ? { pageId: serverPageId as Id<"pages"> } : "skip",
+    realServerPageId && !staticPreview ? { pageId: realServerPageId as Id<"pages"> } : "skip",
   );
   const isShared = !!share?.isActive;
   const shareUrl = isShared && share ? buildShareUrl(share.customSlug || share.shareCode) : null;

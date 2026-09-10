@@ -51,10 +51,14 @@ export function useHashtagPicker({
   const prefix = active?.partial ?? "";
   const suggestionLimit = 8;
 
-  const allHashtags = useQuery(api.hashtags.listUserHashtags, {
-    prefix: prefix || undefined,
-    limit: suggestionLimit,
-  });
+  // Only query while the caret is actually inside a `#token`. `suggestions` is
+  // unused unless `active` is set (both `handleKeyDown` and the dropdown gate
+  // on it), so querying otherwise just means every mounted note/event block
+  // holding a subscription to the user's whole hashtag list for nothing.
+  const allHashtags = useQuery(
+    api.hashtags.listUserHashtags,
+    active ? { prefix: prefix || undefined, limit: suggestionLimit } : "skip",
+  );
 
   const suggestions = useMemo(() => allHashtags ?? [], [allHashtags]);
 

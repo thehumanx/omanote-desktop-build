@@ -7,6 +7,35 @@ type BannerPhase = "hidden" | "offline" | "online" | "exiting";
 const ONLINE_VISIBLE_MS = 2200;
 const EXIT_MS = 220;
 
+/**
+ * The banner card itself, without the network listener that decides whether to
+ * show it. Split out so the landing page's product tour can display the real
+ * offline notice on demand — a signed-out visitor on a working connection
+ * would otherwise never see the thing the tour is describing.
+ */
+export function OfflineStatusBannerCard({ reconnecting = false }: { reconnecting?: boolean }) {
+  return (
+    <div
+      className={[
+        "flex items-center gap-2.5 rounded-xl border bg-app-surface shadow-app-bubble",
+        "transition-[padding,border-color] duration-500 ease-out",
+        reconnecting ? "px-3.5 py-2" : "border-app-line px-4 py-2.5",
+      ].join(" ")}
+    >
+      {reconnecting ? (
+        <Wifi className="h-3.5 w-3.5 flex-shrink-0 text-success-solid" />
+      ) : (
+        <WifiOff className="h-3.5 w-3.5 flex-shrink-0 text-app-ink-faint" />
+      )}
+      <p className="text-xs text-app-ink-faint leading-snug">
+        {reconnecting
+          ? "Back online — syncing your changes now…"
+          : "You're offline — keep using omanote as usual. Changes will sync when you reconnect."}
+      </p>
+    </div>
+  );
+}
+
 export function OfflineStatusBanner() {
   const { isOffline } = useNetworkStatus();
   const [phase, setPhase] = useState<BannerPhase>(() => (isOffline ? "offline" : "hidden"));
@@ -62,24 +91,7 @@ export function OfflineStatusBanner() {
         visible ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0",
       ].join(" ")}
     >
-      <div
-        className={[
-          "flex items-center gap-2.5 rounded-xl border bg-app-surface shadow-app-bubble",
-          "transition-[padding,border-color] duration-500 ease-out",
-          reconnecting ? "px-3.5 py-2" : "border-app-line px-4 py-2.5",
-        ].join(" ")}
-      >
-        {reconnecting ? (
-          <Wifi className="h-3.5 w-3.5 flex-shrink-0 text-success-solid" />
-        ) : (
-          <WifiOff className="h-3.5 w-3.5 flex-shrink-0 text-app-ink-faint" />
-        )}
-        <p className="text-xs text-app-ink-faint leading-snug">
-          {reconnecting
-            ? "Back online — syncing your changes now…"
-            : "You're offline — keep using omanote as usual. Changes will sync when you reconnect."}
-        </p>
-      </div>
+      <OfflineStatusBannerCard reconnecting={reconnecting} />
     </div>
   );
 }

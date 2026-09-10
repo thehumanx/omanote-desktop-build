@@ -69,14 +69,6 @@ export const FONT_FAMILIES = ["sans", "serif", "both"] as const satisfies readon
 export const CORNER_STYLES = ["rounded", "sharp"] as const satisfies readonly CornerStyle[];
 export const REAL_DASHBOARD_STATS = ["completion_rate", "todos_done_today", "habit_streak", "notes_this_week", "bookmarks_this_week"] as const satisfies readonly RealDashboardStat[];
 export const DASHBOARD_STATS: readonly DashboardStat[] = [...REAL_DASHBOARD_STATS, "random"];
-export const DASHBOARD_STAT_LABELS: Record<DashboardStat, string> = {
-  completion_rate: "Completion rate",
-  todos_done_today: "Done today",
-  habit_streak: "Habit streak",
-  notes_this_week: "Notes this week",
-  bookmarks_this_week: "Bookmarks this week",
-  random: "Auto-cycle",
-};
 export const SAVE_SHORTCUTS = ["mod_enter", "enter", "shift_enter"] as const satisfies readonly SaveShortcut[];
 export const NEWLINE_SHORTCUTS = ["enter", "shift_enter"] as const satisfies readonly NewlineShortcut[];
 export const REMINDER_LEAD_MINUTES = [0, 5, 10, 15] as const satisfies readonly ReminderLeadMinutes[];
@@ -127,11 +119,6 @@ function isDashboardStat(value: unknown): value is DashboardStat {
   return typeof value === "string" && (DASHBOARD_STATS as readonly string[]).includes(value);
 }
 
-export function resolveStatToShow(setting: DashboardStat): RealDashboardStat {
-  if (setting !== "random") return setting;
-  const hourIndex = Math.floor(Date.now() / (60 * 60 * 1000));
-  return REAL_DASHBOARD_STATS[hourIndex % REAL_DASHBOARD_STATS.length]!;
-}
 
 function isBoolean(value: unknown): value is boolean {
   return typeof value === "boolean";

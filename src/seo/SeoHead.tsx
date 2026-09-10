@@ -1,8 +1,8 @@
 import { Helmet } from "react-helmet-async";
 
-const DEFAULT_TITLE = "omanote | Capture the day before it disappears";
+const DEFAULT_TITLE = "omanote | A canvas for your thoughts";
 const DEFAULT_DESCRIPTION =
-  "omanote is your personal daily canvas for capturing notes, todos, bookmarks, events, and small moments before the day disappears.";
+  "omanote is a canvas for your thoughts: one page for each day, where notes, todos, bookmarks and events land in the order they happened.";
 const SITE_URL = "https://omanote.com";
 const DEFAULT_OG_IMAGE = `${SITE_URL}/og.png`;
 
@@ -39,7 +39,7 @@ export function SeoHead({
       <meta property="og:image" content={ogImage} />
       <meta property="og:image:width" content="1200" />
       <meta property="og:image:height" content="630" />
-      <meta property="og:image:alt" content="omanote daily canvas preview" />
+      <meta property="og:image:alt" content="omanote — a canvas for your thoughts" />
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={resolvedOgTitle} />
       <meta name="twitter:description" content={resolvedOgDescription} />

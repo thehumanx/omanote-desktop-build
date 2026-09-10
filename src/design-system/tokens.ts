@@ -13,32 +13,6 @@
  *   needs a utility class.
  */
 
-export const themeTokenNames = {
-  color: {
-    canvas: "--color-canvas",
-    surface: "--color-surface",
-    surfaceRaised: "--color-surface-raised",
-    surfaceMuted: "--color-surface-muted",
-    surfaceHover: "--color-surface-hover",
-    ink: "--color-ink",
-    inkMuted: "--color-ink-muted",
-    inkFaint: "--color-ink-faint",
-    inkInverted: "--color-ink-inverted",
-    line: "--color-line",
-    lineStrong: "--color-line-strong",
-    focus: "--color-focus",
-  },
-  intent: {
-    actionPrimary: "--color-action-primary",
-    dangerSurface: "--color-danger-surface",
-    dangerSolidHover: "--color-danger-solid-hover",
-    dangerSolidLine: "--color-danger-solid-line",
-    dangerSolidInk: "--color-danger-solid-ink",
-    successSurface: "--color-success-surface",
-    warningSurface: "--color-warning-surface",
-    infoSurface: "--color-info-surface",
-  },
-} as const;
 
 // ─── Color ────────────────────────────────────────────────────────────────────
 export const color = {
@@ -112,35 +86,6 @@ export const color = {
 } as const;
 
 // ─── Typography ───────────────────────────────────────────────────────────────
-
-export const typography = {
-  fontFamily: '"Lato", ui-sans-serif, system-ui, sans-serif',
-  fontFamilySerif: '"Aleo", Georgia, ui-serif, serif',
-  fontFamilySerifHeading: '"Aleo", Georgia, ui-serif, serif',
-
-  // Scale (px values match Tailwind's default rem scale)
-  size: {
-    xs: "0.75rem",   // 12px
-    sm: "0.875rem",  // 14px
-    base: "1rem",    // 16px
-    lg: "1.125rem",  // 18px
-    xl: "1.25rem",   // 20px
-  },
-
-  weight: {
-    regular: "400",
-    bold: "700",
-    black: "900",
-  },
-
-  leading: {
-    tight: "1.25",
-    snug: "1.375",
-    normal: "1.5",
-    relaxed: "1.625",
-    loose: "1.75",
-  },
-} as const;
 
 // ─── Spacing ──────────────────────────────────────────────────────────────────
 
@@ -249,6 +194,7 @@ export const motion = {
     drawer: "360ms",
   },
   easing: {
+    in: "cubic-bezier(0.55, 0.055, 0.675, 0.19)", // easeInCubic — entrances that accelerate away
     out: "cubic-bezier(0.23, 1, 0.32, 1)",   // easeOutExpo — exits, collapses
     inOut: "cubic-bezier(0.77, 0, 0.175, 1)", // easeInOutCubic — nav transitions
     drawer: "cubic-bezier(0.32, 0.72, 0, 1)", // iOS-style drawer

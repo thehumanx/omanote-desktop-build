@@ -11,7 +11,6 @@
 import type * as account from "../account.js";
 import type * as actions_linkPreview from "../actions/linkPreview.js";
 import type * as actions_rssFetch from "../actions/rssFetch.js";
-import type * as admin from "../admin.js";
 import type * as adminMetrics from "../adminMetrics.js";
 import type * as appSessions from "../appSessions.js";
 import type * as bookmarks from "../bookmarks.js";
@@ -40,7 +39,6 @@ import type * as lib_shareLookup from "../lib/shareLookup.js";
 import type * as lib_shareSnapshots from "../lib/shareSnapshots.js";
 import type * as lib_slug from "../lib/slug.js";
 import type * as lib_surveyQuestions from "../lib/surveyQuestions.js";
-import type * as migrations_backfillTextBytes from "../migrations/backfillTextBytes.js";
 import type * as notes from "../notes.js";
 import type * as pages from "../pages.js";
 import type * as plans from "../plans.js";
@@ -70,7 +68,6 @@ declare const fullApi: ApiFromModules<{
   account: typeof account;
   "actions/linkPreview": typeof actions_linkPreview;
   "actions/rssFetch": typeof actions_rssFetch;
-  admin: typeof admin;
   adminMetrics: typeof adminMetrics;
   appSessions: typeof appSessions;
   bookmarks: typeof bookmarks;
@@ -99,7 +96,6 @@ declare const fullApi: ApiFromModules<{
   "lib/shareSnapshots": typeof lib_shareSnapshots;
   "lib/slug": typeof lib_slug;
   "lib/surveyQuestions": typeof lib_surveyQuestions;
-  "migrations/backfillTextBytes": typeof migrations_backfillTextBytes;
   notes: typeof notes;
   pages: typeof pages;
   plans: typeof plans;

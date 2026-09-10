@@ -11,11 +11,6 @@ import { formatSaveShortcutKeyLabel } from "../lib/editor-shortcuts";
 import { detectPlatformName } from "../lib/device-info";
 import { FilePlus2 } from "lucide-react";
 import { useCreateCanvas } from "../lib/use-create-canvas";
-// Pop-out (see ../lib/composer-popout.ts) is temporarily not exposed in the
-// UI — hidden per product decision, not removed. Re-add a trigger calling
-// popOutComposer() here (with draftRef.current?.flushDraft() first, and
-// only closing the sheet once it resolves — see git history) to bring it
-// back.
 
 function dateKeyToDate(dateKey: string) {
   return new Date(`${dateKey}T12:00:00`);

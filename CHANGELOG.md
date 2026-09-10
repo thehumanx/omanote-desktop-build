@@ -4,6 +4,16 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.33.4 [September 10, 2026]
+
+> A new landing page, new serif typeface, and a lighter touch on type throughout the app.
+
+- [Update] Solway replaces Aleo as omanote's serif. If you're on the Serif or Both font option under Settings > Look & feel, your titles will look a little different
+- [Fix] Hashtag suggestions are only looked up while you're actually typing a `#tag`, instead of quietly in the background the whole time you're writing
+- [Update] The homepage now walks you through omanote as you scroll — the real app rather than screenshots, with each part explained as it's pointed at. Arrows on each step let you move through it by clicking instead, and it runs on phones now too
+- [Update] The canvas's "omanote updates", "Continue writing", "Overdue todos", and "Your today" section labels are now just "Updates", "Continue", "Overdues", and "Today" — same on the homepage's live preview
+
+
 ### v0.33.3 [September 8, 2026]
 
 > Mention someone's email in a todo to invite them to the synced Google Calendar event, plus a tighter, more consistent corner rounding across cards, chips, and badges throughout the app.
@@ -22,7 +32,7 @@ All notable changes to omanote are documented here, organized by product.
 - [Update] "Continue writing" and "Your today" cards now show page stats (word count, todos, links, images, last edited) instead of a content preview
 - [Update] Multiple canvas pages created back-to-back now sit side by side instead of stacking full width
 - [Add] A new "Corner style" setting under Look & feel to switch every rounded corner in the app
-- [Add] The Font setting now has a third option, "Both" — titles and headings to Aleo and body to Lato
+- [Add] The Font setting now has a third option, "Both" — titles and headings to Solway and body to Lato
 
 ### v0.33.1 [September 6, 2026]
 
@@ -412,7 +422,7 @@ All notable changes to omanote are documented here, organized by product.
 
 > New font, bug fixes and better notifications! And a founder's note.
 
-- [Update] Ever tried serif font on omanote? Aleo replaces Literata. Now you might wanna switch you default font font to Lato to Aleo. Just head over to the Settings > Look & feel to change.
+- [Update] Ever tried serif font on omanote? Solway replaces Literata. Now you might wanna switch you default font font to Lato to Solway. Just head over to the Settings > Look & feel to change.
 - [Fix] Adding todo on mobile was being duplicated in the input box below. Fixed that.
 - [Add] Add much variations for the greetings. Now you're gonna love 'em even more. Send feedback, i'd love to hear your thoughts on this and others! Go to profile option > Send feedback to send something my way.
 - [Update] Notifications are not timely delivered even when you close your tab. If you don't, send feedback please.
@@ -550,7 +560,7 @@ All notable changes to omanote are documented here, organized by product.
 
 ### v0.15.3 [May 16, 2026]
 
-> Aleo as a secondary font for landing page
+> Solway as a secondary font for landing page
 
 - [Add] Added the app serif font as a header font for the landing page.
 

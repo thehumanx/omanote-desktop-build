@@ -32,7 +32,7 @@ export function setStoredThemeMode(mode: ThemeMode) {
 }
 
 const SANS_STACK = '"Lato", ui-sans-serif, system-ui, sans-serif';
-const SERIF_STACK = '"Aleo", Georgia, ui-serif, serif';
+const SERIF_STACK = '"Solway", Georgia, ui-serif, serif';
 
 export function applyTypographySettings(
   fontFamily: FontFamily,
@@ -47,9 +47,24 @@ export function applyTypographySettings(
   root.style.setProperty("--app-font-family", bodyFont);
   root.style.setProperty("--app-font-family-serif", SERIF_STACK);
   root.style.setProperty("--app-heading-font-family", headingFont);
-  root.style.setProperty("--app-font-bold-weight", "700");
-  root.style.setProperty("--app-font-variation-settings", "normal");
-  root.style.setProperty("--app-font-letter-spacing", "normal");
+  // Lets CSS tell whether headings are currently serif, which a custom
+  // property alone can't express in a selector. Solway reads considerably
+  // heavier than Lato at the same nominal weight, so the serif modes lighten
+  // every heading — see the `[data-heading-font="serif"]` rule in index.css.
+  root.setAttribute("data-heading-font", headingFont === SERIF_STACK ? "serif" : "sans");
+  // Same reasoning, but for body text: pure Serif mode is the only one where
+  // *body* copy (not just headings) renders in Solway, so nav labels, row
+  // labels, and every other `font-medium`/`font-bold`/`font-semibold` bit of
+  // body UI needs the same weight-lightening treatment headings get — see
+  // the `[data-body-font="serif"]` rule in index.css. "Both" mode keeps body
+  // text in Lato, so it's excluded here even though headings go serif.
+  root.setAttribute("data-body-font", bodyFont === SERIF_STACK ? "serif" : "sans");
+  // Only the values that actually vary with the setting are written here.
+  // `--app-font-bold-weight`, `--app-font-variation-settings` and
+  // `--app-font-letter-spacing` used to be re-asserted as hardcoded constants
+  // on every call; because these are *inline* styles, that silently beat the
+  // `:root` declarations in index.css and made those variables impossible to
+  // change from CSS. They're defaults, so they belong in `:root` alone.
 }
 
 /**

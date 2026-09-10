@@ -71,7 +71,6 @@ export const HashtagDecorationExtension = Extension.create({
 
 const BULLET_GLYPH_LINE = /^[ \t]*([-*+•·‣◦▪●○–—])[ \t]+(.*\S.*)$/;
 const INDENTED_LINE = /^(?:[ \t]{2,}|\t)\S/;
-const EXTRA_BLANK_LINE_MARKER = "\u00A0";
 
 export function buildListAwareMarkdown(text: string): string | null {
   const lines = text.split(/\r?\n/);
@@ -111,32 +110,6 @@ export function buildListAwareMarkdown(text: string): string | null {
     normalized.push(line);
   }
   return normalized.join("\n");
-}
-
-// Convert persisted marker paragraphs back to logical newline runs.
-// Pattern emitted by preserveExtraBlankLinesInMarkdown:
-// \n\n + (NBSP + \n\n)*N  => represents N+1 consecutive '\n'.
-function decodePreservedBlankLines(markdown: string): string {
-  return markdown.replace(/\n\n(?:\u00A0\n\n)+/g, (segment) => {
-    const markerCount = (segment.match(/\u00A0/g) ?? []).length;
-    return "\n".repeat(markerCount + 1);
-  });
-}
-
-// Markdown paragraph parsing collapses blank-line intent in rich editors.
-// Preserve user-intent spacing by expanding newline runs into additional
-// marker-only paragraphs (NBSP), which survive markdown round-trips.
-// This function is intentionally idempotent.
-export function preserveExtraBlankLinesInMarkdown(markdown: string): string {
-  const normalized = decodePreservedBlankLines(markdown);
-  return normalized.replace(/\n{2,}/g, (run) => {
-    const blankLines = run.length - 1;
-    let next = "\n\n";
-    for (let i = 0; i < blankLines; i += 1) {
-      next += `${EXTRA_BLANK_LINE_MARKER}\n\n`;
-    }
-    return next;
-  });
 }
 
 export const MarkdownNoIndentCodeExtension = Extension.create({

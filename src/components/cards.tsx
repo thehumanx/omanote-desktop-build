@@ -18,11 +18,9 @@ import {
   WifiOff,
 } from "lucide-react";
 import type { BookmarkItem, NoteItem, EventEntry, TodoItem } from "@omanote/shared";
-import { useApp } from "../app/AppProvider";
-import { Badge, Button, Chip, cn, LoadingSpinner, TodoCheckmark } from "./ui";
+import { Badge, Button, Chip, cn, LoadingSpinner } from "./ui";
 import { formatCompletedLabel, formatDueChip, formatLongDateKey } from "@omanote/shared";
 import { RichTextPreview, highlightText } from "./rich-text";
-import { parseHashtags } from "../lib/hashtags";
 import { AttachmentLinkPreview } from "./AttachmentLinkPreview";
 import { api } from "../../convex/_generated/api";
 import { isLinkedArtifactBookmarkId, type LinkedArtifactReference } from "../lib/linked-artifact-bookmarks";
@@ -153,127 +151,6 @@ async function fetchBookmarkPreviewFallbackWithCache(
   inflightBookmarkPreviewFallbackRequests.set(url, nextRequest);
   return nextRequest;
 }
-
-export const TodoCard = memo(function TodoCard({
-  todo,
-  canvasDateKey,
-  onToggle,
-  onDelete,
-  onEdit,
-  surface = "default",
-  highlightQuery,
-}: {
-  todo: TodoItem;
-  canvasDateKey: string;
-  onToggle: (todoId: string) => void;
-  onDelete: (todoId: string) => void;
-  onEdit: (todo: TodoItem) => void;
-  surface?: "default" | "canvas";
-  /** When set, case-insensitive matches of this string are highlighted in the title/notes. */
-  highlightQuery?: string | null;
-}) {
-  const { dispatch } = useApp();
-  const dueChip = formatDueChip(todo.dueDateKey, todo.dueTime, canvasDateKey, todo.createdDateKey);
-  const completedLabel = todo.status === "done" ? formatCompletedLabel(todo.completedAt ?? todo.updatedAt) : "";
-  const editTodoTitle = (nextTitle: string) => {
-    const title = nextTitle.trim();
-    if (!title) return;
-    dispatch({
-      type: "todo/update",
-      todoId: todo.id,
-      title,
-      dueDateKey: todo.dueDateKey,
-      dueTime: todo.dueTime,
-      hashtags: parseHashtags(title + (todo.notes ? " " + todo.notes : "")),
-    });
-  };
-  if (surface === "canvas") {
-    return (
-      <div className="px-1 py-0.5">
-        <div className="flex items-start gap-3">
-          <TodoCheckmark
-            aria-label="toggle todo"
-            onClick={() => onToggle(todo.id)}
-            checked={todo.status === "done"}
-            size="sm"
-            align="text"
-          />
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className={["text-base leading-6", todo.status === "done" ? "text-app-ink-faint line-through" : "text-app-ink"].join(" ")}>
-                <RichTextPreview value={todo.title} onLinkEdit={editTodoTitle} highlightQuery={highlightQuery} />
-              </div>
-              {dueChip ? (
-                <Badge className="rounded-app-badge text-app-ink-faint/80">
-                  {dueChip}
-                </Badge>
-              ) : null}
-              {completedLabel ? (
-                <span className="ml-auto inline-flex items-center gap-1 text-xs text-app-ink-faint">
-                  <CircleCheckBig className="h-3 w-3" />
-                  {completedLabel}
-                </span>
-              ) : null}
-            </div>
-            {todo.notes ? <p className="mt-1 max-w-3xl text-sm leading-7 text-app-ink-muted">{highlightText(todo.notes, highlightQuery, "todo-notes")}</p> : null}
-            <AttachmentLinkPreview textValues={[todo.title, todo.notes]} className="mt-2" />
-          </div>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="flex items-start gap-3 py-1.5">
-      <TodoCheckmark
-        aria-label="toggle todo"
-        onClick={() => onToggle(todo.id)}
-        checked={todo.status === "done"}
-        align="text"
-      />
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className={["text-base leading-6", todo.status === "done" ? "text-app-ink-faint line-through" : "text-app-ink"].join(" ")}>
-            <RichTextPreview value={todo.title} onLinkEdit={editTodoTitle} highlightQuery={highlightQuery} />
-          </div>
-          {todo.priority === "high" ? <Badge variant="outline" className="uppercase tracking-wide">High</Badge> : null}
-          {dueChip ? (
-            <Badge className="rounded-app-badge text-app-ink-faint/80">
-              {dueChip}
-            </Badge>
-          ) : null}
-        </div>
-        {todo.notes ? <p className="mt-1 text-sm leading-6 text-app-ink-muted">{highlightText(todo.notes, highlightQuery, "todo-notes")}</p> : null}
-        <AttachmentLinkPreview textValues={[todo.title, todo.notes]} className="mt-2" />
-      </div>
-      <div className="flex flex-none items-center gap-1 self-start text-app-ink-faint">
-        <button
-          type="button"
-          aria-label="edit todo"
-          onClick={() => onEdit(todo)}
-          className="rounded-md p-1 transition hover:bg-app-surface-hover hover:text-app-ink-muted"
-        >
-          <Pencil className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          aria-label="delete todo"
-          onClick={() => onDelete(todo.id)}
-          className="rounded-md p-1 transition hover:bg-app-surface-hover hover:text-danger-ink"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
-      </div>
-      {completedLabel ? (
-        <div className="flex-none self-center text-right text-xs text-app-ink-faint">
-          <span className="inline-flex items-center gap-1">
-            <CircleCheckBig className="h-3 w-3" />
-            {completedLabel}
-          </span>
-        </div>
-      ) : null}
-    </div>
-  );
-});
 
 export const NoteCard = memo(function NoteCard({
   note,
@@ -448,6 +325,7 @@ export const BookmarkCard = memo(function BookmarkCard({
 }) {
   const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
   const [previewFallback, setPreviewFallback] = useState<BookmarkPreviewFallback | null>(null);
+  const [failedThumbnailUrl, setFailedThumbnailUrl] = useState<string | null>(null);
   const [linkedArtifactSheetOpen, setLinkedArtifactSheetOpen] = useState(false);
   const [linkedArtifactSheetPosition, setLinkedArtifactSheetPosition] = useState<{ top: number; left: number } | null>(null);
   const copyResetTimeoutRef = useRef<number | null>(null);
@@ -502,6 +380,10 @@ export const BookmarkCard = memo(function BookmarkCard({
   const siteLabel = bookmark.siteName?.trim() || previewFallback?.siteName || domain;
   const logoUrl = bookmark.faviconUrl?.trim() || previewFallback?.faviconUrl || undefined;
   const thumbnailUrl = bookmark.thumbnailUrl?.trim() || previewFallback?.thumbnailUrl || undefined;
+  // A thumbnail that 404s or is blocked would render as a broken image, so fall back to the
+  // <Bookmark> placeholder instead. Keying off the URL resets the failure when it changes.
+  const showThumbnail = Boolean(thumbnailUrl) && thumbnailUrl !== failedThumbnailUrl;
+  const handleThumbnailError = () => setFailedThumbnailUrl(thumbnailUrl ?? null);
   const previewTitle = previewFallback?.title?.trim();
   const previewDescription = previewFallback?.description?.trim();
   const titleIsDomainOnly = bookmark.title?.trim().toLowerCase() === domain.toLowerCase();
@@ -660,11 +542,12 @@ export const BookmarkCard = memo(function BookmarkCard({
             >
               <div className="flex items-start gap-2 md:gap-3">
                 <div className="flex-none overflow-hidden rounded-lg border border-app-line bg-app-surface-muted text-app-ink-faint">
-                  {thumbnailUrl ? (
+                  {showThumbnail ? (
                     <img
                       src={thumbnailUrl}
                       alt=""
                       className="block w-24 object-cover h-full"
+                      onError={handleThumbnailError}
                     />
                   ) : (
                     <div className="flex h-24 w-24 items-center justify-center md:h-28 md:w-28">
@@ -750,8 +633,8 @@ export const BookmarkCard = memo(function BookmarkCard({
               className="flex items-stretch gap-3 rounded-app-card border border-app-line bg-app-surface p-3"
             >
               <div className="flex-none overflow-hidden rounded-md border border-app-line bg-app-surface-muted text-app-ink-faint" style={{ width: 88, height: 88 }}>
-                {thumbnailUrl ? (
-                  <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" />
+                {showThumbnail ? (
+                  <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" onError={handleThumbnailError} />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center">
                     <Bookmark className="h-7 w-7" />
@@ -839,8 +722,8 @@ export const BookmarkCard = memo(function BookmarkCard({
             >
               <div className="relative z-10 flex h-full flex-col gap-3 p-3">
                 <div className="aspect-[1.91/1] w-full overflow-hidden rounded-md bg-app-surface-muted">
-                  {thumbnailUrl ? (
-                    <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" />
+                  {showThumbnail ? (
+                    <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" onError={handleThumbnailError} />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-app-ink-faint">
                       <Bookmark className="h-10 w-10" />
@@ -1040,101 +923,3 @@ export const BookmarkCard = memo(function BookmarkCard({
   );
 });
 
-export const EventCard = memo(function EventCard({
-  event,
-  onEdit,
-  onDelete,
-  onRestore,
-  surface = "default",
-  highlightQuery,
-}: {
-  event: EventEntry;
-  onEdit?: (event: EventEntry) => void;
-  onDelete?: (eventId: string) => void;
-  onRestore?: (eventId: string) => void;
-  surface?: "default" | "canvas";
-  /** When set, case-insensitive matches of this string are highlighted in the label/notes. */
-  highlightQuery?: string | null;
-}) {
-  const { dispatch } = useApp();
-  const editEventLabel = (nextValue: string) => {
-    const label = nextValue.trim();
-    if (!label) return;
-    dispatch({
-      type: "event/update",
-      eventId: event.id,
-      label,
-      loggedAt: event.loggedAt,
-      notes: event.notes ?? undefined,
-    });
-  };
-  const editEventNotes = (nextValue: string) => {
-    dispatch({
-      type: "event/update",
-      eventId: event.id,
-      label: event.label,
-      loggedAt: event.loggedAt,
-      notes: nextValue.trim() || undefined,
-    });
-  };
-  if (surface === "canvas") {
-    return (
-      <div className="px-1 py-0.5">
-        <div className="flex items-center gap-3">
-          <div className="rounded-app-badge bg-app-surface-muted px-2 py-0.5 text-xs font-medium text-app-ink-faint">
-            {new Date(event.loggedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }).replace(":00", "").replace(/\s+/g, "")}
-          </div>
-          <div className="text-base text-app-ink">
-            <RichTextPreview value={event.label} onLinkEdit={editEventLabel} highlightQuery={highlightQuery} />
-          </div>
-        </div>
-        {event.notes ? (
-          <div className="mt-1 max-w-3xl text-sm leading-7 text-app-ink-muted">
-            <RichTextPreview value={event.notes} paragraphClassName="text-app-ink-muted" onLinkEdit={editEventNotes} highlightQuery={highlightQuery} />
-          </div>
-        ) : null}
-        <AttachmentLinkPreview textValues={[event.label, event.notes]} className="mt-2" />
-      </div>
-    );
-  }
-  return (
-    <div className="rounded-app-card border border-app-line bg-app-surface p-4 shadow-none">
-      <div className="flex items-center gap-3">
-        <div className="rounded-app-badge border border-app-line px-2 py-1 text-xs font-bold text-app-ink-muted">
-          {new Date(event.loggedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }).replace(":00", "").replace(/\s+/g, "")}
-        </div>
-        <div className="text-sm font-bold text-app-ink">
-          <RichTextPreview value={event.label} onLinkEdit={editEventLabel} highlightQuery={highlightQuery} />
-        </div>
-      </div>
-      {event.notes ? (
-        <div className="mt-2 text-sm leading-6 text-app-ink-muted">
-          <RichTextPreview value={event.notes} paragraphClassName="text-app-ink-muted" onLinkEdit={editEventNotes} highlightQuery={highlightQuery} />
-        </div>
-      ) : null}
-      <AttachmentLinkPreview textValues={[event.label, event.notes]} className="mt-2" />
-      {onEdit || onDelete || onRestore ? (
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          {onEdit ? (
-            <Button variant="soft" onClick={() => onEdit(event)}>
-              <Pencil className="mr-1.5 h-3.5 w-3.5" />
-              Edit
-            </Button>
-          ) : null}
-          {onDelete ? (
-            <Button variant="ghost" onClick={() => onDelete(event.id)}>
-              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-              Delete
-            </Button>
-          ) : null}
-          {onRestore ? (
-            <Button variant="soft" onClick={() => onRestore(event.id)}>
-              <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-              Restore
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  );
-});

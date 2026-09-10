@@ -7,7 +7,9 @@ import { useMeasuredHighlight } from "../../hooks/useMeasuredHighlight";
 import { getComposerModeForPathname, getNavRouteIndex, getWrappedNavRoutePath } from "./navRoutes";
 import { useUserSettings } from "../../contexts/UserSettingsContext";
 
-const writeTabs = [
+/** Exported so the landing page's preview chrome shows the same tabs, in the
+ *  same order, without duplicating the list. */
+export const writeTabs = [
   { to: "/canvas", label: "Canvas", icon: SquarePen },
   { to: "/todos", label: "Todos", icon: CheckSquare },
   { to: "/notes", label: "Notes", icon: FileText },

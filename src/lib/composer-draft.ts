@@ -1,4 +1,4 @@
-import { jsonCodec, readLocalStorage, removeLocalStorage, writeLocalStorage } from "./local-storage";
+import { jsonCodec, readLocalStorage, writeLocalStorage } from "./local-storage";
 import type { DraftMode } from "../app/types";
 
 const COMPOSER_DRAFT_KEY = "omanote.composer-draft";
@@ -38,10 +38,10 @@ function isPersistedComposerDraft(value: unknown): value is PersistedComposerDra
 const draftCodec = jsonCodec(isPersistedComposerDraft);
 
 /**
- * Persisted across reopening the composer (Esc, outside click, a page
- * reload, or a different window entirely — see composer-popout.ts) so
- * in-progress text is never silently lost. Cleared once the draft is
- * actually saved.
+ * Persisted across reopening the composer (Esc, outside click, or a page
+ * reload) so in-progress text is never silently lost. "Cleared" on save
+ * means the empty shape is written over it — see the persistence effect in
+ * CanvasDraftBlock; there is deliberately no separate clear call.
  */
 export function readComposerDraft(): PersistedComposerDraft {
   return readLocalStorage(COMPOSER_DRAFT_KEY, draftCodec, EMPTY_DRAFT);
@@ -49,8 +49,4 @@ export function readComposerDraft(): PersistedComposerDraft {
 
 export function writeComposerDraft(draft: PersistedComposerDraft): void {
   writeLocalStorage(COMPOSER_DRAFT_KEY, draftCodec, draft);
-}
-
-export function clearComposerDraft(): void {
-  removeLocalStorage(COMPOSER_DRAFT_KEY);
 }

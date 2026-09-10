@@ -254,7 +254,7 @@ export function CanvasScreen() {
 
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-3">
-              <p className="shrink-0 text-[11px] font-bold uppercase tracking-[0.16em] text-app-ink-faint">Your today</p>
+              <p className="shrink-0 text-[11px] font-extrabold uppercase tracking-[0.16em] text-app-ink-faint">Today</p>
               <div aria-hidden="true" className="h-px min-w-4 flex-1 bg-app-line" />
             </div>
             <CanvasDayArtifacts

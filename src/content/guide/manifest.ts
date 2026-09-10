@@ -195,8 +195,6 @@ export const guideCategories: GuideCategory[] = [
 // when guide content is meaningfully revised.
 export const GUIDE_LAST_UPDATED = "Sep 5, 2026";
 
-export const guideTopics: GuideTopic[] = guideCategories.flatMap((category) => category.topics);
-
 export const defaultGuideSlug = guideCategories[0].topics[0].slug;
 
 export function findGuideTopic(slug: string): { category: GuideCategory; topic: GuideTopic } | null {

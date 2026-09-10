@@ -1,94 +1,9 @@
-import { Bold, Code2, Italic, List, ListOrdered } from "lucide-react";
 import type { ReactNode, RefObject } from "react";
 import { createMarkdownLink, normalizeLinkUrl } from "@omanote/shared";
 import { cn } from "./ui";
 import { HashtagChip } from "./HashtagChip";
 import { MentionChip } from "./MentionChip";
 import { useLinkCopyPopover } from "./LinkCopyPopover";
-
-export type RichTextFormat = "bold" | "italic" | "bullet" | "ordered" | "code";
-
-type TransformResult = {
-  value: string;
-  selectionStart: number;
-  selectionEnd: number;
-};
-
-function selectedLineRange(value: string, start: number, end: number) {
-  const lineStart = value.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
-  const nextLineBreak = value.indexOf("\n", end);
-  const lineEnd = nextLineBreak === -1 ? value.length : nextLineBreak;
-  return { lineStart, lineEnd };
-}
-
-function transformLines(lines: string[], format: Exclude<RichTextFormat, "bold" | "italic" | "code">) {
-  if (format === "bullet") {
-    return lines.map((line) => (line.startsWith("- ") ? line : `- ${line}`));
-  }
-
-  if (format === "ordered") {
-    return lines.map((line, index) => {
-      if (/^\d+\.\s/.test(line)) return line;
-      return `${index + 1}. ${line}`;
-    });
-  }
-
-  return lines;
-}
-
-export function applyRichTextFormat(
-  value: string,
-  selectionStart: number,
-  selectionEnd: number,
-  format: RichTextFormat,
-): TransformResult {
-  if (format === "bold" || format === "italic" || format === "code") {
-    const wrappers: Record<typeof format, { before: string; after: string }> = {
-      bold: { before: "**", after: "**" },
-      italic: { before: "*", after: "*" },
-      code: { before: "`", after: "`" },
-    } as const;
-    const { before, after } = wrappers[format];
-    const selected = value.slice(selectionStart, selectionEnd);
-    const nextValue = `${value.slice(0, selectionStart)}${before}${selected || ""}${after}${value.slice(selectionEnd)}`;
-    const nextSelectionStart = selectionStart + before.length;
-    const nextSelectionEnd = nextSelectionStart + selected.length;
-    return {
-      value: nextValue,
-      selectionStart: nextSelectionStart,
-      selectionEnd: nextSelectionEnd,
-    };
-  }
-
-  const { lineStart, lineEnd } = selectedLineRange(value, selectionStart, selectionEnd);
-  const selectedBlock = value.slice(lineStart, lineEnd);
-  const lines = selectedBlock.split("\n");
-  const nextLines = transformLines(lines, format);
-  const nextValue = `${value.slice(0, lineStart)}${nextLines.join("\n")}${value.slice(lineEnd)}`;
-  return {
-    value: nextValue,
-    selectionStart: lineStart,
-    selectionEnd: lineStart + nextLines.join("\n").length,
-  };
-}
-
-export function applyRichTextFormatToTextarea(
-  textarea: HTMLTextAreaElement,
-  format: RichTextFormat,
-  onValueChange: (nextValue: string) => void,
-) {
-  const result = applyRichTextFormat(
-    textarea.value,
-    textarea.selectionStart ?? 0,
-    textarea.selectionEnd ?? textarea.value.length,
-    format,
-  );
-  onValueChange(result.value);
-  window.requestAnimationFrame(() => {
-    textarea.focus();
-    textarea.setSelectionRange(result.selectionStart, result.selectionEnd);
-  });
-}
 
 type LinkTokenInfo = {
   raw: string;
@@ -439,44 +354,4 @@ export function RichTextPreview({
   flushList();
 
   return <div className={cn("omanote-rich-text", className)}>{nodes}</div>;
-}
-
-export function RichTextToolbar({
-  textareaRef,
-  onValueChange,
-  className,
-}: {
-  textareaRef: RefObject<HTMLTextAreaElement | null>;
-  onValueChange: (nextValue: string) => void;
-  className?: string;
-}) {
-  const buttons: Array<{ format: RichTextFormat; label: string; icon: ReactNode }> = [
-    { format: "bold", label: "Bold", icon: <Bold className="h-3.5 w-3.5" /> },
-    { format: "italic", label: "Italic", icon: <Italic className="h-3.5 w-3.5" /> },
-    { format: "bullet", label: "Bullet list", icon: <List className="h-3.5 w-3.5" /> },
-    { format: "ordered", label: "Numbered list", icon: <ListOrdered className="h-3.5 w-3.5" /> },
-    { format: "code", label: "Code", icon: <Code2 className="h-3.5 w-3.5" /> },
-  ];
-
-  return (
-    <div className={cn("flex flex-wrap items-center gap-1", className)}>
-      {buttons.map((button) => (
-        <div key={button.format}>
-          <button
-            type="button"
-            aria-label={button.label}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-            onMouseDown={(event) => {
-              event.preventDefault();
-              const textarea = textareaRef.current;
-              if (!textarea) return;
-              applyRichTextFormatToTextarea(textarea, button.format, onValueChange);
-            }}
-          >
-            {button.icon}
-          </button>
-        </div>
-      ))}
-    </div>
-  );
 }

@@ -500,13 +500,6 @@ export function SegmentedPill({
   );
 }
 
-export const DateStripHighlight = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(function DateStripHighlight(
-  { className, ...props },
-  ref,
-) {
-  return <div ref={ref} aria-hidden="true" className={cn("omanote-date-active-highlight pointer-events-none absolute left-0 top-0 rounded-md", className)} {...props} />;
-});
-
 export function Panel({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return <div className={cn("rounded-app-panel border border-app-line bg-app-surface", className)} {...props} />;
 }

@@ -3,6 +3,46 @@ import { useNavigate } from "react-router-dom";
 import { Button, cn } from "./ui";
 import { useUpdate } from "../contexts/UpdateContext";
 
+/**
+ * The inline "update available" row inside the canvas's omanote-updates card.
+ *
+ * Split out from the `useUpdate`-connected banner so the landing page's canvas
+ * preview can show the real current release straight from CHANGELOG.md,
+ * without an UpdateContext in the tree.
+ */
+export function UpdateNotificationRow({
+  version,
+  summary,
+  extraUpdatesCount,
+  onOpen,
+}: {
+  version: string;
+  summary: string;
+  extraUpdatesCount: number;
+  onOpen: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label="omanote update available"
+      onClick={onOpen}
+      className="group flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition-colors duration-150 hover:bg-app-surface-hover"
+    >
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <span className="flex items-center gap-1.5 text-sm text-app-ink-faint">
+          <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-success-solid" />
+          Update available · {version}
+          {extraUpdatesCount > 0 ? ` (+${extraUpdatesCount} more)` : ""}
+        </span>
+        <span className="text-sm text-app-ink-muted">
+          {summary || "A new version of omanote is ready — take a look at what's new."}
+        </span>
+      </div>
+      <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-app-ink-faint opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
+    </button>
+  );
+}
+
 export function UpdateNotificationBanner({ inline = false }: { inline?: boolean } = {}) {
   const {
     isBannerVisible,
@@ -20,24 +60,12 @@ export function UpdateNotificationBanner({ inline = false }: { inline?: boolean 
 
   if (inline) {
     return (
-      <button
-        type="button"
-        aria-label="omanote update available"
-        onClick={openModal}
-        className="group flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition-colors duration-150 hover:bg-app-surface-hover"
-      >
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <span className="flex items-center gap-1.5 text-sm text-app-ink-faint">
-            <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-success-solid" />
-            Update available · {latestVersion.version}
-            {extraUpdatesCount > 0 ? ` (+${extraUpdatesCount} more)` : ""}
-          </span>
-          <span className="text-sm text-app-ink-muted">
-            {latestVersion.summary || "A new version of omanote is ready — take a look at what's new."}
-          </span>
-        </div>
-        <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-app-ink-faint opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
-      </button>
+      <UpdateNotificationRow
+        version={latestVersion.version}
+        summary={latestVersion.summary}
+        extraUpdatesCount={extraUpdatesCount}
+        onOpen={openModal}
+      />
     );
   }
 

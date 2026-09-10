@@ -5,7 +5,7 @@ Settings is organized into categories so each kind of control is easy to find.
 ## Appearance
 
 - **Theme:** System, Light, or Dark.
-- **Font:** Sans (Lato), Serif (Aleo), or Both (Aleo for headings, Lato for body text).
+- **Font:** Sans (Lato), Serif (Solway), or Both (Solway for headings, Lato for body text).
 - **Corner style:** Rounded (default) or Sharp, square corners across the app.
 - **Navigation labels:** active label only, icon and label, or label only.
 - **Canvas dot grid:** toggle the dotted backdrop on the canvas.

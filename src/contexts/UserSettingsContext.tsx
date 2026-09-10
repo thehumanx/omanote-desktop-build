@@ -62,6 +62,39 @@ export function UserSettingsProvider({
   );
 }
 
+/**
+ * Settings without a backend, for surfaces that render real app components
+ * outside the authenticated tree — the landing page's canvas preview, mainly.
+ *
+ * `normalizeUserSettings(undefined)` yields the same defaults a brand-new
+ * account gets, so the preview shows the stock experience. `updateSettings`
+ * resolves without doing anything: nothing in a read-only preview should be
+ * mutating settings, and throwing here would turn a stray click into a crash
+ * on the marketing page.
+ */
+export function StaticUserSettingsProvider({
+  children,
+  settings: overrides,
+}: {
+  children: React.ReactNode;
+  settings?: Parameters<typeof normalizeUserSettings>[0];
+}) {
+  const value = useMemo<UserSettingsContextValue>(
+    () => ({
+      settings: normalizeUserSettings(overrides),
+      loading: false,
+      updateSettings: async () => {},
+    }),
+    [overrides],
+  );
+
+  return (
+    <UserSettingsContext.Provider value={value}>
+      {children}
+    </UserSettingsContext.Provider>
+  );
+}
+
 export function useUserSettings(): UserSettingsContextValue {
   const value = useContext(UserSettingsContext);
   if (!value) {

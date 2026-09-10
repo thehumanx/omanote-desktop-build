@@ -1,16 +1,25 @@
 import { ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useWeekAtGlance } from "../app/insights-local";
+import { useWeekAtGlance, type WeekAtGlance } from "../app/insights-local";
 
-export function CanvasWeekAtGlance() {
-  const glance = useWeekAtGlance();
-  const navigate = useNavigate();
-
+/**
+ * The presentation half, split out so the landing page's canvas preview can
+ * render the real card from fixed numbers. `useWeekAtGlance` reads Dexie,
+ * which is empty (or worse, stale from a previous session) for a signed-out
+ * visitor, so the preview supplies `glance` directly instead.
+ */
+export function CanvasWeekAtGlanceView({
+  glance,
+  onOpen,
+}: {
+  glance: WeekAtGlance | undefined;
+  onOpen: () => void;
+}) {
   return (
     <button
       type="button"
       aria-label="View insights"
-      onClick={() => navigate("/insights")}
+      onClick={onOpen}
       className="group flex items-start justify-between gap-3 rounded-app-card border border-app-line bg-app-surface px-4 py-3 text-left transition-colors duration-150 hover:bg-app-surface-hover active:scale-[0.99]"
     >
       <div className="flex min-w-0 flex-col gap-1.5">
@@ -40,4 +49,11 @@ export function CanvasWeekAtGlance() {
       <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-app-ink-faint opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
     </button>
   );
+}
+
+export function CanvasWeekAtGlance() {
+  const glance = useWeekAtGlance();
+  const navigate = useNavigate();
+
+  return <CanvasWeekAtGlanceView glance={glance} onOpen={() => navigate("/insights")} />;
 }

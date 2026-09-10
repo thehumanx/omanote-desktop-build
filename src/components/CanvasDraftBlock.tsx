@@ -190,8 +190,6 @@ export type CanvasDraftBlockHandle = {
   cancel: () => void;
   /** Close without creating anything and without clearing the draft (Esc). */
   dismiss: () => void;
-  /** Write the current draft to disk immediately, bypassing the debounce. */
-  flushDraft: () => void;
 };
 
 export type CanvasDraftBlockProps = {
@@ -230,7 +228,7 @@ export type CanvasDraftBlockProps = {
   // Suppresses note mode's own built-in mobile Cancel/Save row — for callers
   // (like ComposerSheet) that render their own header with those same
   // actions (DrawerHeaderRow) and would otherwise show both. Callers with no
-  // header of their own (e.g. ComposerPopoutScreen) must leave this false.
+  // header of their own must leave this false.
   hideMobileActions?: boolean;
 };
 
@@ -241,8 +239,8 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
   const { state, dispatch } = useApp();
   const { settings } = useUserSettings();
   // Read once per mount, not per render — this seeds every draft field
-  // below so a fresh page load (a reload, or a genuinely new window/tab —
-  // see composer-popout.ts) picks up wherever the last one left off.
+  // below so a fresh page load (a reload, or a new tab) picks up wherever
+  // the last one left off.
   const persistedDraftRef = useRef<ReturnType<typeof readComposerDraft>>();
   if (!persistedDraftRef.current) persistedDraftRef.current = readComposerDraft();
   const persistedDraft = persistedDraftRef.current;
@@ -1220,24 +1218,10 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
     onDone?.();
   };
 
-  // Bypasses the debounce in the persistence effect above — for callers
-  // (e.g. the pop-out button) that need the *latest* keystrokes on disk
-  // right now, not up to 300ms from now, before reading them back in a
-  // brand new window.
-  const flushDraft = () => {
-    writeComposerDraft({
-      mode,
-      body,
-      todoLines: todoLines.map((line) => line.text).filter((text) => text.trim().length > 0),
-      eventLines: eventLines.map((line) => line.text).filter((text) => text.trim().length > 0),
-      bookmarkUrl,
-    });
-  };
-
   useImperativeHandle(
     ref,
-    () => ({ save: handleMobileSave, cancel: handleCancel, dismiss: dismissDraft, flushDraft }),
-    [handleMobileSave, handleCancel, dismissDraft, flushDraft],
+    () => ({ save: handleMobileSave, cancel: handleCancel, dismiss: dismissDraft }),
+    [handleMobileSave, handleCancel, dismissDraft],
   );
 
   useEffect(() => {

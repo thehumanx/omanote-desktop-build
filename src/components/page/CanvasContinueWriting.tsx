@@ -68,12 +68,11 @@ function PageCardMeta({ page }: { page: PageItem }) {
   return <span className="line-clamp-2 min-h-[2.5rem] text-sm text-app-ink-muted">{items.join(" · ")}</span>;
 }
 
-function AddPageCard() {
-  const createCanvas = useCreateCanvas();
+function AddPageCard({ onCreate }: { onCreate: () => void }) {
   return (
     <button
       type="button"
-      onClick={createCanvas}
+      onClick={onCreate}
       className="flex min-h-[6.5rem] min-w-0 flex-col items-center justify-center gap-1.5 rounded-app-card border border-dashed border-app-line px-4 py-3 text-app-ink-faint transition-colors duration-150 hover:bg-app-surface-hover hover:text-app-ink active:scale-[0.99]"
     >
       <FilePlus2 className="h-5 w-5" />
@@ -90,13 +89,16 @@ function AddPageCard() {
 function ContinueWritingCard({
   page,
   dispatch,
+  staticPreview = false,
 }: {
   page: PageItem;
   dispatch: (action: AppAction) => void;
+  /** See PageCard: show the full card for a fixture page with no server row. */
+  staticPreview?: boolean;
 }) {
   const href = `/p/${page.id}`;
   // Optimistic (clientKey-only) pages have no server id to patch yet.
-  const serverPageId = page.id !== page.clientKey ? page.id : null;
+  const serverPageId = staticPreview ? page.id : page.id !== page.clientKey ? page.id : null;
 
   return (
     <div className="group flex min-w-0 flex-col gap-1.5 rounded-app-card border border-app-line bg-app-surface px-4 py-3 transition-colors duration-150 hover:bg-app-surface-hover">
@@ -149,14 +151,29 @@ function ContinueWritingCard({
   );
 }
 
-export function CanvasContinueWriting({
+/**
+ * The presentation half. Takes `onCreatePage` as a prop rather than calling
+ * `useCreateCanvas` internally, so the landing page's canvas preview can
+ * render this without an `AppProvider` — that hook reads `state.pages` and
+ * `state.ui.selectedDateKey`, and faking the whole `AppState` to satisfy it
+ * would recreate the mockup-drift problem one layer down.
+ *
+ * This also matches how the component already takes `dispatch`: every other
+ * effect it fires is supplied by the caller.
+ */
+export function CanvasContinueWritingView({
   pages,
   todayKey,
   dispatch,
+  onCreatePage,
+  staticPreview = false,
 }: {
   pages: PageItem[];
   todayKey: string;
   dispatch: (action: AppAction) => void;
+  onCreatePage: () => void;
+  /** See PageCard: show the full card for fixture pages with no server row. */
+  staticPreview?: boolean;
 }) {
   const recent = useMemo(() => selectContinueWritingPages(pages, todayKey), [pages, todayKey]);
   const isEmpty = recent.length === 0;
@@ -164,8 +181,8 @@ export function CanvasContinueWriting({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-3">
-        <p className="shrink-0 text-[11px] font-bold uppercase tracking-[0.16em] text-app-ink-faint">
-          {isEmpty ? "Add page" : "Continue writing"}
+        <p className="shrink-0 text-[11px] font-extrabold uppercase tracking-[0.16em] text-app-ink-faint">
+          {isEmpty ? "Add page" : "Continue"}
         </p>
         <div aria-hidden="true" className="h-px min-w-4 flex-1 bg-app-line" />
         {isEmpty ? null : (
@@ -175,8 +192,19 @@ export function CanvasContinueWriting({
         )}
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {isEmpty ? <AddPageCard /> : recent.map((page) => <ContinueWritingCard key={page.id} page={page} dispatch={dispatch} />)}
+        {isEmpty ? (
+          <AddPageCard onCreate={onCreatePage} />
+        ) : (
+          recent.map((page) => (
+            <ContinueWritingCard key={page.id} page={page} dispatch={dispatch} staticPreview={staticPreview} />
+          ))
+        )}
       </div>
     </div>
   );
+}
+
+export function CanvasContinueWriting(props: { pages: PageItem[]; todayKey: string; dispatch: (action: AppAction) => void }) {
+  const createCanvas = useCreateCanvas();
+  return <CanvasContinueWritingView {...props} onCreatePage={createCanvas} />;
 }

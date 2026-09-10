@@ -46,7 +46,7 @@ export type BrowserPermissionState = NotificationPermission | "unsupported";
 export type CategoryId = "appearance" | "notifications" | "security" | "devices" | "data" | "storage" | "account" | "features";
 
 const LATO_STACK = '"Lato", ui-sans-serif, system-ui, sans-serif';
-const SERIF_STACK = '"Aleo", Georgia, ui-serif, serif';
+const SERIF_STACK = '"Solway", Georgia, ui-serif, serif';
 
 const FONT_FAMILY_OPTIONS: readonly {
   value: FontFamily;
@@ -58,11 +58,11 @@ const FONT_FAMILY_OPTIONS: readonly {
   bodyFontFamily: string;
 }[] = [
   { value: "sans", label: "Sans", sub: "Lato", headingFontFamily: LATO_STACK, bodyFontFamily: LATO_STACK },
-  { value: "serif", label: "Serif", sub: "Aleo", headingFontFamily: SERIF_STACK, bodyFontFamily: SERIF_STACK },
+  { value: "serif", label: "Serif", sub: "Solway", headingFontFamily: SERIF_STACK, bodyFontFamily: SERIF_STACK },
   {
     value: "both",
     label: "Both",
-    sub: "Aleo headings, Lato body",
+    sub: "Solway headings, Lato body",
     headingFontFamily: SERIF_STACK,
     bodyFontFamily: LATO_STACK,
   },

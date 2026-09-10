@@ -21,6 +21,26 @@ function isSurveyEligibilityCache(value: unknown): value is SurveyEligibilityCac
 const surveyEligibilityCodec = jsonCodec(isSurveyEligibilityCache);
 
 /**
+ * The card shell for the notice slot: the "Updates" heading and the
+ * divided container its rows sit in. Split out from the connected component
+ * below so the landing page's canvas preview can build the same card from
+ * fixed rows, without UpdateContext or the survey/storage queries.
+ */
+export function CanvasSystemNoticeView({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-3">
+        <p className="shrink-0 text-[11px] font-extrabold uppercase tracking-[0.16em] text-app-ink-faint">Updates</p>
+        <div aria-hidden="true" className="h-px min-w-4 flex-1 bg-app-line" />
+      </div>
+      <div className="divide-y divide-app-line overflow-hidden rounded-app-card border border-app-line bg-app-surface">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/**
  * The canvas "system notice" slot: the app-update banner and the product
  * survey nudge (and, over time, other product notifications) shown together
  * inline (not as floating popups) — one card each, stacked.
@@ -77,9 +97,7 @@ export function CanvasSystemNotice() {
   return (
     <>
       {hasNotice ? (
-        <div className="flex flex-col gap-3">
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-app-ink-faint">omanote updates</p>
-          <div className="divide-y divide-app-line overflow-hidden rounded-app-card border border-app-line bg-app-surface">
+        <CanvasSystemNoticeView>
             {showUpdateBanner ? <UpdateNotificationBanner inline /> : null}
             {showStorageWarning ? (
               <button
@@ -101,8 +119,7 @@ export function CanvasSystemNotice() {
                 onDismiss={() => setSurveyDismissed(true)}
               />
             ) : null}
-          </div>
-        </div>
+        </CanvasSystemNoticeView>
       ) : null}
       {surveyOpen && surveyResponse ? (
         <SurveyFullPage

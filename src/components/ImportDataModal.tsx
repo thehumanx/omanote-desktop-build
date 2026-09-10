@@ -1,10 +1,9 @@
 import { useRef, useState } from "react";
-import { AlertTriangle, FileJson, Upload, X } from "lucide-react";
+import { AlertTriangle, FileJson, Upload } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useApp } from "../app/AppProvider";
 import type { DateKey, RecurrenceRule } from "@omanote/shared";
-import { BaseModal } from "./BaseModal";
 import { Button } from "./ui";
 
 type ImportCat = "todos" | "notes" | "bookmarks" | "events" | "rss";
@@ -397,37 +396,6 @@ export function ImportDataPanel() {
         </div>
       )}
     </div>
-  );
-}
-
-/** @deprecated Use ImportDataPanel for inline rendering */
-export function ImportDataModal({ onClose }: { onClose: () => void }) {
-  return (
-    <BaseModal
-      onClose={onClose}
-      onBackdropMouseDown={onClose}
-      className="items-end bg-black/40 p-4 backdrop-blur-sm sm:items-center"
-    >
-      <div
-        className="w-full max-w-sm rounded-app-dialog border border-app-line bg-app-surface shadow-app-dialog"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between border-b border-app-line p-5 pb-4">
-          <div>
-            <h2 className="text-sm font-bold text-app-ink">Import Data</h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="ml-4 mt-0.5 rounded-lg p-1 text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink-muted"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="p-4">
-          <ImportDataPanel />
-        </div>
-      </div>
-    </BaseModal>
   );
 }
 

@@ -23,6 +23,45 @@ Each entry is one of:
 - **Renamed** `Component.propName` → `Component.newPropName`. <why>. <migration note>.
 ```
 
+## 2026-09-10
+
+- **Removed** `.font-serif-heading-smooth` (`src/index.css`). It set
+  `font-weight`, `letter-spacing` and `font-optical-sizing` — all three
+  identical to `.font-serif-heading` once the landing headings moved to the
+  regular weight, and it was never used without that class (all 10 call sites
+  paired the two). Migration: drop it; `.font-serif-heading` alone gives the
+  same result. Landing heading weight and tracking are now controlled solely
+  by `.font-serif-heading`.
+- **Removed** the `--app-font-bold-weight`, `--app-font-variation-settings`
+  and `--app-font-letter-spacing` writes from `applyTypographySettings`
+  (`src/design-system/theme.ts`). None varied with the font setting — each
+  re-asserted the same constant on every call. Because they were written as
+  *inline* styles on `documentElement`, they beat the `:root` declarations in
+  `src/index.css` and made those three variables impossible to change from
+  CSS at all. They are now declared only in `:root`, which is where a default
+  belongs. `applyTypographySettings` still writes the two font stacks, which
+  do vary. Covered by a test in `theme.test.ts` so it can't silently return.
+- **Added** `data-heading-font="serif" | "sans"` on the document root, written
+  by `applyTypographySettings`. CSS cannot read a custom property in a
+  selector, so this is how `src/index.css` targets the serif heading modes —
+  see the `[data-heading-font="serif"]` rule that sets heading weight and
+  tracking for Solway. Sans mode is deliberately left unstyled by it.
+- **Added** `motion.easing.in` (`--motion-easing-in`, `ease-app-in`,
+  easeInCubic) alongside the existing `out`/`inOut`/`drawer`. For entrances
+  that accelerate away from their starting position; pairs with
+  `motion.easing.out` for the return leg.
+
+## 2026-09-09
+
+- **Removed** `DateStripHighlight` (`src/components/ui.tsx`), its
+  `.omanote-date-active-highlight` rule in `src/index.css`, and the
+  `--motion-duration-date-strip-active` CSS variable that only that rule
+  read. No replacement: the primitive was never adopted by any component
+  (its only caller was its own test in `ui.test.tsx`), and nothing in the
+  app hand-rolls an equivalent, so there was no migration to make. If a
+  measured active-day highlight is needed again, `useMeasuredHighlight` +
+  `SegmentedHighlight` is the pattern the rest of the app actually uses.
+
 ## 2026-09-08
 
 - **Added** `radius.app.badge` (`rounded-app-badge`, 4px) for compact inline

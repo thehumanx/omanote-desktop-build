@@ -504,8 +504,3 @@ export function buildCanvasDayItems(
 
   return [...todoItems, ...noteItems, ...bookmarkItems, ...eventItems, ...pageItems].sort((left, right) => left.createdAt - right.createdAt);
 }
-
-export function hydrateState(raw: AppState | null) {
-  if (!raw) return createInitialState();
-  return raw;
-}

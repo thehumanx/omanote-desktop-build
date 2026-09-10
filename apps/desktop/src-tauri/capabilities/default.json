@@ -14,7 +14,6 @@
     "core:window:allow-internal-toggle-maximize",
     "core:window:allow-is-maximized",
     "core:window:allow-close",
-    "core:webview:allow-create-webview-window",
     "notification:default",
     "opener:default",
     "deep-link:default",

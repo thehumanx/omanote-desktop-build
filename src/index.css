@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&family=Aleo:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&family=Solway:wght@300;400;500;700&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -8,14 +8,14 @@
 .public-page {
   color-scheme: light;
   --app-font-family: "Lato", ui-sans-serif, system-ui, sans-serif;
-  --app-font-family-serif: "Aleo", Georgia, ui-serif, serif;
+  --app-font-family-serif: "Solway", Georgia, ui-serif, serif;
   /* Headings/titles font — matches --app-font-family by default (sans and
      serif modes just inherit the body font); the "both" font-family setting
      is the only mode that points this at --app-font-family-serif while
      --app-font-family stays sans. Set in JS by applyTypographySettings. */
   --app-heading-font-family: var(--app-font-family);
   --app-font-variation-settings: normal;
-  --app-font-bold-weight: 700;
+  --app-font-bold-weight: 500;
   --app-font-letter-spacing: normal;
   --color-canvas: 255 255 255;
   --color-surface: 255 255 255;
@@ -134,9 +134,9 @@
   --motion-duration-fast: 150ms;
   --motion-duration-base: 200ms;
   --motion-duration-slow: 300ms;
-  --motion-duration-date-strip-active: 250ms;
   --motion-duration-week-slide: 280ms;
   --motion-duration-drawer: 360ms;
+  --motion-easing-in: cubic-bezier(0.55, 0.055, 0.675, 0.19);
   --motion-easing-out: cubic-bezier(0.23, 1, 0.32, 1);
   --motion-easing-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --motion-easing-drawer: cubic-bezier(0.32, 0.72, 0, 1);
@@ -295,20 +295,58 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
   font-family: var(--app-heading-font-family);
 }
 
-/* Make the landing heading utility resolve to the shared app serif stack. */
+/* Make the landing heading utility resolve to the shared app serif stack.
+   These rules sit after `@tailwind utilities`, so their letter-spacing beats
+   any `tracking-*` utility on the same element — this is the one place that
+   controls how tight the landing headings set, not the JSX. */
 .font-serif-heading {
   font-family: var(--app-font-family-serif);
   font-weight: 400;
   font-optical-sizing: none;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.02em;
 }
 
-/* Landing hero heading emphasis for the shared serif stack. */
-.font-serif-heading-smooth {
-  font-weight: 500;
-  letter-spacing: -0.015em;
-  font-optical-sizing: none;
+/* Settings > Look & feel > Font = "Serif" or "Both": every heading and title
+   drops to 400 and tightens up. Solway carries far more weight than Lato at
+   the same nominal value and sets noticeably wider, so the
+   `font-bold`/`font-semibold` utilities scattered across headings (700 and
+   600) come out heavy-handed and loose in the serif stack. This rule sits
+   after `@tailwind utilities`, so it beats those utilities and any
+   `tracking-*` on the same element — which is the point, and means heading
+   weight and tracking in the serif modes are controlled here rather than per
+   element. Sans mode is untouched: no attribute, no rule.
+   Set by applyTypographySettings in src/design-system/theme.ts. */
+[data-heading-font="serif"] :is(h1, h2, h3, h4, h5, h6, .app-title-font) {
+  font-weight: 400;
+  letter-spacing: -0.02em;
 }
+
+/* The landing page's canvas preview renders in the app's "Both" font pairing
+   (serif headings, sans body — see CanvasPreview), and matches the landing
+   page's own serif treatment: regular weight, tighter tracking. Without this
+   the weight utilities on each element (`font-bold` on the greeting,
+   `font-semibold` on card titles) give Solway's bold, which reads far heavier
+   beside the 400-weight headings around it. Tracking is gentler than the hero's
+   -0.035em because most of these are small text, where that would crowd. */
+.omanote-preview-type :is(h1, h2, h3, h4, h5, h6, .app-title-font) {
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+/* Settings > Look & feel > Font = "Serif" only: pure Serif mode is the one
+   case where *body* text (not just headings — see `[data-heading-font]`
+   above) renders in Solway too, via `--app-font-family` itself. Nav labels,
+   settings row labels, and every other `font-medium`/`font-semibold`/
+   `font-bold` bit of ordinary UI copy never got the heading treatment, so it
+   came out visibly heavier than the same text in Sans/Both mode even though
+   the numeric weight never changed. This rule sits after `@tailwind
+   utilities`, matching the heading rule above, so it wins over those weight
+   utilities wherever pure Serif body text is active.
+   Set by applyTypographySettings in src/design-system/theme.ts. */
+[data-body-font="serif"] :is(.font-medium, .font-semibold, .font-bold) {
+  font-weight: 400;
+}
+
 
 @layer components {
   .founder-note-card {
@@ -459,13 +497,6 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
     .omanote-segmented-label {
       display: inline-block;
     }
-  }
-
-  .omanote-date-active-highlight {
-    background: rgb(var(--color-nav-active));
-    transition-property: transform, width, height, opacity;
-    transition-duration: var(--motion-duration-date-strip-active);
-    transition-timing-function: var(--motion-easing-in-out);
   }
 
   .omanote-todo-checkmark {

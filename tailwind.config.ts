@@ -121,6 +121,7 @@ export default {
         "app-drawer": "var(--motion-duration-drawer)",
       },
       transitionTimingFunction: {
+        "app-in": "var(--motion-easing-in)",
         "app-out": "var(--motion-easing-out)",
         "app-in-out": "var(--motion-easing-in-out)",
         "app-drawer": "var(--motion-easing-drawer)",

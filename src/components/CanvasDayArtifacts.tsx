@@ -23,6 +23,8 @@ export type CanvasDayArtifactsProps = {
   onDeleteTodo: (todo: TodoItem) => void;
   onEditBookmark: (bookmarkId: string) => void;
   onSharePage?: (pageId: string) => void;
+  /** See PageCard: show the full card for fixture pages with no server row. */
+  staticPreview?: boolean;
 };
 
 type ItemGroup =
@@ -67,6 +69,7 @@ export function CanvasDayArtifacts({
   onDeleteTodo,
   onEditBookmark,
   onSharePage,
+  staticPreview = false,
 }: CanvasDayArtifactsProps) {
   const groups = groupConsecutivePages(items);
 
@@ -87,8 +90,9 @@ export function CanvasDayArtifacts({
           // just because there's no third one to share the row with.
           <div key={`page-run:${group.items[0]!.data.id}`} className="flex flex-wrap gap-3">
             {group.items.map((item) => (
-              <div key={`page:${item.data.id}`} className="w-full sm:max-w-[calc((100%-1.5rem)/3)] sm:shrink-0 sm:basis-[calc((100%-1.5rem)/3)]">
+              <div key={`page:${item.data.id}`} data-artifact-id={item.data.id} className="w-full sm:max-w-[calc((100%-1.5rem)/3)] sm:shrink-0 sm:basis-[calc((100%-1.5rem)/3)]">
                 <PageCard
+                  staticPreview={staticPreview}
                   page={item.data as Extract<CanvasArtifactItem, { kind: "page" }>["data"]}
                   onDelete={(pageId) => dispatch({ type: "page/delete", pageId })}
                   onShare={(pageId) => onSharePage?.(pageId)}
@@ -99,7 +103,9 @@ export function CanvasDayArtifacts({
             ))}
           </div>
         ) : (
-          <div key={`${group.item.kind}:${group.item.data.id}`}>
+          // `data-artifact-id` gives each row a stable handle in the DOM,
+          // for anything that needs to find or scroll to one artifact.
+          <div key={`${group.item.kind}:${group.item.data.id}`} data-artifact-id={group.item.data.id}>
             {group.item.kind === "todo" ? (
               <CanvasTodoBlock
                 todo={group.item.data}

@@ -30,26 +30,3 @@ export function mentionHighlightSegments(text: string): Array<{ text: string; is
     return { text: part, isMention: false, email: null };
   });
 }
-
-/**
- * Given the textarea value and the current cursor position, return the start
- * index and partial text of the @email mention currently being typed, or
- * null if the cursor is not inside a mention token.
- */
-export function findActiveMention(
-  text: string,
-  cursorPos: number,
-): { start: number; partial: string } | null {
-  const before = text.slice(0, cursorPos);
-
-  const atIndex = before.lastIndexOf("@");
-  if (atIndex === -1) return null;
-
-  const charBefore = before[atIndex - 1];
-  if (charBefore !== undefined && !/\s/.test(charBefore)) return null;
-
-  const partial = before.slice(atIndex + 1);
-  if (partial.length > 0 && !/^[^\s@]*$/.test(partial)) return null;
-
-  return { start: atIndex, partial };
-}

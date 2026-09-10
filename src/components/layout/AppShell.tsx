@@ -37,7 +37,7 @@ import { WindowControls } from "../desktop/WindowControls";
  * bare, which nothing else asserts.
  */
 export function isChromelessRoute(pathname: string): boolean {
-  return pathname === "/compose-popout" || pathname.startsWith("/p/");
+  return pathname.startsWith("/p/");
 }
 
 export function AppShell() {
@@ -167,7 +167,6 @@ export function AppShell() {
   // nav, no ComposerSheet — but still need to be nested here for the provider
   // stack above AppShell (auth, encryption, user settings).
   //
-  // `/compose-popout` is the pop-out composer window (see composer-popout.ts).
   // `/p/:pageId` is a single canvas, which is meant to read like a document
   // rather than a panel inside the app.
   if (isChromelessRoute(location.pathname)) {

@@ -63,7 +63,7 @@ export function CanvasOverdueSection({
         aria-label={isCollapsed ? "Expand overdue todos" : "Collapse overdue todos"}
         className="group flex w-full items-center gap-3 rounded-lg py-1 text-left transition hover:bg-app-surface-hover"
       >
-        <p className="shrink-0 text-[11px] font-bold uppercase tracking-[0.16em] text-app-ink-faint">Overdue todos</p>
+        <p className="shrink-0 text-[11px] font-extrabold uppercase tracking-[0.16em] text-app-ink-faint">Overdues</p>
         <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-app-surface-muted px-1 text-[11px] font-semibold text-app-ink-faint">
           {overdueTodos.length}
         </span>

@@ -43,8 +43,17 @@ import type { FunctionReference, FunctionArgs } from "convex/server";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "./db";
 import { useAuth } from "./auth/AuthContext";
-import { parseHashtags } from "../lib/hashtags";
-import { parseMentions } from "../lib/mentions";
+import { runEventAction } from "./actions/event-actions";
+import {
+  buildGuestEmailsFromText,
+  buildHashtagsFromText,
+  getAppProviderQueryScope,
+  mergeTodosForState,
+  needsHashtagRepair,
+  normalizeTodoDueInput,
+  shouldScheduleRemoteSync,
+  shouldSyncRss,
+} from "./app-provider-logic";
 import { detectWebClientType, getCurrentDeviceMetadata } from "../lib/device-info";
 import { readLocalStorage, stringCodec, writeLocalStorage } from "../lib/local-storage";
 import type { AppAction, AppState, DraftMode, RecurringDeletePrompt, ToastItem } from "./types";
@@ -202,13 +211,13 @@ type LocalState = {
   optimisticPages: PageItem[];
 };
 
-type HistoryEntry = {
+export type HistoryEntry = {
   key?: string;
   undo: () => Promise<void> | void;
   redo?: () => Promise<void> | void;
 };
 
-type LocalAction =
+export type LocalAction =
   | { type: "ui/set-selected-date"; dateKey: UiState["selectedDateKey"] }
   | { type: "ui/set-date-window-offset"; offset: number }
   | { type: "ui/set-tab"; tab: UiState["tab"] }
@@ -461,85 +470,6 @@ function localReducer(state: LocalState, action: LocalAction): LocalState {
     default:
       return state;
   }
-}
-
-function normalizeTodoDueInput(args: { dueDateKey?: DateKey; dueTime?: string }): { dueDateKey: DateKey; dueTime?: string } {
-  return {
-    dueDateKey: args.dueDateKey ?? toDateKey(new Date()),
-    dueTime: args.dueTime?.trim() || undefined,
-  };
-}
-
-function buildHashtagsFromText(...parts: Array<string | undefined>) {
-  return parseHashtags(parts.filter((part): part is string => Boolean(part)).join(" "));
-}
-
-function buildGuestEmailsFromText(...parts: Array<string | undefined>) {
-  return parseMentions(parts.filter((part): part is string => Boolean(part)).join(" "));
-}
-
-function needsHashtagRepair(existing: string[] | undefined, parsed: string[]) {
-  if (!parsed.length) return false;
-  if (existing === undefined) return true;
-  const existingSet = new Set(existing.map((tag) => tag.toLowerCase()));
-  return parsed.some((tag) => !existingSet.has(tag));
-}
-
-export function mergeTodosForState({
-  decryptedTodos,
-  optimisticTodos,
-  serverTodoClientKeys,
-  deletingTodoIds,
-}: {
-  decryptedTodos: TodoItem[];
-  optimisticTodos: TodoItem[];
-  serverTodoClientKeys: ReadonlySet<string>;
-  deletingTodoIds: string[];
-}) {
-  const deletingTodoIdSet = new Set(deletingTodoIds);
-  return [
-    ...decryptedTodos.filter((todo) => !deletingTodoIdSet.has(todo.id)),
-    ...optimisticTodos.filter(
-      (optimisticTodo) =>
-        !serverTodoClientKeys.has(optimisticTodo.clientKey ?? "") &&
-        !deletingTodoIdSet.has(optimisticTodo.id),
-    ),
-  ];
-}
-
-
-export function getAppProviderQueryScope(pathname: string) {
-  const onCanvas = pathname.startsWith("/canvas");
-  return {
-    includeDeleted: !onCanvas,
-    includeActivity: !onCanvas,
-  };
-}
-
-export function shouldScheduleRemoteSync({
-  isAuthenticated,
-  isLocked,
-  previousTimestamp,
-  nextTimestamp,
-}: {
-  isAuthenticated: boolean;
-  isLocked: boolean;
-  previousTimestamp: number | null;
-  nextTimestamp: number | undefined;
-}) {
-  if (!isAuthenticated || isLocked) return false;
-  if (previousTimestamp === null || nextTimestamp === undefined) return false;
-  return nextTimestamp > previousTimestamp;
-}
-
-export function shouldSyncRss({
-  pathname,
-  rssReaderEnabled,
-}: {
-  pathname: string;
-  rssReaderEnabled: boolean;
-}) {
-  return rssReaderEnabled || pathname === "/reader" || pathname.startsWith("/reader/");
 }
 
 // ---------------------------------------------------------------------------
@@ -3071,137 +3001,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [saveBookmarkCreate, saveBookmarkUpdate, deleteBookmark, restoreBookmark, createBookmarkCategory, updateBookmarkCategory, deleteBookmarkCategory, deleteBookmarkCategoryWithBookmarks, pushHistory, showDeleteToast, encrypt, scheduleSync, authUser?.id, setDecryptedBookmarkCategories]);
 
-  const handleEventAction = useCallback((action: AppAction): boolean => {
-    switch (action.type) {
-      case "event/create":
-        void (async () => {
-          const clientKey = prefixedRandomId("event");
-          const now = Date.now();
-          localDispatch({
-            type: "event/add-optimistic",
-            event: {
-              id: clientKey,
-              clientKey,
-              pendingSync: true,
-              label: action.label,
-              notes: action.notes,
-              loggedAt: action.loggedAt ?? now,
-              createdAt: now,
-              createdDateKey: action.dateKey,
-              sourceType: "manual",
-            },
-          });
-          const hashtags = action.hashtags ?? buildHashtagsFromText(action.label, action.notes);
-          const encLabel = await encrypt(action.label);
-          const encNotes = await encryptOptional(action.notes);
-          try {
-            const eventId = (await createEventEntry({ clientKey, label: encLabel, dateKey: action.dateKey, loggedAt: action.loggedAt, notes: encNotes, hashtags })) as string;
-            localDispatch({ type: "event/confirm-optimistic", clientKey });
-            scheduleSync(["events"]);
-            pushEventEntryToGoogleCalendar(eventId, action.label, action.notes);
-            pushHistory({
-              key: `event:create:${eventId}`,
-              undo: () => dispatchRef.current({ type: "event/delete", eventId }),
-              redo: () => dispatchRef.current({
-                type: "event/create",
-                label: action.label,
-                dateKey: action.dateKey,
-                loggedAt: action.loggedAt,
-                notes: action.notes,
-                hashtags,
-              }),
-            });
-          } catch {
-            enqueueCanvasMutation("event/create", { clientKey, label: encLabel, dateKey: action.dateKey, loggedAt: action.loggedAt, notes: encNotes, hashtags });
-          }
-        })();
-        return true;
-      case "event/update":
-        void (async () => {
-          const snapshot = stateRef.current?.events.find((r) => r.id === action.eventId);
-          if (snapshot?.sourceType === "todo_completed") return;
-          const hashtags = action.hashtags ?? buildHashtagsFromText(action.label, action.notes ?? snapshot?.notes);
-          const encLabel = await encrypt(action.label);
-          const encNotes = await encryptOptional(action.notes);
-          try {
-            await updateEventEntry({ eventId: action.eventId as any, label: encLabel, loggedAt: action.loggedAt, notes: encNotes, hashtags });
-            scheduleSync(["events"]);
-            pushEventEntryToGoogleCalendar(action.eventId, action.label, action.notes);
-            if (snapshot) {
-              const snapshotHashtags = buildHashtagsFromText(snapshot.label, snapshot.notes);
-              pushHistory({
-                key: `event:update:${snapshot.id}`,
-                undo: () => dispatchRef.current({
-                  type: "event/update",
-                  eventId: snapshot.id,
-                  label: snapshot.label,
-                  loggedAt: snapshot.loggedAt,
-                  notes: snapshot.notes,
-                  hashtags: snapshotHashtags,
-                }),
-                redo: () => dispatchRef.current({
-                  type: "event/update",
-                  eventId: snapshot.id,
-                  label: action.label,
-                  loggedAt: action.loggedAt,
-                  notes: action.notes,
-                  hashtags,
-                }),
-              });
-            }
-          } catch {
-            enqueueCanvasMutation("event/update", { eventId: action.eventId, label: encLabel, loggedAt: action.loggedAt, notes: encNotes, hashtags });
-          }
-        })();
-        return true;
-      case "event/delete": {
-        const snapshot = stateRef.current?.events.find((r) => r.id === action.eventId);
-        if (!historySuppressedRef.current) {
-          showDeleteToast(
-            "event",
-            snapshot?.label ?? "Untitled",
-            snapshot ? () => dispatchRef.current({ type: "event/restore", eventId: snapshot.id }) : undefined,
-          );
-        }
-        localDispatch({ type: "event/mark-deleting", eventId: action.eventId });
-        void (async () => {
-          try {
-            await deleteEventEntry({ eventId: action.eventId as any });
-            scheduleSync(["events"]);
-            removeEventEntryFromGoogleCalendar(action.eventId);
-            if (snapshot) {
-              pushHistory({
-                key: `event:delete:${snapshot.id}`,
-                undo: () => dispatchRef.current({ type: "event/restore", eventId: snapshot.id }),
-                redo: () => dispatchRef.current({ type: "event/delete", eventId: snapshot.id }),
-              });
-            }
-          } catch {
-            enqueueCanvasMutation("event/delete", { eventId: action.eventId });
-          }
-        })();
-        return true;
-      }
-      case "event/restore": {
-        const snapshot = stateRef.current?.events.find((r) => r.id === action.eventId);
-        localDispatch({ type: "event/clear-deleting", eventIds: [action.eventId] });
-        void (async () => {
-          try {
-            await restoreEventEntry({ eventId: action.eventId as any });
-            scheduleSync(["events"]);
-            if (snapshot?.label) {
-              pushEventEntryToGoogleCalendar(action.eventId, snapshot.label, snapshot.notes);
-            }
-          } catch {
-            enqueueCanvasMutation("event/restore", { eventId: action.eventId });
-          }
-        })();
-        return true;
-      }
-      default:
-        return false;
-    }
-  }, [createEventEntry, updateEventEntry, deleteEventEntry, restoreEventEntry, pushHistory, showDeleteToast, encrypt, encryptOptional, scheduleSync, pushEventEntryToGoogleCalendar, removeEventEntryFromGoogleCalendar]);
+  // Body lives in ./actions/event-actions.ts. The dependency array below is
+  // unchanged from when the switch was inline, so memoisation behaves
+  // identically; the refs and localDispatch are stable and stay out of it.
+  const handleEventAction = useCallback(
+    (action: AppAction): boolean =>
+      runEventAction(action, {
+        createEventEntry,
+        updateEventEntry,
+        deleteEventEntry,
+        restoreEventEntry,
+        encrypt,
+        encryptOptional,
+        scheduleSync,
+        pushHistory,
+        showDeleteToast,
+        pushEventEntryToGoogleCalendar,
+        removeEventEntryFromGoogleCalendar,
+        localDispatch,
+        stateRef,
+        dispatchRef,
+        historySuppressedRef,
+      }),
+    [createEventEntry, updateEventEntry, deleteEventEntry, restoreEventEntry, pushHistory, showDeleteToast, encrypt, encryptOptional, scheduleSync, pushEventEntryToGoogleCalendar, removeEventEntryFromGoogleCalendar],
+  );
 
   // ---------------------------------------------------------------------------
   // Main dispatch — routes to the right domain handler.
