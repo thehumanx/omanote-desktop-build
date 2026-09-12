@@ -4,21 +4,7 @@ import { Button } from "./ui";
 import { Bell, Clock, X } from "lucide-react";
 import { useUserSettings } from "../contexts/UserSettingsContext";
 import type { ToastItem } from "../app/types";
-
-function isEditableTarget(target: EventTarget | null) {
-  const element = target instanceof HTMLElement ? target : null;
-  const activeElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-
-  const isEditableElement = (node: HTMLElement | null) =>
-    Boolean(
-      node &&
-        (node.isContentEditable ||
-          node.matches("input, textarea, select, [role='textbox']") ||
-          node.closest("[contenteditable='true'], input, textarea, select, [role='textbox']")),
-    );
-
-  return isEditableElement(element) || isEditableElement(activeElement);
-}
+import { isEditableTarget } from "../lib/editable-target";
 
 const PEEK_OFFSET = 8;
 const PEEK_SCALE = 0.04;

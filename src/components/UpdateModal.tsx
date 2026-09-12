@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type TouchEvent as ReactTouchEvent, type 
 import { ExternalLink, RefreshCw, Sparkles, FileText, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button, SegmentedPill } from "./ui";
-import { CHANGELOG_TABS, type ChangelogProduct } from "./ChangelogProductTabs";
+import { CHANGELOG_TABS, type ChangelogProduct } from "../content/changelog-tabs";
 import { BaseModal } from "./BaseModal";
 import { useUpdate } from "../contexts/UpdateContext";
 import { parseVersions, type VersionInfo } from "../lib/update-checker";

@@ -2,12 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { navRoutePaths } from "./navRoutes";
 import { FOCUS_SEARCH_EVENT } from "../ExpandableSearch";
-
-function isEditableTarget(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) return false;
-  const tag = target.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable;
-}
+import { isEditableTarget } from "../../lib/editable-target";
 
 /**
  * Cmd/Ctrl+1..5 jumps straight to Canvas/Todos/Notes/Bookmarks/Events.

@@ -14,11 +14,47 @@ export type SwipeTarget = RefObject<HTMLElement | null> | Window;
  * the AppShell top chrome) while a swipe is in flight. Vertical moves are left
  * alone so normal scrolling still works.
  */
+export type HorizontalSwipeOptions = {
+  /**
+   * Ignore gestures starting inside anything matching this selector — for a
+   * page-wide swipe layered over screens that own the gesture themselves.
+   */
+  skipWithin?: string;
+  /**
+   * Ignore gestures starting inside a horizontally scrollable element.
+   *
+   * A page-wide swipe calls `preventDefault` on horizontal moves, which would
+   * otherwise make every horizontal scroller underneath it unscrollable — tab
+   * strips, the history date rail, the week calendar. Detecting them beats
+   * tagging each one, because nothing fails when a newly added scroller
+   * forgets the tag.
+   *
+   * Off by default: a consumer attached *to* a scrollable element (the week
+   * calendar, which steps weeks on swipe) would otherwise disable itself.
+   */
+  skipScrollableX?: boolean;
+};
+
+/** Walks up from the touch target looking for something that can scroll sideways. */
+function startsInsideScrollableX(target: EventTarget | null): boolean {
+  let node = target instanceof Element ? target : null;
+  while (node) {
+    if (node.scrollWidth > node.clientWidth + 1) {
+      const overflowX = getComputedStyle(node).overflowX;
+      if (overflowX === "auto" || overflowX === "scroll") return true;
+    }
+    node = node.parentElement;
+  }
+  return false;
+}
+
 export function useHorizontalSwipe(
   target: SwipeTarget,
   onSwipe: (direction: "prev" | "next") => void,
   enabled = true,
+  options: HorizontalSwipeOptions = {},
 ) {
+  const { skipWithin, skipScrollableX = false } = options;
   const startRef = useRef<{ x: number; y: number } | null>(null);
   const axisRef = useRef<"horizontal" | "vertical" | null>(null);
   const onSwipeRef = useRef(onSwipe);
@@ -33,6 +69,8 @@ export function useHorizontalSwipe(
     const handleTouchStart = (event: TouchEvent) => {
       const activeEl = document.activeElement as HTMLElement | null;
       if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.isContentEditable)) return;
+      if (skipWithin && event.target instanceof Element && event.target.closest(skipWithin)) return;
+      if (skipScrollableX && startsInsideScrollableX(event.target)) return;
       const touch = event.touches[0];
       if (!touch) return;
       startRef.current = { x: touch.clientX, y: touch.clientY };
@@ -79,5 +117,5 @@ export function useHorizontalSwipe(
       surface.removeEventListener("touchmove", onMove);
       surface.removeEventListener("touchend", onEnd);
     };
-  }, [enabled, target]);
+  }, [enabled, target, skipWithin, skipScrollableX]);
 }

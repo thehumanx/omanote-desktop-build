@@ -9,12 +9,8 @@ import { ShareLinkMetaEditor } from "./ShareLinkMetaEditor";
 import { cn } from "./ui";
 import { useApp } from "../app/AppProvider";
 import { useShareLinkMeta } from "../lib/use-share-link-meta";
+import { buildShareUrl, SHARE_DOMAIN } from "../lib/share-url";
 
-const DOMAIN = "omanote.com";
-
-function buildShareUrl(codeOrSlug: string) {
-  return `https://${DOMAIN}/s/${codeOrSlug}`;
-}
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -197,7 +193,7 @@ export function ShareNoteFolderModal({
                     isActive ? "text-app-ink-muted" : "text-app-ink-faint",
                   )}
                 >
-                  {shareUrl ?? `https://${DOMAIN}/s/········`}
+                  {shareUrl ?? `https://${SHARE_DOMAIN}/s/········`}
                 </span>
                 <button
                   type="button"
@@ -263,7 +259,7 @@ export function ShareNoteFolderModal({
                     </div>
                   </div>
 
-                  <ShareLinkMetaEditor domain={DOMAIN} {...meta} />
+                  <ShareLinkMetaEditor domain={SHARE_DOMAIN} {...meta} />
                 </div>
               )}
 

@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { clearLocalCache, DEXIE_CACHE_OWNER_KEY } from "../app/db";
 import { readLocalStorageOptional, stringCodec, writeLocalStorage } from "../lib/local-storage";
 import { useAuth } from "../app/auth/AuthContext";
+import { useNetworkStatus } from "../hooks/useNetworkStatus";
 
 /**
  * Makes sure the Dexie cache in this browser belongs to the signed-in user
@@ -24,9 +25,18 @@ import { useAuth } from "../app/auth/AuthContext";
  * Hoisting it to a gate is what makes the guarantee real: nothing that reads
  * the cache is mounted until the check resolves. `DomainGate` and
  * `EncryptionGate` guard their invariants the same way.
+ *
+ * The gate then kept one hole for a while longer: it keyed on `user === null`,
+ * which is also what Clerk reports *while it is still loading*. Since
+ * `AuthenticatedAppLayout` mounts off `useConvexAuth()` — a separate auth
+ * source that resolves first — there was a window where the gate was mounted,
+ * open, and the cache still belonged to the previous user. It now fails closed
+ * on "unresolved" and only treats a confirmed `isLoaded` signed-out state as
+ * safe. See docs/code-quality-audit-2026-09.md §S2.
  */
 export function LocalCacheGate({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, isLoaded } = useAuth();
+  const { isOffline } = useNetworkStatus();
   const userId = user?.id ?? null;
   const [clearedFor, setClearedFor] = useState<string | null>(null);
 
@@ -61,10 +71,28 @@ export function LocalCacheGate({ children }: { children: ReactNode }) {
   // common path — same user as last time — renders children on the first pass
   // with no blocking frame. `readLocalStorageOptional` is a single synchronous
   // `getItem`, and only a genuine owner mismatch closes the gate.
-  const owner = userId ? readLocalStorageOptional(DEXIE_CACHE_OWNER_KEY, stringCodec) : null;
-  const awaitingClear = userId !== null && owner !== userId && clearedFor !== userId;
+  const owner = readLocalStorageOptional(DEXIE_CACHE_OWNER_KEY, stringCodec);
 
-  if (awaitingClear) {
+  // Offline, Clerk can't verify a session, so `isLoaded` may never flip. That
+  // must not brick the app for a device that has already signed in — `RootRoute`
+  // renders this subtree on exactly the same signal (an owner marker while
+  // offline), so honouring it here keeps the two in agreement. There is no
+  // handover risk in this branch: a second user cannot have signed in without a
+  // network, so the marker still names whoever owns the rows.
+  // `readLocalStorageOptional` yields `undefined`, not `null`, when the marker
+  // is absent — comparing against `null` here would make this true on every
+  // offline render and reopen the hole this gate exists to close.
+  const offlineLocalSession = isOffline && owner !== undefined;
+
+  // The gate must fail *closed* on "we don't know who this is yet". Treating an
+  // unresolved session as signed-out is what let the previous user's rows paint
+  // for a frame during a sign-out → sign-in swap.
+  const isOpen =
+    userId === null
+      ? isLoaded || offlineLocalSession
+      : owner === userId || clearedFor === userId;
+
+  if (!isOpen) {
     return <div className="min-h-screen bg-app-canvas" aria-busy="true" />;
   }
 

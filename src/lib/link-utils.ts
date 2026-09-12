@@ -1,9 +1,6 @@
 import type React from "react";
 import { replaceSelectionWithLink } from "@omanote/shared";
 
-export type { LinkPasteResult } from "@omanote/shared";
-export { normalizeLinkUrl, isSupportedLink, createMarkdownLink, replaceSelectionWithLink } from "@omanote/shared";
-
 export function handlePasteAsLink<T extends HTMLInputElement | HTMLTextAreaElement>(
   event: React.ClipboardEvent<T>,
   value: string,

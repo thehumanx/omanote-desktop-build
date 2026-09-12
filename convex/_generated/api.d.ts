@@ -39,6 +39,7 @@ import type * as lib_shareLookup from "../lib/shareLookup.js";
 import type * as lib_shareSnapshots from "../lib/shareSnapshots.js";
 import type * as lib_slug from "../lib/slug.js";
 import type * as lib_surveyQuestions from "../lib/surveyQuestions.js";
+import type * as lib_urlGuard from "../lib/urlGuard.js";
 import type * as notes from "../notes.js";
 import type * as pages from "../pages.js";
 import type * as plans from "../plans.js";
@@ -96,6 +97,7 @@ declare const fullApi: ApiFromModules<{
   "lib/shareSnapshots": typeof lib_shareSnapshots;
   "lib/slug": typeof lib_slug;
   "lib/surveyQuestions": typeof lib_surveyQuestions;
+  "lib/urlGuard": typeof lib_urlGuard;
   notes: typeof notes;
   pages: typeof pages;
   plans: typeof plans;

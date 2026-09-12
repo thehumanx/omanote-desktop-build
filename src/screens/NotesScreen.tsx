@@ -13,6 +13,7 @@ import { FolderActionMenu, FolderCard, FolderRow } from "../components/NoteFolde
 import { BookmarkCategoryIconPicker } from "../components/BookmarkCategoryIconPicker";
 import { CategoryIconView } from "../lib/bookmark-category-icon";
 import { NoteCard } from "../components/cards";
+import { VirtualList, type VirtualListHandle } from "../components/VirtualList";
 import { useTopChrome } from "../components/layout/useTopChrome";
 import { ExpandableSearch } from "../components/ExpandableSearch";
 import { matchesQuery, normalizeSearchQuery } from "../lib/search-match";
@@ -28,6 +29,9 @@ import { extractAllPreviewableUrls } from "../lib/attachment-link-preview";
 import { captureScrollSnapshot, restoreScrollForNextFrames } from "../lib/preserve-focus-scroll";
 import { resolveRichTextSourceOffsetFromPoint } from "../lib/rich-text-caret";
 import { useIsDesktop, usePersistedFolderSort, usePersistedFolderViewMode } from "../hooks/useFolderNavigation";
+
+/** Module scope so it stays referentially stable across renders — VirtualList memoises its key map on it. */
+const noteRowKey = (note: NoteItem) => note.id;
 
 type FolderSortKey = "alphabetical" | "lastUpdated" | "totalNotes";
 type FolderSortDirection = "asc" | "desc";
@@ -125,6 +129,12 @@ export function NotesScreen() {
   // panel avoids that cross-wiring.
   const editingNoteRowRefDesktop = useRef<HTMLDivElement | null>(null);
   const editingNoteRowRefMobile = useRef<HTMLDivElement | null>(null);
+  // renderNotesPanel() renders the desktop panel and the mobile drawer at
+  // once (CSS hides one, it doesn't unmount it), so each needs its own list
+  // handle — and a jump-to-note has to be issued to both, since only the
+  // visible one will actually move.
+  const notesListRefDesktop = useRef<VirtualListHandle>(null);
+  const notesListRefMobile = useRef<VirtualListHandle>(null);
   const newFolderInputRef = useRef<HTMLInputElement | null>(null);
   const drawerRenameInputRef = useRef<HTMLInputElement | null>(null);
   const pendingFolderRenameRef = useRef<string | null>(null);
@@ -527,8 +537,11 @@ export function NotesScreen() {
       setFocusedNoteId((current) => (current === focusedNoteId ? null : current));
     }, 2600);
     const scrollTimeout = window.setTimeout(() => {
-      const row = document.querySelector<HTMLElement>(`[data-note-row-id="${focusedNoteId}"]`);
-      row?.scrollIntoView({ behavior: "smooth", block: "center" });
+      // Goes through the virtualizer rather than querying the DOM: the target
+      // note is usually the reason we're here *because* it's far down the
+      // list, which is exactly when it isn't mounted to be found.
+      notesListRefDesktop.current?.scrollToKey(focusedNoteId);
+      notesListRefMobile.current?.scrollToKey(focusedNoteId);
     }, 60);
     return () => {
       window.clearTimeout(highlightTimeout);
@@ -711,14 +724,28 @@ export function NotesScreen() {
         </div>
       </div>
       {visibleNotes.length ? (
-        <div
-          className={cn("scrollbar-hide min-h-0 flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden", isMobileDrawer && "px-4")}
-          style={{ overflowAnchor: "none" }}
-         
-        >
-          {visibleNotes.map((note) => (
+        <VirtualList
+          ref={isMobileDrawer ? notesListRefMobile : notesListRefDesktop}
+          items={visibleNotes}
+          getKey={noteRowKey}
+          gap={6}
+          estimateSize={88}
+          // The note being edited has to survive scrolling out of the window:
+          // NoteInlineEditor holds unsaved text, and unmounting it would also
+          // drop the outside-click container ref that decides when to save.
+          pinnedKeys={editingNoteId ? [editingNoteId] : undefined}
+          className={cn("scrollbar-hide min-h-0 flex-1 overflow-x-hidden", isMobileDrawer && "px-4")}
+          footer={
+            <>
+              {/* Mobile uses the "+" button (same floating composer sheet as
+                  every other artifact type) instead of this persistent inline
+                  row; desktop keeps the inline composer. */}
+              {!isMobileDrawer ? renderCreateComposer() : null}
+              <div aria-hidden="true" style={{ height: "calc(var(--omanote-bottom-nav-height, 64px) + 1.5rem)", flexShrink: 0 }} />
+            </>
+          }
+          renderItem={(note) => (
             <div
-              key={note.id}
               data-note-row-id={note.id}
               className={cn(
                 focusedNoteId === note.id && editingNoteId !== note.id
@@ -800,13 +827,8 @@ export function NotesScreen() {
                 />
               )}
             </div>
-          ))}
-          {/* Mobile uses the "+" button (same floating composer sheet as
-              every other artifact type) instead of this persistent inline
-              row; desktop keeps the inline composer. */}
-          {!isMobileDrawer ? renderCreateComposer() : null}
-          <div aria-hidden="true" style={{ height: "calc(var(--omanote-bottom-nav-height, 64px) + 1.5rem)", flexShrink: 0 }} />
-        </div>
+          )}
+        />
       ) : (
         <div className={cn("scrollbar-hide min-h-0 flex-1 overflow-y-auto overflow-x-hidden", isMobileDrawer && "px-4")}>
           {/* Mobile uses the "+" button (same floating composer sheet as

@@ -36,6 +36,7 @@ import { ModalPortal } from "../../components/ModalPortal";
 import { getGreetingForDate } from "../../components/layout/greetings";
 import { useTopChrome } from "../../components/layout/useTopChrome";
 import { Button, Input, LoadingSpinner, Select, Tooltip, cn } from "../../components/ui";
+import { VirtualList } from "../../components/VirtualList";
 import { CategoryIconView } from "../../lib/bookmark-category-icon";
 import { useDrawerDrag } from "../../lib/useDrawerDrag";
 import { useOutsideClick } from "../../lib/useOutsideClick";
@@ -214,6 +215,8 @@ type ReaderCategory = { _id: Id<"rssCategories">; name: string; icon?: string };
 const EMPTY_SUBS: Subscription[] = [];
 const EMPTY_CATS: ReaderCategory[] = [];
 const EMPTY_ITEMS: ReaderItem[] = [];
+/** Module scope for referential stability — VirtualList memoises its key map on it. */
+const readerItemKey = (item: ReaderItem) => String(item._id);
 
 export function ReaderScreen({ savedView = false }: { savedView?: boolean }) {
   const { user, getSessionToken } = useAuth();
@@ -614,13 +617,20 @@ export function ReaderScreen({ savedView = false }: { savedView?: boolean }) {
         ) : null}
       </>
     ) : (
-      <div className={cn("min-h-0 flex-1 overflow-y-auto pb-24", isMobileDrawer && "px-4")}>
-        <div className="divide-y divide-app-line">
-          {items.map((item) => (
-            <ArticleRow key={item._id} item={item} onOpen={() => openArticle(item)} />
-          ))}
-        </div>
-      </div>
+      <VirtualList
+        items={items}
+        getKey={readerItemKey}
+        className={cn("min-h-0 flex-1 pb-24", isMobileDrawer && "px-4")}
+        estimateSize={96}
+        renderItem={(item, index) => (
+          // `divide-y` is an adjacent-sibling rule, and windowed rows are
+          // positioned rather than adjacent — so the separator moves onto the
+          // row itself, skipping the first to keep the list's top edge clean.
+          <div className={index === 0 ? undefined : "border-t border-app-line"}>
+            <ArticleRow item={item} onOpen={() => openArticle(item)} />
+          </div>
+        )}
+      />
     );
 
   const renderArticlesPanel = (isMobileDrawer: boolean) => (

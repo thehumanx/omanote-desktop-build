@@ -20,6 +20,7 @@ import { HashtagPickerDropdown, useHashtagPicker } from "./HashtagPicker";
 import { EmojiPickerDropdown, useEmojiPicker } from "./EmojiPicker";
 import { readLocalStorage, stringCodec, writeLocalStorage } from "../lib/local-storage";
 import { readComposerDraft, writeComposerDraft } from "../lib/composer-draft";
+import { autoResizeTextArea } from "../lib/auto-resize";
 
 const commands: Array<{ key: DraftMode; label: string }> = [
   { key: "todo", label: "todo" },
@@ -56,12 +57,6 @@ const modeMeta: Record<DraftMode, { label: string; chipClass: string; textClass:
     textClass: "text-app-ink",
   },
 };
-
-function autoResize(element: HTMLTextAreaElement | null) {
-  if (!element) return;
-  element.style.height = "auto";
-  element.style.height = `${element.scrollHeight}px`;
-}
 
 function stripSlashPrefix(value: string) {
   return value.replace(/^\/\s*/, "");
@@ -637,15 +632,15 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
   // Height grows with content (wrapped hashtag/emoji-picker edits included),
   // not just direct typing — resize whenever the lines themselves change.
   useLayoutEffect(() => {
-    autoResize(bookmarkUrlInputRef.current);
+    autoResizeTextArea(bookmarkUrlInputRef.current);
   }, [bookmarkUrl, mode]);
 
   useLayoutEffect(() => {
-    Object.values(todoLineRefs.current).forEach((node) => autoResize(node));
+    Object.values(todoLineRefs.current).forEach((node) => autoResizeTextArea(node));
   }, [todoLines, mode]);
 
   useLayoutEffect(() => {
-    Object.values(eventLineRefs.current).forEach((node) => autoResize(node));
+    Object.values(eventLineRefs.current).forEach((node) => autoResizeTextArea(node));
   }, [eventLines, mode]);
 
   useLayoutEffect(() => {
@@ -1272,13 +1267,13 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
               <textarea
                 ref={(node) => {
                   bookmarkUrlInputRef.current = node;
-                  autoResize(node);
+                  autoResizeTextArea(node);
                 }}
                 rows={1}
                 value={bookmarkUrl}
                 onChange={(event) => {
                   setBookmarkUrl(event.target.value);
-                  autoResize(event.currentTarget);
+                  autoResizeTextArea(event.currentTarget);
                   allowBookmarkBlurRef.current = false;
                 }}
                 onFocus={() => {
@@ -1492,13 +1487,13 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                             eventLineRefs.current[line.id] = node;
                             if (line.id === activeEventLineId) activeEventInputRef.current = node;
                           }
-                          autoResize(node);
+                          autoResizeTextArea(node);
                         }}
                         rows={1}
                         value={line.text}
                         onChange={(event) => {
                           const nextText = event.target.value;
-                          autoResize(event.currentTarget);
+                          autoResizeTextArea(event.currentTarget);
                           if (mode === "todo") {
                             setTodoLines((current) => current.map((currentLine) => (currentLine.id === line.id ? { ...currentLine, text: nextText } : currentLine)));
                           } else {

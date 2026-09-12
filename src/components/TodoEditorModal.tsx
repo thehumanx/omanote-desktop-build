@@ -22,11 +22,7 @@ import { isNewlineShortcutEvent, isSaveShortcutEvent } from "../lib/editor-short
 import { SaveShortcutHint } from "./settings/SaveShortcutHint";
 import { DrawerHeaderRow } from "./DrawerHeaderRow";
 import { Button, TodoCheckmark } from "./ui";
-
-function autoResize(textarea: HTMLTextAreaElement) {
-  textarea.style.height = "auto";
-  textarea.style.height = `${textarea.scrollHeight}px`;
-}
+import { autoResizeTextArea } from "../lib/auto-resize";
 
 const GOOGLE_SYNC_TOOLTIP =
   "Synced with Google Calendar. Editing this here updates that event in place. If it's also edited on Google before the next sync, whichever change syncs last wins — there's no merge of the two.";
@@ -182,7 +178,7 @@ export function TodoEditorModal({
   }, []);
 
   useEffect(() => {
-    if (titleRef.current) autoResize(titleRef.current);
+    if (titleRef.current) autoResizeTextArea(titleRef.current);
   }, [draftTitle]);
 
   const save = () => {

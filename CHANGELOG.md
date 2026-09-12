@@ -4,6 +4,23 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.33.5 [September 12, 2026]
+
+> Swipe anywhere on the page to move between sections, offline work is reliable end to end, and the "Something went wrong" screen after an update is fixed.
+
+- [Fix] Switching accounts no longer shows a flash of the previous account's canvas while the new one loads
+- [Fix] Fixed the "Something went wrong" screen that could appear when moving between pages shortly after an update had shipped. If it does happen, the page now recovers on its own instead of needing a manual reload
+- [Fix] Creating and deleting folders or categories offline now works. A new one appears straight away instead of nothing happening until the network returns, and a deleted one stays deleted after a reload
+- [Fix] Working offline is now reliable. What you write, complete or delete survives closing the app, stays on screen until it syncs, and no longer quietly undoes itself when you reconnect
+- [Add] Swiping left or right anywhere on the page now moves between Canvas, Todos, Notes, Bookmarks and Events — previously only the bottom bar responded to a swipe. Sideways-scrolling things like the week calendar and date strip keep working as before
+- [Fix] Swiping on the Todos page used to cycle through four filters that the screen no longer shows, so most swipes appeared to do nothing. It now switches sections like every other page
+- [Update] On phones, the History filter row now puts search on its own line with the date, view and hide-empty controls together beneath it, instead of stacking all four
+- [Update] Serif text across the app now sets at a consistent weight and tighter spacing, so titles and body copy match instead of the body looking loose beneath the headings
+- [Update] Insights loads faster: it was scanning your whole event history on every visit to calculate something it never showed
+- [Update] Opening the app no longer re-downloads your bookmarks and history every time — a one-off upgrade step from an older version had been running on every launch
+- [Fix] Slow, stuttering scrolling in the Linux desktop app
+- [Fix] Page navigation now shows a loading indicator instead of a blank screen while a section loads
+
 ### v0.33.4 [September 10, 2026]
 
 > A new landing page, new serif typeface, and a lighter touch on type throughout the app.

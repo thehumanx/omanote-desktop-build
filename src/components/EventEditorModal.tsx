@@ -11,11 +11,7 @@ import { parseHashtags, hashtagHighlightSegments, hashtagColor } from "../lib/ha
 import { useUserSettings } from "../contexts/UserSettingsContext";
 import { isNewlineShortcutEvent, isSaveShortcutEvent } from "../lib/editor-shortcuts";
 import { SaveShortcutHint } from "./settings/SaveShortcutHint";
-
-function autoResize(textarea: HTMLTextAreaElement) {
-  textarea.style.height = "auto";
-  textarea.style.height = `${textarea.scrollHeight}px`;
-}
+import { autoResizeTextArea } from "../lib/auto-resize";
 
 function timeToInput(value?: number) {
   if (!value) return "";
@@ -89,11 +85,11 @@ export function EventEditorModal({
   }, []);
 
   useEffect(() => {
-    if (labelRef.current) autoResize(labelRef.current);
+    if (labelRef.current) autoResizeTextArea(labelRef.current);
   }, [label]);
 
   useEffect(() => {
-    if (notesRef.current) autoResize(notesRef.current);
+    if (notesRef.current) autoResizeTextArea(notesRef.current);
   }, [notes]);
 
 

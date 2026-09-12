@@ -7,6 +7,23 @@ import { clientsClaim } from "workbox-core";
 
 declare const self: ServiceWorkerGlobalScope;
 
+// Deliberate: a new worker takes over immediately rather than waiting for every
+// tab to close.
+//
+// The trade-off is that an already-open tab keeps running the *previous* bundle
+// while the new worker's precache no longer holds that bundle's content-hashed
+// chunks. Navigating to a route it hadn't loaded yet then misses the precache,
+// falls through to the network, and 404s — which used to surface as a
+// full-screen "Something went wrong".
+//
+// That is now handled where it belongs, on the import: `lazyWithReload`
+// (src/lib/lazy-with-reload.ts) catches the failed chunk and reloads once, so
+// the tab picks up the current index.html and the current chunk names. Instant
+// activation plus one self-healing reload beats deferring updates until every
+// tab closes, which on a pinned tab can be never.
+//
+// If you ever remove `lazyWithReload`, remove `skipWaiting()` with it — the two
+// are a pair, and instant activation with no recovery path is the original bug.
 self.skipWaiting();
 clientsClaim();
 

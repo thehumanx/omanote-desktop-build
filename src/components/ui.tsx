@@ -512,20 +512,6 @@ export function DrawerSurface({ className, ...props }: React.HTMLAttributes<HTML
   return <section className={cn("rounded-t-app-drawer bg-app-surface-raised shadow-app-drawer", className)} {...props} />;
 }
 
-export function IconButton({ className, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <button
-      type="button"
-      className={cn(
-        "inline-flex h-8 w-8 items-center justify-center rounded-app-field text-app-ink-faint transition-[background-color,color,transform] duration-app-fast ease-app-out hover:bg-app-surface-hover hover:text-app-ink active:translate-y-px active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40",
-        focusClass,
-        className,
-      )}
-      {...props}
-    />
-  );
-}
-
 export function Tooltip({ children, label }: { children: React.ReactNode; label: string }) {
   const [show, setShow] = React.useState(false);
   const [pos, setPos] = React.useState<{ top: number; left: number } | null>(null);

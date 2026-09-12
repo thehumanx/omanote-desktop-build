@@ -4,6 +4,15 @@ import { reportError } from "../lib/error-reporting";
 
 interface Props {
   children: ReactNode;
+  /**
+   * Change this to clear a caught error and re-render `children`.
+   *
+   * Route-level boundaries pass the current pathname. Without it a single
+   * failed screen left the whole app showing the fallback until the user
+   * manually reloaded, because navigating away re-rendered the same boundary
+   * with `error` still set — so "go somewhere else" could never recover.
+   */
+  resetKey?: string;
 }
 
 interface State {
@@ -15,6 +24,12 @@ export class ErrorBoundary extends Component<Props, State> {
 
   static getDerivedStateFromError(error: Error): State {
     return { error };
+  }
+
+  componentDidUpdate(prevProps: Props) {
+    if (this.state.error && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ error: null });
+    }
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {

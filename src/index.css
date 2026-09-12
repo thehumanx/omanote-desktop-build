@@ -347,6 +347,17 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
   font-weight: 400;
 }
 
+/* ...and the same tracking the serif headings get. Solway sets wider than Lato
+   at every size, so without this, pure Serif mode tightened the headings and
+   left the body copy beneath them looking loose by comparison — the pairing
+   only reads as deliberate when both sides are tracked the same.
+   Inherited, so it reaches serif text that carries no weight utility at all.
+   The landing page is unaffected: `.font-serif-heading` declares its own
+   weight and letter-spacing, and sits after `@tailwind utilities`. */
+[data-body-font="serif"] {
+  letter-spacing: -0.02em;
+}
+
 
 @layer components {
   .founder-note-card {

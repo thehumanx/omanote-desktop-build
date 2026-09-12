@@ -18,6 +18,7 @@ import { TodoEditorModal } from "../components/TodoEditorModal";
 import { TodoFolderCard, TodoFolderCountBadge, TodoFolderRow } from "../components/TodoFolderRow";
 import { TodoListRow } from "../components/TodoListRow";
 import { Button, cn, SegmentedPill } from "../components/ui";
+import { VirtualList, type VirtualListHandle } from "../components/VirtualList";
 import { formatCompletedLabel, formatOverdueGroupHeading, formatRelativeGroupHeading, getSeriesListBucket, isClosedSeriesMaster } from "@omanote/shared";
 import { useEdgeSwipeBack } from "../lib/useEdgeSwipeBack";
 import { useHistoryBackClose } from "../lib/useHistoryBackClose";
@@ -31,13 +32,6 @@ import { useIsDesktop, usePersistedFolderSort, usePersistedFolderViewMode } from
 function normalizeTodoFolderName(name: string) {
   return name.trim().toLowerCase();
 }
-
-const todoViews: Array<{ key: TodoFilter; label: string; icon: ReactNode }> = [
-  { key: "today", label: "Today", icon: <Calendar className="h-4 w-4" /> },
-  { key: "overdue", label: "Overdue", icon: <ClockAlert className="h-4 w-4" /> },
-  { key: "upcoming", label: "Later", icon: <CalendarClock className="h-4 w-4" /> },
-  { key: "all", label: "All", icon: <ListChecks className="h-4 w-4" /> },
-];
 
 // The desktop panel collapses today/overdue/upcoming into one "Active" view
 // (grouped internally by day) and "all" becomes "Done" (completed only).
@@ -86,11 +80,13 @@ function TodoExitFrame({
   className,
   isExiting,
   todoId,
+  style,
 }: {
   children: ReactNode;
   className?: string;
   isExiting: boolean;
   todoId?: string;
+  style?: React.CSSProperties;
 }) {
   const setNode = useCallback(
     (node: HTMLDivElement | null) => {
@@ -105,7 +101,7 @@ function TodoExitFrame({
   );
 
   return (
-    <div ref={setNode} data-todo-row-id={todoId} className={className}>
+    <div ref={setNode} data-todo-row-id={todoId} className={className} style={style}>
       {children}
     </div>
   );
@@ -185,6 +181,29 @@ function TodoTabStrip({
   );
 }
 
+/**
+ * The props every section in a stack shares — everything except which todos
+ * it holds and what it's called. Split out so `TodoSectionStack` can forward
+ * them as one object instead of restating twelve props per section.
+ */
+type TodoSectionSharedProps = {
+  focusedTodoId: string | null;
+  completionFilterByTodoId: CompletionFilterByTodoId;
+  uncompletionFilterByTodoId: CompletionFilterByTodoId;
+  uncompletionCompletedLabelByTodoId: CompletedLabelByTodoId;
+  activeFilter: TodoFilter;
+  onToggle: (todo: TodoItem) => void;
+  dispatch: ReturnType<typeof useApp>["dispatch"];
+  onOpenEditor: (todo: TodoItem) => void;
+  highlightQuery?: string | null;
+};
+
+type TodoSectionProps = TodoSectionSharedProps & {
+  title?: string;
+  items: TodoItem[];
+  selectedDateKey: string;
+};
+
 function TodoSection({
   title,
   items,
@@ -198,20 +217,7 @@ function TodoSection({
   dispatch,
   onOpenEditor,
   highlightQuery,
-}: {
-  title?: string;
-  items: TodoItem[];
-  focusedTodoId: string | null;
-  completionFilterByTodoId: CompletionFilterByTodoId;
-  uncompletionFilterByTodoId: CompletionFilterByTodoId;
-  uncompletionCompletedLabelByTodoId: CompletedLabelByTodoId;
-  activeFilter: TodoFilter;
-  selectedDateKey: string;
-  onToggle: (todo: TodoItem) => void;
-  dispatch: ReturnType<typeof useApp>["dispatch"];
-  onOpenEditor: (todo: TodoItem) => void;
-  highlightQuery?: string | null;
-}) {
+}: TodoSectionProps) {
   if (!items.length) return null;
 
   const isExitingTodo = (todo: TodoItem) =>
@@ -233,6 +239,14 @@ function TodoSection({
               key={todo.id}
               todoId={todo.id}
               isExiting={isExitingTodo(todo)}
+              // Rows inside a section stay in normal flow — the completion
+              // animation is a flow-layout height collapse driven by sibling
+              // selectors, so it can't survive absolute positioning. This is
+              // the mitigation that *does* survive it: the box keeps its place
+              // in the flow, the browser just skips rendering its contents
+              // while off-screen. Not applied to an exiting row, whose height
+              // is being animated and must stay real.
+              style={isExitingTodo(todo) ? undefined : { contentVisibility: "auto", containIntrinsicSize: "0 48px" }}
               className={cn(
                 focusedTodoId === todo.id ? "rounded-xl bg-info-surface/60 ring-1 ring-info-line transition duration-300" : "",
                 exitingTodoClassName(todo),
@@ -283,11 +297,82 @@ function TodoTodayEmptyCard({ onAdd }: { onAdd: () => void }) {
   );
 }
 
+/** One entry in a stack: a day's section, or the placeholder shown when today is empty. */
+type TodoStackEntry =
+  | { kind: "section"; key: string; title?: string; items: TodoItem[]; selectedDateKey: string }
+  | { kind: "today-empty"; key: string };
+
+/**
+ * The scrolling body of the todo list, shared by the desktop panel and the
+ * mobile drawer (which render at the same time — CSS hides one, it doesn't
+ * unmount it). These were two ~90-line copies that had already drifted apart
+ * in small ways.
+ *
+ * **Windowed by section, not by todo,** and that's deliberate. The completion
+ * animation is a flow-layout height collapse selected by adjacent-sibling
+ * rules (`.omanote-todo-section-list > * + .omanote-todo-complete-exit` in
+ * index.css). Absolutely positioned rows have no flow and no siblings, so
+ * per-todo windowing would silently delete the animation that makes
+ * completing a todo feel like anything. Sections are the largest unit that
+ * keeps those rules intact, and the realistic heavy workspace is many days
+ * with a few todos each rather than one day with a thousand. Inside a
+ * section, rows use `content-visibility` instead — see `TodoExitFrame`.
+ */
+function TodoSectionStack({
+  entries,
+  shared,
+  listRef,
+  scrollRef,
+  onAddTodo,
+}: {
+  entries: TodoStackEntry[];
+  shared: TodoSectionSharedProps;
+  listRef?: React.RefObject<VirtualListHandle>;
+  /** The screen keeps ownership of the scroll container; this list windows inside it. */
+  scrollRef: React.RefObject<HTMLElement>;
+  onAddTodo: () => void;
+}) {
+  return (
+    <VirtualList
+      ref={listRef}
+      scrollRef={scrollRef}
+      items={entries}
+      getKey={todoStackEntryKey}
+      testId="todo-section-stack"
+      className="omanote-todo-section-stack"
+      // Sections are far fewer and much taller than individual rows, so a
+      // lower threshold and a bigger estimate than the flat artifact lists.
+      threshold={12}
+      estimateSize={220}
+      overscan={4}
+      // Replaces `.omanote-todo-section-stack > * + *`'s 0.75rem, which no
+      // longer matches now that the sections are positioned rather than stacked.
+      gap={12}
+      renderItem={(entry) =>
+        entry.kind === "today-empty" ? (
+          <TodoTodayEmptyCard onAdd={onAddTodo} />
+        ) : (
+          <TodoSection {...shared} title={entry.title} items={entry.items} selectedDateKey={entry.selectedDateKey} />
+        )
+      }
+    />
+  );
+}
+
+/** Module scope for referential stability — VirtualList memoises its key map on it. */
+const todoStackEntryKey = (entry: TodoStackEntry) => entry.key;
+
 export function TodosScreen() {
   const { state, dispatch } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
   const [focusedTodoId, setFocusedTodoId] = useState<string | null>(null);
+  // The desktop panel and the mobile drawer are both mounted at all times
+  // (CSS hides one), so each keeps its own scroll container and list handle.
+  const desktopScrollRef = useRef<HTMLDivElement>(null);
+  const drawerScrollRef = useRef<HTMLDivElement>(null);
+  const desktopStackRef = useRef<VirtualListHandle>(null);
+  const drawerStackRef = useRef<VirtualListHandle>(null);
   const [creating, setCreating] = useState(false);
   // The inline row edit (onStartEdit above) only covers title/due/folder;
   // this opens the full editor (recurrence, reminders) for an existing todo.
@@ -298,8 +383,6 @@ export function TodosScreen() {
   const [uncompletionFilterByTodoId, setUncompletionFilterByTodoId] = useState<CompletionFilterByTodoId>({});
   const [uncompletionCompletedLabelByTodoId, setUncompletionCompletedLabelByTodoId] = useState<CompletedLabelByTodoId>({});
   const prevTodoFilterRef = useRef(state.ui.todoFilter);
-  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
-  const touchAxisRef = useRef<"horizontal" | "vertical" | null>(null);
   const todoFilterRef = useRef(state.ui.todoFilter);
   const completionExitTimersRef = useRef(new Map<string, number>());
   const uncompletionExitTimersRef = useRef(new Map<string, number>());
@@ -361,50 +444,6 @@ export function TodosScreen() {
     prevTodoFilterRef.current = state.ui.todoFilter;
     setTodoViewFading(true);
   }, [state.ui.todoFilter]);
-
-  useEffect(() => {
-    const handleTouchStart = (event: TouchEvent) => {
-      const touch = event.touches[0];
-      if (!touch) return;
-      touchStartRef.current = { x: touch.clientX, y: touch.clientY };
-      touchAxisRef.current = null;
-    };
-    const handleTouchMove = (event: TouchEvent) => {
-      if (!touchStartRef.current) return;
-      if (touchAxisRef.current === "horizontal") { event.preventDefault(); return; }
-      if (touchAxisRef.current === "vertical") return;
-      const touch = event.touches[0];
-      if (!touch) return;
-      const dx = touch.clientX - touchStartRef.current.x;
-      const dy = touch.clientY - touchStartRef.current.y;
-      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
-      touchAxisRef.current = Math.abs(dx) > Math.abs(dy) ? "horizontal" : "vertical";
-      if (touchAxisRef.current === "horizontal") event.preventDefault();
-    };
-    const handleTouchEnd = (event: TouchEvent) => {
-      const start = touchStartRef.current;
-      touchStartRef.current = null;
-      touchAxisRef.current = null;
-      if (!start) return;
-      const touch = event.changedTouches[0];
-      if (!touch) return;
-      const deltaX = touch.clientX - start.x;
-      const deltaY = touch.clientY - start.y;
-      if (Math.abs(deltaX) < 56 || Math.abs(deltaX) <= Math.abs(deltaY)) return;
-      const currentIndex = todoViews.findIndex((v) => v.key === todoFilterRef.current);
-      const length = todoViews.length;
-      const nextIndex = ((currentIndex + (deltaX < 0 ? 1 : -1)) % length + length) % length;
-      dispatch({ type: "ui/set-todo-filter", filter: todoViews[nextIndex]!.key });
-    };
-    window.addEventListener("touchstart", handleTouchStart, { passive: true });
-    window.addEventListener("touchmove", handleTouchMove, { passive: false });
-    window.addEventListener("touchend", handleTouchEnd, { passive: true });
-    return () => {
-      window.removeEventListener("touchstart", handleTouchStart);
-      window.removeEventListener("touchmove", handleTouchMove);
-      window.removeEventListener("touchend", handleTouchEnd);
-    };
-  }, [dispatch]);
 
   useEffect(() => {
     if (!mobileTodosOpen) return;
@@ -827,6 +866,68 @@ export function TodosScreen() {
       }));
   }, [desktopCompletedTodos]);
 
+  // The desktop panel and the mobile drawer render the same two stacks, so
+  // both are built once here rather than inline at each of the four call sites
+  // (which is how the two copies had already drifted apart).
+  const activeStackEntries = useMemo<TodoStackEntry[]>(() => {
+    const entries: TodoStackEntry[] = activeBuckets.overdue.map((group) => ({
+      kind: "section",
+      key: `overdue-${group.dateKey}`,
+      title: formatOverdueGroupHeading(group.dateKey),
+      items: group.items,
+      selectedDateKey: state.ui.selectedDateKey,
+    }));
+    entries.push(
+      activeBuckets.today.length
+        ? { kind: "section", key: "today", title: "Today", items: activeBuckets.today, selectedDateKey: todayKey }
+        : { kind: "today-empty", key: "today-empty" },
+    );
+    for (const group of activeBuckets.later) {
+      entries.push({
+        kind: "section",
+        key: `later-${group.dateKey}`,
+        title: formatRelativeGroupHeading(group.dateKey),
+        items: group.items,
+        selectedDateKey: state.ui.selectedDateKey,
+      });
+    }
+    return entries;
+  }, [activeBuckets, state.ui.selectedDateKey, todayKey]);
+
+  const doneStackEntries = useMemo<TodoStackEntry[]>(
+    () =>
+      doneGroups.map((group) => ({
+        kind: "section",
+        key: `done-${group.dateKey}`,
+        title: formatRelativeGroupHeading(group.dateKey),
+        items: group.items,
+        selectedDateKey: state.ui.selectedDateKey,
+      })),
+    [doneGroups, state.ui.selectedDateKey],
+  );
+
+  /** Which section holds a given todo — the scroll target for a deep link into a windowed stack. */
+  const stackEntryKeyByTodoId = useMemo(() => {
+    const byTodoId = new Map<string, string>();
+    for (const entry of [...activeStackEntries, ...doneStackEntries]) {
+      if (entry.kind !== "section") continue;
+      for (const todo of entry.items) byTodoId.set(todo.id, entry.key);
+    }
+    return byTodoId;
+  }, [activeStackEntries, doneStackEntries]);
+
+  const sharedSectionProps: TodoSectionSharedProps = {
+    focusedTodoId,
+    completionFilterByTodoId,
+    uncompletionFilterByTodoId,
+    uncompletionCompletedLabelByTodoId,
+    activeFilter: state.ui.todoFilter,
+    onToggle: handleToggleTodo,
+    dispatch,
+    onOpenEditor: (todo) => setEditingModalTodoId(todo.id),
+    highlightQuery: todoSearchQuery,
+  };
+
   // Active/Done stays backed by state.ui.todoFilter ("all" == Done, anything
   // else == Active) so focusFilterForTodo deep-links and the exit-fade
   // bookkeeping in handleToggleTodo (keyed off the same value) keep working.
@@ -850,15 +951,25 @@ export function TodosScreen() {
     const highlightTimeout = window.setTimeout(() => {
       setFocusedTodoId((current) => (current === focusedTodoId ? null : current));
     }, 2600);
+    // Two steps, because the stack is windowed by section: bring the
+    // containing section into view first (its rows aren't mounted until it
+    // is), then let the row settle the scroll precisely on the next frame.
+    const sectionKey = stackEntryKeyByTodoId.get(focusedTodoId);
     const scrollTimeout = window.setTimeout(() => {
-      const row = document.querySelector<HTMLElement>(`[data-todo-row-id="${focusedTodoId}"]`);
-      row?.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (sectionKey) {
+        desktopStackRef.current?.scrollToKey(sectionKey);
+        drawerStackRef.current?.scrollToKey(sectionKey);
+      }
+      requestAnimationFrame(() => {
+        const row = document.querySelector<HTMLElement>(`[data-todo-row-id="${focusedTodoId}"]`);
+        row?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
     }, 80);
     return () => {
       window.clearTimeout(highlightTimeout);
       window.clearTimeout(scrollTimeout);
     };
-  }, [focusedTodoId, activeBuckets, doneGroups]);
+  }, [focusedTodoId, activeBuckets, doneGroups, stackEntryKeyByTodoId]);
 
   const noop = useCallback(() => {}, []);
 
@@ -1193,7 +1304,7 @@ export function TodosScreen() {
               </div>
             </div>
 
-            <div className="scrollbar-hide mt-4 min-h-0 flex-1 overflow-y-auto pr-1 pb-24">
+            <div ref={desktopScrollRef} className="scrollbar-hide mt-4 min-h-0 flex-1 overflow-y-auto pr-1 pb-24">
               <div
                 style={{
                   animation: todoViewFading
@@ -1205,60 +1316,13 @@ export function TodosScreen() {
               >
               {desktopTab === "active" ? (
                 drawerPendingTodos.length ? (
-                  <div data-testid="todo-section-stack" className="omanote-todo-section-stack">
-                    {activeBuckets.overdue.map((group) => (
-                      <TodoSection
-                        key={`overdue-${group.dateKey}`}
-                        title={formatOverdueGroupHeading(group.dateKey)}
-                        items={group.items}
-                        focusedTodoId={focusedTodoId}
-                        completionFilterByTodoId={completionFilterByTodoId}
-                        uncompletionFilterByTodoId={uncompletionFilterByTodoId}
-                        uncompletionCompletedLabelByTodoId={uncompletionCompletedLabelByTodoId}
-                        activeFilter={state.ui.todoFilter}
-                        selectedDateKey={state.ui.selectedDateKey}
-                        onToggle={handleToggleTodo}
-                        dispatch={dispatch}
-                        onOpenEditor={(todo) => setEditingModalTodoId(todo.id)}
-                        highlightQuery={todoSearchQuery}
-                      />
-                    ))}
-                    {activeBuckets.today.length ? (
-                      <TodoSection
-                        title="Today"
-                        items={activeBuckets.today}
-                        focusedTodoId={focusedTodoId}
-                        completionFilterByTodoId={completionFilterByTodoId}
-                        uncompletionFilterByTodoId={uncompletionFilterByTodoId}
-                        uncompletionCompletedLabelByTodoId={uncompletionCompletedLabelByTodoId}
-                        activeFilter={state.ui.todoFilter}
-                        selectedDateKey={todayKey}
-                        onToggle={handleToggleTodo}
-                        dispatch={dispatch}
-                        onOpenEditor={(todo) => setEditingModalTodoId(todo.id)}
-                        highlightQuery={todoSearchQuery}
-                      />
-                    ) : (
-                      <TodoTodayEmptyCard onAdd={() => setCreating(true)} />
-                    )}
-                    {activeBuckets.later.map((group) => (
-                      <TodoSection
-                        key={`later-${group.dateKey}`}
-                        title={formatRelativeGroupHeading(group.dateKey)}
-                        items={group.items}
-                        focusedTodoId={focusedTodoId}
-                        completionFilterByTodoId={completionFilterByTodoId}
-                        uncompletionFilterByTodoId={uncompletionFilterByTodoId}
-                        uncompletionCompletedLabelByTodoId={uncompletionCompletedLabelByTodoId}
-                        activeFilter={state.ui.todoFilter}
-                        selectedDateKey={state.ui.selectedDateKey}
-                        onToggle={handleToggleTodo}
-                        dispatch={dispatch}
-                        onOpenEditor={(todo) => setEditingModalTodoId(todo.id)}
-                        highlightQuery={todoSearchQuery}
-                      />
-                    ))}
-                  </div>
+                  <TodoSectionStack
+                    entries={activeStackEntries}
+                    shared={sharedSectionProps}
+                    listRef={desktopStackRef}
+                    scrollRef={desktopScrollRef}
+                    onAddTodo={() => setCreating(true)}
+                  />
                 ) : (
                   <EmptyState
                     className="h-full"
@@ -1271,25 +1335,13 @@ export function TodosScreen() {
                   />
                 )
               ) : desktopCompletedTodos.length ? (
-                <div data-testid="todo-section-stack" className="omanote-todo-section-stack">
-                  {doneGroups.map((group) => (
-                    <TodoSection
-                      key={group.dateKey}
-                      title={formatRelativeGroupHeading(group.dateKey)}
-                      items={group.items}
-                      focusedTodoId={focusedTodoId}
-                      completionFilterByTodoId={completionFilterByTodoId}
-                      uncompletionFilterByTodoId={uncompletionFilterByTodoId}
-                      uncompletionCompletedLabelByTodoId={uncompletionCompletedLabelByTodoId}
-                      activeFilter={state.ui.todoFilter}
-                      selectedDateKey={state.ui.selectedDateKey}
-                      onToggle={handleToggleTodo}
-                      dispatch={dispatch}
-                      onOpenEditor={(todo) => setEditingModalTodoId(todo.id)}
-                      highlightQuery={todoSearchQuery}
-                    />
-                  ))}
-                </div>
+                <TodoSectionStack
+                  entries={doneStackEntries}
+                  shared={sharedSectionProps}
+                  listRef={desktopStackRef}
+                  scrollRef={desktopScrollRef}
+                  onAddTodo={() => setCreating(true)}
+                />
               ) : (
                 <EmptyState className="h-full" title="No completed todos" description="Complete a todo to see it here" />
               )}
@@ -1477,63 +1529,16 @@ export function TodosScreen() {
                   )}
                 </div>
               </div>
-              <div className="scrollbar-hide mt-4 min-h-0 flex-1 overflow-y-auto px-4 pb-16" data-drawer-todos-list>
+              <div ref={drawerScrollRef} className="scrollbar-hide mt-4 min-h-0 flex-1 overflow-y-auto px-4 pb-16" data-drawer-todos-list>
                 {drawerFilter === "active" ? (
                   drawerPendingTodos.length ? (
-                    <div data-testid="todo-section-stack" className="omanote-todo-section-stack">
-                      {activeBuckets.overdue.map((group) => (
-                        <TodoSection
-                          key={`overdue-${group.dateKey}`}
-                          title={formatOverdueGroupHeading(group.dateKey)}
-                          items={group.items}
-                          focusedTodoId={focusedTodoId}
-                          completionFilterByTodoId={completionFilterByTodoId}
-                          uncompletionFilterByTodoId={uncompletionFilterByTodoId}
-                          uncompletionCompletedLabelByTodoId={uncompletionCompletedLabelByTodoId}
-                          activeFilter={state.ui.todoFilter}
-                          selectedDateKey={state.ui.selectedDateKey}
-                          onToggle={handleToggleTodo}
-                          dispatch={dispatch}
-                          onOpenEditor={(t) => setEditingModalTodoId(t.id)}
-                          highlightQuery={todoSearchQuery}
-                        />
-                      ))}
-                      {activeBuckets.today.length ? (
-                        <TodoSection
-                          title="Today"
-                          items={activeBuckets.today}
-                          focusedTodoId={focusedTodoId}
-                          completionFilterByTodoId={completionFilterByTodoId}
-                          uncompletionFilterByTodoId={uncompletionFilterByTodoId}
-                          uncompletionCompletedLabelByTodoId={uncompletionCompletedLabelByTodoId}
-                          activeFilter={state.ui.todoFilter}
-                          selectedDateKey={todayKey}
-                          onToggle={handleToggleTodo}
-                          dispatch={dispatch}
-                          onOpenEditor={(t) => setEditingModalTodoId(t.id)}
-                          highlightQuery={todoSearchQuery}
-                        />
-                      ) : (
-                        <TodoTodayEmptyCard onAdd={() => setCreating(true)} />
-                      )}
-                      {activeBuckets.later.map((group) => (
-                        <TodoSection
-                          key={`later-${group.dateKey}`}
-                          title={formatRelativeGroupHeading(group.dateKey)}
-                          items={group.items}
-                          focusedTodoId={focusedTodoId}
-                          completionFilterByTodoId={completionFilterByTodoId}
-                          uncompletionFilterByTodoId={uncompletionFilterByTodoId}
-                          uncompletionCompletedLabelByTodoId={uncompletionCompletedLabelByTodoId}
-                          activeFilter={state.ui.todoFilter}
-                          selectedDateKey={state.ui.selectedDateKey}
-                          onToggle={handleToggleTodo}
-                          dispatch={dispatch}
-                          onOpenEditor={(t) => setEditingModalTodoId(t.id)}
-                          highlightQuery={todoSearchQuery}
-                        />
-                      ))}
-                    </div>
+                    <TodoSectionStack
+                      entries={activeStackEntries}
+                      shared={sharedSectionProps}
+                      listRef={drawerStackRef}
+                      scrollRef={drawerScrollRef}
+                      onAddTodo={() => setCreating(true)}
+                    />
                   ) : (
                     <EmptyState
                       className="h-full"
@@ -1546,25 +1551,13 @@ export function TodosScreen() {
                     />
                   )
                 ) : desktopCompletedTodos.length ? (
-                  <div data-testid="todo-section-stack" className="omanote-todo-section-stack">
-                    {doneGroups.map((group) => (
-                      <TodoSection
-                        key={group.dateKey}
-                        title={formatRelativeGroupHeading(group.dateKey)}
-                        items={group.items}
-                        focusedTodoId={focusedTodoId}
-                        completionFilterByTodoId={completionFilterByTodoId}
-                        uncompletionFilterByTodoId={uncompletionFilterByTodoId}
-                        uncompletionCompletedLabelByTodoId={uncompletionCompletedLabelByTodoId}
-                        activeFilter={state.ui.todoFilter}
-                        selectedDateKey={state.ui.selectedDateKey}
-                        onToggle={handleToggleTodo}
-                        dispatch={dispatch}
-                        onOpenEditor={(t) => setEditingModalTodoId(t.id)}
-                        highlightQuery={todoSearchQuery}
-                      />
-                    ))}
-                  </div>
+                  <TodoSectionStack
+                    entries={doneStackEntries}
+                    shared={sharedSectionProps}
+                    listRef={drawerStackRef}
+                    scrollRef={drawerScrollRef}
+                    onAddTodo={() => setCreating(true)}
+                  />
                 ) : (
                   <EmptyState
                     className="h-full"

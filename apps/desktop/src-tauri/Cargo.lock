@@ -2571,7 +2571,7 @@ dependencies = [
 
 [[package]]
 name = "omanote-desktop"
-version = "0.33.1"
+version = "0.33.5"
 dependencies = [
  "libc",
  "serde",

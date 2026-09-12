@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useState, useId, type CSSProperties, type ComponentType } from "react";
-import { Bookmark, CalendarDays, CheckSquare, FileText, Info, Repeat2 } from "lucide-react";
+import { Bookmark, CalendarDays, CheckSquare, FileText, Info } from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useLocalInsights } from "../app/insights-local";
@@ -387,9 +387,9 @@ function SavesBySourceCard({
 
 // ─── Heatmap tooltip ─────────────────────────────────────────────────────────
 
-type HeatmapBreakdown = { todo: number; note: number; bookmark: number; event: number; routine: number };
+type HeatmapBreakdown = { todo: number; note: number; bookmark: number; event: number };
 
-const EMPTY_HEATMAP_BREAKDOWN: HeatmapBreakdown = { todo: 0, note: 0, bookmark: 0, event: 0, routine: 0 };
+const EMPTY_HEATMAP_BREAKDOWN: HeatmapBreakdown = { todo: 0, note: 0, bookmark: 0, event: 0 };
 
 type HeatmapTooltipState = {
   dateKey: string;
@@ -433,7 +433,6 @@ const ARTIFACT_ROWS: { key: keyof HeatmapBreakdown; label: string; Icon: Compone
   { key: "note",     label: "Notes",     Icon: FileText },
   { key: "bookmark", label: "Bookmarks", Icon: Bookmark },
   { key: "event",    label: "Events",    Icon: CalendarDays },
-  { key: "routine",  label: "Routines",  Icon: Repeat2 },
 ];
 
 function HeatmapTooltip({ dateKey, clientX, clientY, count, breakdown }: HeatmapTooltipState) {
@@ -1112,7 +1111,7 @@ export function InsightsScreen() {
     state.noteFolders,
     state.bookmarkCategories,
   );
-  const habits = useQuery(api.insights.getHabitInsights, { windowStart });
+  const streak = useQuery(api.insights.getActivityStreak, { windowStart });
 
   const hasComp = comparison !== undefined && comparison !== null;
   const dRate = hasComp && productivity ? productivity.completionRate - comparison.completionRate : null;
@@ -1179,7 +1178,7 @@ export function InsightsScreen() {
       <div className="flex-1 overflow-y-auto">
         <div className="space-y-6 px-0 py-4 pb-24 md:px-4 md:py-6 md:pb-28">
           <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            {productivity === undefined || habits === undefined ? (
+            {productivity === undefined || streak === undefined ? (
               <>
                 <Sk className="h-28" /><Sk className="h-28" /><Sk className="h-28" /><Sk className="h-28" />
               </>
@@ -1194,7 +1193,7 @@ export function InsightsScreen() {
                 </div>
                 <div className="rounded-app-card bg-app-surface p-4 border border-app-line">
                   <p className="text-xs text-app-ink-faint">Active streak</p>
-                  <p className="mt-1 text-2xl font-bold tabular-nums text-app-ink">{habits.activeDayStreak}d</p>
+                  <p className="mt-1 text-2xl font-bold tabular-nums text-app-ink">{streak.activeDayStreak}d</p>
                   <p className="mt-1 text-xs text-app-ink-faint">consecutive active days</p>
                 </div>
                 <div className="rounded-app-card bg-app-surface p-4 border border-app-line">

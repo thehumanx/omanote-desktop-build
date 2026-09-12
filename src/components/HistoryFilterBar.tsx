@@ -80,67 +80,73 @@ export function HistoryFilterBar({
         ) : null}
       </div>
 
-      <div className="relative shrink-0" ref={pickerRef}>
-        <button
-          type="button"
-          aria-expanded={pickerOpen}
-          onClick={() => setPickerOpen((open) => !open)}
-          className="flex h-9 items-center gap-1.5 rounded-app-chip border border-app-line bg-app-surface px-3 text-sm font-medium text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink"
-        >
-          <CalendarDays className="h-4 w-4" />
-          {dateFilterKey ? formatDateFilterLabel(dateFilterKey, todayKey) : "All dates"}
-          {dateFilterKey ? (
-            <span
-              role="button"
-              tabIndex={0}
-              aria-label="Clear date filter"
-              onClick={(event) => {
-                event.stopPropagation();
-                onSelectDateFilter(null);
-              }}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter" && event.key !== " ") return;
-                event.preventDefault();
-                event.stopPropagation();
-                onSelectDateFilter(null);
-              }}
-              className="-mr-1 flex h-4 w-4 items-center justify-center rounded-full text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-            >
-              <X className="h-3 w-3" />
-            </span>
+      {/* Second row on mobile: search gets a line of its own, everything else
+          shares the next one. `sm:contents` dissolves this wrapper once there's
+          room for the whole bar on one line, so the desktop layout is
+          unchanged rather than being a second thing to keep in sync. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5 sm:contents">
+        <div className="relative shrink-0" ref={pickerRef}>
+          <button
+            type="button"
+            aria-expanded={pickerOpen}
+            onClick={() => setPickerOpen((open) => !open)}
+            className="flex h-9 items-center gap-1.5 rounded-app-chip border border-app-line bg-app-surface px-3 text-sm font-medium text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink"
+          >
+            <CalendarDays className="h-4 w-4" />
+            {dateFilterKey ? formatDateFilterLabel(dateFilterKey, todayKey) : "All dates"}
+            {dateFilterKey ? (
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label="Clear date filter"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSelectDateFilter(null);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" && event.key !== " ") return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onSelectDateFilter(null);
+                }}
+                className="-mr-1 flex h-4 w-4 items-center justify-center rounded-full text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
+              >
+                <X className="h-3 w-3" />
+              </span>
+            ) : null}
+          </button>
+          {pickerOpen ? (
+            <div className="absolute left-0 top-full z-app-overlay mt-2">
+              <HistoryDatePicker
+                selectedDateKey={dateFilterKey ?? maxDateKey}
+                minDateKey={minDateKey}
+                maxDateKey={maxDateKey}
+                datesWithContent={datesWithContent}
+                onSelect={(dateKey) => {
+                  onSelectDateFilter(dateKey);
+                  setPickerOpen(false);
+                }}
+                onClose={() => setPickerOpen(false)}
+              />
+            </div>
           ) : null}
-        </button>
-        {pickerOpen ? (
-          <div className="absolute left-0 top-full z-app-overlay mt-2">
-            <HistoryDatePicker
-              selectedDateKey={dateFilterKey ?? maxDateKey}
-              minDateKey={minDateKey}
-              maxDateKey={maxDateKey}
-              datesWithContent={datesWithContent}
-              onSelect={(dateKey) => {
-                onSelectDateFilter(dateKey);
-                setPickerOpen(false);
-              }}
-              onClose={() => setPickerOpen(false)}
-            />
-          </div>
-        ) : null}
+        </div>
+
+        <SegmentedPill
+          ariaLabel="Show all history or canvas pages only"
+          activeKey={pagesOnly ? "pages" : "all"}
+          onChange={(key) => onPagesOnlyChange(key === "pages")}
+          items={[
+            { key: "all", label: "All" },
+            { key: "pages", label: "Pages only" },
+          ]}
+        />
+
+        <label className="flex shrink-0 items-center gap-2 text-sm text-app-ink-muted">
+          Hide empty days
+          <Switch checked={hideEmptyDays} onCheckedChange={onHideEmptyDaysChange} />
+        </label>
       </div>
-
-      <SegmentedPill
-        ariaLabel="Show all history or canvas pages only"
-        activeKey={pagesOnly ? "pages" : "all"}
-        onChange={(key) => onPagesOnlyChange(key === "pages")}
-        items={[
-          { key: "all", label: "All" },
-          { key: "pages", label: "Pages only" },
-        ]}
-      />
-
-      <label className="flex shrink-0 items-center gap-2 text-sm text-app-ink-muted">
-        Hide empty days
-        <Switch checked={hideEmptyDays} onCheckedChange={onHideEmptyDaysChange} />
-      </label>
     </div>
   );
 }

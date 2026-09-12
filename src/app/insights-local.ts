@@ -545,7 +545,6 @@ export function useLocalInsights(
       note: number;
       bookmark: number;
       event: number;
-      routine: number;
     };
     const byDate: Record<string, { count: number; breakdown: HeatmapBreakdown }> = {};
     for (const item of rawData.history) {
@@ -554,7 +553,7 @@ export function useLocalInsights(
       if (!byDate[key]) {
         byDate[key] = {
           count: 0,
-          breakdown: { todo: 0, note: 0, bookmark: 0, event: 0, routine: 0 },
+          breakdown: { todo: 0, note: 0, bookmark: 0, event: 0 },
         };
       }
       byDate[key].count++;

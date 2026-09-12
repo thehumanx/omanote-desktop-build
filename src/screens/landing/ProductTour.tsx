@@ -269,10 +269,11 @@ function useElementHeight(ref: React.RefObject<HTMLElement>, ready: boolean, fal
 /**
  * A step arrow inside the tooltip.
  *
- * Not `IconButton`: that primitive is painted for app surfaces (`text-app-ink-faint`,
- * a grey hover fill), and the tooltip is brand green. This inherits the card's
- * own ink instead and uses opacity for its states, so it stays legible on the
- * green without hard-coding a second colour.
+ * Deliberately local rather than a shared primitive: the shared icon buttons are
+ * painted for app surfaces (`text-app-ink-faint`, a grey hover fill) and this
+ * tooltip is brand green. It inherits the card's own ink instead and uses
+ * opacity for its states, so it stays legible on the green without hard-coding
+ * a second colour.
  */
 function TourArrow({
   label,
@@ -354,12 +355,9 @@ function TourStepList() {
 
 export function ProductTour({
   cta,
-  heroExtras,
   onActiveChange,
 }: {
   cta: ReactNode;
-  /** Shown under the hero copy on compact screens only — see the hero block. */
-  heroExtras?: ReactNode;
   /** Fires when the tour takes over the screen, so the page nav can get out of the way. */
   onActiveChange?: (active: boolean) => void;
 }) {
@@ -614,14 +612,6 @@ export function ProductTour({
           }}
         >
           <LandingHeroCopy headingClassName="text-[36px] sm:text-[44px] lg:text-[56px]" />
-          {/* The tour holds its CTA back until it has explained itself, which
-              works on a desktop screen that shows the whole hero at once. On a
-              phone that would mean no way in above the fold, so the compact
-              layout keeps one here. `pointer-events-auto` because the hero
-              wrapper turns them off for the copy. */}
-          {heroExtras ? (
-            <div className="pointer-events-auto mt-8 lg:hidden">{heroExtras}</div>
-          ) : null}
         </div>
 
         {/* The preview, pinned and clipped to the viewport. Scale and offset

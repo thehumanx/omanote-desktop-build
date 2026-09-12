@@ -120,3 +120,19 @@ export async function pickDefaultSlug(ctx: QueryCtx, name: string) {
   if (!slug) return undefined;
   return (await isShareIdentifierTaken(ctx, slug)) ? undefined : slug;
 }
+
+/**
+ * A short, unguessable public identifier for a share.
+ *
+ * The alphabet omits the characters people confuse when reading a link aloud or
+ * off a screen — `0`/`O`, `1`/`l`/`I` — because these end up in URLs that get
+ * typed by hand.
+ *
+ * Was copy-pasted byte-identically into all four share modules.
+ */
+export function generateShareCode(): string {
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => chars[b % chars.length]).join("");
+}

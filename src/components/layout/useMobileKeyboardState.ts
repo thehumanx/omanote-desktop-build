@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { isEditableElement } from "../../lib/editable-target";
 
 const MOBILE_MEDIA_QUERY = "(max-width: 767px)";
 const DEFAULT_KEYBOARD_THRESHOLD_PX = 100;
@@ -11,35 +12,6 @@ type MobileKeyboardState = {
   focusedEditable: boolean;
   focusedNavSearchInput: boolean;
 };
-
-const nonTextInputTypes = new Set([
-  "button",
-  "checkbox",
-  "color",
-  "file",
-  "hidden",
-  "image",
-  "radio",
-  "range",
-  "reset",
-  "submit",
-]);
-
-function isEditableTarget(element: Element | null): element is HTMLElement {
-  if (!(element instanceof HTMLElement)) return false;
-
-  if (element instanceof HTMLTextAreaElement) {
-    return !element.disabled && !element.readOnly;
-  }
-
-  if (element instanceof HTMLInputElement) {
-    if (element.disabled || element.readOnly) return false;
-    return !nonTextInputTypes.has(element.type.toLowerCase());
-  }
-
-  if (element.isContentEditable) return true;
-  return element.getAttribute("role") === "textbox";
-}
 
 function matchesMobileViewport() {
   if (typeof window === "undefined") return false;
@@ -74,7 +46,7 @@ export function useMobileKeyboardState(thresholdPx = DEFAULT_KEYBOARD_THRESHOLD_
       const isMobileViewport = matchesMobileViewport();
       const viewportHeight = readViewportHeight();
       const activeElement = document.activeElement;
-      const focusedEditable = isEditableTarget(activeElement);
+      const focusedEditable = isEditableElement(activeElement);
       const focusedNavSearchInput =
         activeElement instanceof HTMLElement && activeElement.dataset.omanoteNavSearchInput === "true";
 

@@ -1,7 +1,7 @@
 import { useContext, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import bundledChangelogMarkdown from "../../CHANGELOG.md?raw";
-import { CHANGELOG_TABS, type ChangelogProduct } from "../components/ChangelogProductTabs";
+import { CHANGELOG_TABS, type ChangelogProduct } from "../content/changelog-tabs";
 import { SegmentedPill } from "../components/ui";
 import { useTopChrome } from "../components/layout/useTopChrome";
 import { parseLatestVersion } from "../lib/update-checker";

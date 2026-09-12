@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useApp } from "../../app/AppProvider";
 import { SeoHead } from "../../seo/SeoHead";
 import { getPageTitleLabel } from "./pageTitle";
@@ -18,6 +18,8 @@ import { UpdateModal } from "../UpdateModal";
 import { OfflineStatusBanner } from "../OfflineStatusBanner";
 import { CookieNotice } from "../CookieNotice";
 import { useMobileKeyboardState } from "./useMobileKeyboardState";
+import { useHorizontalSwipe } from "../../lib/useHorizontalSwipe";
+import { getNavRouteIndex, getWrappedNavRoutePath } from "./navRoutes";
 import { useGlobalCaptureShortcut } from "./useGlobalCaptureShortcut";
 import { useGlobalNavShortcuts } from "./useGlobalNavShortcuts";
 import { ProfileMenuButton } from "./ProfileMenuButton";
@@ -42,6 +44,8 @@ export function isChromelessRoute(pathname: string): boolean {
 
 export function AppShell() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const mainRef = useRef<HTMLElement>(null);
   const {
     state: {
       ui: { notesDrawerOpen },
@@ -82,6 +86,27 @@ export function AppShell() {
   useGlobalNavShortcuts();
   const { zoomPercent, indicatorVisible } = useContentZoom();
   const hideBottomNavForKeyboard = mobileKeyboard.isMobileViewport && mobileKeyboard.keyboardOpen;
+
+  // Swiping the page body switches tabs, the same way swiping the bottom nav
+  // already did — so the gesture works where the thumb already is instead of
+  // only on the pill. Mobile only; on desktop a trackpad's horizontal scroll
+  // would read as a swipe and navigate under you.
+  //
+  // `skipScrollableX` is what makes this safe to put over every screen: the
+  // swipe calls preventDefault on horizontal moves, so without it the tab
+  // strips, the history date rail and the week calendar would all stop
+  // scrolling sideways. Drawers and modals are portalled to document.body, so
+  // they're outside this listener entirely and need no special case.
+  useHorizontalSwipe(
+    mainRef,
+    (direction) => {
+      const index = getNavRouteIndex(location.pathname);
+      if (index < 0) return;
+      navigate(getWrappedNavRoutePath(index + (direction === "next" ? 1 : -1)));
+    },
+    mobileKeyboard.isMobileViewport && !mobileKeyboard.keyboardOpen,
+    { skipScrollableX: true, skipWithin: "[data-omanote-swipe-owner]" },
+  );
   const workspaceHeight =
     mobileKeyboard.isMobileViewport && mobileKeyboard.keyboardOpen && mobileKeyboard.viewportHeight > 0
       ? `calc(${mobileKeyboard.viewportHeight}px)`
@@ -221,6 +246,7 @@ export function AppShell() {
         <OfflineStatusBanner />
         <UpdateModal />
         <main
+          ref={mainRef}
           className={[
             "box-border mx-auto flex min-h-0 w-full flex-1 flex-col transform-gpu",
             // Every route shares one 1024px content column (Explore opts out

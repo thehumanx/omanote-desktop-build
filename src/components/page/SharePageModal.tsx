@@ -13,12 +13,8 @@ import { pageDocToShareBlocks } from "../../lib/page-doc";
 import { publishBlockImages, unpublishPageImages, type PublishedImage } from "../../lib/page-images";
 import { useAuth } from "@clerk/react";
 import { useEncryption } from "../../contexts/EncryptionContext";
+import { buildShareUrl, SHARE_DOMAIN } from "../../lib/share-url";
 
-const DOMAIN = "omanote.com";
-
-function buildShareUrl(codeOrSlug: string) {
-  return `https://${DOMAIN}/s/${codeOrSlug}`;
-}
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -234,7 +230,7 @@ export function SharePageModal({
 
             <ShareEncryptionNotice noun="page" />
 
-            {share ? <ShareLinkMetaEditor domain={DOMAIN} {...meta} /> : null}
+            {share ? <ShareLinkMetaEditor domain={SHARE_DOMAIN} {...meta} /> : null}
           </div>
         ) : (
           <p className="text-xs text-app-ink-faint">

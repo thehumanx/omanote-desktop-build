@@ -23,6 +23,49 @@ Each entry is one of:
 - **Renamed** `Component.propName` → `Component.newPropName`. <why>. <migration note>.
 ```
 
+## 2026-09-12
+
+- **Added** `[data-body-font="serif"] { letter-spacing: -0.02em }`
+  (`src/index.css`). Serif *body* text now tracks the same as serif headings,
+  which already set `-0.02em`. Previously only the headings tightened, so pure
+  Serif mode left the body copy beneath them looking loose. Inherited from the
+  attribute host, so it reaches serif text carrying no weight utility; the
+  neighbouring `font-weight: 400` rule still enumerates
+  `.font-medium`/`.font-semibold`/`.font-bold` because it exists to override
+  them. Landing page unaffected — `.font-serif-heading` and
+  `.omanote-preview-type` declare their own weight and tracking.
+- **Added** `VirtualList` (`src/components/VirtualList.tsx`) — windowed
+  rendering for long lists, on `@tanstack/react-virtual`. Renders every row
+  unchanged below `threshold` (60). Note that windowing breaks
+  adjacent-sibling CSS (`space-y-*`, `divide-y`, `> * + *`) and flow-layout
+  animations; see AGENTS.md "Long lists".
+- **Added** `HorizontalSwipeOptions` on `useHorizontalSwipe`
+  (`src/lib/useHorizontalSwipe.ts`) — `skipWithin` and `skipScrollableX`, both
+  off by default so existing call sites are unchanged. Needed by the
+  page-wide nav swipe in `AppShell`, which calls `preventDefault` on
+  horizontal moves and would otherwise freeze every horizontal scroller
+  beneath it.
+- **Removed** `IconButton` (`src/components/ui.tsx`). Zero JSX usages anywhere
+  in the app; the only mention was a comment in `ProductTour.tsx` explaining
+  why it was deliberately *not* used there. A primitive nothing renders is a
+  trap — the next person reaches for it, finds it unstyled for their surface,
+  and either fights it or quietly forks it. Migration: none needed; style icon
+  buttons per surface, as every existing call site already did.
+- **Added** `src/lib/editable-target.ts` — `isEditableTarget(eventTarget)` and
+  `isEditableElement(element)`. Replaces four local copies (`ToastHost`,
+  `useGlobalCaptureShortcut`, `useGlobalNavShortcuts`,
+  `useMobileKeyboardState`) that had drifted into **three different
+  definitions** of "the user is typing". Now unified on the strictest reading:
+  ancestor-walking, `[role="textbox"]`-aware, and `disabled`/`readOnly`-aware.
+  Behaviour change: global shortcuts are now correctly suppressed inside
+  `[role="textbox"]` and nested contenteditable, where they previously fired
+  mid-sentence.
+- **Added** `src/lib/share-url.ts` — `buildShareUrl()` and `SHARE_DOMAIN`.
+  Replaces four identical local `buildShareUrl` helpers and three separate
+  `const DOMAIN = "omanote.com"` declarations.
+- **Added** `src/lib/auto-resize.ts` — `autoResizeTextArea()`. Replaces five
+  copies of the same grow-to-fit textarea helper.
+
 ## 2026-09-10
 
 - **Removed** `.font-serif-heading-smooth` (`src/index.css`). It set

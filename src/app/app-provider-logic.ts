@@ -128,3 +128,128 @@ export function shouldSyncRss({
 }) {
   return rssReaderEnabled || pathname === "/reader" || pathname.startsWith("/reader/");
 }
+
+/** Where a todo should be filed, once local state and the server have both had a say. */
+export type ResolvedTodoFolder = { folderId: string | undefined; folderName: string | undefined };
+
+/**
+ * Decides which folder a new todo belongs to, creating one server-side if needed.
+ *
+ * The `folderId === undefined` result is the important one: it means "the server
+ * should resolve this by name". `createTodo` accepts `folderName` and calls
+ * `ensureTodoFolder`, and the `todo/create` outbox payload carries it too, so a
+ * name-only result still produces the right folder once the queue drains.
+ *
+ * That is what makes this survive being offline. Previously the server create
+ * was allowed to reject out of this function, and every caller only wrapped
+ * `createTodo` in a try/catch — so the throw skipped the queueing fallback
+ * entirely and the todo was lost, not just the folder.
+ *
+ * `encryptName` must return the *same* ciphertext for the same name within a
+ * session. The server dedupes folders by the encrypted value, so a fresh IV per
+ * call would make each offline todo look like it wanted a brand-new folder.
+ */
+export async function resolveTodoFolder(
+  deps: {
+    folders: readonly { id: string; name: string }[];
+    inflight: Map<string, Promise<ResolvedTodoFolder>>;
+    createFolder: (encryptedName: string, icon?: string) => Promise<string>;
+    encryptName: (name: string) => Promise<string>;
+    defaultFolderName: string;
+  },
+  folderId?: string,
+  folderName?: string,
+  folderIcon?: string,
+): Promise<ResolvedTodoFolder> {
+  if (folderId) return { folderId, folderName };
+
+  const trimmed = folderName?.trim() || deps.defaultFolderName;
+  const key = trimmed.toLowerCase();
+
+  const existing = deps.folders.find((folder) => folder.name.toLowerCase() === key);
+  if (existing) {
+    // A folder created offline has only a local id, which the server would
+    // reject as a foreign key. Send the name instead and let `ensureTodoFolder`
+    // resolve it to whatever row the queued create produces.
+    return isLocalFolderId(existing.id)
+      ? { folderId: undefined, folderName: existing.name }
+      : { folderId: existing.id, folderName: existing.name };
+  }
+
+  const inflight = deps.inflight.get(key);
+  if (inflight) return inflight;
+
+  const promise = (async (): Promise<ResolvedTodoFolder> => {
+    try {
+      const created = await deps.createFolder(await deps.encryptName(trimmed), folderIcon);
+      return { folderId: created, folderName: trimmed };
+    } catch {
+      return { folderId: undefined, folderName: trimmed };
+    } finally {
+      deps.inflight.delete(key);
+    }
+  })();
+
+  deps.inflight.set(key, promise);
+  return promise;
+}
+
+/**
+ * Memoises folder-name encryption by lowercased name.
+ *
+ * `encryptString` prepends a fresh random IV, so encrypting "Trip" twice yields
+ * two unrelated strings. The server dedupes folders by `nameLower` on the
+ * *encrypted* value, so without this a user who creates three todos in a new
+ * folder while offline gets three identical-looking folders once the queue
+ * drains — each todo having asked for a folder the server couldn't recognise as
+ * one it had already made.
+ *
+ * Rejections are evicted so a transient failure doesn't poison the name.
+ */
+export function createNameEncryptionCache(encrypt: (value: string) => Promise<string>) {
+  const cache = new Map<string, Promise<string>>();
+  return (name: string) => {
+    const key = name.toLowerCase();
+    const cached = cache.get(key);
+    if (cached) return cached;
+    const promise = encrypt(name).catch((error) => {
+      cache.delete(key);
+      throw error;
+    });
+    cache.set(key, promise);
+    return promise;
+  };
+}
+
+/**
+ * Prefix for folder ids minted on the client before the server has seen them.
+ *
+ * Convex mints `_id` server-side and Dexie uses it as the primary key, and the
+ * folder tables carry no `clientKey` column to reconcile against — so an
+ * offline-created folder has to live under a temporary id until the real one
+ * arrives. Recognisable so it can never be sent to the server as a foreign key.
+ */
+const LOCAL_FOLDER_ID_PREFIX = "localfolder_";
+
+export function isLocalFolderId(id: string): boolean {
+  return id.startsWith(LOCAL_FOLDER_ID_PREFIX);
+}
+
+export function newLocalFolderId(): string {
+  return `${LOCAL_FOLDER_ID_PREFIX}${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+}
+
+/**
+ * Whether a folder-create failure is just "that name is already taken".
+ *
+ * The create mutations throw on a duplicate name, which is correct for someone
+ * pressing "create" twice but wrong for an outbox retry: a create that landed
+ * but whose acknowledgement was lost would throw here, and the queue would
+ * classify it as rejected and discard it with an error toast. Since folder
+ * names are unique per user, "already exists" on a retry means the work is
+ * done.
+ */
+export function isDuplicateFolderError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return /already exists/i.test(message);
+}

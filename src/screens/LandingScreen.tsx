@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { SignInButton } from "@clerk/react";
 import { CookieNotice } from "../components/CookieNotice";
-import { CheckSquare, Zap, MousePointerClick, Lock, Puzzle, Monitor, ChevronDown, Layers, Hash, RefreshCw, CalendarDays, LayoutDashboard, Bell, Share2, Download, Image as ImageIcon } from "lucide-react";
+import { Zap, MousePointerClick, Lock, Puzzle, Monitor, ChevronDown, Layers, Hash, RefreshCw, CalendarDays, LayoutDashboard, Bell, Share2, Download, Image as ImageIcon } from "lucide-react";
 import changelogMarkdown from "../../CHANGELOG.md?raw";
 import { SeoHead } from "../seo/SeoHead";
 import { color } from "../design-system/tokens";
@@ -268,28 +268,8 @@ export function LandingScreen() {
 
       <main className="flex-1">
         {/* Hero. The pinned product tour owns the hero copy at every width and
-            reveals the main CTA only once it has explained itself. That works
-            on a desktop screen, but on a phone it would mean no way in above
-            the fold — so these two ride along in the tour's hero, where it
-            shows them on compact screens only. */}
-        <ProductTour
-          cta={<JournalCta label="Open your canvas. It's free" />}
-          onActiveChange={setTourActive}
-          heroExtras={
-            <div className="flex flex-wrap justify-center gap-3">
-              <JournalCta label="Open your canvas. It's free" />
-              <a
-                href="https://omanote.com/s/FeUM44Rd"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-xl border border-app-line bg-app-surface px-4 py-2.5 text-sm font-medium text-app-ink-muted hover:border-app-line-strong hover:text-app-ink transition-colors duration-app-fast ease-app-out"
-              >
-                <CheckSquare className="h-4 w-4" />
-                View roadmap
-              </a>
-            </div>
-          }
-        />
+            reveals the main CTA only once it has explained itself. */}
+        <ProductTour cta={<JournalCta label="Open your canvas. It's free" />} onActiveChange={setTourActive} />
 
         {/* Offerings */}
         <section id="offerings" className="border-t border-app-line">

@@ -17,6 +17,7 @@ import { ExpandableSearch } from "../components/ExpandableSearch";
 import { matchesQuery, normalizeSearchQuery } from "../lib/search-match";
 import { DrawerHeaderRow } from "../components/DrawerHeaderRow";
 import { Button, SegmentedPill, TodoCheckmark } from "../components/ui";
+import { VirtualList, type VirtualListHandle } from "../components/VirtualList";
 import { handlePasteAsLink } from "../lib/link-utils";
 import { useUserSettings } from "../contexts/UserSettingsContext";
 import { isNewlineShortcutEvent, isSaveShortcutEvent } from "../lib/editor-shortcuts";
@@ -24,6 +25,7 @@ import { SaveShortcutHint } from "../components/settings/SaveShortcutHint";
 import { HashtagPickerDropdown, useHashtagPicker } from "../components/HashtagPicker";
 import { EmojiPickerDropdown, useEmojiPicker } from "../components/EmojiPicker";
 import { enumCodec, readLocalStorage, writeLocalStorage } from "../lib/local-storage";
+import { autoResizeTextArea } from "../lib/auto-resize";
 
 type EventView = "week" | "timeline";
 const EVENT_VIEW_KEY = "event-view";
@@ -131,11 +133,6 @@ function CalendarTodoRow({
   );
 }
 
-function autoResize(textarea: HTMLTextAreaElement) {
-  textarea.style.height = "auto";
-  textarea.style.height = `${textarea.scrollHeight}px`;
-}
-
 function formatDateLabel(dateKey: string, todayKey: string): string {
   if (dateKey === todayKey) return "Today";
   const date = new Date(`${dateKey}T00:00:00`);
@@ -181,6 +178,7 @@ function TimelineView({
   onDeleteTodoEvent,
   onLogEvent,
   highlightQuery,
+  scrollRef,
 }: {
   events: EventItem[];
   todayKey: string;
@@ -190,7 +188,10 @@ function TimelineView({
   onDeleteTodoEvent: (todoId: string) => void;
   onLogEvent: () => void;
   highlightQuery?: string | null;
+  /** The screen owns the scroll container; the timeline windows inside it. */
+  scrollRef: React.RefObject<HTMLElement>;
 }) {
+  const listRef = useRef<VirtualListHandle>(null);
   const dateGroups = useMemo(() => {
     const byDate = new Map<string, EventItem[]>();
     for (const event of events) {
@@ -224,19 +225,45 @@ function TimelineView({
     return groups;
   }, [events, todayKey]);
 
+  // Scrolling to a deep-linked event lives here rather than in EventScreen
+  // because this is where the day grouping is: the timeline is windowed by
+  // day, so the day has to come into view before its rows exist to scroll to.
+  useEffect(() => {
+    if (!focusedEventId) return;
+    const groupKey = dateGroups.find((group) => group.events.some((event) => event.id === focusedEventId))?.dateKey;
+    if (groupKey) listRef.current?.scrollToKey(groupKey);
+    const frame = requestAnimationFrame(() => {
+      const row = document.querySelector(`[data-event-row-id="${focusedEventId}"]`);
+      row?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [focusedEventId, dateGroups]);
+
   if (dateGroups.length === 0) {
     return <p className="py-12 text-center text-sm text-app-ink-faint">No events yet</p>;
   }
 
   return (
-    <div className="w-full min-w-0 pb-4">
-      {dateGroups.map(({ dateKey, events: dayEvents }, groupIndex) => {
+    <VirtualList
+      ref={listRef}
+      scrollRef={scrollRef}
+      items={dateGroups}
+      getKey={eventDateGroupKey}
+      className="w-full min-w-0 pb-4"
+      // No gap: each day draws the connecting timeline rule as absolutely
+      // positioned segments that are only continuous because days sit flush
+      // against each other.
+      gap={0}
+      threshold={12}
+      estimateSize={260}
+      overscan={4}
+      renderItem={({ dateKey, events: dayEvents }, groupIndex) => {
         const label = formatDateLabel(dateKey, todayKey);
         const isFirst = groupIndex === 0;
         const isLast = groupIndex === dateGroups.length - 1;
 
         return (
-          <div key={dateKey} className="relative">
+          <div className="relative">
             {/* Outer date line — top segment (skip for first) */}
             {!isFirst && (
               <div className="absolute left-[11px] top-0 h-[17px] w-px bg-app-line" />
@@ -378,10 +405,13 @@ function TimelineView({
             )}
           </div>
         );
-      })}
-    </div>
+      }}
+    />
   );
 }
+
+/** Module scope for referential stability — VirtualList memoises its key map on it. */
+const eventDateGroupKey = (group: { dateKey: string }) => group.dateKey;
 
 function getWeekEntryClusters(entries: CalendarEntry[], weekDateKeys: string[], hourLayout: CalendarHourLayout): Record<string, EventCluster[]> {
   const grouped = new Map<string, CalendarEntry[]>();
@@ -560,11 +590,11 @@ function EventCreateModal({
 
   useEffect(() => {
     textareaRef.current?.focus();
-    if (textareaRef.current) autoResize(textareaRef.current);
+    if (textareaRef.current) autoResizeTextArea(textareaRef.current);
   }, []);
 
   useEffect(() => {
-    if (textareaRef.current) autoResize(textareaRef.current);
+    if (textareaRef.current) autoResizeTextArea(textareaRef.current);
   }, [value]);
 
   return (
@@ -640,6 +670,7 @@ export function EventScreen() {
   const [activeCluster, setActiveCluster] = useState<CalendarEntry[] | null>(null);
   const [createState, setCreateState] = useState<{ dateKey: DateKey; startedAt: number } | null>(null);
   const [focusedEventId, setFocusedEventId] = useState<string | null>(null);
+  const timelineScrollRef = useRef<HTMLDivElement>(null);
   const [eventView, setEventView] = useState<EventView>(() =>
     readLocalStorage(EVENT_VIEW_KEY, eventViewCodec, "week"),
   );
@@ -654,11 +685,9 @@ export function EventScreen() {
     window.history.replaceState({}, "");
     setEventView("timeline");
     writeLocalStorage(EVENT_VIEW_KEY, eventViewCodec, "timeline");
+    // TimelineView scrolls to it — it owns the day grouping the windowed list
+    // is keyed by, which a DOM query from out here can't see.
     setFocusedEventId(focusId);
-    requestAnimationFrame(() => {
-      const el = document.querySelector(`[data-event-row-id="${focusId}"]`);
-      el?.scrollIntoView({ behavior: "smooth", block: "center" });
-    });
     const timer = window.setTimeout(() => setFocusedEventId(null), 2000);
     return () => window.clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -846,8 +875,9 @@ export function EventScreen() {
       </div>
 
       {eventView === "timeline" && (
-        <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+        <div ref={timelineScrollRef} className="scrollbar-hide min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
           <TimelineView
+            scrollRef={timelineScrollRef}
             events={timelineEvents}
             todayKey={todayKey}
             focusedEventId={focusedEventId}
@@ -873,7 +903,12 @@ export function EventScreen() {
           if (event.animationName.startsWith("omanote-week-slide")) setSlideDirection(null);
         }}
       >
-        <div ref={calendarScrollRef} className="scrollbar-hide h-full overflow-auto">
+        {/* Owns the horizontal swipe: it steps the calendar a week at a time,
+            which is the primary action here and has no other touch equivalent.
+            Tagged explicitly rather than relying on the shell's
+            `skipScrollableX`, because on mobile this column is `min-w-0` and so
+            isn't horizontally scrollable at all. */}
+        <div ref={calendarScrollRef} data-omanote-swipe-owner className="scrollbar-hide h-full overflow-auto">
           <div className={isMobile ? "min-w-0" : "min-w-[920px]"}>
             <div className="sticky top-0 z-20">
               <div className="grid border-b border-app-line bg-app-surface/95 backdrop-blur" style={{ gridTemplateColumns: calendarGridTemplate }}>

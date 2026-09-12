@@ -200,6 +200,41 @@ type GoogleEventEntryDeletePayload = {
   eventEntryId: string;
 };
 
+/**
+ * Folder/category creation made offline.
+ *
+ * `localId` is the temporary Dexie primary key the optimistic row was written
+ * under. Convex mints the real `_id` server-side, so the handler swaps the row
+ * once the create lands. Names are unique per user (`by_user_nameLower`), which
+ * is what makes a retry safe without a `clientKey` column.
+ */
+type FolderCreatePayload = {
+  localId: string;
+  name: string;
+  icon?: string;
+};
+
+/** Folder/category rename or icon change. `name` is already encrypted. */
+type FolderUpdatePayload = {
+  id: string;
+  name: string;
+  icon?: string;
+};
+
+/** Folder/category removal. `withContents` cascades to the items inside. */
+type FolderDeletePayload = {
+  id: string;
+  withContents?: boolean;
+};
+
+type BookmarkDeletePayload = {
+  bookmarkId: string;
+};
+
+type BookmarkRestorePayload = {
+  bookmarkId: string;
+};
+
 type BookmarkUpdatePayload = {
   bookmarkId: string;
   categoryId?: string;
@@ -239,6 +274,17 @@ type CanvasPayloadMap = {
   "todo/mark-fired": TodoMarkFiredPayload;
   "bookmark/create": BookmarkCreatePayload;
   "bookmark/update": BookmarkUpdatePayload;
+  "bookmark/delete": BookmarkDeletePayload;
+  "bookmark/restore": BookmarkRestorePayload;
+  "todo-folder/create": FolderCreatePayload;
+  "note-folder/create": FolderCreatePayload;
+  "bookmark-category/create": FolderCreatePayload;
+  "todo-folder/update": FolderUpdatePayload;
+  "todo-folder/delete": FolderDeletePayload;
+  "note-folder/update": FolderUpdatePayload;
+  "note-folder/delete": FolderDeletePayload;
+  "bookmark-category/update": FolderUpdatePayload;
+  "bookmark-category/delete": FolderDeletePayload;
   "google/event-push": GoogleEventPushPayload;
   "google/event-delete": GoogleEventDeletePayload;
   "google/event-entry-push": GoogleEventEntryPushPayload;
@@ -274,6 +320,15 @@ const outboxCodec = jsonCodec((value: unknown): value is OutboxItem[] => Array.i
 
 function toRecord(item: OutboxItem): OutboxRecord {
   return { ...item, payload: item.payload as unknown };
+}
+
+/**
+ * The queued writes, oldest first — for callers that need to *show* what's
+ * pending rather than send it. See `optimistic-restore.ts`, which rebuilds the
+ * optimistic rows from here so a reload while offline doesn't hide them.
+ */
+export async function listCanvasOutbox(): Promise<ReadonlyArray<{ kind: CanvasKind; createdAt: number; payload: unknown }>> {
+  return readOutbox();
 }
 
 /** Oldest first, so the queue drains in the order the user made the writes. */
@@ -463,18 +518,59 @@ export function isStorageLimitError(err: unknown): boolean {
   );
 }
 
+/** Whether the browser knows it currently has no network at all. */
+function isBrowserOffline(): boolean {
+  return typeof navigator !== "undefined" && !navigator.onLine;
+}
+
+/**
+ * Runs a write, queueing it instead when that can't work.
+ *
+ * There are two distinct reasons a write doesn't reach the server, and they need
+ * opposite handling:
+ *
+ * - **Offline.** Checked up front via `navigator.onLine`, because a Convex
+ *   mutation issued with no connection does not reject — it pends in the
+ *   client's in-memory queue until reconnect (see AGENTS.md, "Offline writes").
+ *   So `operation` would simply never settle, the `catch` below would never
+ *   run, and the write would exist nowhere durable: a reload before reconnecting
+ *   drops it silently. Queue it and leave the optimistic UI in place, because
+ *   the write *is* going to happen.
+ * - **The request failed.** Here the optimistic UI is now a lie, so
+ *   `onFailure` gets to roll it back before the write is queued for retry.
+ *
+ * `onFailure` deliberately does not run on the offline path. Reverting a toggle
+ * the user just made — only to re-apply it when the queue drains — is worse than
+ * showing the pending state the whole time.
+ *
+ * `onOffline` is the escape hatch for callers whose optimistic update lives
+ * *inside* `operation` rather than before the call. Since the offline branch
+ * never invokes `operation`, those callers would queue the write correctly and
+ * still show the user nothing. Prefer hoisting the optimistic update above the
+ * call; use this when it's entangled with work that has to happen anyway (see
+ * `bookmark/create`, where the same function resolves the category and is also
+ * the outbox's own flush handler).
+ */
 export async function runWithCanvasOutboxFallback<K extends CanvasKind>(
   kind: K,
   payload: CanvasPayloadMap[K],
   operation: () => Promise<void> | void,
+  options: { onFailure?: () => void; onOffline?: () => Promise<void> | void } = {},
 ) {
+  if (isBrowserOffline()) {
+    await options.onOffline?.();
+    await enqueueCanvasMutation(kind, payload);
+    return;
+  }
   try {
     await operation();
   } catch (err) {
     if (isPermanentFailure(err)) {
+      options.onFailure?.();
       observer?.onDiscarded({ kind, reason: "rejected", error: err });
       return;
     }
+    options.onFailure?.();
     await enqueueCanvasMutation(kind, payload, extractRetryAfterMs(err));
   }
 }

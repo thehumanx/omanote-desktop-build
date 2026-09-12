@@ -2,7 +2,7 @@ import type { MutableRefObject } from "react";
 import type { ReactMutation } from "convex/react";
 import { prefixedRandomId } from "@omanote/shared";
 import { api } from "../../../convex/_generated/api";
-import { enqueueCanvasMutation } from "../canvas-outbox";
+import { runWithCanvasOutboxFallback } from "../canvas-outbox";
 import { buildHashtagsFromText } from "../app-provider-logic";
 import type { AppAction, AppState } from "../types";
 import type { SyncTableName } from "../sync";
@@ -89,26 +89,28 @@ export function runEventAction(action: AppAction, deps: EventActionDeps): boolea
         const hashtags = action.hashtags ?? buildHashtagsFromText(action.label, action.notes);
         const encLabel = await encrypt(action.label);
         const encNotes = await encryptOptional(action.notes);
-        try {
-          const eventId = (await createEventEntry({ clientKey, label: encLabel, dateKey: action.dateKey, loggedAt: action.loggedAt, notes: encNotes, hashtags })) as string;
-          localDispatch({ type: "event/confirm-optimistic", clientKey });
-          scheduleSync(["events"]);
-          pushEventEntryToGoogleCalendar(eventId, action.label, action.notes);
-          pushHistory({
-            key: `event:create:${eventId}`,
-            undo: () => dispatchRef.current({ type: "event/delete", eventId }),
-            redo: () => dispatchRef.current({
-              type: "event/create",
-              label: action.label,
-              dateKey: action.dateKey,
-              loggedAt: action.loggedAt,
-              notes: action.notes,
-              hashtags,
-            }),
-          });
-        } catch {
-          enqueueCanvasMutation("event/create", { clientKey, label: encLabel, dateKey: action.dateKey, loggedAt: action.loggedAt, notes: encNotes, hashtags });
-        }
+        await runWithCanvasOutboxFallback(
+          "event/create",
+          { clientKey, label: encLabel, dateKey: action.dateKey, loggedAt: action.loggedAt, notes: encNotes, hashtags },
+          async () => {
+            const eventId = (await createEventEntry({ clientKey, label: encLabel, dateKey: action.dateKey, loggedAt: action.loggedAt, notes: encNotes, hashtags })) as string;
+            localDispatch({ type: "event/confirm-optimistic", clientKey });
+            scheduleSync(["events"]);
+            pushEventEntryToGoogleCalendar(eventId, action.label, action.notes);
+            pushHistory({
+              key: `event:create:${eventId}`,
+              undo: () => dispatchRef.current({ type: "event/delete", eventId }),
+              redo: () => dispatchRef.current({
+                type: "event/create",
+                label: action.label,
+                dateKey: action.dateKey,
+                loggedAt: action.loggedAt,
+                notes: action.notes,
+                hashtags,
+              }),
+            });
+          },
+        );
       })();
       return true;
     case "event/update":
@@ -118,35 +120,37 @@ export function runEventAction(action: AppAction, deps: EventActionDeps): boolea
         const hashtags = action.hashtags ?? buildHashtagsFromText(action.label, action.notes ?? snapshot?.notes);
         const encLabel = await encrypt(action.label);
         const encNotes = await encryptOptional(action.notes);
-        try {
-          await updateEventEntry({ eventId: action.eventId as any, label: encLabel, loggedAt: action.loggedAt, notes: encNotes, hashtags });
-          scheduleSync(["events"]);
-          pushEventEntryToGoogleCalendar(action.eventId, action.label, action.notes);
-          if (snapshot) {
-            const snapshotHashtags = buildHashtagsFromText(snapshot.label, snapshot.notes);
-            pushHistory({
-              key: `event:update:${snapshot.id}`,
-              undo: () => dispatchRef.current({
-                type: "event/update",
-                eventId: snapshot.id,
-                label: snapshot.label,
-                loggedAt: snapshot.loggedAt,
-                notes: snapshot.notes,
-                hashtags: snapshotHashtags,
-              }),
-              redo: () => dispatchRef.current({
-                type: "event/update",
-                eventId: snapshot.id,
-                label: action.label,
-                loggedAt: action.loggedAt,
-                notes: action.notes,
-                hashtags,
-              }),
-            });
-          }
-        } catch {
-          enqueueCanvasMutation("event/update", { eventId: action.eventId, label: encLabel, loggedAt: action.loggedAt, notes: encNotes, hashtags });
-        }
+        await runWithCanvasOutboxFallback(
+          "event/update",
+          { eventId: action.eventId, label: encLabel, loggedAt: action.loggedAt, notes: encNotes, hashtags },
+          async () => {
+            await updateEventEntry({ eventId: action.eventId as any, label: encLabel, loggedAt: action.loggedAt, notes: encNotes, hashtags });
+            scheduleSync(["events"]);
+            pushEventEntryToGoogleCalendar(action.eventId, action.label, action.notes);
+            if (snapshot) {
+              const snapshotHashtags = buildHashtagsFromText(snapshot.label, snapshot.notes);
+              pushHistory({
+                key: `event:update:${snapshot.id}`,
+                undo: () => dispatchRef.current({
+                  type: "event/update",
+                  eventId: snapshot.id,
+                  label: snapshot.label,
+                  loggedAt: snapshot.loggedAt,
+                  notes: snapshot.notes,
+                  hashtags: snapshotHashtags,
+                }),
+                redo: () => dispatchRef.current({
+                  type: "event/update",
+                  eventId: snapshot.id,
+                  label: action.label,
+                  loggedAt: action.loggedAt,
+                  notes: action.notes,
+                  hashtags,
+                }),
+              });
+            }
+          },
+        );
       })();
       return true;
     case "event/delete": {
@@ -159,38 +163,30 @@ export function runEventAction(action: AppAction, deps: EventActionDeps): boolea
         );
       }
       localDispatch({ type: "event/mark-deleting", eventId: action.eventId });
-      void (async () => {
-        try {
-          await deleteEventEntry({ eventId: action.eventId as any });
-          scheduleSync(["events"]);
-          removeEventEntryFromGoogleCalendar(action.eventId);
-          if (snapshot) {
-            pushHistory({
-              key: `event:delete:${snapshot.id}`,
-              undo: () => dispatchRef.current({ type: "event/restore", eventId: snapshot.id }),
-              redo: () => dispatchRef.current({ type: "event/delete", eventId: snapshot.id }),
-            });
-          }
-        } catch {
-          enqueueCanvasMutation("event/delete", { eventId: action.eventId });
+      void runWithCanvasOutboxFallback("event/delete", { eventId: action.eventId }, async () => {
+        await deleteEventEntry({ eventId: action.eventId as any });
+        scheduleSync(["events"]);
+        removeEventEntryFromGoogleCalendar(action.eventId);
+        if (snapshot) {
+          pushHistory({
+            key: `event:delete:${snapshot.id}`,
+            undo: () => dispatchRef.current({ type: "event/restore", eventId: snapshot.id }),
+            redo: () => dispatchRef.current({ type: "event/delete", eventId: snapshot.id }),
+          });
         }
-      })();
+      });
       return true;
     }
     case "event/restore": {
       const snapshot = stateRef.current?.events.find((r) => r.id === action.eventId);
       localDispatch({ type: "event/clear-deleting", eventIds: [action.eventId] });
-      void (async () => {
-        try {
-          await restoreEventEntry({ eventId: action.eventId as any });
-          scheduleSync(["events"]);
-          if (snapshot?.label) {
-            pushEventEntryToGoogleCalendar(action.eventId, snapshot.label, snapshot.notes);
-          }
-        } catch {
-          enqueueCanvasMutation("event/restore", { eventId: action.eventId });
+      void runWithCanvasOutboxFallback("event/restore", { eventId: action.eventId }, async () => {
+        await restoreEventEntry({ eventId: action.eventId as any });
+        scheduleSync(["events"]);
+        if (snapshot?.label) {
+          pushEventEntryToGoogleCalendar(action.eventId, snapshot.label, snapshot.notes);
         }
-      })();
+      });
       return true;
     }
     default:

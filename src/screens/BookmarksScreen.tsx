@@ -13,6 +13,7 @@ import { CategoryActionMenu, CategoryCard, CategoryRow } from "../components/Boo
 import { BookmarkCategoryIconPicker } from "../components/BookmarkCategoryIconPicker";
 import { CategoryIconView } from "../lib/bookmark-category-icon";
 import { BookmarkCard } from "../components/cards";
+import { VirtualList, type VirtualListHandle } from "../components/VirtualList";
 import { useTopChrome } from "../components/layout/useTopChrome";
 import { ExpandableSearch } from "../components/ExpandableSearch";
 import { matchesQuery, normalizeSearchQuery } from "../lib/search-match";
@@ -32,6 +33,9 @@ import {
 import { useIsDesktop, usePersistedEnum, usePersistedFolderSort, usePersistedFolderViewMode } from "../hooks/useFolderNavigation";
 
 type BookmarkSortDirection = "asc" | "desc";
+/** Module scope so it stays referentially stable across renders — VirtualList memoises its key map on it. */
+const bookmarkRowKey = (bookmark: BookmarkItem) => bookmark.id;
+
 type CategorySortKey = "alphabetical" | "lastUpdated" | "totalBookmarks";
 type CategoryViewMode = "list" | "gallery";
 
@@ -107,6 +111,10 @@ export function BookmarksScreen() {
   const isDesktop = useIsDesktop();
   const [editingBookmarkId, setEditingBookmarkId] = useState<string | null>(null);
   const [focusedBookmarkId, setFocusedBookmarkId] = useState<string | null>(null);
+  // The desktop panel and the mobile drawer are both mounted at once, so each
+  // gets its own handle and a jump is issued to both.
+  const bookmarksListRefDesktop = useRef<VirtualListHandle>(null);
+  const bookmarksListRefMobile = useRef<VirtualListHandle>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(() => readLastSelectedBookmarkCategory() || null);
   const [mobileBookmarksOpen, setMobileBookmarksOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -203,8 +211,11 @@ export function BookmarksScreen() {
     }
     setFocusedBookmarkId(focusId);
     requestAnimationFrame(() => {
-      const el = document.querySelector(`[data-bookmark-row-id="${focusId}"]`);
-      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      // Via the virtualizer, not a DOM query: off-screen cards aren't mounted
+      // once the list is windowed, and a focused bookmark is by definition one
+      // the user hasn't scrolled to.
+      bookmarksListRefDesktop.current?.scrollToKey(focusId);
+      bookmarksListRefMobile.current?.scrollToKey(focusId);
     });
     const timer = window.setTimeout(() => setFocusedBookmarkId(null), 2000);
     return () => window.clearTimeout(timer);
@@ -747,19 +758,27 @@ export function BookmarksScreen() {
       </div>
 
       {visibleCount ? (
-        <div className={cn("scrollbar-hide min-h-0 flex-1 overflow-y-auto pb-24 lg:px-0", isMobileDrawer && "px-4")}>
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4">
-            {visibleBookmarks.map((bookmark) => {
-              const isLinkedArtifactBookmark = isLinkedArtifactBookmarkId(bookmark.id);
-              return (
-                <div
-                  key={bookmark.id}
-                  data-bookmark-row-id={bookmark.id}
-                  style={{ contentVisibility: "auto", containIntrinsicSize: "0 220px" }}
-                  className={focusedBookmarkId === bookmark.id ? "ring-2 ring-app-accent rounded-2xl transition-shadow duration-700" : undefined}
-                >
+        <VirtualList
+          ref={isMobileDrawer ? bookmarksListRefMobile : bookmarksListRefDesktop}
+          items={visibleBookmarks}
+          getKey={bookmarkRowKey}
+          // Mirrors the grid this used to be:
+          // `repeat(auto-fit,minmax(240px,1fr))` with `gap-4`.
+          minColumnWidth={240}
+          gap={16}
+          estimateSize={220}
+          className={cn("scrollbar-hide min-h-0 flex-1 pb-24 lg:px-0", isMobileDrawer && "px-4")}
+          renderItem={(bookmark) => {
+            const isLinkedArtifactBookmark = isLinkedArtifactBookmarkId(bookmark.id);
+            return (
+              <div
+                data-bookmark-row-id={bookmark.id}
+                // Kept for the unwindowed path, where every card is still in
+                // the DOM and skipping off-screen paint work is still worth it.
+                style={{ contentVisibility: "auto", containIntrinsicSize: "0 220px" }}
+                className={focusedBookmarkId === bookmark.id ? "ring-2 ring-app-accent rounded-2xl transition-shadow duration-700" : undefined}
+              >
                 <BookmarkCard
-                  key={bookmark.id}
                   bookmark={bookmark}
                   categoryName={bookmarkCategoryName(bookmark, categoryNameById)}
                   linkedArtifactReferences={linkedArtifactReferencesByBookmarkId.get(bookmark.id) ?? []}
@@ -773,11 +792,10 @@ export function BookmarksScreen() {
                   onDelete={!isLinkedArtifactBookmark ? (bookmarkId) => dispatch({ type: "bookmark/delete", bookmarkId }) : undefined}
                   highlightQuery={bookmarkSearchQuery}
                 />
-                </div>
-              );
-            })}
-          </div>
-        </div>
+              </div>
+            );
+          }}
+        />
       ) : (
         <EmptyState
           className="h-full"

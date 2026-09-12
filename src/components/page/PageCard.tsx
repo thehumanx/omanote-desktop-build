@@ -8,12 +8,8 @@ import { CategoryIconView } from "../../lib/bookmark-category-icon";
 import { pageDocStats } from "../../lib/page-doc";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { buildShareUrl } from "../../lib/share-url";
 
-const SHARE_DOMAIN = "omanote.com";
-
-function buildShareUrl(codeOrSlug: string) {
-  return `https://${SHARE_DOMAIN}/s/${codeOrSlug}`;
-}
 
 /** Hover/focus-only visibility — used for the row-1 actions that aren't the star. */
 const HOVER_ONLY = "opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100";

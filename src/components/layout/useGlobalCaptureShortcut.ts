@@ -2,12 +2,7 @@ import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { useApp } from "../../app/AppProvider";
 import { getComposerModeForPathname } from "./navRoutes";
-
-function isEditableTarget(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) return false;
-  const tag = target.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable;
-}
+import { isEditableTarget } from "../../lib/editable-target";
 
 /** Press "/" anywhere in the app to jump straight into the quick-capture composer, mode-matched to the current tab. */
 export function useGlobalCaptureShortcut() {

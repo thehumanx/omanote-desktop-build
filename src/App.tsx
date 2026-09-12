@@ -1,4 +1,4 @@
-import React, { lazy, Suspense } from "react";
+import React, { Suspense } from "react";
 import { Link, Navigate, Outlet, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
@@ -7,75 +7,78 @@ import { useUserSettings } from "./contexts/UserSettingsContext";
 import { isTauri } from "./lib/desktop";
 import { readLocalStorageOptional, stringCodec } from "./lib/local-storage";
 import { useNetworkStatus } from "./hooks/useNetworkStatus";
+import { lazyWithReload } from "./lib/lazy-with-reload";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { LoadingSpinner } from "./components/ui";
 import { DesktopAuthListener } from "./components/desktop/DesktopAuthListener";
 import { DesktopUpdateBanner } from "./components/desktop/DesktopUpdateBanner";
 
-const AuthenticatedAppLayout = lazy(() =>
+const AuthenticatedAppLayout = lazyWithReload(() =>
   import("./app/AuthenticatedAppLayout").then((module) => ({ default: module.AuthenticatedAppLayout })),
 );
-const CanvasScreen = lazy(() =>
+const CanvasScreen = lazyWithReload(() =>
   import("./screens/CanvasScreen").then((module) => ({ default: module.CanvasScreen })),
 );
-const HistoryScreen = lazy(() =>
+const HistoryScreen = lazyWithReload(() =>
   import("./screens/HistoryScreen").then((module) => ({ default: module.HistoryScreen })),
 );
-const LoginScreen = lazy(() =>
+const LoginScreen = lazyWithReload(() =>
   import("./screens/auth/LoginScreen").then((module) => ({ default: module.LoginScreen })),
 );
-const SignupScreen = lazy(() =>
+const SignupScreen = lazyWithReload(() =>
   import("./screens/auth/SignupScreen").then((module) => ({ default: module.SignupScreen })),
 );
-const ExtensionAuthScreen = lazy(() =>
+const ExtensionAuthScreen = lazyWithReload(() =>
   import("./screens/auth/ExtensionAuthScreen").then((module) => ({
     default: module.ExtensionAuthScreen,
   })),
 );
-const DesktopAuthScreen = lazy(() =>
+const DesktopAuthScreen = lazyWithReload(() =>
   import("./screens/auth/DesktopAuthScreen").then((module) => ({
     default: module.DesktopAuthScreen,
   })),
 );
-const DesktopOnboardingScreen = lazy(() =>
+const DesktopOnboardingScreen = lazyWithReload(() =>
   import("./screens/desktop/DesktopOnboardingScreen").then((module) => ({
     default: module.DesktopOnboardingScreen,
   })),
 );
-const PrivacyPolicyScreen = lazy(() =>
+const PrivacyPolicyScreen = lazyWithReload(() =>
   import("./screens/PrivacyPolicyScreen").then((module) => ({
     default: module.PrivacyPolicyScreen,
   })),
 );
-const TermsScreen = lazy(() =>
+const TermsScreen = lazyWithReload(() =>
   import("./screens/TermsScreen").then((module) => ({ default: module.TermsScreen })),
 );
-const GuideScreen = lazy(() =>
+const GuideScreen = lazyWithReload(() =>
   import("./screens/GuideScreen").then((module) => ({ default: module.GuideScreen })),
 );
-const BookmarksScreen = lazy(() =>
+const BookmarksScreen = lazyWithReload(() =>
   import("./screens/BookmarksScreen").then((module) => ({ default: module.BookmarksScreen })),
 );
-const NotesScreen = lazy(() =>
+const NotesScreen = lazyWithReload(() =>
   import("./screens/NotesScreen").then((module) => ({ default: module.NotesScreen })),
 );
-const SearchScreen = lazy(() =>
+const SearchScreen = lazyWithReload(() =>
   import("./screens/SearchScreen").then((module) => ({ default: module.SearchScreen })),
 );
-const EventScreen = lazy(() =>
+const EventScreen = lazyWithReload(() =>
   import("./screens/EventScreen").then((module) => ({ default: module.EventScreen })),
 );
-const SettingsScreen = lazy(() =>
+const SettingsScreen = lazyWithReload(() =>
   import("./screens/SettingsScreen").then((module) => ({ default: module.SettingsScreen })),
 );
-const ExploreScreen = lazy(() =>
+const ExploreScreen = lazyWithReload(() =>
   import("./screens/ExploreScreen").then((module) => ({ default: module.ExploreScreen })),
 );
-const TodosScreen = lazy(() =>
+const TodosScreen = lazyWithReload(() =>
   import("./screens/TodosScreen").then((module) => ({ default: module.TodosScreen })),
 );
-const UpdatesScreen = lazy(() =>
+const UpdatesScreen = lazyWithReload(() =>
   import("./screens/UpdatesScreen").then((module) => ({ default: module.UpdatesScreen })),
 );
-const SharedFolderPage = lazy(() =>
+const SharedFolderPage = lazyWithReload(() =>
   import("./screens/SharedFolderPage").then((module) => ({ default: module.SharedFolderPage })),
 );
 
@@ -86,19 +89,19 @@ function LegacySharedNoteFolderRedirect() {
   const { shareCode } = useParams<{ shareCode: string }>();
   return <Navigate to={`/s/${shareCode ?? ""}`} replace />;
 }
-const InsightsScreen = lazy(() =>
+const InsightsScreen = lazyWithReload(() =>
   import("./screens/InsightsScreen").then((module) => ({ default: module.InsightsScreen })),
 );
-const ReaderScreen = lazy(() =>
+const ReaderScreen = lazyWithReload(() =>
   import("./screens/reader/ReaderScreen").then((module) => ({ default: module.ReaderScreen })),
 );
-const NotFoundPage = lazy(() =>
+const NotFoundPage = lazyWithReload(() =>
   import("./screens/NotFoundPage").then((module) => ({ default: module.NotFoundPage })),
 );
-const AdminDashboardScreen = lazy(() =>
+const AdminDashboardScreen = lazyWithReload(() =>
   import("./screens/AdminDashboardScreen").then((module) => ({ default: module.AdminDashboardScreen })),
 );
-const PageScreen = lazy(() =>
+const PageScreen = lazyWithReload(() =>
   import("./screens/PageScreen").then((module) => ({ default: module.PageScreen })),
 );
 
@@ -186,10 +189,29 @@ function PublicDocLayout() {
   );
 }
 
+/**
+ * Shown while a route chunk downloads.
+ *
+ * Previously `null`, which made a slow chunk and a failed one look identical —
+ * a blank screen either way, with no signal that anything was happening.
+ */
+function RouteLoadingFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-app-canvas" aria-busy="true">
+      <LoadingSpinner className="text-app-ink-faint" />
+    </div>
+  );
+}
+
 export default function App() {
   const inDesktopShell = isTauri();
+  const location = useLocation();
   return (
-    <Suspense fallback={null}>
+    // Keyed on the pathname so a screen that throws doesn't strand the whole
+    // app on the fallback: navigating elsewhere resets the boundary. The root
+    // boundary in main.tsx stays as the backstop for anything above this.
+    <ErrorBoundary resetKey={location.pathname}>
+    <Suspense fallback={<RouteLoadingFallback />}>
       {inDesktopShell && <DesktopAuthListener />}
       {inDesktopShell && <DesktopUpdateBanner />}
       <Routes>
@@ -228,5 +250,6 @@ export default function App() {
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Suspense>
+    </ErrorBoundary>
   );
 }

@@ -16,11 +16,7 @@ import { AttachmentLinkPreview } from "./AttachmentLinkPreview";
 import { focusWithoutScrolling } from "../lib/preserve-focus-scroll";
 import { HashtagPickerDropdown, useHashtagPicker } from "./HashtagPicker";
 import { EmojiPickerDropdown, useEmojiPicker } from "./EmojiPicker";
-
-function autoResize(textarea: HTMLTextAreaElement) {
-  textarea.style.height = "auto";
-  textarea.style.height = `${textarea.scrollHeight}px`;
-}
+import { autoResizeTextArea } from "../lib/auto-resize";
 
 function timeToInput(value?: number) {
   if (!value) return "";
@@ -72,11 +68,11 @@ function CanvasEventBlockComponent({ event, pendingSync, dispatch }: CanvasEvent
   });
 
   useEffect(() => {
-    if (labelRef.current) autoResize(labelRef.current);
+    if (labelRef.current) autoResizeTextArea(labelRef.current);
   }, [label]);
 
   useEffect(() => {
-    if (notesRef.current) autoResize(notesRef.current);
+    if (notesRef.current) autoResizeTextArea(notesRef.current);
   }, [notes]);
 
   useEffect(() => {
