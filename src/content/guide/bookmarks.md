@@ -10,6 +10,8 @@ Paste or type a URL into the composer and it becomes a bookmark. omanote fetches
 
 Bookmarks live in categories (folders) with custom icons. Sort and browse them however suits you, and switch between a **card** view (with thumbnails) and a compact **list** view.
 
+**Pin this category** in the "•••" menu moves it to the top of the list, under a **Pinned** heading. Your chosen sort still applies inside each group.
+
 On mobile, opening a category slides in a full page from the right instead of a bottom sheet. Swipe from the left edge or tap the back arrow to return to the category list. The category's Share button sits next to the "•••" menu, which holds Rename and Delete. A floating "+" at the bottom adds a new bookmark into that category.
 
 ## Previews

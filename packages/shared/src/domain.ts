@@ -59,6 +59,8 @@ export interface TodoFolder {
   id: string;
   name: string;
   icon?: string;
+  /** Sorts into the labelled "Pinned" group above the rest of the list. */
+  pinned?: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -82,6 +84,8 @@ export interface NoteFolder {
   id: string;
   name: string;
   icon?: string;
+  /** Sorts into the labelled "Pinned" group above the rest of the list. */
+  pinned?: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -107,8 +111,8 @@ export interface PageItem {
   preview: string;
   hashtags?: string[];
   /** Surfaces this canvas in "Continue writing" regardless of last-edit recency. */
-  starred?: boolean;
-  /** Excludes this canvas from "Continue writing" entirely, even if starred. */
+  pinned?: boolean;
+  /** Excludes this canvas from "Continue writing" entirely, even if pinned. */
   hidden?: boolean;
   deletedAt?: number;
   createdAt: number;
@@ -120,6 +124,8 @@ export interface BookmarkCategory {
   id: string;
   name: string;
   icon?: string;
+  /** Sorts into the labelled "Pinned" group above the rest of the list. */
+  pinned?: boolean;
   createdAt: number;
 }
 
@@ -137,6 +143,8 @@ export interface BookmarkItem {
   previewState?: "loading" | "ready";
   deletedAt?: number;
   createdAt: number;
+  /** Last edit. Optional because rows predating the field were backfilled. */
+  updatedAt?: number;
   createdDateKey: DateKey;
   /** Set when this bookmark was created from a link block inside a page. */
   pageId?: string;
@@ -154,6 +162,8 @@ export interface EventEntry {
   sourceTodoId?: string;
   deletedAt?: number;
   createdAt: number;
+  /** Last edit. Optional because rows predating the field were backfilled. */
+  updatedAt?: number;
   createdDateKey: DateKey;
 }
 

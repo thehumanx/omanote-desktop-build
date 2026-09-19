@@ -1,12 +1,13 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { ExternalLink, EyeOff, FilePlus2, FileText, Star } from "lucide-react";
+import { ExternalLink, EyeOff, FilePlus2, FileText } from "lucide-react";
 import { formatRelativeEditedAt } from "@omanote/shared";
 import type { AppAction } from "../../app/types";
 import type { PageItem } from "@omanote/shared";
 import { CategoryIconView } from "../../lib/bookmark-category-icon";
 import { pageDocStats } from "../../lib/page-doc";
 import { useCreateCanvas } from "../../lib/use-create-canvas";
+import { PagePinButton } from "./PagePinButton";
 
 /** Hover/focus-only visibility — same idiom as PageCard's row-1 actions. */
 const HOVER_ONLY = "opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100";
@@ -18,41 +19,41 @@ export const CONTINUE_WRITING_LIMIT = 3;
  * still one tap away instead of being buried in History.
  *
  * Two things earn a spot here, and either is enough on its own: being
- * starred (any number of those, regardless of when they were last touched —
- * starring is how a canvas gets pinned here for good), or being one of the 3
- * most recently edited *non-starred* canvases. The recency slice is computed
- * over non-starred pages specifically, not the combined pool — otherwise 3+
- * starred pages that also happen to be the most recently edited ones would
+ * pinned (any number of those, regardless of when they were last touched —
+ * pinning is how a canvas gets held here for good), or being one of the 3
+ * most recently edited *unpinned* canvases. The recency slice is computed
+ * over unpinned pages specifically, not the combined pool — otherwise 3+
+ * pinned pages that also happen to be the most recently edited ones would
  * fill all 3 "recent" slots themselves, and a genuinely recently-edited
- * page that isn't starred would never appear even though it's exactly the
- * kind of "what was I just working on" page this section exists for. Star
+ * page that isn't pinned would never appear even though it's exactly the
+ * kind of "what was I just working on" page this section exists for. Pin
  * count and recency count are independent budgets, not one shared one. A
  * canvas that's both just shows up once. Hidden canvases never show up here,
- * starred or not.
+ * pinned or not.
  *
  * Canvases created today are normally excluded because they already appear
  * as cards in "Your today" directly below — showing them twice on one screen
- * makes the day feed look duplicated. Starring overrides that: it's an
- * explicit "pin this here" signal, so a starred page created today shows up
+ * makes the day feed look duplicated. Pinning overrides that: it's an
+ * explicit "keep this here" signal, so a pinned page created today shows up
  * in both places rather than being suppressed from one of them.
  */
 export function selectContinueWritingPages(pages: PageItem[], todayKey: string): PageItem[] {
   const eligible = pages
-    .filter((page) => !page.deletedAt && !page.hidden && (page.starred || page.createdDateKey !== todayKey))
+    .filter((page) => !page.deletedAt && !page.hidden && (page.pinned || page.createdDateKey !== todayKey))
     .sort((left, right) => right.updatedAt - left.updatedAt);
 
   const merged = new Map<string, PageItem>();
   for (const page of eligible) {
-    if (page.starred) merged.set(page.id, page);
+    if (page.pinned) merged.set(page.id, page);
   }
-  for (const page of eligible.filter((p) => !p.starred).slice(0, CONTINUE_WRITING_LIMIT)) {
+  for (const page of eligible.filter((p) => !p.pinned).slice(0, CONTINUE_WRITING_LIMIT)) {
     merged.set(page.id, page);
   }
 
   return Array.from(merged.values()).sort((left, right) => right.updatedAt - left.updatedAt);
 }
 
-/** Word/artifact counts in place of a content snippet — a hidden/starred page
+/** Word/artifact counts in place of a content snippet — a hidden/pinned page
  * still needs *something* useful on its card, and a raw text excerpt reads
  * oddly out of context on a "what was I working on" shelf. */
 function PageCardMeta({ page }: { page: PageItem }) {
@@ -128,18 +129,15 @@ function ContinueWritingCard({
           >
             <ExternalLink className="h-3.5 w-3.5" />
           </a>
-          {/* Starred stays visible so it reads as a standing state; unstarred
+          {/* Pinned stays visible so it reads as a standing state; unpinned
               follows the same hover-only rule as the rest of the row. */}
           {serverPageId ? (
-            <button
-              type="button"
-              aria-label={page.starred ? "unstar page" : "star page"}
-              title={page.starred ? "Unstar" : "Star"}
-              onClick={() => dispatch({ type: "page/set-flags", pageId: serverPageId, starred: !page.starred })}
-              className={`rounded-full p-1 transition hover:bg-app-surface-hover ${page.starred ? "text-app-ink" : `text-app-line-strong hover:text-app-ink-muted ${HOVER_ONLY}`}`}
-            >
-              <Star className={`h-3.5 w-3.5 ${page.starred ? "fill-current" : ""}`} />
-            </button>
+            <PagePinButton
+              pinned={page.pinned}
+              persistWhenPinned
+              size="sm"
+              onToggle={() => dispatch({ type: "page/set-flags", pageId: serverPageId, pinned: !page.pinned })}
+            />
           ) : null}
         </div>
       </div>

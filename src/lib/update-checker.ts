@@ -2,15 +2,6 @@ import { readLocalStorageOptional, stringCodec, writeLocalStorage } from "./loca
 
 const LAST_SEEN_VERSION_KEY = "omanote:last-seen-version";
 
-export function maskEmail(email: string): string {
-  const atIdx = email.indexOf("@");
-  if (atIdx === -1) return email;
-  const local = email.slice(0, atIdx);
-  const domain = email.slice(atIdx);
-  const visible = local.slice(0, Math.min(2, local.length));
-  return `${visible}***${domain}`;
-}
-
 export type VersionInfo = {
   version: string;
   date: string;

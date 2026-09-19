@@ -1,12 +1,12 @@
 import { memo, useLayoutEffect, useRef, useState, type RefObject, type Ref } from "react";
 import { createPortal } from "react-dom";
-import { Ellipsis, Globe, Pencil, Share2, Trash2 } from "lucide-react";
+import { Ellipsis, Globe, Pencil, Pin, Share2, Trash2 } from "lucide-react";
 import type { TodoFolder } from "@omanote/shared";
 import { CategoryIconView } from "../lib/bookmark-category-icon";
 import { cn } from "./ui";
 
 const MENU_WIDTH = 160;
-const MENU_HEIGHT = 128;
+const MENU_HEIGHT = 168;
 const MENU_GAP = 8;
 
 function computePosition(buttonEl: HTMLButtonElement): { top?: number; bottom?: number; left?: number; right?: number } {
@@ -31,18 +31,22 @@ export function TodoFolderActionMenu({
   folderName,
   isOpen,
   menuRef,
+  isPinned,
   onToggle,
   onRename,
   onShare,
   onDelete,
+  onTogglePin,
 }: {
   folderName: string;
   isOpen: boolean;
   menuRef?: Ref<HTMLDivElement>;
+  isPinned?: boolean;
   onToggle: () => void;
   onRename: () => void;
   onShare: () => void;
   onDelete: () => void;
+  onTogglePin?: () => void;
 }) {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [menuPosition, setMenuPosition] = useState<{ top?: number; bottom?: number; left?: number; right?: number } | null>(null);
@@ -93,6 +97,17 @@ export function TodoFolderActionMenu({
               className="fixed z-app-menu w-44 rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
               style={menuPosition}
             >
+              {onTogglePin ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={onTogglePin}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink"
+                >
+                  <Pin className={cn("h-4 w-4", isPinned && "fill-current")} />
+                  {isPinned ? "Unpin this folder" : "Pin this folder"}
+                </button>
+              ) : null}
               <button
                 type="button"
                 role="menuitem"
@@ -253,6 +268,7 @@ export const TodoFolderRow = memo(function TodoFolderRow({
   onIconClick,
   onShare,
   onDelete,
+  onTogglePin,
   onClick,
   searchMatchCount,
 }: {
@@ -282,6 +298,8 @@ export const TodoFolderRow = memo(function TodoFolderRow({
   onIconClick: (anchorRef: RefObject<HTMLButtonElement | null>) => void;
   onShare: () => void;
   onDelete: () => void;
+  /** Omitted for the default "Others" folder, which has no action menu at all. */
+  onTogglePin?: () => void;
   onClick: () => void;
 }) {
   const iconButtonRef = useRef<HTMLButtonElement>(null);
@@ -384,10 +402,12 @@ export const TodoFolderRow = memo(function TodoFolderRow({
           folderName={folder.name}
           isOpen={menuOpen}
           menuRef={menuRef}
+          isPinned={folder.pinned}
           onToggle={onToggleMenu}
           onRename={onStartEdit}
           onShare={onShare}
           onDelete={onDelete}
+          onTogglePin={onTogglePin}
         />
       ) : null}
     </div>

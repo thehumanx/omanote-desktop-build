@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "convex/react";
-import { Check, Copy, ExternalLink, EyeOff, FileText, Share2, Star, Trash2 } from "lucide-react";
+import { Check, Copy, ExternalLink, EyeOff, FileText, Share2, Trash2 } from "lucide-react";
 import { formatRelativeEditedAt } from "@omanote/shared";
 import type { PageItem } from "@omanote/shared";
 import { CategoryIconView } from "../../lib/bookmark-category-icon";
@@ -9,9 +9,10 @@ import { pageDocStats } from "../../lib/page-doc";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { buildShareUrl } from "../../lib/share-url";
+import { PagePinButton } from "./PagePinButton";
 
 
-/** Hover/focus-only visibility — used for the row-1 actions that aren't the star. */
+/** Hover/focus-only visibility — used for the row-1 actions that aren't the pin. */
 const HOVER_ONLY = "opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100";
 
 /**
@@ -30,14 +31,14 @@ export function PageCard({
   page,
   onDelete,
   onShare,
-  onToggleStar,
+  onTogglePin,
   onToggleHidden,
   staticPreview = false,
 }: {
   page: PageItem;
   onDelete?: (pageId: string) => void;
   onShare?: (pageId: string) => void;
-  onToggleStar?: (pageId: string, starred: boolean) => void;
+  onTogglePin?: (pageId: string, pinned: boolean) => void;
   onToggleHidden?: (pageId: string, hidden: boolean) => void;
   /**
    * Render the full card, including the actions that normally need a synced
@@ -114,20 +115,12 @@ export function PageCard({
           >
             <ExternalLink className="h-4 w-4" />
           </a>
-          {/* Hover-only here regardless of starred — unlike the Continue
+          {/* Hover-only here regardless of pinned — unlike the Continue
               writing card, a card in "Your today" doesn't need a persistent
-              star badge, since starring only matters for whether it later
+              pin badge, since pinning only matters for whether it later
               shows up in Continue writing, not for today's own feed. */}
-          {onToggleStar && serverPageId ? (
-            <button
-              type="button"
-              aria-label={page.starred ? "unstar page" : "star page"}
-              title={page.starred ? "Unstar" : "Star"}
-              onClick={() => onToggleStar(page.id, !page.starred)}
-              className={`rounded-full p-1 transition hover:bg-app-surface-hover ${HOVER_ONLY} ${page.starred ? "text-app-ink" : "text-app-line-strong hover:text-app-ink-muted"}`}
-            >
-              <Star className={`h-4 w-4 ${page.starred ? "fill-current" : ""}`} />
-            </button>
+          {onTogglePin && serverPageId ? (
+            <PagePinButton pinned={page.pinned} onToggle={() => onTogglePin(page.id, !page.pinned)} />
           ) : null}
           {/* Only shows up once there's an actual public link to hand out. */}
           {isShared ? (

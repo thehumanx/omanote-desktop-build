@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode, type Ref } from "react";
 import { createPortal } from "react-dom";
-import { Ellipsis, Globe, Pencil, Share2, Trash2 } from "lucide-react";
+import { Ellipsis, Globe, Pencil, Pin, Share2, Trash2 } from "lucide-react";
 import { CategoryIconView } from "../lib/bookmark-category-icon";
 import { cn } from "./ui";
 
@@ -244,6 +244,57 @@ export function FolderNavCard({
   );
 }
 
+/**
+ * "Pinned" heading above the pinned group of a folder list. Only the pinned
+ * group is labelled — the unpinned remainder is just the rest of the list and
+ * naming it ("Others", "Unpinned") would imply a grouping the user never made.
+ */
+function FolderNavSectionLabel({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 px-2 pb-1 pt-1">
+      <span className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-app-ink-faint">{children}</span>
+      <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-app-line" />
+    </div>
+  );
+}
+
+/**
+ * Renders a folder list as its pinned group (under a "Pinned" heading) then
+ * its unpinned remainder, or as one flat unlabelled list when nothing is
+ * pinned. Shared by all three folder navs, each of which uses it twice — once
+ * for the desktop rail's rows and once for the mobile grid's cards.
+ *
+ * `wrap` is what lets the same component serve both: the rail passes a
+ * `space-y-*` stack, the grid passes its `grid-cols-3`. Each group gets its
+ * own wrapper element rather than one shared container with a spanning
+ * heading, so the heading never has to know the column count.
+ */
+export function FolderNavGroups<T>({
+  groups,
+  renderItem,
+  wrap,
+  label = "Pinned",
+}: {
+  groups: { pinned: T[]; unpinned: T[]; hasPinned: boolean };
+  renderItem: (item: T) => ReactNode;
+  wrap: (children: ReactNode) => ReactNode;
+  label?: string;
+}) {
+  if (!groups.hasPinned) return <>{wrap(groups.unpinned.map(renderItem))}</>;
+
+  return (
+    <>
+      <FolderNavSectionLabel>{label}</FolderNavSectionLabel>
+      {wrap(groups.pinned.map(renderItem))}
+      {/* A rule, not just a gap: whitespace alone reads as list spacing at a
+          glance, which is exactly the distinction this has to make. Only
+          drawn when there is actually a second group below it. */}
+      {groups.unpinned.length ? <hr aria-hidden="true" className="my-3 border-0 border-t border-app-line" /> : null}
+      {wrap(groups.unpinned.map(renderItem))}
+    </>
+  );
+}
+
 export function FolderNavActionMenu({
   noun,
   name,
@@ -252,10 +303,12 @@ export function FolderNavActionMenu({
   size = "sm",
   alwaysVisible = false,
   isShared,
+  isPinned,
   onToggle,
   onRename,
   onDelete,
   onShare,
+  onTogglePin,
 }: {
   /** Builds the accessible label ("{noun} actions for {name}") — the one
    *  place these menus genuinely need to know what domain they're in. */
@@ -266,10 +319,14 @@ export function FolderNavActionMenu({
   size?: "sm" | "md";
   alwaysVisible?: boolean;
   isShared?: boolean;
+  isPinned?: boolean;
   onToggle: () => void;
   onRename: () => void;
   onDelete: () => void;
   onShare: () => void;
+  /** Omitted for rows with no real folder behind them — notably the
+   *  synthetic "Uncategorized" bucket, which has no row to pin. */
+  onTogglePin?: () => void;
 }) {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [menuPosition, setMenuPosition] = useState<{ top?: number; bottom?: number; left?: number; right?: number } | null>(null);
@@ -278,7 +335,7 @@ export function FolderNavActionMenu({
     if (!isOpen || !buttonRef.current) return;
     const rect = buttonRef.current.getBoundingClientRect();
     const menuWidth = 176;
-    const menuHeight = 128;
+    const menuHeight = 168;
     const gap = 8;
     const shouldOpenAbove = rect.bottom + gap + menuHeight > window.innerHeight && rect.top - gap - menuHeight >= 0;
     const horizontalPosition = rect.right >= menuWidth ? { right: Math.max(8, window.innerWidth - rect.right) } : { left: rect.left };
@@ -295,7 +352,7 @@ export function FolderNavActionMenu({
       if (!buttonRef.current) return;
       const rect = buttonRef.current.getBoundingClientRect();
       const menuWidth = 176;
-      const menuHeight = 128;
+      const menuHeight = 168;
       const gap = 8;
       const shouldOpenAbove = rect.bottom + gap + menuHeight > window.innerHeight && rect.top - gap - menuHeight >= 0;
       const horizontalPosition = rect.right >= menuWidth ? { right: Math.max(8, window.innerWidth - rect.right) } : { left: rect.left };
@@ -344,6 +401,16 @@ export function FolderNavActionMenu({
               className="fixed z-app-menu w-44 rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
               style={menuPosition}
             >
+              {onTogglePin ? (
+                <button
+                  type="button"
+                  onClick={onTogglePin}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink"
+                >
+                  <Pin className={cn("h-4 w-4", isPinned && "fill-current")} />
+                  {isPinned ? `Unpin this ${noun.toLowerCase()}` : `Pin this ${noun.toLowerCase()}`}
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={onRename}

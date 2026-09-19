@@ -468,14 +468,102 @@ export function getVisibleCanvasTodos(
   return visible;
 }
 
-export type CanvasArtifactItem =
-  | { kind: "todo"; createdAt: number; data: TodoItem }
-  | { kind: "note"; createdAt: number; data: NoteItem }
-  | { kind: "bookmark"; createdAt: number; data: BookmarkItem }
-  | { kind: "event"; createdAt: number; data: EventEntry }
-  | { kind: "page"; createdAt: number; data: PageItem };
+export type CanvasArtifactItem = {
+  /**
+   * Where this row sits in the day's chronology: creation time for something
+   * created today, last-edit time for something older that was edited today.
+   * Named `sortAt` rather than `createdAt` precisely because of that second
+   * case — an edited row's position is not its creation time, and calling the
+   * field `createdAt` would have quietly made it lie.
+   */
+  sortAt: number;
+  /** Set on a row that is here because it was *edited* today, not created today. */
+  edited?: boolean;
+  /** What that edit was, for the badge — "Edited", "Reopened", "Snoozed". */
+  editLabel?: string;
+} & (
+  | { kind: "todo"; data: TodoItem }
+  | { kind: "note"; data: NoteItem }
+  | { kind: "bookmark"; data: BookmarkItem }
+  | { kind: "event"; data: EventEntry }
+  | { kind: "page"; data: PageItem }
+);
 
-/** Every artifact (todos, including recurring occurrences, notes, bookmarks, events) created on `dateKey`, sorted by creation time. Shared by the canvas (today) and history (any day) screens. */
+/**
+ * A todo's completion already writes its own event entry into the day feed
+ * ("Finished X"), so a completion must not *also* resurface the todo as an
+ * edit — that would report the same action twice, in two shapes.
+ *
+ * Detected by proximity rather than equality because `toggleTodo` takes an
+ * optional client-supplied `completedAt` while stamping `updatedAt` itself,
+ * so the two can land a few milliseconds apart.
+ */
+const COMPLETION_UPDATE_WINDOW_MS = 2000;
+
+function isCompletionOnlyUpdate(todo: TodoItem): boolean {
+  if (!todo.completedAt) return false;
+  return Math.abs(todo.updatedAt - todo.completedAt) <= COMPLETION_UPDATE_WINDOW_MS;
+}
+
+/**
+ * What the "Edited" badge says for a resurfaced artifact.
+ *
+ * `updatedAt` only records *when* something changed, never what — so the
+ * label is read off the activity log, which does record it, rather than
+ * guessed from the artifact's current shape. Falls back to a plain "Edited"
+ * whenever the log has nothing to say, which is the honest answer: better a
+ * vague label than a confidently wrong one.
+ *
+ * Un-completing a todo is the case worth naming, and it needs the `diff`:
+ * `toggleTodo` records it as a plain "edited", indistinguishable from a title
+ * change without the `{ status }` payload it now writes alongside.
+ */
+function describeCanvasEdit(itemId: string, dateKey: DateKey, activity: ActivityItem[]): string {
+  // Most recent first — `activity` is already stored newest-first, so the
+  // first match is the last thing that happened to this artifact that day.
+  const entry = activity.find(
+    (item) => item.itemId === itemId && toDateKey(new Date(item.timestamp)) === dateKey,
+  );
+  if (!entry) return "Edited";
+
+  if (entry.action === "snoozed") return "Snoozed";
+
+  if (entry.module === "todo" && entry.diff) {
+    try {
+      const parsed = JSON.parse(entry.diff) as { status?: string };
+      if (parsed.status === "open") return "Reopened";
+    } catch {
+      // A malformed diff is not worth failing a badge over.
+    }
+  }
+
+  return "Edited";
+}
+
+/** True when `updatedAt` lands on `dateKey` but the artifact was created earlier. */
+function wasEditedOn(dateKey: DateKey, createdDateKey: DateKey, updatedAt?: number): boolean {
+  if (updatedAt === undefined) return false;
+  if (createdDateKey === dateKey) return false;
+  return toDateKey(new Date(updatedAt)) === dateKey;
+}
+
+/**
+ * Every artifact belonging to `dateKey`, sorted chronologically. Shared by the
+ * canvas (today) and history (any day) screens.
+ *
+ * Two ways in:
+ *
+ * 1. **Created** that day — todos (including recurring occurrences), notes,
+ *    bookmarks, events, canvases.
+ * 2. **Edited** that day, having been created earlier. Adding "apple" to a
+ *    paragraph written ten days ago is work done today, and the day feed is
+ *    the record of a day's work, so it belongs here — rendered in full, with
+ *    an `edited` flag the UI badges. The original stays on its own day too;
+ *    this is an additional appearance, not a move.
+ *
+ * An artifact never appears twice on one day: anything already present via (1)
+ * — or via a due date, for todos — is skipped by (2).
+ */
 export function buildCanvasDayItems(
   state: AppState,
   dateKey: DateKey,
@@ -483,24 +571,62 @@ export function buildCanvasDayItems(
 ): CanvasArtifactItem[] {
   const todoItems: CanvasArtifactItem[] = getVisibleCanvasTodos(state, dateKey, completionIndex).map((todo) => ({
     kind: "todo",
-    createdAt: todo.createdAt,
+    sortAt: todo.createdAt,
     data: todo,
   }));
   const noteItems: CanvasArtifactItem[] = state.notes
     .filter((note) => note.createdDateKey === dateKey)
-    .map((note) => ({ kind: "note", createdAt: note.createdAt, data: note }));
+    .map((note) => ({ kind: "note", sortAt: note.createdAt, data: note }));
   // Same as todos above: a link block's bookmark row stays inside its page.
   const bookmarkItems: CanvasArtifactItem[] = state.bookmarks
     .filter((bookmark) => bookmark.createdDateKey === dateKey && !bookmark.pageId)
-    .map((bookmark) => ({ kind: "bookmark", createdAt: bookmark.createdAt, data: bookmark }));
+    .map((bookmark) => ({ kind: "bookmark", sortAt: bookmark.createdAt, data: bookmark }));
   const eventItems: CanvasArtifactItem[] = state.events
     .filter((event) => !event.deletedAt && event.createdDateKey === dateKey)
-    .map((event) => ({ kind: "event", createdAt: event.createdAt, data: event }));
+    .map((event) => ({ kind: "event", sortAt: event.createdAt, data: event }));
   // Canvases file under the day they were created, like notes — editing one
-  // later must not move it to another day's feed.
+  // later must not *move* it to another day's feed (it gets an additional
+  // "edited" row there instead, below).
   const pageItems: CanvasArtifactItem[] = state.pages
     .filter((page) => !page.deletedAt && page.createdDateKey === dateKey)
-    .map((page) => ({ kind: "page", createdAt: page.createdAt, data: page }));
+    .map((page) => ({ kind: "page", sortAt: page.createdAt, data: page }));
 
-  return [...todoItems, ...noteItems, ...bookmarkItems, ...eventItems, ...pageItems].sort((left, right) => left.createdAt - right.createdAt);
+  const created = [...todoItems, ...noteItems, ...bookmarkItems, ...eventItems, ...pageItems];
+  const seen = new Set(created.map((item) => item.data.id));
+  const edited: CanvasArtifactItem[] = [];
+
+  for (const todo of state.todos) {
+    if (todo.deletedAt || todo.pageId || seen.has(todo.id)) continue;
+    // Series masters never render directly (see getVisibleCanvasTodos), and
+    // a materialized occurrence's "edit" is its own completion.
+    if (todo.recurrence || todo.recurringSourceId) continue;
+    if (!wasEditedOn(dateKey, todo.createdDateKey, todo.updatedAt)) continue;
+    if (isCompletionOnlyUpdate(todo)) continue;
+    edited.push({ kind: "todo", editLabel: describeCanvasEdit(todo.id, dateKey, state.activity), sortAt: todo.updatedAt, data: todo, edited: true });
+  }
+  for (const note of state.notes) {
+    if (note.deletedAt || seen.has(note.id)) continue;
+    if (!wasEditedOn(dateKey, note.createdDateKey, note.updatedAt)) continue;
+    edited.push({ kind: "note", editLabel: describeCanvasEdit(note.id, dateKey, state.activity), sortAt: note.updatedAt, data: note, edited: true });
+  }
+  for (const bookmark of state.bookmarks) {
+    if (bookmark.deletedAt || bookmark.pageId || seen.has(bookmark.id)) continue;
+    if (!wasEditedOn(dateKey, bookmark.createdDateKey, bookmark.updatedAt)) continue;
+    edited.push({ kind: "bookmark", editLabel: describeCanvasEdit(bookmark.id, dateKey, state.activity), sortAt: bookmark.updatedAt!, data: bookmark, edited: true });
+  }
+  for (const event of state.events) {
+    if (event.deletedAt || seen.has(event.id)) continue;
+    // An event entry written *by* a todo completion is already the day's
+    // record of that completion; it has no separate edit worth surfacing.
+    if (event.sourceType === "todo_completed") continue;
+    if (!wasEditedOn(dateKey, event.createdDateKey, event.updatedAt)) continue;
+    edited.push({ kind: "event", editLabel: describeCanvasEdit(event.id, dateKey, state.activity), sortAt: event.updatedAt!, data: event, edited: true });
+  }
+  for (const page of state.pages) {
+    if (page.deletedAt || seen.has(page.id)) continue;
+    if (!wasEditedOn(dateKey, page.createdDateKey, page.updatedAt)) continue;
+    edited.push({ kind: "page", editLabel: describeCanvasEdit(page.id, dateKey, state.activity), sortAt: page.updatedAt, data: page, edited: true });
+  }
+
+  return [...created, ...edited].sort((left, right) => left.sortAt - right.sortAt);
 }

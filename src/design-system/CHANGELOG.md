@@ -23,6 +23,53 @@ Each entry is one of:
 - **Renamed** `Component.propName` → `Component.newPropName`. <why>. <migration note>.
 ```
 
+## 2026-09-19
+
+- **Added** `useFolderCombobox` / `FolderComboboxOptions` /
+  `FolderComboboxClearButton` (`src/components/FolderCombobox.tsx`) — the
+  type-to-filter folder picker, previously copy-pasted three times. Its
+  `handleKeyDown` returns whether it consumed the event; call it *before*
+  any save handling, or an open menu loses Enter to the save.
+- **Added** `handleNoteEnterKey` (`src/lib/tiptap-note.ts`) — Enter behaviour
+  for both note editors. Lists claim Enter before the save check.
+- **Added** `FolderNavGroups` (`src/components/FolderNav.tsx`), re-exported as
+  `FolderGroups` / `CategoryGroups`. Renders a folder list as its pinned
+  group then the rest; `wrap` supplies the container so it serves both the
+  desktop rail and the mobile grid.
+- **Added** `isPinned` / `onTogglePin` on `FolderNavActionMenu` and
+  `TodoFolderActionMenu`. Omit `onTogglePin` for rows with no folder behind
+  them ("Uncategorized", "Saved", "Synced from GCal").
+- **Added** `PagePinButton` (`src/components/page/PagePinButton.tsx`) — the
+  canvas pin toggle shared by `PageCard` and `CanvasContinueWriting`.
+- **Added** `DraftStatusChip` + `DraftPersistence`
+  (`src/components/DraftStatus.tsx`) — the composer's "Not saved, Enter to
+  save" indicator. States: `empty` (renders nothing), `pending`, `stored`.
+  `compact` drops the second half for narrow slots.
+- **Added** `DrawerHeaderRow.status` — centre-slot node, replaces the drag
+  grip when present.
+- **Added** `CanvasDraftBlock.onDraftStatusChange`, reporting the above.
+- **Added** `CanvasArtifactItem.editLabel` (`src/app/reducer.ts`) — what the
+  day feed's Edited badge says. Read off the activity log, not inferred.
+- **Renamed** `PageCard.onToggleStar` → `onTogglePin`, and its second
+  callback argument `starred` → `pinned`. Icon `Star` → `Pin`.
+- **Renamed** `PageItem.starred` → `PageItem.pinned`, and the
+  `page/set-flags` action's `starred` field → `pinned`. The Convex column
+  was renamed to match; `pages.starred` survives as a deprecated field
+  until `migrations/backfillPagePinned` has run on every deployment.
+- **Renamed** `isSaveShortcutEvent(event, setting)` → `isSaveKeyEvent(event)`
+  and `isNewlineShortcutEvent(event, setting)` → `isNewlineKeyEvent(event)`.
+  Both lost their setting argument.
+- **Removed** the `saveShortcut` / `newlineShortcut` settings, their types
+  and constant lists, and the conflict resolution in `normalizeUserSettings`
+  and `convex/userSettings.ts`. The keymap is fixed: **Enter saves,
+  Shift+Enter is a newline.** Their Convex columns survive as deprecated
+  until `migrations/clearShortcutSettings` has run on every deployment.
+- **Removed** `formatSaveShortcutLabel` and `hasShortcutConflict`; replaced
+  `formatSaveShortcutKeyLabel(shortcut, isMac)` with the
+  `SAVE_SHORTCUT_KEY_LABEL` constant.
+- `SaveShortcutHint` renders a fixed "Press Enter to save".
+  `showSaveShortcutHints` survives and got its Settings control back.
+
 ## 2026-09-12
 
 - **Added** `[data-body-font="serif"] { letter-spacing: -0.02em }`

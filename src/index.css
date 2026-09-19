@@ -945,22 +945,38 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
   margin: 0;
   padding-left: 1.25rem;
 }
-.ProseMirror ul {
+/* Nested list markers cycle every three levels, matching
+   BULLET_MARKER_CLASSES / ORDERED_MARKER_CLASSES in
+   src/components/rich-text.tsx, which picks its marker with `depth % 3`.
+   These are descendant selectors, so a rule written only three deep keeps
+   matching at every deeper level instead of restarting the cycle: the editor
+   sat on `square`/`lower-roman` from level 3 onwards while the saved preview
+   cycled back to `disc`/`decimal` at level 4. The same list therefore looked
+   different before and after saving. Spelled out to six levels so both sides
+   agree over any realistic nesting; if you change the cycle, change it in
+   both places. */
+.ProseMirror ul,
+.ProseMirror ul ul ul ul {
   list-style-type: disc;
 }
-.ProseMirror ul ul {
+.ProseMirror ul ul,
+.ProseMirror ul ul ul ul ul {
   list-style-type: circle;
 }
-.ProseMirror ul ul ul {
+.ProseMirror ul ul ul,
+.ProseMirror ul ul ul ul ul ul {
   list-style-type: square;
 }
-.ProseMirror ol {
+.ProseMirror ol,
+.ProseMirror ol ol ol ol {
   list-style-type: decimal;
 }
-.ProseMirror ol ol {
+.ProseMirror ol ol,
+.ProseMirror ol ol ol ol ol {
   list-style-type: lower-alpha;
 }
-.ProseMirror ol ol ol {
+.ProseMirror ol ol ol,
+.ProseMirror ol ol ol ol ol ol {
   list-style-type: lower-roman;
 }
 .ProseMirror li {

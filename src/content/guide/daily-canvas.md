@@ -18,4 +18,6 @@ Items land on the canvas in the order you captured them, oldest to newest, so ne
 
 Anything you capture from the composer shows up on the canvas for the current day. Some things also appear on other days: a todo shows on its due date, and a recurring todo appears on every day it's due. Completing a todo logs it into your timeline, which also shows here as an event.
 
+Editing something you wrote earlier also brings it here, in full, badged **Edited** — adding a line to a note from last week is work you did today. The original stays on its own day; this is an extra appearance, not a move. Unchecking a todo says **Reopened** and snoozing one says **Snoozed**. Completing a todo doesn't show twice, since that already logs an event.
+
 Next: **Capturing anything** covers the composer and its shortcuts.

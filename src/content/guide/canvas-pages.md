@@ -24,6 +24,8 @@ See **Public links** for how to publish a page as a read-only link anyone can op
 
 ## Where pages show up
 
-A page appears as a card in "Your today" on the day you created it, and afterwards under "Continue writing". Editing an old page never moves it to a different day.
+A page appears as a card in "Your today" on the day you created it, and afterwards under "Continue writing". **Pin** it — the pin icon on the card, which fills in once set — to keep it in "Continue writing" however long ago you last touched it. Hiding it does the opposite.
+
+Editing an old page never moves it to a different day, but it does give it a second card on the day you edited it, badged **Edited**.
 
 Next: **Public links** covers sharing a page or a folder.

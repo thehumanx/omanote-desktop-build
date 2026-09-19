@@ -15,6 +15,13 @@ import type {
   TodoItem,
 } from "@omanote/shared";
 
+/**
+ * Which of the three folder-ish tables an id belongs to. They are separate
+ * tables with separate mutations, but every operation that treats them
+ * uniformly (pinning, for now) needs one word for "which one".
+ */
+export type FolderScope = "todo" | "note" | "bookmark";
+
 export interface AuthUser {
   id: string;
   name: string;
@@ -127,7 +134,7 @@ export type AppAction =
   // Plaintext flags, not document edits — see pages.ts's setPageFlags, which
   // deliberately doesn't bump updatedAt so toggling either never reorders
   // "Continue writing" or the day feed.
-  | { type: "page/set-flags"; pageId: string; starred?: boolean; hidden?: boolean }
+  | { type: "page/set-flags"; pageId: string; pinned?: boolean; hidden?: boolean }
   | { type: "todo-folder/create"; name: string; icon?: string }
   | { type: "todo-folder/update"; folderId: string; name: string; icon?: string }
   | { type: "todo-folder/delete"; folderId: string }
@@ -159,6 +166,11 @@ export type AppAction =
   | { type: "bookmark-category/update"; categoryId: string; name: string; icon?: string }
   | { type: "bookmark-category/delete"; categoryId: string }
   | { type: "bookmark-category/delete-with-bookmarks"; categoryId: string }
+  // One action for all three folder kinds rather than three near-identical
+  // ones: the optimistic write, the Dexie patch, the offline queueing and
+  // the rollback are the same in every case, and only the mutation called at
+  // the end differs. See AppProvider's "folder/set-pinned" case.
+  | { type: "folder/set-pinned"; scope: FolderScope; folderId: string; pinned: boolean }
   | { type: "event/create"; label: string; dateKey: DateKey; loggedAt?: number; notes?: string; hashtags?: string[] }
   | { type: "event/update"; eventId: string; label: string; loggedAt: number; notes?: string; hashtags?: string[] }
   | { type: "event/delete"; eventId: string }

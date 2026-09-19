@@ -9,6 +9,7 @@ Settings is organized into categories so each kind of control is easy to find.
 - **Corner style:** Rounded (default) or Sharp, square corners across the app.
 - **Navigation labels:** active label only, icon and label, or label only.
 - **Canvas dot grid:** toggle the dotted backdrop on the canvas.
+- **Save hint:** show or hide the "Press Enter to save" line under the editors.
 
 ## Features
 

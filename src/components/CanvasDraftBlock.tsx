@@ -12,7 +12,7 @@ import { MobileSaveButton } from "./MobileSaveButton";
 import { hashtagColor, hashtagHighlightSegments, parseHashtags } from "../lib/hashtags";
 import { mentionHighlightSegments } from "../lib/mentions";
 import { useUserSettings } from "../contexts/UserSettingsContext";
-import { isNewlineShortcutEvent, isSaveShortcutEvent } from "../lib/editor-shortcuts";
+import { isNewlineKeyEvent, isSaveKeyEvent } from "../lib/editor-shortcuts";
 import { useMeasuredHighlight } from "../hooks/useMeasuredHighlight";
 import { NoteCanvasEditor } from "./NoteCanvasEditor";
 import { useMobileKeyboardState } from "./layout/useMobileKeyboardState";
@@ -20,6 +20,8 @@ import { HashtagPickerDropdown, useHashtagPicker } from "./HashtagPicker";
 import { EmojiPickerDropdown, useEmojiPicker } from "./EmojiPicker";
 import { readLocalStorage, stringCodec, writeLocalStorage } from "../lib/local-storage";
 import { readComposerDraft, writeComposerDraft } from "../lib/composer-draft";
+import { FolderComboboxClearButton, FolderComboboxOptions, useFolderCombobox } from "./FolderCombobox";
+import type { DraftPersistence } from "./DraftStatus";
 import { autoResizeTextArea } from "../lib/auto-resize";
 
 const commands: Array<{ key: DraftMode; label: string }> = [
@@ -73,20 +75,6 @@ type TodoDraftLine = {
   id: string;
   text: string;
 };
-
-type BookmarkCategoryMenuItem =
-  | {
-      kind: "existing";
-      key: string;
-      label: string;
-      value: string;
-    }
-  | {
-      kind: "create";
-      key: string;
-      label: string;
-      value: string;
-    };
 
 function createTodoDraftLine(text = ""): TodoDraftLine {
   return {
@@ -204,6 +192,10 @@ export type CanvasDraftBlockProps = {
   // that mode actually saves with — only note mode requires the save
   // modifier key; todo/event/bookmark all save on a plain Enter.
   onModeChange?: (mode: DraftMode) => void;
+  // Reports whether anything typed has been written to local storage yet, so
+  // a caller rendering its own chrome (ComposerSheet's hint row) can show
+  // the "Not saved" status alongside the save-shortcut hint.
+  onDraftStatusChange?: (status: DraftPersistence) => void;
   // When `requestToken` changes (a fresh "open the composer" request, even
   // if `requestedMode`'s value is unchanged from last time), the visible
   // mode switches to `requestedMode`. This never touches the other modes'
@@ -228,7 +220,7 @@ export type CanvasDraftBlockProps = {
 };
 
 export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBlockProps>(function CanvasDraftBlock(
-  { embedded = false, onDone, onCanSaveChange, onModeChange, requestedMode, requestToken, outsideClickContainerRef, hideMobileActions = false },
+  { embedded = false, onDone, onCanSaveChange, onModeChange, onDraftStatusChange, requestedMode, requestToken, outsideClickContainerRef, hideMobileActions = false },
   ref,
 ) {
   const { state, dispatch } = useApp();
@@ -338,15 +330,11 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
   );
   const [activeTodoLineId, setActiveTodoLineId] = useState<string>(todoLines[0]?.id ?? "");
   const [todoFolderValue, setTodoFolderValue] = useState(() => readLastTodoFolder());
-  const [todoFolderOpen, setTodoFolderOpen] = useState(false);
-  const [todoFolderActiveIndex, setTodoFolderActiveIndex] = useState(0);
   const todoFolderContainerRef = useRef<HTMLDivElement | null>(null);
   const todoFolderInputRef = useRef<HTMLInputElement | null>(null);
   const todoFocusPendingRef = useRef(false);
   const [bookmarkUrl, setBookmarkUrl] = useState(() => persistedDraft.bookmarkUrl);
   const [bookmarkCategoryValue, setBookmarkCategoryValue] = useState(() => readLastBookmarkCategory());
-  const [bookmarkCategoryOpen, setBookmarkCategoryOpen] = useState(false);
-  const [bookmarkCategoryActiveIndex, setBookmarkCategoryActiveIndex] = useState(0);
   const bookmarkFocusPendingRef = useRef(false);
   const bookmarkUrlInputRef = useRef<HTMLTextAreaElement | null>(null);
   const bookmarkCategoryInputRef = useRef<HTMLInputElement | null>(null);
@@ -368,7 +356,18 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
   // Debounced so rapid typing doesn't hit localStorage on every keystroke.
   // Writes the empty shape too once a draft is cleared (e.g. right after a
   // save) — that's the same as clearing it, no separate "clear" call needed.
+  //
+  // `draftStatus` tracks the same write so the composer can say so out loud
+  // (see DraftStatusChip). It reports "pending" for the debounce window and
+  // "stored" once the write has actually happened, rather than claiming
+  // durability the instant a key is pressed.
+  const [draftStatus, setDraftStatus] = useState<DraftPersistence>("empty");
   useEffect(() => {
+    // Only the *first* flush of a draft session moves pending -> stored.
+    // Dropping back to "pending" on every subsequent keystroke would flicker
+    // the label twice a second for nothing: once a draft has been written, at
+    // most the last 300ms of typing is ever unflushed.
+    setDraftStatus((current) => (hasAnyDraftContent ? (current === "empty" ? "pending" : current) : "empty"));
     const timeoutId = window.setTimeout(() => {
       writeComposerDraft({
         mode,
@@ -377,9 +376,15 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
         eventLines: eventLines.map((line) => line.text).filter((text) => text.trim().length > 0),
         bookmarkUrl,
       });
+      setDraftStatus(hasAnyDraftContent ? "stored" : "empty");
     }, 300);
     return () => window.clearTimeout(timeoutId);
-  }, [mode, body, todoLines, eventLines, bookmarkUrl]);
+  }, [mode, body, todoLines, eventLines, bookmarkUrl, hasAnyDraftContent]);
+
+  useEffect(() => {
+    onDraftStatusChange?.(draftStatus);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftStatus]);
 
   const noteEditorHostRef = useRef<HTMLDivElement | null>(null);
   const noteFocusPendingRef = useRef(false);
@@ -462,69 +467,32 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
   const editorValue = showPicker ? commandValue : body;
   const showNoteFolderPicker = mode === "note" && !showPicker && hasMeaningfulNoteInput(body);
   const noteFolderMatch = useMemo(() => resolveNoteFolderByName(state.noteFolders, noteFolderValue), [noteFolderValue, state.noteFolders]);
-  const todoFolderTrimmed = todoFolderValue.trim();
-  const todoFolderFilter = todoFolderTrimmed.toLowerCase();
-  const todoFolderOptions = useMemo(() => {
-    if (!todoFolderFilter) return state.todoFolders;
-    return state.todoFolders.filter((folder) => folder.name.toLowerCase().includes(todoFolderFilter));
-  }, [state.todoFolders, todoFolderFilter]);
-  const todoFolderExactMatch = useMemo(
-    () => state.todoFolders.find((folder) => folder.name.toLowerCase() === todoFolderFilter) ?? null,
-    [state.todoFolders, todoFolderFilter],
-  );
-  const todoFolderMenuItems = useMemo(() => {
-    const items: Array<{ kind: "existing" | "create"; key: string; label: string; value: string }> = todoFolderOptions.map((folder) => ({
-      kind: "existing" as const,
-      key: folder.id,
-      label: folder.name,
-      value: folder.name,
-    }));
-
-    if (todoFolderTrimmed && !todoFolderExactMatch) {
-      items.push({
-        kind: "create" as const,
-        key: `create:${todoFolderTrimmed.toLowerCase()}`,
-        label: `Create folder "${todoFolderTrimmed}"`,
-        value: todoFolderTrimmed,
-      });
-    }
-
-    return items;
-  }, [todoFolderExactMatch, todoFolderOptions, todoFolderTrimmed]);
-  const showTodoFolderMenu = mode === "todo" && todoFolderOpen;
-  const bookmarkCategoryFilter = bookmarkCategoryValue.trim().toLowerCase();
-  const bookmarkCategoryTrimmed = bookmarkCategoryValue.trim();
-  const bookmarkCategoryOptions = useMemo(() => {
-    if (!bookmarkCategoryFilter) return state.bookmarkCategories;
-    return state.bookmarkCategories.filter((category) => category.name.toLowerCase().includes(bookmarkCategoryFilter));
-  }, [bookmarkCategoryFilter, state.bookmarkCategories]);
-  const bookmarkCategoryExactMatch = useMemo(
-    () =>
-      state.bookmarkCategories.find(
-        (category) => category.name.toLowerCase() === bookmarkCategoryTrimmed.toLowerCase(),
-      ) ?? null,
-    [bookmarkCategoryTrimmed, state.bookmarkCategories],
-  );
-  const bookmarkCategoryMenuItems = useMemo(() => {
-    const items: BookmarkCategoryMenuItem[] = bookmarkCategoryOptions.map((category) => ({
-      kind: "existing" as const,
-      key: category.id,
-      label: category.name,
-      value: category.name,
-    }));
-
-    if (bookmarkCategoryTrimmed && !bookmarkCategoryExactMatch) {
-      items.push({
-        kind: "create" as const,
-        key: `create:${bookmarkCategoryTrimmed.toLowerCase()}`,
-        label: `Create folder "${bookmarkCategoryTrimmed}"`,
-        value: bookmarkCategoryTrimmed,
-      });
-    }
-
-    return items;
-  }, [bookmarkCategoryExactMatch, bookmarkCategoryOptions, bookmarkCategoryTrimmed]);
-  const showBookmarkCategoryMenu = mode === "bookmark" && bookmarkCategoryOpen;
+  // Accepting a suggestion hands focus back to the body input; the allow-blur
+  // flag stops that focus move from being read as "the user left the draft",
+  // which would commit it.
+  const todoFolderCombobox = useFolderCombobox({
+    folders: state.todoFolders,
+    value: todoFolderValue,
+    onChange: setTodoFolderValue,
+    onSelect: () => {
+      allowTodoBlurRef.current = true;
+      window.requestAnimationFrame(() => focusTodoInput());
+    },
+  });
+  const bookmarkCategoryCombobox = useFolderCombobox({
+    folders: state.bookmarkCategories,
+    value: bookmarkCategoryValue,
+    onChange: setBookmarkCategoryValue,
+    onSelect: () => {
+      allowBookmarkBlurRef.current = true;
+      window.requestAnimationFrame(() => bookmarkUrlInputRef.current?.focus());
+    },
+  });
+  const todoFolderTrimmed = todoFolderCombobox.trimmedValue;
+  const todoFolderExactMatch = todoFolderCombobox.exactMatch;
+  const showTodoFolderMenu = mode === "todo" && todoFolderCombobox.isOpen;
+  const bookmarkCategoryTrimmed = bookmarkCategoryCombobox.trimmedValue;
+  const showBookmarkCategoryMenu = mode === "bookmark" && bookmarkCategoryCombobox.isOpen;
 
   useLayoutEffect(() => {
     if (!showBookmarkCategoryMenu || !bookmarkCategoryContainerRef.current) {
@@ -597,28 +565,6 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
       bookmarkUrlInputRef.current?.focus();
     });
   }, [mode, bookmarkUrl]);
-
-  useEffect(() => {
-    if (!showBookmarkCategoryMenu) {
-      setBookmarkCategoryActiveIndex(0);
-      return;
-    }
-
-    setBookmarkCategoryActiveIndex((current) =>
-      Math.min(current, Math.max(0, bookmarkCategoryMenuItems.length - 1)),
-    );
-  }, [bookmarkCategoryMenuItems.length, showBookmarkCategoryMenu]);
-
-  useEffect(() => {
-    if (!showTodoFolderMenu) {
-      setTodoFolderActiveIndex(0);
-      return;
-    }
-
-    setTodoFolderActiveIndex((current) =>
-      Math.min(current, Math.max(0, todoFolderMenuItems.length - 1)),
-    );
-  }, [todoFolderMenuItems.length, showTodoFolderMenu]);
 
   useLayoutEffect(() => {
     if (!eventFocusPendingRef.current || mode !== "event") return;
@@ -816,8 +762,7 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
     if (command.key === "bookmark") {
       const savedCategory = readLastBookmarkCategory();
       setBookmarkCategoryValue(savedCategory.trim());
-      setBookmarkCategoryOpen(false);
-      setBookmarkCategoryActiveIndex(0);
+      bookmarkCategoryCombobox.close();
       bookmarkFocusPendingRef.current = true;
       window.requestAnimationFrame(() => {
         bookmarkUrlInputRef.current?.focus();
@@ -916,8 +861,7 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
     setTodoLines([nextLine]);
     setActiveTodoLineId(nextLine.id);
     setTodoFolderValue(readLastTodoFolder());
-    setTodoFolderOpen(false);
-    setTodoFolderActiveIndex(0);
+    todoFolderCombobox.close();
     allowTodoBlurRef.current = false;
   };
 
@@ -964,8 +908,7 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
   const resetBookmarkDraft = () => {
     setBookmarkUrl("");
     setBookmarkCategoryValue(readLastBookmarkCategory());
-    setBookmarkCategoryOpen(false);
-    setBookmarkCategoryActiveIndex(0);
+    bookmarkCategoryCombobox.close();
     allowBookmarkBlurRef.current = false;
   };
 
@@ -993,7 +936,7 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
       state.bookmarkCategories.find((category) => category.name.toLowerCase() === savedCategory.trim().toLowerCase()) ??
       state.bookmarkCategories[0];
     setBookmarkCategoryValue(existingCategory?.name ?? savedCategory);
-    setBookmarkCategoryOpen(false);
+    bookmarkCategoryCombobox.close();
   };
 
   useOutsideClick(outsideClickContainerRef ?? shellRef, mode === "note" || mode === "todo" || mode === "bookmark" || mode === "event", () => {
@@ -1166,8 +1109,7 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
 
     setBookmarkUrl(text);
     setBookmarkCategoryValue(readLastBookmarkCategory().trim());
-    setBookmarkCategoryOpen(false);
-    setBookmarkCategoryActiveIndex(0);
+    bookmarkCategoryCombobox.close();
     setMode("bookmark");
     bookmarkFocusPendingRef.current = true;
   };
@@ -1315,7 +1257,7 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                     return;
                   }
 
-                  if (isSaveShortcutEvent(event, settings.saveShortcut)) {
+                  if (isSaveKeyEvent(event)) {
                     event.preventDefault();
                     allowBookmarkBlurRef.current = true;
                     commit();
@@ -1344,11 +1286,7 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
               <input
                 ref={bookmarkCategoryInputRef}
                 value={bookmarkCategoryValue}
-                onChange={(event) => {
-                  setBookmarkCategoryValue(event.target.value);
-                  setBookmarkCategoryOpen(true);
-                  setBookmarkCategoryActiveIndex(0);
-                }}
+                onChange={(event) => bookmarkCategoryCombobox.handleInputChange(event.target.value)}
                 onFocus={() => {
                   setMobileSwitcherVisible(true);
                   queueEnsureEditorVisible();
@@ -1356,7 +1294,7 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                 onBlur={() => {
                   hideMobileSwitcherIfFocusLeavesDraft();
                   window.requestAnimationFrame(() => {
-                    setBookmarkCategoryOpen(false);
+                    bookmarkCategoryCombobox.close();
                   });
                 }}
                 onKeyDown={(event) => {
@@ -1369,35 +1307,14 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                     }
                     return;
                   }
-                  if (isSaveShortcutEvent(event, settings.saveShortcut)) {
+                  // Before the save check, always: while the menu is open it
+                  // owns Enter, so typing "fol" and pressing Enter accepts the
+                  // highlighted "folder" instead of saving into a new "fol".
+                  if (bookmarkCategoryCombobox.handleKeyDown(event)) return;
+                  if (isSaveKeyEvent(event)) {
                     event.preventDefault();
                     allowBookmarkBlurRef.current = true;
                     commit();
-                    return;
-                  }
-                  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-                    if (!bookmarkCategoryMenuItems.length) return;
-                    event.preventDefault();
-                    setBookmarkCategoryOpen(true);
-                    setBookmarkCategoryActiveIndex((current) => {
-                      if (event.key === "ArrowDown") {
-                        return (current + 1) % bookmarkCategoryMenuItems.length;
-                      }
-                      return (current - 1 + bookmarkCategoryMenuItems.length) % bookmarkCategoryMenuItems.length;
-                    });
-                    return;
-                  }
-                  if ((event.key === "Enter" || event.key === "Tab") && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
-                    if (!bookmarkCategoryMenuItems.length) return;
-                    event.preventDefault();
-                    const nextItem = bookmarkCategoryMenuItems[bookmarkCategoryActiveIndex] ?? bookmarkCategoryMenuItems[0];
-                    if (!nextItem) return;
-                    setBookmarkCategoryValue(nextItem.value);
-                    setBookmarkCategoryOpen(false);
-                    allowBookmarkBlurRef.current = true;
-                    window.requestAnimationFrame(() => {
-                      bookmarkUrlInputRef.current?.focus();
-                    });
                     return;
                   }
                 }}
@@ -1405,20 +1322,12 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                 className="w-full border-b border-app-line bg-transparent px-0 pr-7 py-0.5 text-[15px] text-app-ink-faint outline-none placeholder:text-app-line-strong focus:border-app-line-strong"
               />
               {bookmarkCategoryValue.trim() ? (
-                <button
-                  type="button"
-                  aria-label="Clear folder"
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => {
-                    setBookmarkCategoryValue("");
-                    setBookmarkCategoryOpen(true);
-                    setBookmarkCategoryActiveIndex(0);
+                <FolderComboboxClearButton
+                  onClear={() => {
+                    bookmarkCategoryCombobox.clear();
                     bookmarkCategoryInputRef.current?.focus();
                   }}
-                  className="absolute right-0 top-1/2 -translate-y-1/2 rounded-full p-1 text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
+                />
               ) : null}
               </div>
             </div>
@@ -1591,7 +1500,7 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                             return;
                           }
 
-                          if (isSaveShortcutEvent(event, settings.saveShortcut)) {
+                          if (isSaveKeyEvent(event)) {
                             event.preventDefault();
                             if (mode === "todo") {
                               commitTodoDraft();
@@ -1640,7 +1549,7 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                             return;
                           }
 
-                          if (isNewlineShortcutEvent(event, settings.newlineShortcut)) {
+                          if (isNewlineKeyEvent(event)) {
                             event.preventDefault();
                             return;
                           }
@@ -1698,58 +1607,32 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                         <input
                           ref={todoFolderInputRef}
                           value={todoFolderValue}
-                          onChange={(event) => {
-                            setTodoFolderValue(event.target.value);
-                            setTodoFolderOpen(true);
-                            setTodoFolderActiveIndex(0);
-                          }}
+                          onChange={(event) => todoFolderCombobox.handleInputChange(event.target.value)}
                           onFocus={() => {
-                            setTodoFolderOpen(true);
+                            todoFolderCombobox.open();
                             setMobileSwitcherVisible(true);
                             queueEnsureEditorVisible();
                           }}
                           onBlur={() => {
                             hideMobileSwitcherIfFocusLeavesDraft();
                             window.requestAnimationFrame(() => {
-                              setTodoFolderOpen(false);
+                              todoFolderCombobox.close();
                             });
                           }}
                           onKeyDown={(event) => {
                             if (event.key === "Escape") {
                               event.preventDefault();
-                              setTodoFolderOpen(false);
+                              todoFolderCombobox.close();
                               focusTodoInput();
                               return;
                             }
-                            if (isSaveShortcutEvent(event, settings.saveShortcut)) {
+                            // Before the save check, always — see the bookmark
+                            // category field above for why the order matters.
+                            if (todoFolderCombobox.handleKeyDown(event)) return;
+                            if (isSaveKeyEvent(event)) {
                               event.preventDefault();
                               allowTodoBlurRef.current = true;
                               commitTodoDraft();
-                              return;
-                            }
-                            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-                              if (!todoFolderMenuItems.length) return;
-                              event.preventDefault();
-                              setTodoFolderOpen(true);
-                              setTodoFolderActiveIndex((current) => {
-                                if (event.key === "ArrowDown") {
-                                  return (current + 1) % todoFolderMenuItems.length;
-                                }
-                                return (current - 1 + todoFolderMenuItems.length) % todoFolderMenuItems.length;
-                              });
-                              return;
-                            }
-                            if ((event.key === "Enter" || event.key === "Tab") && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
-                              if (!todoFolderMenuItems.length) return;
-                              event.preventDefault();
-                              const nextItem = todoFolderMenuItems[todoFolderActiveIndex] ?? todoFolderMenuItems[0];
-                              if (!nextItem) return;
-                              setTodoFolderValue(nextItem.value);
-                              setTodoFolderOpen(false);
-                              allowTodoBlurRef.current = true;
-                              window.requestAnimationFrame(() => {
-                                focusTodoInput();
-                              });
                               return;
                             }
                           }}
@@ -1757,49 +1640,24 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                           className="w-full border-b border-app-line bg-transparent px-0 pr-7 py-0.5 text-[15px] text-app-ink-faint outline-none placeholder:text-app-line-strong focus:border-app-line-strong"
                         />
                         {todoFolderValue.trim() ? (
-                          <button
-                            type="button"
-                            aria-label="Clear folder"
-                            onMouseDown={(event) => event.preventDefault()}
-                            onClick={() => {
-                              setTodoFolderValue("");
-                              setTodoFolderOpen(true);
-                              setTodoFolderActiveIndex(0);
+                          <FolderComboboxClearButton
+                            onClear={() => {
+                              todoFolderCombobox.clear();
                               todoFolderInputRef.current?.focus();
                             }}
-                            className="absolute right-0 top-1/2 -translate-y-1/2 rounded-full p-1 text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
+                          />
                         ) : null}
-                        {showTodoFolderMenu && todoFolderMenuItems.length ? (
+                        {showTodoFolderMenu && todoFolderCombobox.items.length ? (
                           <div
                             className="absolute left-0 right-0 top-full z-20 mt-2 overflow-y-auto rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
                             onMouseDown={(event) => event.preventDefault()}
                           >
-                            {todoFolderMenuItems.map((item, index) => (
-                              <button
-                                key={item.key}
-                                type="button"
-                                className={[
-                                  "flex w-full items-center rounded-lg px-3 py-2 text-left text-sm transition",
-                                  index === todoFolderActiveIndex ? "bg-app-surface-muted text-app-ink" : "text-app-ink-muted hover:bg-app-surface-hover",
-                                ].join(" ")}
-                                onMouseEnter={() => setTodoFolderActiveIndex(index)}
-                                onMouseDown={(event) => {
-                                  event.preventDefault();
-                                  setTodoFolderValue(item.value);
-                                  setTodoFolderOpen(false);
-                                  setTodoFolderActiveIndex(0);
-                                  allowTodoBlurRef.current = true;
-                                  window.requestAnimationFrame(() => {
-                                    focusTodoInput();
-                                  });
-                                }}
-                              >
-                                {item.label}
-                              </button>
-                            ))}
+                            <FolderComboboxOptions
+                              items={todoFolderCombobox.items}
+                              activeIndex={todoFolderCombobox.activeIndex}
+                              onHover={todoFolderCombobox.setActiveIndex}
+                              onSelect={todoFolderCombobox.selectItem}
+                            />
                           </div>
                         ) : null}
                       </div>
@@ -1967,7 +1825,7 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
         </div>
       ) : null}
     </div>
-    {showBookmarkCategoryMenu && categoryMenuPos && bookmarkCategoryMenuItems.length
+    {showBookmarkCategoryMenu && categoryMenuPos && bookmarkCategoryCombobox.items.length
       ? createPortal(
           <div
             data-omanote-ignore-outside-click="true"
@@ -1975,29 +1833,12 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
             style={{ top: categoryMenuPos.top, left: categoryMenuPos.left, width: categoryMenuPos.width, maxHeight: categoryMenuPos.maxHeight }}
             onMouseDown={(event) => event.preventDefault()}
           >
-            {bookmarkCategoryMenuItems.map((item, index) => (
-              <button
-                key={item.key}
-                type="button"
-                className={[
-                  "flex w-full items-center rounded-lg px-3 py-2 text-left text-sm transition",
-                  index === bookmarkCategoryActiveIndex ? "bg-app-surface-muted text-app-ink" : "text-app-ink-muted hover:bg-app-surface-hover",
-                ].join(" ")}
-                onMouseEnter={() => setBookmarkCategoryActiveIndex(index)}
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  setBookmarkCategoryValue(item.value);
-                  setBookmarkCategoryOpen(false);
-                  setBookmarkCategoryActiveIndex(0);
-                  allowBookmarkBlurRef.current = true;
-                  window.requestAnimationFrame(() => {
-                    bookmarkUrlInputRef.current?.focus();
-                  });
-                }}
-              >
-                {item.label}
-              </button>
-            ))}
+            <FolderComboboxOptions
+              items={bookmarkCategoryCombobox.items}
+              activeIndex={bookmarkCategoryCombobox.activeIndex}
+              onHover={bookmarkCategoryCombobox.setActiveIndex}
+              onSelect={bookmarkCategoryCombobox.selectItem}
+            />
           </div>,
           document.body,
         )

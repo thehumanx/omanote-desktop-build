@@ -4,6 +4,23 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.33.6 [September 19, 2026]
+
+> Enter now saves everywhere, canvases and folders can be pinned, and anything you edit today shows up on today's canvas.
+
+- [Update] Enter now saves every artifact, including notes — they used to need Cmd/Ctrl + Enter. Shift + Enter is the newline everywhere, and twice in a note starts a paragraph. Inside a list, Enter still adds the next item
+- [Update] The save and newline shortcut settings are gone, since there is now one set of keys across the app
+- [Fix] Typing part of a folder name in the composer and pressing Enter saved into a new folder named after what you typed, instead of the one the dropdown was highlighting
+- [Fix] The todo, event and note editors now keep what you've typed if you close the app mid-edit. Only the composer and inline editing survived before
+- [Add] The composer shows "Not saved, Enter to save" while you have something typed
+- [Update] Starring a canvas is now pinning it, with a pin icon. Nothing about how it behaves has changed
+- [Add] Folders in Notes, Todos and Bookmarks can be pinned from their menu. Pinned ones group under a "Pinned" heading at the top, still in your chosen sort order
+- [Add] Anything you edit today now appears on today's canvas in full, badged "Edited" — or "Reopened" for an unchecked todo. The original stays on its own day
+- [Fix] Nested lists in notes changed appearance the moment you saved them, past the third level
+- [Update] On phones, the Events calendar is now a continuously scrolling schedule grouped by day, like Google Calendar, instead of one day you page through
+- [Fix] The "Press Enter to save" hint can be turned off again, under Settings → Appearance. Its control had gone missing while the setting stayed
+- [Fix] Guest email addresses on a todo are now partly hidden, like your own address in the profile menu, so screen sharing doesn't expose them
+
 ### v0.33.5 [September 12, 2026]
 
 > Swipe anywhere on the page to move between sections, offline work is reliable end to end, and the "Something went wrong" screen after an update is fixed.

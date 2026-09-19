@@ -12,7 +12,7 @@ Connect your Google account in **Settings → Features** to keep todos and event
 
 ## Inviting guests via @email mentions
 
-Type `@` followed by an email address anywhere in a todo's title or notes — for example "meeting tomorrow 4pm @sam@example.com" — and that address is highlighted as you type, shown as a chip once saved, and added as a guest on the todo's synced Google Calendar event. Mention more than one email to invite multiple guests. Remove a mention and save again, and that guest is dropped from the event on the next sync.
+Type `@` followed by an email address anywhere in a todo's title or notes — for example "meeting tomorrow 4pm @sam@example.com" — and that address is highlighted as you type, shown as a chip once saved, and added as a guest on the todo's synced Google Calendar event. The saved chip shows the address partly hidden (`sa***@example.com`), the same way your own address appears in the profile menu, so guests aren't exposed if you share your screen — the full address is still there in the todo's text when you open it to edit. Mention more than one email to invite multiple guests. Remove a mention and save again, and that guest is dropped from the event on the next sync.
 
 This needs Google Calendar connected and syncing — if it isn't, omanote shows a prompt to connect right where you typed the mention, and the todo still saves normally either way; only the calendar invite is held back until you connect.
 

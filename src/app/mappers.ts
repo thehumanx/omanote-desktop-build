@@ -42,6 +42,7 @@ export function mapTodoFolder(folder: Doc<"todoFolders">): TodoFolder {
     id: String(folder._id),
     name: folder.name,
     icon: folder.icon ?? undefined,
+    pinned: folder.pinned ?? undefined,
     createdAt: folder.createdAt,
     updatedAt: folder.updatedAt,
   };
@@ -74,7 +75,10 @@ export function mapPage(page: Doc<"pages">): PageItem {
     docJson: page.docJson,
     preview: page.preview,
     hashtags: page.hashtags ?? undefined,
-    starred: page.starred ?? undefined,
+    // `starred` is the field's pre-rename name; rows predating
+    // migrations/backfillPagePinned still carry it. Drop the fallback once
+    // that migration has run on every deployment.
+    pinned: page.pinned ?? page.starred ?? undefined,
     hidden: page.hidden ?? undefined,
     deletedAt: page.deletedAt ?? undefined,
     createdAt: page.createdAt,
@@ -88,6 +92,7 @@ export function mapNoteFolder(folder: Doc<"noteFolders">): NoteFolder {
     id: String(folder._id),
     name: folder.name,
     icon: folder.icon ?? undefined,
+    pinned: folder.pinned ?? undefined,
     createdAt: folder.createdAt,
     updatedAt: folder.updatedAt,
   };
@@ -107,6 +112,7 @@ export function mapBookmark(bookmark: Doc<"bookmarks">) {
     previewState: undefined,
     deletedAt: bookmark.deletedAt ?? undefined,
     createdAt: bookmark.createdAt,
+    updatedAt: bookmark.updatedAt ?? undefined,
     createdDateKey: asDateKey(bookmark.createdDateKey),
     pageId: bookmark.pageId ? String(bookmark.pageId) : undefined,
   };
@@ -117,6 +123,7 @@ export function mapBookmarkCategory(category: Doc<"bookmarkCategories">) {
     id: String(category._id),
     name: category.name,
     icon: category.icon ?? undefined,
+    pinned: category.pinned ?? undefined,
     createdAt: category.createdAt,
   };
 }
@@ -133,6 +140,7 @@ export function mapEvent(event: Doc<"eventEntries">) {
     sourceTodoId: event.sourceTodoId ? String(event.sourceTodoId) : undefined,
     deletedAt: event.deletedAt ?? undefined,
     createdAt: event.createdAt,
+    updatedAt: event.updatedAt ?? undefined,
     createdDateKey: asDateKey(event.createdDateKey),
   };
 }

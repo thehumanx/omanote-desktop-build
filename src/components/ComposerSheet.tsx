@@ -7,10 +7,10 @@ import { ModalPortal } from "./ModalPortal";
 import { DrawerHeaderRow } from "./DrawerHeaderRow";
 import { useDrawerDrag } from "../lib/useDrawerDrag";
 import { CanvasDraftBlock, type CanvasDraftBlockHandle } from "./CanvasDraftBlock";
-import { formatSaveShortcutKeyLabel } from "../lib/editor-shortcuts";
-import { detectPlatformName } from "../lib/device-info";
+import { SAVE_SHORTCUT_KEY_LABEL } from "../lib/editor-shortcuts";
 import { FilePlus2 } from "lucide-react";
 import { useCreateCanvas } from "../lib/use-create-canvas";
+import { DraftStatusChip, type DraftPersistence } from "./DraftStatus";
 
 function dateKeyToDate(dateKey: string) {
   return new Date(`${dateKey}T12:00:00`);
@@ -47,6 +47,7 @@ export function ComposerSheet() {
   const [isEntered, setIsEntered] = useState(false);
   const [canSave, setCanSave] = useState(false);
   const [draftMode, setDraftMode] = useState<DraftMode>("note");
+  const [draftStatus, setDraftStatus] = useState<DraftPersistence>("empty");
   const draftRef = useRef<CanvasDraftBlockHandle | null>(null);
   // "Outside" the composer needs to mean outside this whole sheet — the
   // backdrop — not outside just the input area, or clicking any of the
@@ -56,16 +57,8 @@ export function ComposerSheet() {
   const sectionRef = useRef<HTMLElement | null>(null);
   const today = useMemo(() => new Date(), []);
   const todayKey = useMemo(() => toDateKey(today), [today]);
-  const isMac = useMemo(
-    () => detectPlatformName(typeof navigator === "undefined" ? "" : navigator.userAgent) === "macOS",
-    [],
-  );
-  // Note mode always saves on Cmd/Ctrl+Enter (see NoteCanvasEditor), the one
-  // trigger safe to advertise there regardless of the user's configurable
-  // saveShortcut setting. Todo/event/bookmark all save on a plain Enter
-  // instead (see CanvasDraftBlock's per-mode key handlers) — show whichever
-  // one actually applies to the mode currently visible.
-  const saveKeyLabel = formatSaveShortcutKeyLabel(draftMode === "note" ? "mod_enter" : "enter", isMac);
+  // Every mode now saves on the same key, so there's nothing mode-specific
+  // left to compute here — notes used to be the exception.
   const selectedDateKey = state.ui.selectedDateKey;
   const isToday = selectedDateKey === todayKey;
   // Every artifact created here is filed under this date, not necessarily
@@ -170,6 +163,9 @@ export function ComposerSheet() {
           onCancel={() => draftRef.current?.cancel()}
           onSave={() => draftRef.current?.save()}
           canSave={canSave}
+          // Mobile has no shortcut hint row to sit beside, so the status
+          // takes the drag handle's slot when there's something to say.
+          status={draftStatus === "empty" ? undefined : <DraftStatusChip status={draftStatus} compact className="justify-self-center" />}
         />
         {/* Desktop: no dedicated close/save buttons — Esc and the save
             shortcut are the only ways to dismiss/commit, so surface them
@@ -179,8 +175,13 @@ export function ComposerSheet() {
             <span className="rounded-md border border-app-line px-1.5 py-0.5 text-[11px] font-medium text-app-ink-faint">esc</span>
           </span>
           <CreateCanvasButton onCreated={close} />
-          <span className="flex-1 text-right">
-            <span className="rounded-md border border-app-line px-1.5 py-0.5 text-[11px] font-medium text-app-ink-faint">{saveKeyLabel}</span>
+          {/* Sits with the save hint on purpose: the two together read as
+              "this is how you save, and you haven't yet". A user who assumed
+              an open composer was already saving closed their laptop and lost
+              what they'd typed — this is the missing half of telling them. */}
+          <span className="flex flex-1 items-center justify-end gap-2">
+            <DraftStatusChip status={draftStatus} />
+            <span className="rounded-md border border-app-line px-1.5 py-0.5 text-[11px] font-medium text-app-ink-faint">{SAVE_SHORTCUT_KEY_LABEL}</span>
           </span>
         </div>
         <div className="flex shrink-0 items-center justify-center gap-2 px-4 pb-2">
@@ -208,6 +209,7 @@ export function ComposerSheet() {
             onDone={close}
             onCanSaveChange={setCanSave}
             onModeChange={setDraftMode}
+            onDraftStatusChange={setDraftStatus}
             outsideClickContainerRef={sectionRef}
             requestedMode={state.ui.composerMode}
             requestToken={state.ui.composerOpenToken}

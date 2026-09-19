@@ -4,6 +4,7 @@ import { ConvexError } from "convex/values";
 import { CANVAS_DRAFTS_STORAGE_KEY, draftMapCodec } from "./canvas-drafts";
 import { jsonCodec, writeLocalStorage } from "../lib/local-storage";
 import { db, type OutboxRecord } from "./db";
+import type { FolderScope } from "./types";
 
 const STORAGE_KEY = "omanote.canvas-outbox";
 
@@ -221,6 +222,17 @@ type FolderUpdatePayload = {
   icon?: string;
 };
 
+/**
+ * Folder/category pin toggle. `scope` picks which of the three tables the
+ * id belongs to — one payload rather than three, because everything except
+ * the mutation being called is identical.
+ */
+type FolderSetPinnedPayload = {
+  scope: FolderScope;
+  id: string;
+  pinned: boolean;
+};
+
 /** Folder/category removal. `withContents` cascades to the items inside. */
 type FolderDeletePayload = {
   id: string;
@@ -285,6 +297,7 @@ type CanvasPayloadMap = {
   "note-folder/delete": FolderDeletePayload;
   "bookmark-category/update": FolderUpdatePayload;
   "bookmark-category/delete": FolderDeletePayload;
+  "folder/set-pinned": FolderSetPinnedPayload;
   "google/event-push": GoogleEventPushPayload;
   "google/event-delete": GoogleEventDeletePayload;
   "google/event-entry-push": GoogleEventEntryPushPayload;

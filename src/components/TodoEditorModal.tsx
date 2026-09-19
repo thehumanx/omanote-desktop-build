@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useCanvasDraftValue } from "../app/useCanvasDraftValue";
+import { maskEmail } from "../lib/mask-email";
 import type { RecurrenceRule, TodoFolder, TodoItem } from "@omanote/shared";
 import {
   formatDueChip,
@@ -18,7 +20,7 @@ import { BaseModal } from "./BaseModal";
 import { parseHashtags } from "../lib/hashtags";
 import { parseMentions, mentionHighlightSegments } from "../lib/mentions";
 import { useUserSettings } from "../contexts/UserSettingsContext";
-import { isNewlineShortcutEvent, isSaveShortcutEvent } from "../lib/editor-shortcuts";
+import { isNewlineKeyEvent, isSaveKeyEvent } from "../lib/editor-shortcuts";
 import { SaveShortcutHint } from "./settings/SaveShortcutHint";
 import { DrawerHeaderRow } from "./DrawerHeaderRow";
 import { Button, TodoCheckmark } from "./ui";
@@ -120,10 +122,25 @@ export function TodoEditorModal({
     : todo?.reminderEveryMinutes
       ? `every ${todo.reminderEveryMinutes} minutes`
       : "";
-  const [draftTitle, setDraftTitle] = useState(initialTitle);
-  const [draftWhen, setDraftWhen] = useState(initialDue);
-  const [draftFolder, setDraftFolder] = useState(initialFolderName);
-  const [draftRepeat, setDraftRepeat] = useState(initialRepeat);
+  // Persisted per todo rather than held in plain `useState`: closing the
+  // laptop with this dialog open used to lose everything typed into it. See
+  // `useCanvasDraftValue` — same mechanism the inline canvas editors already
+  // used, which is why those survived a shutdown and this one didn't.
+  const draftKey = `todo-editor:${todo?.id ?? "new"}`;
+  const { value: draftTitle, setValue: setDraftTitle, clearDraft: clearTitleDraft } = useCanvasDraftValue(`${draftKey}:title`, initialTitle);
+  const { value: draftWhen, setValue: setDraftWhen, clearDraft: clearWhenDraft } = useCanvasDraftValue(`${draftKey}:when`, initialDue);
+  const { value: draftFolder, setValue: setDraftFolder, clearDraft: clearFolderDraft } = useCanvasDraftValue(`${draftKey}:folder`, initialFolderName);
+  const { value: draftRepeat, setValue: setDraftRepeat, clearDraft: clearRepeatDraft } = useCanvasDraftValue(`${draftKey}:repeat`, initialRepeat);
+  // Saved content is no longer a draft. Cleared here rather than through the
+  // outbox's `clearCanvasDraftForKey` because this dialog closes on save: the
+  // write is already durable in the outbox, and leaving the draft behind
+  // would resurrect the pre-save text the next time this todo is opened.
+  const clearDrafts = () => {
+    clearTitleDraft();
+    clearWhenDraft();
+    clearFolderDraft();
+    clearRepeatDraft();
+  };
   const [folderMenuOpen, setFolderMenuOpen] = useState(false);
   const [error, setError] = useState("");
   const titleRef = useRef<HTMLTextAreaElement | null>(null);
@@ -253,6 +270,7 @@ export function TodoEditorModal({
       reminderUntil,
       ...folderPayload,
     });
+    clearDrafts();
   };
 
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -263,12 +281,12 @@ export function TodoEditorModal({
     }
 
     if (event.key === "Enter") {
-      if (isSaveShortcutEvent(event, settings.saveShortcut)) {
+      if (isSaveKeyEvent(event)) {
         event.preventDefault();
         save();
         return;
       }
-      if (isNewlineShortcutEvent(event, settings.newlineShortcut)) {
+      if (isNewlineKeyEvent(event)) {
         return;
       }
       event.preventDefault();
@@ -470,7 +488,7 @@ export function TodoEditorModal({
             <div className="flex items-start gap-2 rounded-app-badge bg-warning-surface px-2.5 py-2 text-xs text-warning-ink">
               <UserPlus className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>
-                Connect Google Calendar to invite {draftGuestEmails.join(", ")}.{" "}
+                Connect Google Calendar to invite {draftGuestEmails.map(maskEmail).join(", ")}.{" "}
                 <Link to="/settings?category=features" className="underline decoration-dotted hover:no-underline">
                   Connect now
                 </Link>

@@ -4,16 +4,12 @@ export type FontFamily = "sans" | "serif" | "both";
 export type CornerStyle = "rounded" | "sharp";
 export type RealDashboardStat = "completion_rate" | "todos_done_today" | "habit_streak" | "notes_this_week" | "bookmarks_this_week";
 export type DashboardStat = RealDashboardStat | "random";
-export type SaveShortcut = "mod_enter" | "enter" | "shift_enter";
-export type NewlineShortcut = "enter" | "shift_enter";
 export type ReminderLeadMinutes = 0 | 5 | 10 | 15;
 export type DefaultSnoozeMinutes = 5 | 10 | 15 | 30;
 export type ReminderToastDurationSeconds = 10 | 20 | 30 | 60;
 export type OnboardingStep = 0 | 1 | 2 | 3 | 4;
 
 export interface UserSettings {
-  saveShortcut: SaveShortcut;
-  newlineShortcut: NewlineShortcut;
   showSaveShortcutHints: boolean;
   inAppReminderNotifications: boolean;
   browserReminderNotifications: boolean;
@@ -40,8 +36,6 @@ export interface UserSettings {
 
 /** Write type — sent to the Convex mutation. Only current valid values. */
 export interface UserSettingsPatch {
-  saveShortcut?: SaveShortcut;
-  newlineShortcut?: NewlineShortcut;
   showSaveShortcutHints?: boolean;
   inAppReminderNotifications?: boolean;
   browserReminderNotifications?: boolean;
@@ -69,16 +63,15 @@ export const FONT_FAMILIES = ["sans", "serif", "both"] as const satisfies readon
 export const CORNER_STYLES = ["rounded", "sharp"] as const satisfies readonly CornerStyle[];
 export const REAL_DASHBOARD_STATS = ["completion_rate", "todos_done_today", "habit_streak", "notes_this_week", "bookmarks_this_week"] as const satisfies readonly RealDashboardStat[];
 export const DASHBOARD_STATS: readonly DashboardStat[] = [...REAL_DASHBOARD_STATS, "random"];
-export const SAVE_SHORTCUTS = ["mod_enter", "enter", "shift_enter"] as const satisfies readonly SaveShortcut[];
-export const NEWLINE_SHORTCUTS = ["enter", "shift_enter"] as const satisfies readonly NewlineShortcut[];
 export const REMINDER_LEAD_MINUTES = [0, 5, 10, 15] as const satisfies readonly ReminderLeadMinutes[];
 export const DEFAULT_SNOOZE_MINUTES = [5, 10, 15, 30] as const satisfies readonly DefaultSnoozeMinutes[];
 export const REMINDER_TOAST_DURATION_SECONDS = [10, 20, 30, 60] as const satisfies readonly ReminderToastDurationSeconds[];
 
 export const DEFAULT_USER_SETTINGS: UserSettings = {
-  saveShortcut: "mod_enter",
-  newlineShortcut: "enter",
-  showSaveShortcutHints: false,
+  // `true` to match convex/userSettings.ts's insert default, which is what
+  // every existing row holds. These disagreed until v0.33.6, so the fallback
+  // used before settings load contradicted the value that then arrived.
+  showSaveShortcutHints: true,
   inAppReminderNotifications: true,
   browserReminderNotifications: true,
   reminderLeadMinutes: 0,
@@ -124,14 +117,6 @@ function isBoolean(value: unknown): value is boolean {
   return typeof value === "boolean";
 }
 
-function isSaveShortcut(value: unknown): value is SaveShortcut {
-  return typeof value === "string" && (SAVE_SHORTCUTS as readonly string[]).includes(value);
-}
-
-function isNewlineShortcut(value: unknown): value is NewlineShortcut {
-  return typeof value === "string" && (NEWLINE_SHORTCUTS as readonly string[]).includes(value);
-}
-
 function isReminderLeadMinutes(value: unknown): value is ReminderLeadMinutes {
   return typeof value === "number" && (REMINDER_LEAD_MINUTES as readonly number[]).includes(value);
 }
@@ -151,8 +136,6 @@ function isOnboardingStep(value: unknown): value is OnboardingStep {
 export function normalizeUserSettings(input: Record<string, unknown> | null | undefined): UserSettings {
   const source = input ?? {};
   const merged: UserSettings = {
-    saveShortcut: isSaveShortcut(source.saveShortcut) ? source.saveShortcut : DEFAULT_USER_SETTINGS.saveShortcut,
-    newlineShortcut: isNewlineShortcut(source.newlineShortcut) ? source.newlineShortcut : DEFAULT_USER_SETTINGS.newlineShortcut,
     showSaveShortcutHints: isBoolean(source.showSaveShortcutHints) ? source.showSaveShortcutHints : DEFAULT_USER_SETTINGS.showSaveShortcutHints,
     inAppReminderNotifications: isBoolean(source.inAppReminderNotifications)
       ? source.inAppReminderNotifications
@@ -194,14 +177,6 @@ export function normalizeUserSettings(input: Record<string, unknown> | null | un
     onboardingGoalsOther:
       typeof source.onboardingGoalsOther === "string" ? source.onboardingGoalsOther : DEFAULT_USER_SETTINGS.onboardingGoalsOther,
   };
-
-  if (merged.saveShortcut === "enter" && merged.newlineShortcut === "enter") {
-    return { ...merged, newlineShortcut: "shift_enter" };
-  }
-
-  if (merged.saveShortcut === "shift_enter" && merged.newlineShortcut === "shift_enter") {
-    return { ...merged, newlineShortcut: "enter" };
-  }
 
   return merged;
 }

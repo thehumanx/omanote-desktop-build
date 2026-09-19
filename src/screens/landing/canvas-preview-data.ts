@@ -200,22 +200,22 @@ const icelandPage: PageItem = {
 };
 
 const previewItems: CanvasArtifactItem[] = [
-  { kind: "event", createdAt: morningRun.createdAt, data: morningRun },
-  { kind: "note", createdAt: byteSizedNote.createdAt, data: byteSizedNote },
-  { kind: "bookmark", createdAt: systemsBookmark.createdAt, data: systemsBookmark },
-  { kind: "event", createdAt: shippedEvent.createdAt, data: shippedEvent },
+  { kind: "event", sortAt: morningRun.createdAt, data: morningRun },
+  { kind: "note", sortAt: byteSizedNote.createdAt, data: byteSizedNote },
+  { kind: "bookmark", sortAt: systemsBookmark.createdAt, data: systemsBookmark },
+  { kind: "event", sortAt: shippedEvent.createdAt, data: shippedEvent },
   // The #iceland thread, kept consecutive so the hashtag step can show a note,
   // a todo and an event carrying the same tag in one screenful.
-  { kind: "note", createdAt: icelandNote.createdAt, data: icelandNote },
-  { kind: "todo", createdAt: danaTodo.createdAt, data: danaTodo },
-  { kind: "event", createdAt: glacierEvent.createdAt, data: glacierEvent },
-  { kind: "note", createdAt: notionNote.createdAt, data: notionNote },
-  { kind: "page", createdAt: icelandPage.createdAt, data: icelandPage },
+  { kind: "note", sortAt: icelandNote.createdAt, data: icelandNote },
+  { kind: "todo", sortAt: danaTodo.createdAt, data: danaTodo },
+  { kind: "event", sortAt: glacierEvent.createdAt, data: glacierEvent },
+  { kind: "note", sortAt: notionNote.createdAt, data: notionNote },
+  { kind: "page", sortAt: icelandPage.createdAt, data: icelandPage },
 ];
 
-/** Today's feed, sorted by creation time the way `buildCanvasDayItems` sorts it. */
+/** Today's feed, sorted the way `buildCanvasDayItems` sorts it. */
 export const PREVIEW_CANVAS_ITEMS: CanvasArtifactItem[] = [...previewItems].sort(
-  (left, right) => left.createdAt - right.createdAt,
+  (left, right) => left.sortAt - right.sortAt,
 );
 
 /**
@@ -275,7 +275,7 @@ export const PREVIEW_ROADMAP_FALLBACK: TodoItem[] = [
 }));
 
 /**
- * "Continue writing" shelf. The founder's note is starred so it always holds
+ * "Continue writing" shelf. The founder's note is pinned so it always holds
  * a slot — phase 2 points it at the real published public page.
  */
 export const PREVIEW_PAGES: PageItem[] = [
@@ -288,7 +288,7 @@ export const PREVIEW_PAGES: PageItem[] = [
     clientKey: "page-how-it-works",
     title: "How omanote works",
     icon: "📖",
-    starred: true,
+    pinned: true,
     docJson: pageDoc([
       "Everything you capture lands on today's canvas first: notes, todos, bookmarks, events. Sort it later, or don't.",
       "Press / anywhere to open the composer. It opens already set to whatever view you're on.",

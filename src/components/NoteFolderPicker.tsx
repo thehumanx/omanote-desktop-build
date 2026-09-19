@@ -1,21 +1,9 @@
 import { createPortal } from "react-dom";
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { X } from "lucide-react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { NoteFolder } from "@omanote/shared";
-import { Input, cn } from "./ui";
-import { isUncategorizedFolderName, normalizeNoteFolderName } from "../lib/note-folder-utils";
-
-type NoteFolderMenuItem =
-  | {
-      kind: "existing";
-      value: string;
-      label: string;
-    }
-  | {
-      kind: "create";
-      value: string;
-      label: string;
-    };
+import { cn } from "./ui";
+import { isUncategorizedFolderName } from "../lib/note-folder-utils";
+import { FolderComboboxClearButton, FolderComboboxOptions, useFolderCombobox } from "./FolderCombobox";
 
 export function NoteFolderPicker({
   folders,
@@ -32,34 +20,34 @@ export function NoteFolderPicker({
   className?: string;
   inputClassName?: string;
 }) {
-  const [open, setOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0);
   const [menuStyle, setMenuStyle] = useState<React.CSSProperties | null>(null);
   const shellRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
-  const folderValue = value.trim();
-  const folderSuggestions = useMemo(() => {
-    const nextFolders = [...new Set(folders.map((folder) => folder.name.trim()).filter(Boolean))].sort((left, right) =>
-      left.localeCompare(right),
-    );
-    if (!folderValue) return nextFolders;
-    return nextFolders.filter((folder) => folder.toLowerCase().includes(folderValue.toLowerCase()));
-  }, [folders, folderValue]);
-
-  const exactFolderMatch = useMemo(
-    () => folders.find((folder) => normalizeNoteFolderName(folder.name) === normalizeNoteFolderName(folderValue)) ?? null,
-    [folders, folderValue],
-  );
-
-  const menuItems = useMemo(() => {
-    const items: NoteFolderMenuItem[] = folderSuggestions.map((folder) => ({ kind: "existing", value: folder, label: folder }));
-    if (folderValue && !exactFolderMatch && !isUncategorizedFolderName(folderValue)) {
-      items.push({ kind: "create", value: folderValue, label: `Create folder "${folderValue}"` });
+  // Deduped by name and alphabetised — note folders are picked by name, not
+  // id, so two rows that differ only in whitespace are one suggestion here.
+  const sortedFolders = useMemo(() => {
+    const seen = new Map<string, { id: string; name: string }>();
+    for (const folder of folders) {
+      const name = folder.name.trim();
+      if (!name) continue;
+      const key = name.toLowerCase();
+      if (!seen.has(key)) seen.set(key, { id: folder.id, name });
     }
-    return items;
-  }, [exactFolderMatch, folderSuggestions, folderValue]);
+    return [...seen.values()].sort((left, right) => left.name.localeCompare(right.name));
+  }, [folders]);
+
+  const combobox = useFolderCombobox({
+    folders: sortedFolders,
+    value,
+    onChange,
+    // "Uncategorized" is the synthetic bucket every folderless note lands in,
+    // not a folder anyone may create.
+    allowCreate: useCallback((trimmed: string) => !isUncategorizedFolderName(trimmed), []),
+  });
+  const { isOpen: open, items: menuItems, activeIndex } = combobox;
+  const folderValue = combobox.trimmedValue;
 
   useLayoutEffect(() => {
     if (!open || !shellRef.current) return;
@@ -97,39 +85,12 @@ export function NoteFolderPicker({
       const shell = shellRef.current;
       const menu = menuRef.current;
       if (!(target instanceof Node) || (shell && shell.contains(target)) || (menu && menu.contains(target))) return;
-      setOpen(false);
+      combobox.close();
     };
 
     window.addEventListener("pointerdown", handlePointerDown, true);
     return () => window.removeEventListener("pointerdown", handlePointerDown, true);
-  }, [open]);
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "ArrowDown") {
-      if (!menuItems.length) return;
-      event.preventDefault();
-      setOpen(true);
-      setActiveIndex((current) => Math.min(current + 1, Math.max(0, menuItems.length - 1)));
-      return;
-    }
-    if (event.key === "ArrowUp") {
-      if (!menuItems.length) return;
-      event.preventDefault();
-      setOpen(true);
-      setActiveIndex((current) => Math.max(current - 1, 0));
-      return;
-    }
-    if (event.key === "Enter" || event.key === "Tab") {
-      if (!open || !menuItems[activeIndex]) return;
-      event.preventDefault();
-      onChange(menuItems[activeIndex].value);
-      setOpen(false);
-      return;
-    }
-    if (event.key === "Escape") {
-      setOpen(false);
-    }
-  };
+  }, [open, combobox.close]);
 
   return (
     <div ref={shellRef} className={cn("relative w-[220px] min-w-[180px]", className)}>
@@ -137,13 +98,15 @@ export function NoteFolderPicker({
         <input
           ref={inputRef}
           value={value}
-          onChange={(event) => {
-            onChange(event.target.value);
-            setOpen(true);
-            setActiveIndex(0);
+          onChange={(event) => combobox.handleInputChange(event.target.value)}
+          onFocus={combobox.open}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              combobox.close();
+              return;
+            }
+            combobox.handleKeyDown(event);
           }}
-          onFocus={() => setOpen(true)}
-          onKeyDown={handleKeyDown}
           placeholder={placeholder}
           className={cn(
             "w-full border-b border-app-line bg-transparent px-0 pr-7 py-1 text-sm outline-none focus:border-app-line-strong",
@@ -151,20 +114,12 @@ export function NoteFolderPicker({
           )}
         />
         {value.trim() ? (
-          <button
-            type="button"
-            aria-label="Clear folder"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => {
-              onChange("");
-              setOpen(true);
-              setActiveIndex(0);
+          <FolderComboboxClearButton
+            onClear={() => {
+              combobox.clear();
               inputRef.current?.focus();
             }}
-            className="absolute right-0 top-1/2 -translate-y-1/2 rounded-full p-1 text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
+          />
         ) : null}
       </div>
       {open && menuItems.length && menuStyle && typeof document !== "undefined"
@@ -175,26 +130,16 @@ export function NoteFolderPicker({
               className="fixed z-app-menu overflow-y-auto rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
               style={menuStyle}
             >
-              {menuItems.map((item, index) => (
-                  <button
-                    key={`${item.kind}:${item.value}`}
-                    type="button"
-                    onMouseEnter={() => setActiveIndex(index)}
-                    onMouseDown={(event) => {
-                      event.preventDefault();
-                      onChange(item.value);
-                      setOpen(false);
-                      inputRef.current?.focus();
-                    }}
-                    className={[
-                      "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition",
-                      index === activeIndex ? "bg-app-surface-muted text-app-ink" : "text-app-ink-muted hover:bg-app-surface-hover hover:text-app-ink",
-                    ].join(" ")}
-                  >
-                    <span>{item.label}</span>
-                    {item.kind === "create" ? <span className="text-app-ink-faint">New</span> : null}
-                  </button>
-                ))}
+              <FolderComboboxOptions
+                items={menuItems}
+                activeIndex={activeIndex}
+                onHover={combobox.setActiveIndex}
+                onSelect={(item) => {
+                  combobox.selectItem(item);
+                  inputRef.current?.focus();
+                }}
+                showCreateHint
+              />
             </div>,
             document.body,
           )

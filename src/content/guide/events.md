@@ -12,7 +12,9 @@ To log an event for a day other than today, navigate the canvas to that day firs
 
 The **Event** view has two modes, switched with the pill in the top right.
 
-The **calendar** lays your events and scheduled todos out by time of day. On desktop it shows a full week; on phones it shows one day at a time, starting on today. Move around with the `‹` `›` arrows, which step a week at a time on desktop and a day at a time on mobile, or swipe left and right on the calendar itself on a phone. **Today** brings you back.
+The **calendar** lays your events and scheduled todos out by time of day. On desktop it shows a full week — move around with the `‹` `›` arrows, which step a week at a time, and **Today** brings you back.
+
+On phones the week grid doesn't fit, so the calendar becomes a schedule instead: one continuous list running forward from today, grouped by day, showing only the days that have something on them. Scroll rather than page. A row with a double check is an event that came from completing a todo; a clock means you logged it yourself.
 
 The **timeline** shows the same events as one chronological list, ordered by when they happened.
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useCanvasDraftValue } from "../app/useCanvasDraftValue";
 import { Trash2 } from "lucide-react";
 import type { EventEntry } from "@omanote/shared";
 import { combineDateKeyAndTime } from "@omanote/shared";
@@ -9,7 +10,7 @@ import { useHashtagPicker, HashtagPickerDropdown } from "./HashtagPicker";
 import { useEmojiPicker, EmojiPickerDropdown } from "./EmojiPicker";
 import { parseHashtags, hashtagHighlightSegments, hashtagColor } from "../lib/hashtags";
 import { useUserSettings } from "../contexts/UserSettingsContext";
-import { isNewlineShortcutEvent, isSaveShortcutEvent } from "../lib/editor-shortcuts";
+import { isNewlineKeyEvent, isSaveKeyEvent } from "../lib/editor-shortcuts";
 import { SaveShortcutHint } from "./settings/SaveShortcutHint";
 import { autoResizeTextArea } from "../lib/auto-resize";
 
@@ -39,9 +40,17 @@ export function EventEditorModal({
   onSave: (payload: { label: string; notes?: string; hashtags: string[]; loggedAt: number }) => void;
   onDelete?: () => void;
 }) {
-  const [label, setLabel] = useState(event?.label ?? "");
-  const [notes, setNotes] = useState(event?.notes ?? "");
-  const [time, setTime] = useState(timeToInput(event?.loggedAt) || "09:00");
+  // Persisted so closing the device with this dialog open doesn't lose what
+  // was typed. Shares `event:<id>` / `event:<id>:notes` with CanvasEventBlock
+  // on purpose — they edit the same event, so an unsaved draft started in one
+  // should be there in the other rather than silently diverging.
+  const draftKey = event?.id ? `event:${event.id}` : "event:new";
+  const { value: label, setValue: setLabel, clearDraft: clearLabelDraft } = useCanvasDraftValue(draftKey, event?.label ?? "");
+  const { value: notes, setValue: setNotes, clearDraft: clearNotesDraft } = useCanvasDraftValue(`${draftKey}:notes`, event?.notes ?? "");
+  const { value: time, setValue: setTime, clearDraft: clearTimeDraft } = useCanvasDraftValue(
+    `${draftKey}:time`,
+    timeToInput(event?.loggedAt) || "09:00",
+  );
   const canSave = Boolean(label.trim() && time.trim());
   const labelRef = useRef<HTMLTextAreaElement | null>(null);
   const notesRef = useRef<HTMLTextAreaElement | null>(null);
@@ -103,12 +112,22 @@ export function EventEditorModal({
       hashtags: parseHashtags(nextLabel + (trimmedNotes ? " " + trimmedNotes : "")),
       loggedAt: inputToTimestamp(selectedDateKey, time).getTime(),
     });
+    clearDrafts();
+  };
+
+  // Cancel is an explicit "throw this away", so it clears the stored draft
+  // too — otherwise the discarded text would come straight back on reopen.
+  const clearDrafts = () => {
+    clearLabelDraft();
+    clearNotesDraft();
+    clearTimeDraft();
   };
 
   const cancel = () => {
     setLabel(event?.label ?? "");
     setNotes(event?.notes ?? "");
     setTime(timeToInput(event?.loggedAt) || "09:00");
+    clearDrafts();
     onClose();
   };
 
@@ -120,12 +139,12 @@ export function EventEditorModal({
     }
 
     if (event.key === "Enter") {
-      if (isSaveShortcutEvent(event, settings.saveShortcut)) {
+      if (isSaveKeyEvent(event)) {
         event.preventDefault();
         save();
         return;
       }
-      if (event.currentTarget instanceof HTMLTextAreaElement && isNewlineShortcutEvent(event, settings.newlineShortcut)) {
+      if (event.currentTarget instanceof HTMLTextAreaElement && isNewlineKeyEvent(event)) {
         return;
       }
       event.preventDefault();

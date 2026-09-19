@@ -119,9 +119,9 @@ export function CanvasPreview({
       [
         ...PREVIEW_CANVAS_ITEMS,
         ...roadmapTodos.map(
-          (todo): CanvasArtifactItem => ({ kind: "todo", createdAt: todo.createdAt, data: todo }),
+          (todo): CanvasArtifactItem => ({ kind: "todo", sortAt: todo.createdAt, data: todo }),
         ),
-      ].sort((left, right) => left.createdAt - right.createdAt),
+      ].sort((left, right) => left.sortAt - right.sortAt),
     [roadmapTodos],
   );
 

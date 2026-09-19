@@ -9,7 +9,8 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useApp } from "../app/AppProvider";
 import { EmptyState } from "../components/EmptyState";
-import { FolderActionMenu, FolderCard, FolderRow } from "../components/NoteFolderNav";
+import { FolderActionMenu, FolderCard, FolderGroups, FolderRow } from "../components/NoteFolderNav";
+import { groupByPinned } from "../lib/pinned-folders";
 import { BookmarkCategoryIconPicker } from "../components/BookmarkCategoryIconPicker";
 import { CategoryIconView } from "../lib/bookmark-category-icon";
 import { NoteCard } from "../components/cards";
@@ -241,12 +242,13 @@ export function NotesScreen() {
   }, [allFolderNames, newFolderName, renamingFolderId, state.noteFolders]);
 
   const folderRows = useMemo(() => {
-    const rows = new Map<string, { id?: string; name: string; icon?: string; count: number; lastUpdated: number }>();
+    const rows = new Map<string, { id?: string; name: string; icon?: string; pinned?: boolean; count: number; lastUpdated: number }>();
     for (const folder of state.noteFolders) {
       rows.set(normalizeNoteFolderName(folder.name), {
         id: folder.id,
         name: folder.name,
         icon: folder.icon,
+        pinned: folder.pinned,
         count: 0,
         lastUpdated: folder.createdAt,
       });
@@ -304,6 +306,11 @@ export function NotesScreen() {
     if (!noteFolderMatchCounts) return folderRows;
     return folderRows.filter((row) => noteFolderMatchCounts.has(normalizeNoteFolderName(row.name)));
   }, [folderRows, noteFolderMatchCounts]);
+
+  // Grouped at render, not sorted into `folderRows` — keeping the pin out of
+  // the comparator is what lets the user's chosen sort still order several
+  // pinned folders among themselves.
+  const folderGroups = useMemo(() => groupByPinned(visibleFolderRows, (row) => !!row.pinned), [visibleFolderRows]);
 
   useEffect(() => {
     if (!creatingFolder && !renamingFolderId) return;
@@ -950,9 +957,9 @@ export function NotesScreen() {
 
             <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto">
               {effectiveFolderViewMode === "gallery" ? (
-                <div className="grid grid-cols-3 gap-2">
+                <>
                   {creatingFolder ? (
-                    <div className="col-span-3">
+                    <div className="pb-2">
                       <FolderRow
                         folderName=""
                         icon={editingIcon}
@@ -982,7 +989,10 @@ export function NotesScreen() {
                     </div>
                   ) : null}
 
-                  {visibleFolderRows.map((folder) => (
+                  <FolderGroups
+                    groups={folderGroups}
+                    wrap={(children) => <div className="grid grid-cols-3 gap-2">{children}</div>}
+                    renderItem={(folder) => (
                     renamingFolderId === folder.id && !drawerRenaming ? (
                       <div key={folder.id ?? folder.name} className="col-span-3">
                         <FolderRow
@@ -1038,7 +1048,12 @@ export function NotesScreen() {
                               menuRef={folderMenuOpenId === folder.id ? folderMenuRef : undefined}
                               size="sm"
                               isShared={sharedFolderIdSet.has(folder.id)}
+                              isPinned={folder.pinned}
                               onToggle={() => setFolderMenuOpenId((current) => (current === folder.id ? null : folder.id ?? null))}
+                              onTogglePin={() => {
+                                dispatch({ type: "folder/set-pinned", scope: "note", folderId: folder.id!, pinned: !folder.pinned });
+                                setFolderMenuOpenId(null);
+                              }}
                               onRename={() => {
                                 setRenamingFolderId(folder.id ?? null);
                                 setNewFolderName(folder.name);
@@ -1059,10 +1074,11 @@ export function NotesScreen() {
                         }
                       />
                     )
-                  ))}
-                </div>
+                  )}
+                  />
+                </>
               ) : (
-                <div className="space-y-2">
+                <>
                   {creatingFolder ? (
                     <FolderRow
                       folderName=""
@@ -1092,7 +1108,10 @@ export function NotesScreen() {
                     />
                   ) : null}
 
-                  {visibleFolderRows.map((folder) => (
+                  <FolderGroups
+                    groups={folderGroups}
+                    wrap={(children) => <div className="space-y-2">{children}</div>}
+                    renderItem={(folder) => (
                     renamingFolderId === folder.id && !drawerRenaming ? (
                       <FolderRow
                         key={folder.id ?? folder.name}
@@ -1147,7 +1166,12 @@ export function NotesScreen() {
                               menuRef={folderMenuOpenId === folder.id ? folderMenuRef : undefined}
                               size="sm"
                               isShared={sharedFolderIdSet.has(folder.id)}
+                              isPinned={folder.pinned}
                               onToggle={() => setFolderMenuOpenId((current) => (current === folder.id ? null : folder.id ?? null))}
+                              onTogglePin={() => {
+                                dispatch({ type: "folder/set-pinned", scope: "note", folderId: folder.id!, pinned: !folder.pinned });
+                                setFolderMenuOpenId(null);
+                              }}
                               onRename={() => {
                                 setRenamingFolderId(folder.id ?? null);
                                 setNewFolderName(folder.name);
@@ -1168,8 +1192,9 @@ export function NotesScreen() {
                         }
                       />
                     )
-                  ))}
-                </div>
+                  )}
+                  />
+                </>
               )}
               <div aria-hidden="true" style={{ height: "calc(var(--omanote-bottom-nav-height, 64px) + 1.5rem)", flexShrink: 0 }} />
             </div>

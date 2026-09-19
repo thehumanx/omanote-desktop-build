@@ -27,6 +27,22 @@ export type CanvasDayArtifactsProps = {
   staticPreview?: boolean;
 };
 
+/**
+ * Marks a row that is on this day because it was *edited* here, not created
+ * here — see `buildCanvasDayItems`. The label names the change where the
+ * activity log knows it ("Reopened", "Snoozed") and falls back to "Edited". Rendered by this component rather than by
+ * each of the five artifact blocks: the badge is identical in every case, and
+ * threading an `edited` prop through all five would be five chances for them
+ * to drift.
+ */
+function EditedBadge({ label }: { label?: string }) {
+  return (
+    <span className="mb-1 inline-flex items-center rounded-app-badge bg-app-surface-muted px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-app-ink-faint">
+      {label ?? "Edited"}
+    </span>
+  );
+}
+
 type ItemGroup =
   // Consecutive "page" items stack horizontally instead of each taking its
   // own full-width row — one run per unbroken streak of pages in feed order,
@@ -91,12 +107,13 @@ export function CanvasDayArtifacts({
           <div key={`page-run:${group.items[0]!.data.id}`} className="flex flex-wrap gap-3">
             {group.items.map((item) => (
               <div key={`page:${item.data.id}`} data-artifact-id={item.data.id} className="w-full sm:max-w-[calc((100%-1.5rem)/3)] sm:shrink-0 sm:basis-[calc((100%-1.5rem)/3)]">
+                {item.edited ? <EditedBadge label={item.editLabel} /> : null}
                 <PageCard
                   staticPreview={staticPreview}
                   page={item.data as Extract<CanvasArtifactItem, { kind: "page" }>["data"]}
                   onDelete={(pageId) => dispatch({ type: "page/delete", pageId })}
                   onShare={(pageId) => onSharePage?.(pageId)}
-                  onToggleStar={(pageId, starred) => dispatch({ type: "page/set-flags", pageId, starred })}
+                  onTogglePin={(pageId, pinned) => dispatch({ type: "page/set-flags", pageId, pinned })}
                   onToggleHidden={(pageId, hidden) => dispatch({ type: "page/set-flags", pageId, hidden })}
                 />
               </div>
@@ -106,6 +123,7 @@ export function CanvasDayArtifacts({
           // `data-artifact-id` gives each row a stable handle in the DOM,
           // for anything that needs to find or scroll to one artifact.
           <div key={`${group.item.kind}:${group.item.data.id}`} data-artifact-id={group.item.data.id}>
+            {group.item.edited ? <EditedBadge label={group.item.editLabel} /> : null}
             {group.item.kind === "todo" ? (
               <CanvasTodoBlock
                 todo={group.item.data}

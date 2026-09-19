@@ -913,6 +913,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const deletePage = useMutation(api.pages.deletePage);
   const restorePage = useMutation(api.pages.restorePage);
   const setPageFlagsMutation = useMutation(api.pages.setPageFlags);
+  const setTodoFolderPinned = useMutation(api.todos.setTodoFolderPinned);
+  const setNoteFolderPinned = useMutation(api.notes.setNoteFolderPinned);
+  const setBookmarkCategoryPinned = useMutation(api.bookmarks.setBookmarkCategoryPinned);
   const createBookmark = useMutation(api.bookmarks.createBookmark);
   const updateBookmark = useMutation(api.bookmarks.updateBookmark);
   const deleteBookmark = useMutation(api.bookmarks.deleteBookmark);
@@ -1938,6 +1941,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (payload.withContents) await deleteBookmarkCategoryWithBookmarks({ categoryId: payload.id as any });
         else await deleteBookmarkCategory({ categoryId: payload.id as any });
       },
+      "folder/set-pinned": async (payload) => {
+        if (payload.scope === "todo") await setTodoFolderPinned({ folderId: payload.id as any, pinned: payload.pinned });
+        else if (payload.scope === "note") await setNoteFolderPinned({ folderId: payload.id as any, pinned: payload.pinned });
+        else await setBookmarkCategoryPinned({ categoryId: payload.id as any, pinned: payload.pinned });
+      },
       "event/create": async (payload) => {
         await createEventEntry({ clientKey: payload.clientKey, label: payload.label, dateKey: payload.dateKey, loggedAt: payload.loggedAt, notes: payload.notes, hashtags: payload.hashtags });
         clearCanvasDraftForKey(payload.draftKey);
@@ -2815,6 +2823,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             name: encryptedName,
             nameLower: encryptedName.toLowerCase(),
             icon: action.icon,
+            // Carried over, not defaulted: this `put` rebuilds the whole row,
+            // so omitting it would silently unpin the folder on every rename.
+            pinned: localFolder?.pinned,
             createdAt: localFolder?.createdAt ?? now,
             updatedAt: now,
           });
@@ -3063,17 +3074,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return true;
       }
       case "page/set-flags": {
-        // Only a synced canvas can be starred/hidden — PageScreen and PageCard
-        // both gate their star/hide buttons behind serverPageId, so a
+        // Only a synced canvas can be pinned/hidden — PageScreen and PageCard
+        // both gate their pin/hide buttons behind serverPageId, so a
         // clientKey ever reaching here would mean a caller bypassed that gate.
         setDecryptedPages((prev) =>
-          prev.map((p) => (p.id === action.pageId ? { ...p, starred: action.starred ?? p.starred, hidden: action.hidden ?? p.hidden } : p)),
+          prev.map((p) => (p.id === action.pageId ? { ...p, pinned: action.pinned ?? p.pinned, hidden: action.hidden ?? p.hidden } : p)),
         );
-        void setPageFlagsMutation({ pageId: action.pageId as any, starred: action.starred, hidden: action.hidden })
+        void setPageFlagsMutation({ pageId: action.pageId as any, pinned: action.pinned, hidden: action.hidden })
           .then(() => scheduleSync(["pages"]))
           .catch(() => {
             // Best-effort: revert the optimistic flip rather than queueing a
-            // retry — a missed star/hide toggle is low-stakes compared to the
+            // retry — a missed pin/hide toggle is low-stakes compared to the
             // outbox machinery document edits need, and the user can just
             // press the button again.
             setDecryptedPages((prev) =>
@@ -3081,7 +3092,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 p.id === action.pageId
                   ? {
                       ...p,
-                      starred: action.starred === undefined ? p.starred : !action.starred,
+                      pinned: action.pinned === undefined ? p.pinned : !action.pinned,
                       hidden: action.hidden === undefined ? p.hidden : !action.hidden,
                     }
                   : p,
@@ -3173,6 +3184,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             name: encryptedName,
             nameLower: encryptedName.toLowerCase(),
             icon: action.icon,
+            // Carried over, not defaulted: this `put` rebuilds the whole row,
+            // so omitting it would silently unpin the folder on every rename.
+            pinned: localFolder?.pinned,
             createdAt: localFolder?.createdAt ?? now,
             updatedAt: now,
           });
@@ -3425,6 +3439,102 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [createEventEntry, updateEventEntry, deleteEventEntry, restoreEventEntry, pushHistory, showDeleteToast, encrypt, encryptOptional, scheduleSync, pushEventEntryToGoogleCalendar, removeEventEntryFromGoogleCalendar],
   );
 
+  /**
+   * Pinning a folder, for all three folder kinds at once.
+   *
+   * Deliberately one handler rather than a case in each of the three domain
+   * handlers: the optimistic write, the Dexie patch, the offline queueing and
+   * the rollback are byte-for-byte identical across todo folders, note folders
+   * and bookmark categories, and only the mutation at the end differs. A
+   * lookup table keyed on `scope` keeps that difference to three lines.
+   *
+   * `pinned` is plaintext metadata, so unlike a rename there's nothing to
+   * encrypt and nothing to re-encrypt on retry.
+   */
+  const handleFolderPinAction = useCallback(
+    (action: AppAction): boolean => {
+      if (action.type !== "folder/set-pinned") return false;
+
+      // Each scope's differences are held as closures rather than as the raw
+      // Dexie table: the three tables have distinct branded `_id` types, so a
+      // union of them would only accept a row satisfying all three at once,
+      // which no row can.
+      const patch = { pinned: action.pinned, updatedAt: Date.now() };
+      const scopes = {
+        todo: {
+          noun: "folder" as const,
+          syncKey: "todoFolders" as const,
+          setLocal: setDecryptedTodoFolders,
+          patchRow: () => db.todoFolders.update(action.folderId, patch),
+          mutate: () => setTodoFolderPinned({ folderId: action.folderId as any, pinned: action.pinned }),
+        },
+        note: {
+          noun: "folder" as const,
+          syncKey: "noteFolders" as const,
+          setLocal: setDecryptedNoteFolders,
+          patchRow: () => db.noteFolders.update(action.folderId, patch),
+          mutate: () => setNoteFolderPinned({ folderId: action.folderId as any, pinned: action.pinned }),
+        },
+        bookmark: {
+          noun: "category" as const,
+          syncKey: "bookmarkCategories" as const,
+          setLocal: setDecryptedBookmarkCategories,
+          patchRow: () => db.bookmarkCategories.update(action.folderId, patch),
+          mutate: () => setBookmarkCategoryPinned({ categoryId: action.folderId as any, pinned: action.pinned }),
+        },
+      }[action.scope];
+
+      void (async () => {
+        // Optimistic first, above the network call — see AGENTS.md: the
+        // offline branch returns without ever invoking the mutation, so an
+        // update written inside it would silently never happen.
+        scopes.setLocal((prev: any[]) =>
+          prev.map((f) => (f.id === action.folderId ? { ...f, pinned: action.pinned } : f)),
+        );
+        // A partial `update`, not a `get`+`put`: the row's other fields are
+        // encrypted and a rebuild here would have to round-trip them.
+        await scopes.patchRow();
+
+        // `navigator.onLine`, not try/catch: a disconnected Convex mutation
+        // pends rather than rejecting, so a catch here never fires offline.
+        if (!navigator.onLine) {
+          await enqueueCanvasMutation("folder/set-pinned", {
+            scope: action.scope,
+            id: action.folderId,
+            pinned: action.pinned,
+          });
+          return;
+        }
+
+        try {
+          await scopes.mutate();
+        } catch {
+          await enqueueCanvasMutation("folder/set-pinned", {
+            scope: action.scope,
+            id: action.folderId,
+            pinned: action.pinned,
+          });
+          return;
+        }
+        await db.syncCursors.delete(scopes.syncKey);
+        scheduleSync([scopes.syncKey]);
+      })().catch((error) => notifyFolderWriteFailed(scopes.noun, error));
+
+      return true;
+    },
+    [
+      db,
+      setDecryptedTodoFolders,
+      setDecryptedNoteFolders,
+      setDecryptedBookmarkCategories,
+      setTodoFolderPinned,
+      setNoteFolderPinned,
+      setBookmarkCategoryPinned,
+      scheduleSync,
+      notifyFolderWriteFailed,
+    ],
+  );
+
   // ---------------------------------------------------------------------------
   // Main dispatch — routes to the right domain handler.
   // ---------------------------------------------------------------------------
@@ -3451,13 +3561,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           localDispatch(action as LocalAction);
           return;
         default:
+          handleFolderPinAction(action) ||
           handleTodoAction(action) ||
           handleNoteAction(action) ||
           handleBookmarkAction(action) ||
           handleEventAction(action);
       }
     },
-    [handleTodoAction, handleNoteAction, handleBookmarkAction, handleEventAction, localDispatch],
+    [handleFolderPinAction, handleTodoAction, handleNoteAction, handleBookmarkAction, handleEventAction, localDispatch],
   );
 
   // Keep the ref in sync so undo/redo closures always call the latest dispatch.

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Check, Copy, ExternalLink, Share2, Star, Trash2, X } from "lucide-react";
+import { Check, Copy, ExternalLink, Pin, Share2, Trash2, X } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
 import { useApp } from "../app/AppProvider";
 import { randomId, type BookmarkItem, type PageItem } from "@omanote/shared";
@@ -70,7 +70,7 @@ function HeaderActionButton({
   onClick?: () => void;
   href?: string;
   danger?: boolean;
-  /** Filled rather than the default outline — used for the star toggle. Stays
+  /** Filled rather than the default outline — used for the pin toggle. Stays
    * neutral ink rather than a tint, matching every other active/selected
    * state in the app (SegmentedPill, option cards, etc). */
   active?: boolean;
@@ -343,10 +343,10 @@ export function PageScreen() {
     navigate("/canvas");
   }, [dispatch, navigate, page, getToken]);
 
-  const toggleStar = useCallback(() => {
+  const togglePin = useCallback(() => {
     if (!serverPageId) return;
-    dispatch({ type: "page/set-flags", pageId: serverPageId, starred: !page?.starred });
-  }, [dispatch, serverPageId, page?.starred]);
+    dispatch({ type: "page/set-flags", pageId: serverPageId, pinned: !page?.pinned });
+  }, [dispatch, serverPageId, page?.pinned]);
 
   // The row genuinely doesn't exist (bad link, deleted page, or a cache that
   // hasn't synced yet). Distinguishing those three needs server state we don't
@@ -424,10 +424,10 @@ export function PageScreen() {
                       />
                     ) : null}
                     <HeaderActionButton
-                      icon={Star}
-                      label={page.starred ? "Unstar" : "Star"}
-                      onClick={toggleStar}
-                      active={page.starred}
+                      icon={Pin}
+                      label={page.pinned ? "Unpin" : "Pin"}
+                      onClick={togglePin}
+                      active={page.pinned}
                     />
                     <HeaderActionButton icon={Share2} label="Share" onClick={() => setShareOpen(true)} />
                     <HeaderActionButton icon={Trash2} label="Delete" onClick={handleDelete} danger />

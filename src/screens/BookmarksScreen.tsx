@@ -9,7 +9,8 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useApp } from "../app/AppProvider";
 import { EmptyState } from "../components/EmptyState";
-import { CategoryActionMenu, CategoryCard, CategoryRow } from "../components/BookmarkCategoryNav";
+import { CategoryActionMenu, CategoryCard, CategoryGroups, CategoryRow } from "../components/BookmarkCategoryNav";
+import { groupByPinned } from "../lib/pinned-folders";
 import { BookmarkCategoryIconPicker } from "../components/BookmarkCategoryIconPicker";
 import { CategoryIconView } from "../lib/bookmark-category-icon";
 import { BookmarkCard } from "../components/cards";
@@ -344,7 +345,7 @@ export function BookmarksScreen() {
   const bookmarkSearchQuery = useMemo(() => normalizeSearchQuery(bookmarkSearch), [bookmarkSearch]);
 
   const categoryRows = useMemo(() => {
-    const rows = new Map<string, { id: string; name: string; icon?: string; count: number; matchCount: number; lastUpdated: number; hasMatch: boolean }>();
+    const rows = new Map<string, { id: string; name: string; icon?: string; pinned?: boolean; count: number; matchCount: number; lastUpdated: number; hasMatch: boolean }>();
 
     for (const category of state.bookmarkCategories) {
       const rowId = isSavedCategoryName(category.name)
@@ -362,6 +363,9 @@ export function BookmarksScreen() {
         id: rowId,
         name: virtualName ?? category.name,
         icon: virtualName ? undefined : category.icon,
+        // Virtual rows ("Saved", "Synced from GCal") fold several real
+        // categories into one, so there's no single row to pin.
+        pinned: virtualName ? undefined : category.pinned,
         count: 0,
         matchCount: 0,
         lastUpdated: category.createdAt,
@@ -429,6 +433,10 @@ export function BookmarksScreen() {
   ]);
 
   const visibleCategoryRows = bookmarkSearchQuery ? categoryRows.filter((row) => row.hasMatch) : categoryRows;
+
+  // Grouped at render rather than folded into the comparator, so the chosen
+  // sort still orders several pinned categories among themselves.
+  const categoryGroups = useMemo(() => groupByPinned(visibleCategoryRows, (row) => !!row.pinned), [visibleCategoryRows]);
 
   const selectedCategory = selectedCategoryId ? visibleCategoryRows.find((category) => category.id === selectedCategoryId) ?? null : null;
 
@@ -915,9 +923,9 @@ export function BookmarksScreen() {
 
             <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto pb-16">
               {effectiveCategoryViewMode === "gallery" ? (
-                <div className="grid grid-cols-3 gap-2">
+                <>
                   {creatingCategory ? (
-                    <div className="col-span-3">
+                    <div className="pb-2">
                       <CategoryRow
                         categoryName=""
                         icon={editingIcon}
@@ -947,7 +955,10 @@ export function BookmarksScreen() {
                     </div>
                   ) : null}
 
-                  {visibleCategoryRows.map((category) =>
+                  <CategoryGroups
+                    groups={categoryGroups}
+                    wrap={(children) => <div className="grid grid-cols-3 gap-2">{children}</div>}
+                    renderItem={(category) =>
                     renamingCategoryId === category.id && !drawerRenaming ? (
                       <div key={category.id} className="col-span-3">
                         <CategoryRow
@@ -1004,7 +1015,12 @@ export function BookmarksScreen() {
                                 menuRef={categoryMenuOpenId === category.id ? categoryMenuRef : undefined}
                                 size="sm"
                                 isShared={sharedCategoryIdSet.has(category.id)}
+                                isPinned={category.pinned}
                                 onToggle={() => setCategoryMenuOpenId((c) => (c === category.id ? null : category.id))}
+                                onTogglePin={() => {
+                                  dispatch({ type: "folder/set-pinned", scope: "bookmark", folderId: category.id, pinned: !category.pinned });
+                                  setCategoryMenuOpenId(null);
+                                }}
                                 onRename={() => {
                                   setRenamingCategoryId(category.id);
                                   setNewCategoryName(category.name);
@@ -1026,10 +1042,11 @@ export function BookmarksScreen() {
                         }
                       />
                     )
-                  )}
-                </div>
+                  }
+                  />
+                </>
               ) : (
-                <div className="space-y-2">
+                <>
                   {creatingCategory ? (
                     <CategoryRow
                       categoryName=""
@@ -1059,7 +1076,10 @@ export function BookmarksScreen() {
                     />
                   ) : null}
 
-                  {visibleCategoryRows.map((category) =>
+                  <CategoryGroups
+                    groups={categoryGroups}
+                    wrap={(children) => <div className="space-y-2">{children}</div>}
+                    renderItem={(category) =>
                     renamingCategoryId === category.id && !drawerRenaming ? (
                       <CategoryRow
                         key={category.id}
@@ -1115,7 +1135,12 @@ export function BookmarksScreen() {
                                 menuRef={categoryMenuOpenId === category.id ? categoryMenuRef : undefined}
                                 size="md"
                                 isShared={sharedCategoryIdSet.has(category.id)}
+                                isPinned={category.pinned}
                                 onToggle={() => setCategoryMenuOpenId((c) => (c === category.id ? null : category.id))}
+                                onTogglePin={() => {
+                                  dispatch({ type: "folder/set-pinned", scope: "bookmark", folderId: category.id, pinned: !category.pinned });
+                                  setCategoryMenuOpenId(null);
+                                }}
                                 onRename={() => {
                                   setRenamingCategoryId(category.id);
                                   setNewCategoryName(category.name);
@@ -1137,8 +1162,9 @@ export function BookmarksScreen() {
                         }
                       />
                     )
-                  )}
-                </div>
+                  }
+                  />
+                </>
               )}
             </div>
           </div>

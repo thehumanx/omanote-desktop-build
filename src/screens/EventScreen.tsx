@@ -1,11 +1,10 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useLocation } from "react-router-dom";
-import { addDays, buildDateStripWindow, formatCanvasDateLabel, formatMonthDayRange, listVirtualOccurrencesForDates, parseEventDraftInputForDate, parseVirtualOccurrenceId, toDateKey } from "@omanote/shared";
+import { addDays, buildDateStripWindow, formatMonthDayRange, listVirtualOccurrencesForDates, parseEventDraftInputForDate, parseVirtualOccurrenceId, toDateKey } from "@omanote/shared";
 import type { DateKey, TodoFolder, TodoItem } from "@omanote/shared";
 import { CalendarDays, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, Clock3, List, Plus, Trash2, X } from "lucide-react";
 import { useApp } from "../app/AppProvider";
 import { useIsMobileViewport } from "../lib/mobile";
-import { useHorizontalSwipe } from "../lib/useHorizontalSwipe";
 import { BaseModal } from "../components/BaseModal";
 import { EventEditorModal } from "../components/EventEditorModal";
 import { TodoEditorModal } from "../components/TodoEditorModal";
@@ -16,11 +15,11 @@ import { useTopChrome } from "../components/layout/useTopChrome";
 import { ExpandableSearch } from "../components/ExpandableSearch";
 import { matchesQuery, normalizeSearchQuery } from "../lib/search-match";
 import { DrawerHeaderRow } from "../components/DrawerHeaderRow";
-import { Button, SegmentedPill, TodoCheckmark } from "../components/ui";
+import { Button, SegmentedPill, TodoCheckmark, cn } from "../components/ui";
 import { VirtualList, type VirtualListHandle } from "../components/VirtualList";
 import { handlePasteAsLink } from "../lib/link-utils";
 import { useUserSettings } from "../contexts/UserSettingsContext";
-import { isNewlineShortcutEvent, isSaveShortcutEvent } from "../lib/editor-shortcuts";
+import { isNewlineKeyEvent, isSaveKeyEvent } from "../lib/editor-shortcuts";
 import { SaveShortcutHint } from "../components/settings/SaveShortcutHint";
 import { HashtagPickerDropdown, useHashtagPicker } from "../components/HashtagPicker";
 import { EmojiPickerDropdown, useEmojiPicker } from "../components/EmojiPicker";
@@ -139,6 +138,159 @@ function formatDateLabel(dateKey: string, todayKey: string): string {
   const weekday = date.toLocaleDateString("en-US", { weekday: "short" });
   const monthDay = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   return `${weekday}, ${monthDay}`;
+}
+
+/** How far forward the mobile agenda runs. See `agendaDateKeys`. */
+const AGENDA_DAY_COUNT = 60;
+
+/** Stand-in used on mobile, where the hour gutter is never laid out. */
+const EMPTY_HOUR_LAYOUT: CalendarHourLayout = { rowHeights: [], hourTops: [], totalHeight: 0 };
+
+function formatEntryTime(startMinutes: number): string {
+  const hours = Math.floor(startMinutes / 60);
+  const minutes = startMinutes % 60;
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
+  return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+type AgendaDay = {
+  dateKey: string;
+  allDayTodos: TodoItem[];
+  timed: CalendarEntry[];
+};
+
+/**
+ * The calendar as a continuous, forward-looking list — what the week grid
+ * becomes on mobile.
+ *
+ * The grid needs an hour gutter and seven columns (~920px). Below `md` that
+ * used to collapse to a single day paged with arrows, so finding next
+ * Thursday took seven taps. This is the same content, read top to bottom:
+ * every day that has something scheduled, with today always shown even when
+ * it's empty so there is a "you are here".
+ *
+ * Windowed by day rather than by row, matching `TimelineView` — the day
+ * header and its entries have to stay together, and a row is only reachable
+ * once its day is mounted.
+ */
+function AgendaView({
+  days,
+  todayKey,
+  scrollRef,
+  onEditEvent,
+  onEditTodo,
+  onToggleTodo,
+}: {
+  days: AgendaDay[];
+  todayKey: string;
+  scrollRef: RefObject<HTMLElement>;
+  onEditEvent: (eventId: string) => void;
+  onEditTodo: (todoId: string) => void;
+  onToggleTodo: (todoId: string) => void;
+}) {
+  if (!days.length) {
+    return <p className="py-12 text-center text-sm text-app-ink-faint">Nothing scheduled</p>;
+  }
+
+  return (
+    <VirtualList
+      items={days}
+      getKey={(day) => day.dateKey}
+      scrollRef={scrollRef}
+      className="w-full min-w-0 pb-4"
+      gap={16}
+      threshold={12}
+      estimateSize={140}
+      overscan={4}
+      renderItem={(day) => {
+        const isToday = day.dateKey === todayKey;
+        return (
+          <section aria-label={formatDateLabel(day.dateKey, todayKey)}>
+            <div className="flex items-baseline gap-2 border-b border-app-line pb-1">
+              <h3 className={cn("text-sm font-bold", isToday ? "text-app-ink" : "text-app-ink-muted")}>
+                {formatDateLabel(day.dateKey, todayKey)}
+              </h3>
+              <span className="text-[11px] text-app-ink-faint">
+                {day.allDayTodos.length + day.timed.length || "nothing"}
+              </span>
+            </div>
+            <ul className="mt-2 flex flex-col gap-1">
+              {day.allDayTodos.map((todo) => (
+                <li key={`all-day-${todo.id}`} className="flex items-start gap-3 rounded-app-panel px-2 py-1.5">
+                  <span className="w-14 flex-none pt-0.5 text-[11px] uppercase tracking-wide text-app-ink-faint">All day</span>
+                  <TodoCheckmark
+                    type="button"
+                    checked={todo.status === "done"}
+                    align="text"
+                    onClick={() => onToggleTodo(todo.id)}
+                    aria-label={todo.status === "done" ? `Reopen ${todo.title}` : `Complete ${todo.title}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => onEditTodo(todo.id)}
+                    className={cn(
+                      "min-w-0 flex-1 text-left text-sm",
+                      todo.status === "done" ? "text-app-ink-faint line-through" : "text-app-ink",
+                    )}
+                  >
+                    {todo.title}
+                  </button>
+                </li>
+              ))}
+              {day.timed.map((entry) => (
+                <li key={`${entry.kind}-${entry.id}`} className="flex items-start gap-3 rounded-app-panel px-2 py-1.5">
+                  <span className="w-14 flex-none pt-0.5 text-[11px] tabular-nums text-app-ink-faint">
+                    {formatEntryTime(entry.startMinutes)}
+                  </span>
+                  {entry.kind === "todo" ? (
+                    <TodoCheckmark
+                      type="button"
+                      checked={entry.todo.status === "done"}
+                      align="text"
+                      onClick={() => onToggleTodo(entry.todo.id)}
+                      aria-label={entry.todo.status === "done" ? `Reopen ${entry.todo.title}` : `Complete ${entry.todo.title}`}
+                    />
+                  ) : (
+                    // Same icons the timeline and week grid use: a double
+                    // check marks an event that a completed todo generated,
+                    // a clock marks one logged directly. A bare dot said
+                    // neither.
+                    <span
+                      aria-hidden="true"
+                      data-agenda-event-icon={isTodoCompletedEvent(entry.event) ? "completed-todo" : "logged"}
+                      className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-app-surface-muted"
+                    >
+                      {isTodoCompletedEvent(entry.event) ? (
+                        <CheckCheck className="h-3 w-3 text-app-ink-faint" />
+                      ) : (
+                        <Clock3 className="h-3 w-3 text-app-ink-faint" />
+                      )}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => (entry.kind === "todo" ? onEditTodo(entry.todo.id) : onEditEvent(entry.event.id))}
+                    className={cn(
+                      "min-w-0 flex-1 text-left text-sm",
+                      entry.kind === "todo" && entry.todo.status === "done"
+                        ? "text-app-ink-faint line-through"
+                        : "text-app-ink",
+                    )}
+                  >
+                    {entry.kind === "todo" ? entry.todo.title : entry.event.label}
+                  </button>
+                </li>
+              ))}
+              {!day.allDayTodos.length && !day.timed.length ? (
+                <li className="px-2 py-1.5 text-sm text-app-ink-faint">Nothing scheduled</li>
+              ) : null}
+            </ul>
+          </section>
+        );
+      }}
+    />
+  );
 }
 
 function getCalendarHourLayout(entries: CalendarEntry[], weekDateKeys: string[]): CalendarHourLayout {
@@ -624,12 +776,12 @@ function EventCreateModal({
               if (hashtagPicker.handleKeyDown(event)) return;
               if (emojiPicker.handleKeyDown(event)) return;
               if (event.key !== "Enter") return;
-              if (isSaveShortcutEvent(event, settings.saveShortcut)) {
+              if (isSaveKeyEvent(event)) {
                 event.preventDefault();
                 onSave(value);
                 return;
               }
-              if (isNewlineShortcutEvent(event, settings.newlineShortcut)) {
+              if (isNewlineKeyEvent(event)) {
                 return;
               }
               event.preventDefault();
@@ -678,6 +830,21 @@ export function EventScreen() {
     writeLocalStorage(EVENT_VIEW_KEY, eventViewCodec, view);
     setEventView(view);
   };
+  /**
+   * Both views stay available on mobile — what changes is how the *calendar*
+   * one is drawn.
+   *
+   * On desktop it's a week grid with an hour gutter. That needs ~920px, so
+   * below `md` it used to collapse to a single day column paged one day at a
+   * time, which is a calendar that can only ever show you one day. Google
+   * Calendar answers the same constraint with a Schedule view: one
+   * continuous, forward-looking list of entries grouped by day. That's what
+   * mobile renders instead of the grid.
+   *
+   * The timeline view is untouched and still shows logged events (including
+   * the ones a completed todo generates) on both viewports.
+   */
+  const isMobileCalendar = isMobile && eventView === "week";
 
   useEffect(() => {
     const focusId = (location.state as { focusEventId?: string } | null)?.focusEventId;
@@ -706,15 +873,31 @@ export function EventScreen() {
     if (!eventSearchQuery) return activeEvents;
     return activeEvents.filter((event) => matchesQuery(eventSearchQuery, event.label, event.notes));
   }, [activeEvents, eventSearchQuery]);
-  // Mobile web shows a single day column (today by default); desktop shows the
-  // full week window. The offset is in days either way, so the arrows just step
-  // by a different amount.
-  const dayStep = isMobile ? 1 : 7;
-  const weekDates = useMemo(() => {
-    const anchor = addDays(today, state.ui.dateWindowOffset);
-    return isMobile ? [anchor] : buildDateStripWindow(anchor);
-  }, [isMobile, state.ui.dateWindowOffset, today]);
+  // The week grid is desktop-only, so this is always a full week and the
+  // arrows always step by one. Mobile used to collapse it to a single day
+  // column, which is exactly the paging the agenda replaces.
+  const dayStep = 7;
+  const weekDates = useMemo(
+    () => buildDateStripWindow(addDays(today, state.ui.dateWindowOffset)),
+    [state.ui.dateWindowOffset, today],
+  );
   const weekDateKeys = useMemo(() => weekDates.map((date) => toDateKey(date)), [weekDates]);
+
+  // The mobile agenda scrolls forward from today instead of paging, so it
+  // needs a range rather than a window. Bounded rather than open-ended
+  // because every calendar memo below is built per day in this list, and a
+  // recurring todo expands once per day it falls on.
+  const agendaDateKeys = useMemo(
+    () =>
+      isMobileCalendar
+        ? Array.from({ length: AGENDA_DAY_COUNT }, (_, index) => toDateKey(addDays(today, index)))
+        : [],
+    [isMobileCalendar, today],
+  );
+
+  // The days every calendar-data memo below is computed over: the visible
+  // week on desktop, the agenda range on mobile.
+  const calendarDateKeys = isMobileCalendar ? agendaDateKeys : weekDateKeys;
 
   // Scheduled todos for the calendar: plain todos with a due date, plus a
   // virtual occurrence of each recurring series on every day it's due within
@@ -722,18 +905,18 @@ export function EventScreen() {
   const activeScheduledTodos = useMemo(() => {
     const todayKey = toDateKey(today);
     const nonRecurring = state.todos.filter((todo) => !todo.deletedAt && todo.dueDateKey && !todo.recurrence);
-    const virtual = listVirtualOccurrencesForDates(state.todos, weekDateKeys, todayKey);
+    const virtual = listVirtualOccurrencesForDates(state.todos, calendarDateKeys, todayKey);
     return [...nonRecurring, ...virtual];
-  }, [state.todos, weekDateKeys, today]);
+  }, [state.todos, calendarDateKeys, today]);
   const visibleEvents = activeEvents;
   const allDayTodosByDateKey = useMemo(() => {
     const grouped: Record<string, TodoItem[]> = {};
     for (const todo of activeScheduledTodos) {
-      if (!todo.dueDateKey || todo.dueTime || !weekDateKeys.includes(todo.dueDateKey)) continue;
+      if (!todo.dueDateKey || todo.dueTime || !calendarDateKeys.includes(todo.dueDateKey)) continue;
       grouped[todo.dueDateKey] = [...(grouped[todo.dueDateKey] ?? []), todo];
     }
     return grouped;
-  }, [activeScheduledTodos, weekDateKeys]);
+  }, [activeScheduledTodos, calendarDateKeys]);
   const timedCalendarEntries = useMemo<CalendarEntry[]>(() => {
     const eventEntries = visibleEvents.map((event) => {
       const date = new Date(event.loggedAt);
@@ -759,21 +942,42 @@ export function EventScreen() {
     return [...eventEntries, ...todoEntries];
   }, [activeScheduledTodos, visibleEvents]);
   const weekEntries = useMemo(
-    () => visibleEvents.filter((event) => weekDateKeys.includes(event.createdDateKey)),
-    [visibleEvents, weekDateKeys],
+    () => visibleEvents.filter((event) => calendarDateKeys.includes(event.createdDateKey)),
+    [visibleEvents, calendarDateKeys],
   );
   const weekTodoCount = useMemo(
-    () => activeScheduledTodos.filter((todo) => todo.dueDateKey && weekDateKeys.includes(todo.dueDateKey)).length,
-    [activeScheduledTodos, weekDateKeys],
+    () => activeScheduledTodos.filter((todo) => todo.dueDateKey && calendarDateKeys.includes(todo.dueDateKey)).length,
+    [activeScheduledTodos, calendarDateKeys],
   );
+  // Grid-only, and deliberately skipped on mobile: these lay out an hour
+  // gutter per day, which over the agenda's 60-day range would be 60x the
+  // work for something never rendered.
   const calendarHourLayout = useMemo(
-    () => getCalendarHourLayout(timedCalendarEntries, weekDateKeys),
-    [timedCalendarEntries, weekDateKeys],
+    () => (isMobileCalendar ? EMPTY_HOUR_LAYOUT : getCalendarHourLayout(timedCalendarEntries, weekDateKeys)),
+    [isMobileCalendar, timedCalendarEntries, weekDateKeys],
   );
   const weekClusters = useMemo(
-    () => getWeekEntryClusters(timedCalendarEntries, weekDateKeys, calendarHourLayout),
-    [calendarHourLayout, timedCalendarEntries, weekDateKeys],
+    () => (isMobileCalendar ? {} : getWeekEntryClusters(timedCalendarEntries, weekDateKeys, calendarHourLayout)),
+    [isMobileCalendar, calendarHourLayout, timedCalendarEntries, weekDateKeys],
   );
+  // Days for the mobile agenda: every day in range that has something on it,
+  // plus today unconditionally so the list always has a "you are here".
+  const agendaDays = useMemo<AgendaDay[]>(() => {
+    if (!isMobileCalendar) return [];
+    const timedByDay = new Map<string, CalendarEntry[]>();
+    for (const entry of timedCalendarEntries) {
+      if (!agendaDateKeys.includes(entry.dateKey as DateKey)) continue;
+      timedByDay.set(entry.dateKey, [...(timedByDay.get(entry.dateKey) ?? []), entry]);
+    }
+    return agendaDateKeys
+      .map((dateKey) => ({
+        dateKey,
+        allDayTodos: allDayTodosByDateKey[dateKey] ?? [],
+        timed: [...(timedByDay.get(dateKey) ?? [])].sort((left, right) => left.startMinutes - right.startMinutes),
+      }))
+      .filter((day) => day.dateKey === todayKey || day.allDayTodos.length > 0 || day.timed.length > 0);
+  }, [isMobileCalendar, agendaDateKeys, allDayTodosByDateKey, timedCalendarEntries, todayKey]);
+
   const editingEvent = state.events.find((event) => event.id === editingEventId) ?? null;
   // A virtual occurrence id (masterId::date) edits its series master.
   const editingTodoRealId = editingTodoId
@@ -782,7 +986,6 @@ export function EventScreen() {
   const editingTodo = state.todos.find((todo) => todo.id === editingTodoRealId) ?? null;
 
   const weekRangeLabel = useMemo(() => {
-    if (weekDates.length === 1) return formatCanvasDateLabel(weekDates[0], today);
     const [firstDate] = weekDateKeys;
     const lastDate = weekDateKeys[weekDateKeys.length - 1];
     return formatMonthDayRange(firstDate, lastDate);
@@ -799,7 +1002,7 @@ export function EventScreen() {
   // Swipe left/right to move the calendar window. Mobile only — wider viewports
   // keep the 920px grid, where horizontal drags are needed to pan the week.
   const calendarScrollRef = useRef<HTMLDivElement | null>(null);
-  useHorizontalSwipe(calendarScrollRef, stepCalendar, isMobile && eventView === "week");
+  const agendaScrollRef = useRef<HTMLDivElement>(null);
 
   // Slide the calendar in from whichever side it came from. The offset moves in
   // both directions, so its delta gives the direction regardless of the source
@@ -823,16 +1026,18 @@ export function EventScreen() {
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-app-ink-faint">
-            {eventView === "week" ? (isMobile ? "Day view" : "Week view") : "Timeline"}
+            {eventView === "timeline" ? "Timeline" : isMobileCalendar ? "Schedule" : "Week view"}
           </p>
           <p className="mt-1 text-sm text-app-ink-muted">
-            {eventView === "week"
-              ? `${weekRangeLabel} · ${weekEntries.length} logged · ${weekTodoCount} todos`
-              : `${timelineEvents.length} total events`}
+            {eventView === "timeline"
+              ? `${timelineEvents.length} total events`
+              : isMobileCalendar
+                ? `${weekEntries.length} logged · ${weekTodoCount} todos scheduled`
+                : `${weekRangeLabel} · ${weekEntries.length} logged · ${weekTodoCount} todos`}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {eventView === "week" && (
+          {eventView === "week" && !isMobileCalendar && (
             <>
               <Button
                 variant="soft"
@@ -846,7 +1051,7 @@ export function EventScreen() {
               <Button
                 variant="ghost"
                 className="h-10 w-10 rounded-full p-0"
-                aria-label={isMobile ? "Previous day" : "Previous week"}
+                aria-label="Previous week"
                 onClick={() => stepCalendar("prev")}
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -854,7 +1059,7 @@ export function EventScreen() {
               <Button
                 variant="ghost"
                 className="h-10 w-10 rounded-full p-0"
-                aria-label={isMobile ? "Next day" : "Next week"}
+                aria-label="Next week"
                 onClick={() => stepCalendar("next")}
               >
                 <ChevronRight className="h-4 w-4" />
@@ -894,7 +1099,20 @@ export function EventScreen() {
         </div>
       )}
 
-      {eventView === "week" && (
+      {isMobileCalendar && (
+        <div ref={agendaScrollRef} className="scrollbar-hide min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+          <AgendaView
+            days={agendaDays}
+            todayKey={todayKey}
+            scrollRef={agendaScrollRef}
+            onEditEvent={(eventId) => setEditingEventId(eventId)}
+            onEditTodo={(todoId) => setEditingTodoId(todoId)}
+            onToggleTodo={(todoId) => dispatch({ type: "todo/toggle", todoId })}
+          />
+        </div>
+      )}
+
+      {eventView === "week" && !isMobileCalendar && (
       <div
         className="min-h-0 flex-1 overflow-hidden rounded-app-dialog border border-app-line bg-app-surface shadow-none"
         onAnimationEnd={(event) => {
@@ -903,13 +1121,10 @@ export function EventScreen() {
           if (event.animationName.startsWith("omanote-week-slide")) setSlideDirection(null);
         }}
       >
-        {/* Owns the horizontal swipe: it steps the calendar a week at a time,
-            which is the primary action here and has no other touch equivalent.
-            Tagged explicitly rather than relying on the shell's
-            `skipScrollableX`, because on mobile this column is `min-w-0` and so
-            isn't horizontally scrollable at all. */}
-        <div ref={calendarScrollRef} data-omanote-swipe-owner className="scrollbar-hide h-full overflow-auto">
-          <div className={isMobile ? "min-w-0" : "min-w-[920px]"}>
+        {/* The swipe-to-page-the-week gesture lived here; it was mobile-only,
+            and this grid renders only on desktop now. */}
+        <div ref={calendarScrollRef} className="scrollbar-hide h-full overflow-auto">
+          <div className="min-w-[920px]">
             <div className="sticky top-0 z-20">
               <div className="grid border-b border-app-line bg-app-surface/95 backdrop-blur" style={{ gridTemplateColumns: calendarGridTemplate }}>
                 <div className="border-r border-app-line px-3 py-3" />

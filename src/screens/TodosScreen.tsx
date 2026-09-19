@@ -16,6 +16,8 @@ import { matchesQuery, normalizeSearchQuery } from "../lib/search-match";
 import { ModalPortal } from "../components/ModalPortal";
 import { TodoEditorModal } from "../components/TodoEditorModal";
 import { TodoFolderCard, TodoFolderCountBadge, TodoFolderRow } from "../components/TodoFolderRow";
+import { FolderNavGroups } from "../components/FolderNav";
+import { groupByPinned } from "../lib/pinned-folders";
 import { TodoListRow } from "../components/TodoListRow";
 import { Button, cn, SegmentedPill } from "../components/ui";
 import { VirtualList, type VirtualListHandle } from "../components/VirtualList";
@@ -578,6 +580,10 @@ export function TodosScreen() {
     return effectiveTodoFolders.filter((folder) => todoFolderMatchCounts.has(folder.id));
   }, [effectiveTodoFolders, todoFolderMatchCounts]);
 
+  // Grouped at render rather than folded into the sort comparator, so the
+  // chosen sort still orders several pinned folders among themselves.
+  const folderGroups = useMemo(() => groupByPinned(visibleTodoFolders, (folder) => !!folder.pinned), [visibleTodoFolders]);
+
   useEffect(() => {
     if (!selectedFolder) return;
     if (selectedFolderId === selectedFolder.id) return;
@@ -1107,9 +1113,9 @@ export function TodosScreen() {
             </div>
             <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto pb-8">
               {folderViewMode === "gallery" ? (
-                <div className="grid grid-cols-3 gap-2 pr-1">
+                <>
                   {creatingFolder ? (
-                    <div className="col-span-3">
+                    <div className="pb-2 pr-1">
                       <TodoFolderRow
                         folder={{ id: "__new__", name: newFolderName || "", createdAt: 0, updatedAt: 0 }}
                         completedCount={0}
@@ -1142,7 +1148,10 @@ export function TodosScreen() {
                       />
                     </div>
                   ) : null}
-                  {visibleTodoFolders.map((folder) => (
+                  <FolderNavGroups
+                    groups={folderGroups}
+                    wrap={(children) => <div className="grid grid-cols-3 gap-2 pr-1">{children}</div>}
+                    renderItem={(folder) => (
                     renamingFolderId === folder.id ? (
                       <div key={folder.id} className="col-span-3">
                         <TodoFolderRow
@@ -1190,10 +1199,11 @@ export function TodosScreen() {
                         }}
                       />
                     )
-                  ))}
-                </div>
+                  )}
+                  />
+                </>
               ) : (
-                  <div className="space-y-2 pr-1">
+                  <>
                   {creatingFolder ? (
                     <TodoFolderRow
                       folder={{ id: "__new__", name: newFolderName || "", createdAt: 0, updatedAt: 0 }}
@@ -1226,7 +1236,10 @@ export function TodosScreen() {
                       onClick={noop}
                     />
                   ) : null}
-                  {visibleTodoFolders.map((folder) => (
+                  <FolderNavGroups
+                    groups={folderGroups}
+                    wrap={(children) => <div className="space-y-2 pr-1">{children}</div>}
+                    renderItem={(folder) => (
                     <TodoFolderRow
                       key={folder.id}
                       folder={folder}
@@ -1268,6 +1281,10 @@ export function TodosScreen() {
                         setDeleteTarget({ id: folder.id, name: folder.name, count: folderCounts.get(folder.id) ?? 0 });
                         setFolderMenuOpenId(null);
                       }}
+                      onTogglePin={() => {
+                        dispatch({ type: "folder/set-pinned", scope: "todo", folderId: folder.id, pinned: !folder.pinned });
+                        setFolderMenuOpenId(null);
+                      }}
                       onClick={() => {
                         setSelectedFolderId(folder.id);
                         writeLastSelectedTodoFolder(folder.id);
@@ -1276,8 +1293,9 @@ export function TodosScreen() {
                         }
                       }}
                     />
-                  ))}
-                </div>
+                  )}
+                  />
+                </>
               )}
             </div>
           </div>

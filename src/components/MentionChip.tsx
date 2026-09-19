@@ -1,3 +1,5 @@
+import { maskEmail } from "../lib/mask-email";
+
 interface MentionChipProps {
   email: string;
   className?: string;
@@ -6,6 +8,16 @@ interface MentionChipProps {
 /**
  * Chip for a saved @email mention -- deliberately shows just the email
  * (no leading "@") since the chip shape itself already communicates "guest".
+ *
+ * The address is masked (`bi***@x.com`), matching how the profile menu and
+ * feedback dialog show the user's own: these chips sit on todos in the day
+ * feed, which is exactly the screen people share. Enough is left to tell
+ * which guest it is; the full address is still there in the todo's text when
+ * you open it to edit, which is a deliberate action rather than something
+ * ambient.
+ *
+ * No `title` tooltip on purpose — a hover that reveals the address would
+ * defeat the point on a shared screen.
  */
 export function MentionChip({ email, className }: MentionChipProps) {
   // Omanote-green-adjacent tint (the same emerald used in HASHTAG_COLORS)
@@ -18,5 +30,5 @@ export function MentionChip({ email, className }: MentionChipProps) {
     .filter(Boolean)
     .join(" ");
 
-  return <span className={base}>{email}</span>;
+  return <span className={base}>{maskEmail(email)}</span>;
 }

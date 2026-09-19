@@ -1,5 +1,5 @@
 import type { KeyboardEvent, ReactNode, Ref } from "react";
-import { FolderNavActionMenu, FolderNavCard, FolderNavRow } from "./FolderNav";
+import { FolderNavActionMenu, FolderNavCard, FolderNavGroups, FolderNavRow } from "./FolderNav";
 
 /**
  * Note-folder-flavoured names over the shared `FolderNav` primitives — see
@@ -50,6 +50,9 @@ export function FolderCard({
   return <FolderNavCard name={folderName} {...rest} />;
 }
 
+/** Re-exported under this file's naming so NotesScreen imports one module. */
+export { FolderNavGroups as FolderGroups };
+
 export function FolderActionMenu({
   folderId: _folderId,
   folderName,
@@ -65,9 +68,11 @@ export function FolderActionMenu({
   alwaysVisible?: boolean;
   isShared?: boolean;
   onToggle: () => void;
+  isPinned?: boolean;
   onRename: () => void;
   onDelete: () => void;
   onShare: () => void;
+  onTogglePin?: () => void;
 }) {
   return <FolderNavActionMenu noun="Folder" name={folderName} {...rest} />;
 }

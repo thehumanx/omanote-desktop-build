@@ -4,7 +4,7 @@ import { useMutation } from "convex/react";
 import { ConvexError } from "convex/values";
 import { api } from "../../convex/_generated/api";
 import { useAuth } from "../app/auth/AuthContext";
-import { maskEmail } from "../lib/update-checker";
+import { maskEmail } from "../lib/mask-email";
 import { BaseModal } from "./BaseModal";
 import { Button, CheckboxField, SegmentedPill } from "./ui";
 

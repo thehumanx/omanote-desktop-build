@@ -6,6 +6,8 @@ import { findActiveEmojiTrigger } from "./emoji-trigger";
 import { searchEmoji, quickPickEmojiSuggestions } from "./bookmark-category-icon";
 import { Extension, InputRule } from "@tiptap/core";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
+import type { EditorState, Transaction } from "@tiptap/pm/state";
+import { isNewlineKeyEvent, isSaveKeyEvent } from "./editor-shortcuts";
 import { findWrapping } from "@tiptap/pm/transform";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import type { Editor } from "@tiptap/react";
@@ -392,4 +394,83 @@ export function useTiptapEmojiPicker(editor: Editor | null): TiptapEmojiPickerSt
   );
 
   return { isOpen: activeEmoji !== null, suggestions, activeIndex, anchorRect, handleKeyDown, selectSuggestion, setActiveIndex };
+}
+
+// ---------------------------------------------------------------------------
+// Enter handling, shared by both note editors
+// ---------------------------------------------------------------------------
+
+/**
+ * The Enter key inside a note, for `NoteCanvasEditor` and `NoteInlineEditor`
+ * alike. Returns whether it handled the event (Tiptap's `handleKeyDown`
+ * contract).
+ *
+ * The rules, matching every other artifact in the app:
+ *
+ * - **Enter** (or Cmd/Ctrl+Enter) saves. Notes used to be the one artifact
+ *   that didn't — they split a paragraph and needed Cmd/Ctrl+Enter to save,
+ *   which is the inconsistency this removes.
+ * - **Shift+Enter** inserts a line break.
+ * - **Shift+Enter twice** turns that line break into a real paragraph split.
+ * - Inside a list item, Enter is left to Tiptap so list behaviour (new item,
+ *   outdent on empty) keeps working.
+ *
+ * The second Shift+Enter is done as a **single transaction** — delete the
+ * hard break, split, place the selection — rather than as separate commands.
+ * Three dispatches meant three renders and a visibly lagging caret; one
+ * dispatch lands it in the same frame. Same delete-then-split-then-map
+ * technique as `BulletAfterBreakExtension` above, including the `mapping.map`
+ * for the final position: hand-computed offsets land on the boundary between
+ * blocks rather than inside the new one.
+ */
+export function handleNoteEnterKey(
+  view: { state: EditorState; dispatch: (tr: Transaction) => void },
+  event: KeyboardEvent,
+  commit: () => void,
+): boolean {
+  if (event.key !== "Enter") return false;
+
+  const { state } = view;
+  const { $from, empty } = state.selection;
+
+  // Lists get first refusal on Enter, *before* the save check.
+  //
+  // This ordering is the whole point: with the save check first, Enter inside
+  // a bullet saved the note instead of starting the next bullet, which made
+  // lists unusable. Cmd/Ctrl+Enter is excluded from the hand-off so there is
+  // still a way to save from inside a list without leaving it; a plain Enter
+  // on an empty item lifts out of the list (Tiptap's own behaviour), and the
+  // Enter after that saves.
+  const inListItem = (() => {
+    for (let depth = $from.depth; depth >= 0; depth--) {
+      if ($from.node(depth).type.name === "listItem") return true;
+    }
+    return false;
+  })();
+  if (inListItem && !event.metaKey && !event.ctrlKey) return false;
+
+  if (isSaveKeyEvent(event)) {
+    event.preventDefault();
+    commit();
+    return true;
+  }
+
+  if (!isNewlineKeyEvent(event)) return false;
+
+  // Second Shift+Enter in a row: the caret is sitting directly after the hard
+  // break the first one inserted, so promote it to a paragraph break.
+  const nodeBefore = empty ? $from.nodeBefore : null;
+  if (nodeBefore?.type.name === "hardBreak") {
+    event.preventDefault();
+    const tr = state.tr;
+    const breakFrom = $from.pos - nodeBefore.nodeSize;
+    tr.delete(breakFrom, $from.pos);
+    tr.split(breakFrom);
+    tr.setSelection(TextSelection.near(tr.doc.resolve(tr.mapping.map($from.pos))));
+    view.dispatch(tr.scrollIntoView());
+    return true;
+  }
+
+  // First Shift+Enter: let Tiptap insert the hard break itself.
+  return false;
 }

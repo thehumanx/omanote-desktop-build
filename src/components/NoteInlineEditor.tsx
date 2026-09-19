@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type RefObject } from "react";
+import { useCanvasDraftValue } from "../app/useCanvasDraftValue";
 import type { NoteFolder, NoteItem } from "@omanote/shared";
 import { normalizeLinkUrl } from "@omanote/shared";
 import { Button, Input } from "./ui";
@@ -9,10 +10,10 @@ import { HashtagPickerDropdown } from "./HashtagPicker";
 import { EmojiPickerDropdown } from "./EmojiPicker";
 import { parseHashtags } from "../lib/hashtags";
 import { useUserSettings } from "../contexts/UserSettingsContext";
-import { isSaveShortcutEvent } from "../lib/editor-shortcuts";
+import { isSaveKeyEvent } from "../lib/editor-shortcuts";
 import { useOutsideClick } from "../lib/useOutsideClick";
 import { SaveShortcutHint } from "./settings/SaveShortcutHint";
-import { BulletAfterBreakExtension, HashtagDecorationExtension, MarkdownNoIndentCodeExtension, buildListAwareMarkdown, useTiptapHashtagPicker, useTiptapEmojiPicker } from "../lib/tiptap-note";
+import { BulletAfterBreakExtension, handleNoteEnterKey, HashtagDecorationExtension, MarkdownNoIndentCodeExtension, buildListAwareMarkdown, useTiptapHashtagPicker, useTiptapEmojiPicker } from "../lib/tiptap-note";
 import { normalizeLegacyNoteBodyForTiptap } from "../lib/note-body-migration";
 import { TiptapLinkPopover } from "./TiptapLinkPopover";
 import { useEditor, EditorContent } from "@tiptap/react";
@@ -99,9 +100,18 @@ export const NoteInlineEditor = forwardRef<NoteInlineEditorHandle, {
     return readLastNoteFolder() ?? "";
   }, [defaultFolderName, folders, note?.folderId, note?.folderName, selectedFolderId]);
 
-  const [body, setBody] = useState(normalizeLegacyNoteBodyForTiptap(note?.body ?? ""));
-  const [tags, setTags] = useState(tagsToInput(note?.tags ?? []));
-  const [folderName, setFolderName] = useState(resolvedInitialFolderName);
+  // Persisted rather than plain `useState`: this editor backs both the inline
+  // note row and NoteEditorModal, and closing the device with either open
+  // used to lose everything typed. `CanvasNoteBlock` already persisted its
+  // body under `note:<id>:body`, so that key is reused here — the two edit
+  // the same note and an unsaved draft should follow it between them.
+  const draftKey = note?.id ? `note:${note.id}` : "note:new";
+  const { value: body, setValue: setBody, clearDraft: clearBodyDraft } =
+    useCanvasDraftValue(`${draftKey}:body`, normalizeLegacyNoteBodyForTiptap(note?.body ?? ""));
+  const { value: tags, setValue: setTags, clearDraft: clearTagsDraft } =
+    useCanvasDraftValue(`${draftKey}:tags`, tagsToInput(note?.tags ?? []));
+  const { value: folderName, setValue: setFolderName, clearDraft: clearFolderDraft } =
+    useCanvasDraftValue(`${draftKey}:folder`, resolvedInitialFolderName);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const editorWrapperRef = useRef<HTMLDivElement | null>(null);
   const { settings } = useUserSettings();
@@ -159,30 +169,11 @@ export const NoteInlineEditor = forwardRef<NoteInlineEditorHandle, {
         if (hashtagHandlerRef.current(event)) return true;
         if (emojiHandlerRef.current(event)) return true;
 
-        if (event.key === "Enter") {
-          if ((event.metaKey || event.ctrlKey) && isSaveShortcutEvent(event, settingsRef.current.saveShortcut)) {
-            event.preventDefault();
-            commitRef.current();
-            return true;
-          }
-          // Inside a list: let Tiptap handle list behavior.
-          const { $from } = _view.state.selection;
-          let inListItem = false;
-          for (let d = $from.depth; d >= 0; d--) {
-            if ($from.node(d).type.name === "listItem") { inListItem = true; break; }
-          }
-          if (inListItem) return false;
-
-          if (event.shiftKey) {
-            // Shift+Enter => hard line break inside current paragraph.
-            return false;
-          }
-
-          // Enter => new paragraph.
-          event.preventDefault();
-          splitBlock(_view.state, _view.dispatch);
-          return true;
-        }
+        // Enter saves, Shift+Enter breaks the line, Shift+Enter twice starts
+        // a paragraph — see handleNoteEnterKey, shared with the other note
+        // editor so the two can't drift apart again.
+        if (handleNoteEnterKey(_view, event, () => commitRef.current())) return true;
+        if (event.key === "Enter") return false;
 
         if (event.key === "Escape") {
           event.preventDefault();
@@ -243,6 +234,12 @@ export const NoteInlineEditor = forwardRef<NoteInlineEditorHandle, {
       folderId: exactFolderMatch?.id,
       folderName: shouldTreatAsFolder ? folderValue : undefined,
     });
+    // Saved content stops being a draft. The write itself is durable via the
+    // outbox, so clearing here can't lose anything — whereas leaving it would
+    // resurrect the pre-save text next time this note is opened.
+    clearBodyDraft();
+    clearTagsDraft();
+    clearFolderDraft();
   };
   commitRef.current = commit;
 

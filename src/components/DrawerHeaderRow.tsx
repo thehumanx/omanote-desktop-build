@@ -1,4 +1,4 @@
-import type { HTMLAttributes } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 import { Check, GripHorizontal, X } from "lucide-react";
 
 // Shared top row for floating mobile drawers/sheets: Cancel on the left,
@@ -12,6 +12,7 @@ export function DrawerHeaderRow({
   onSave,
   canSave,
   className,
+  status,
 }: {
   // Omit for modals that don't have drag-to-dismiss (they still get the
   // same Cancel/Save row, just without a functioning center grip).
@@ -20,6 +21,11 @@ export function DrawerHeaderRow({
   onSave: () => void;
   canSave: boolean;
   className?: string;
+  /** Optional status (e.g. the composer's "Not saved" chip), shown in the
+   *  centre slot. Replaces the drag grip when present — the two would not
+   *  fit side by side at mobile width, and the status is the more useful of
+   *  the two once there's unsaved content. */
+  status?: ReactNode;
 }) {
   return (
     <div className={["grid grid-cols-3 items-center px-4 pt-3 pb-2", className].filter(Boolean).join(" ")} {...dragHandleProps}>
@@ -32,7 +38,7 @@ export function DrawerHeaderRow({
       >
         <X className="h-4 w-4" />
       </button>
-      {dragHandleProps ? <GripHorizontal className="h-5 w-5 justify-self-center text-app-line-strong" /> : <span />}
+      {status ?? (dragHandleProps ? <GripHorizontal className="h-5 w-5 justify-self-center text-app-line-strong" /> : <span />)}
       <button
         type="button"
         aria-label="Save"

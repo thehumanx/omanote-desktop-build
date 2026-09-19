@@ -10,7 +10,7 @@ import { X } from "lucide-react";
 import { useUserSettings } from "../contexts/UserSettingsContext";
 import { SaveShortcutHint } from "./settings/SaveShortcutHint";
 import { useMobileKeyboardState } from "./layout/useMobileKeyboardState";
-import { BulletAfterBreakExtension, HashtagDecorationExtension, MarkdownNoIndentCodeExtension, buildListAwareMarkdown, useTiptapHashtagPicker, useTiptapEmojiPicker } from "../lib/tiptap-note";
+import { BulletAfterBreakExtension, handleNoteEnterKey, HashtagDecorationExtension, MarkdownNoIndentCodeExtension, buildListAwareMarkdown, useTiptapHashtagPicker, useTiptapEmojiPicker } from "../lib/tiptap-note";
 import { normalizeLegacyNoteBodyForTiptap } from "../lib/note-body-migration";
 import { TiptapLinkPopover } from "./TiptapLinkPopover";
 import { useEditor, EditorContent } from "@tiptap/react";
@@ -143,30 +143,11 @@ export function NoteCanvasEditor({
         if (hashtagHandlerRef.current(event)) return true;
         if (emojiHandlerRef.current(event)) return true;
 
-        if (event.key === "Enter") {
-          // Always support Cmd/Ctrl+Enter as an explicit save action.
-          if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey) {
-            event.preventDefault();
-            commitRef.current();
-            return true;
-          }
-          const { $from } = _view.state.selection;
-          let inListItem = false;
-          for (let d = $from.depth; d >= 0; d--) {
-            if ($from.node(d).type.name === "listItem") { inListItem = true; break; }
-          }
-          if (inListItem) return false;
-
-          if (event.shiftKey) {
-            // Shift+Enter => hard line break inside current paragraph.
-            return false;
-          }
-
-          // Enter => new paragraph.
-          event.preventDefault();
-          splitBlock(_view.state, _view.dispatch);
-          return true;
-        }
+        // Enter saves, Shift+Enter breaks the line, Shift+Enter twice starts
+        // a paragraph — see handleNoteEnterKey, shared with the other note
+        // editor so the two can't drift apart again.
+        if (handleNoteEnterKey(_view, event, () => commitRef.current())) return true;
+        if (event.key === "Enter") return false;
 
         if (event.key === "Escape") {
           event.preventDefault();

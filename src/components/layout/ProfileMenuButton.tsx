@@ -25,7 +25,7 @@ import { useAuth } from "../../app/auth/AuthContext";
 import { removeStorage, storageKeys } from "../../app/storage";
 import { useUpdate } from "../../contexts/UpdateContext";
 import { useTheme } from "../../contexts/ThemeContext";
-import { maskEmail } from "../../lib/update-checker";
+import { maskEmail } from "../../lib/mask-email";
 import { useDrawerDrag } from "../../lib/useDrawerDrag";
 import { useMeasuredHighlight } from "../../hooks/useMeasuredHighlight";
 import { useOutsideClick } from "../../lib/useOutsideClick";

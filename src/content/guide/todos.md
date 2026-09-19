@@ -24,6 +24,8 @@ Each folder has two tabs: **Active** and **Done**. Active groups every open todo
 
 Organize todos into folders with custom icons (a Lucide icon or an emoji). Uncategorized todos live in a default **Others** folder. Each folder shows a completed/total count badge, which turns into a green checkmark once everything inside is done. You can sort folders alphabetically, by last updated, or by number of todos, and share a folder as a public link.
 
+**Pin this folder** in the "•••" menu moves a folder to the top of the list, under a **Pinned** heading. Your chosen sort still applies inside each group, so pinning several keeps them in the order you picked.
+
 On mobile, opening a folder slides in a full page from the right instead of a bottom sheet. Swipe from the left edge or tap the back arrow to return to the folder list. The folder's Share button sits next to the "•••" menu, which holds Rename and Delete. A floating "+" at the bottom adds a new todo into that folder.
 
 ## Completing a todo

@@ -31,6 +31,7 @@ export type AppearanceDraft = {
   fontFamily: FontFamily;
   cornerStyle: CornerStyle;
   canvasDotGrid: boolean;
+  showSaveShortcutHints: boolean;
 };
 
 export type NotificationDraft = {
@@ -232,7 +233,8 @@ export function appearanceDraftsMatch(left: AppearanceDraft, right: AppearanceDr
     left.navLabelStyle === right.navLabelStyle &&
     left.fontFamily === right.fontFamily &&
     left.cornerStyle === right.cornerStyle &&
-    left.canvasDotGrid === right.canvasDotGrid
+    left.canvasDotGrid === right.canvasDotGrid &&
+    left.showSaveShortcutHints === right.showSaveShortcutHints
   );
 }
 

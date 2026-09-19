@@ -18,7 +18,7 @@ import { removeStorage, storageKeys } from "../app/storage";
 import { useUserSettings } from "../contexts/UserSettingsContext";
 import { useTheme } from "../contexts/ThemeContext";
 import { useEncryption } from "../contexts/EncryptionContext";
-import { maskEmail } from "../lib/update-checker";
+import { maskEmail } from "../lib/mask-email";
 import { friendlyErrorMessage } from "../lib/errors";
 import {
   DEFAULT_SNOOZE_MINUTES,
@@ -151,8 +151,9 @@ export function SettingsScreen() {
       fontFamily: settings.fontFamily,
       cornerStyle: settings.cornerStyle,
       canvasDotGrid: settings.canvasDotGrid,
+      showSaveShortcutHints: settings.showSaveShortcutHints,
     }),
-    [settings.navLabelStyle, settings.fontFamily, settings.cornerStyle, settings.canvasDotGrid, themeMode],
+    [settings.navLabelStyle, settings.fontFamily, settings.cornerStyle, settings.canvasDotGrid, settings.showSaveShortcutHints, themeMode],
   );
   const notificationSettingsDraft = useMemo<NotificationDraft>(
     () => ({
@@ -371,6 +372,7 @@ export function SettingsScreen() {
         fontFamily?: FontFamily;
         cornerStyle?: CornerStyle;
         canvasDotGrid?: boolean;
+        showSaveShortcutHints?: boolean;
       } = {};
       if (nextDraft.navLabelStyle !== settings.navLabelStyle) {
         appearancePatch.navLabelStyle = nextDraft.navLabelStyle;
@@ -380,6 +382,9 @@ export function SettingsScreen() {
       }
       if (nextDraft.cornerStyle !== settings.cornerStyle) {
         appearancePatch.cornerStyle = nextDraft.cornerStyle;
+      }
+      if (nextDraft.showSaveShortcutHints !== settings.showSaveShortcutHints) {
+        appearancePatch.showSaveShortcutHints = nextDraft.showSaveShortcutHints;
       }
       if (nextDraft.canvasDotGrid !== settings.canvasDotGrid) {
         appearancePatch.canvasDotGrid = nextDraft.canvasDotGrid;
@@ -817,6 +822,20 @@ export function SettingsScreen() {
                 }}
               >
                 Show dot grid background on canvas
+              </CheckboxField>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-bold text-app-ink">Editing</p>
+              <CheckboxField
+                checked={appearanceDraft.showSaveShortcutHints}
+                onCheckedChange={(checked) => {
+                  cancelWaitingAppearanceContextSync();
+                  setAppearanceSaveError(null);
+                  setAppearanceDraft((cur) => ({ ...cur, showSaveShortcutHints: checked }));
+                }}
+              >
+                Show the "Press Enter to save" hint under editors
               </CheckboxField>
             </div>
 
