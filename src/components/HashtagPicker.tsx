@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { findActiveHashtag } from "../lib/hashtags";
 import { HashtagChip } from "./HashtagChip";
@@ -55,9 +55,14 @@ export function useHashtagPicker({
   // unused unless `active` is set (both `handleKeyDown` and the dropdown gate
   // on it), so querying otherwise just means every mounted note/event block
   // holding a subscription to the user's whole hashtag list for nothing.
+  // The auth check is not belt-and-braces: `listUserHashtags` is
+  // `requireUserId`-gated and throws for an anonymous caller, and this
+  // component now also runs signed-out inside the landing page's product
+  // tour composer.
+  const { isAuthenticated } = useConvexAuth();
   const allHashtags = useQuery(
     api.hashtags.listUserHashtags,
-    active ? { prefix: prefix || undefined, limit: suggestionLimit } : "skip",
+    isAuthenticated && active ? { prefix: prefix || undefined, limit: suggestionLimit } : "skip",
   );
 
   const suggestions = useMemo(() => allHashtags ?? [], [allHashtags]);

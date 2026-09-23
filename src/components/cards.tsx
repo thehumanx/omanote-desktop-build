@@ -528,7 +528,7 @@ export const BookmarkCard = memo(function BookmarkCard({
     <div className={cardClassName}>
       {surface === "canvas" ? (
         <>
-          <div className="relative overflow-hidden rounded-lg border border-app-line bg-app-surface p-3 shadow-none max-h-[260px]">
+          <div className="relative overflow-hidden rounded-lg border border-app-surface-muted bg-app-surface p-3 shadow-none max-h-[260px]">
             {pendingSync && (
               <div className="absolute right-2 top-2 z-10 flex items-center justify-center rounded-full bg-app-surface-muted p-1" title="Not synced — will upload when you reconnect">
                 <WifiOff className="h-2.5 w-2.5 text-app-ink-faint" />

@@ -293,7 +293,7 @@ export type LocalAction =
   | { type: "page/clear-deleting"; pageIds: string[] }
   | { type: "page/add-optimistic"; page: PageItem }
   | { type: "page/remove-optimistic"; clientKey: string }
-  | { type: "page/patch-optimistic"; clientKey: string; title?: string; icon?: string; docJson: string; preview: string; hashtags?: string[] }
+  | { type: "page/patch-optimistic"; clientKey: string; title?: string; icon?: string; color?: string; docJson: string; preview: string; hashtags?: string[] }
   | { type: "bookmark/mark-deleting"; bookmarkId: string }
   | { type: "bookmark/clear-deleting"; bookmarkIds: string[] }
   | { type: "event/mark-deleting"; eventId: string }
@@ -435,7 +435,7 @@ function localReducer(state: LocalState, action: LocalAction): LocalState {
         ...state,
         optimisticPages: state.optimisticPages.map((p) =>
           p.clientKey === action.clientKey
-            ? { ...p, title: action.title, icon: action.icon, docJson: action.docJson, preview: action.preview, hashtags: action.hashtags, updatedAt: Date.now() }
+            ? { ...p, title: action.title, icon: action.icon, color: action.color, docJson: action.docJson, preview: action.preview, hashtags: action.hashtags, updatedAt: Date.now() }
             : p,
         ),
       };
@@ -1889,7 +1889,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // discarded. Treat "already exists" as success and adopt the existing
         // row — names are unique per user, so it is the same folder.
         try {
-          const folderId = (await createTodoFolder({ name: payload.name, icon: payload.icon })) as string;
+          const folderId = (await createTodoFolder({ name: payload.name, icon: payload.icon, color: payload.color })) as string;
           await adoptServerFolderId(db.todoFolders, payload.localId, folderId, setDecryptedTodoFolders);
         } catch (error) {
           if (!isDuplicateFolderError(error)) throw error;
@@ -1899,7 +1899,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         scheduleSync(["todoFolders"]);
       },
       "todo-folder/update": async (payload) => {
-        await updateTodoFolder({ folderId: payload.id as any, name: payload.name, icon: payload.icon });
+        await updateTodoFolder({ folderId: payload.id as any, name: payload.name, icon: payload.icon, color: payload.color, appearanceOnly: payload.appearanceOnly });
       },
       "todo-folder/delete": async (payload) => {
         if (payload.withContents) await deleteTodoFolderWithTodos({ folderId: payload.id as any });
@@ -1907,7 +1907,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
       "note-folder/create": async (payload) => {
         try {
-          const folderId = (await createNoteFolder({ name: payload.name, icon: payload.icon })) as string;
+          const folderId = (await createNoteFolder({ name: payload.name, icon: payload.icon, color: payload.color })) as string;
           await adoptServerFolderId(db.noteFolders, payload.localId, folderId, setDecryptedNoteFolders);
         } catch (error) {
           if (!isDuplicateFolderError(error)) throw error;
@@ -1917,7 +1917,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         scheduleSync(["noteFolders"]);
       },
       "note-folder/update": async (payload) => {
-        await updateNoteFolder({ folderId: payload.id as any, name: payload.name, icon: payload.icon });
+        await updateNoteFolder({ folderId: payload.id as any, name: payload.name, icon: payload.icon, color: payload.color });
       },
       "note-folder/delete": async (payload) => {
         if (payload.withContents) await deleteNoteFolderWithNotes({ folderId: payload.id as any });
@@ -1925,7 +1925,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
       "bookmark-category/create": async (payload) => {
         try {
-          const categoryId = (await createBookmarkCategory({ name: payload.name, icon: payload.icon })) as string;
+          const categoryId = (await createBookmarkCategory({ name: payload.name, icon: payload.icon, color: payload.color })) as string;
           await adoptServerFolderId(db.bookmarkCategories, payload.localId, categoryId, setDecryptedBookmarkCategories);
         } catch (error) {
           if (!isDuplicateFolderError(error)) throw error;
@@ -1935,7 +1935,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         scheduleSync(["bookmarkCategories"]);
       },
       "bookmark-category/update": async (payload) => {
-        await updateBookmarkCategory({ categoryId: payload.id as any, name: payload.name, icon: payload.icon });
+        await updateBookmarkCategory({ categoryId: payload.id as any, name: payload.name, icon: payload.icon, color: payload.color });
       },
       "bookmark-category/delete": async (payload) => {
         if (payload.withContents) await deleteBookmarkCategoryWithBookmarks({ categoryId: payload.id as any });
@@ -2772,7 +2772,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setDecryptedTodoFolders((prev) =>
           prev.some((f) => f.name.toLowerCase() === trimmedName.toLowerCase())
             ? prev
-            : [...prev, { id: localId, name: trimmedName, icon: action.icon, createdAt: now, updatedAt: now }],
+            : [...prev, { id: localId, name: trimmedName, icon: action.icon, color: action.color, createdAt: now, updatedAt: now }],
         );
         void (async () => {
           const encryptedName = await encryptFolderName(trimmedName);
@@ -2783,6 +2783,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             name: encryptedName,
             nameLower: encryptedName.toLowerCase(),
             icon: action.icon,
+            color: action.color,
             createdAt: now,
             updatedAt: now,
           });
@@ -2795,12 +2796,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               localId,
               name: encryptedName,
               icon: action.icon,
+              color: action.color,
             });
             return;
           }
 
           try {
-            const folderId = (await createTodoFolder({ name: encryptedName, icon: action.icon })) as string;
+            const folderId = (await createTodoFolder({ name: encryptedName, icon: action.icon, color: action.color })) as string;
             await adoptServerFolderId(db.todoFolders, localId, folderId, setDecryptedTodoFolders);
             scheduleSync(["todoFolders"]);
           } catch (error) {
@@ -2814,6 +2816,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       case "todo-folder/update":
         void (async () => {
           const encryptedName = await encrypt(action.name);
+          // Only the client can tell whether this is a rename: the server
+          // sees ciphertext, and encryption uses a random IV, so the same
+          // name re-encrypts to a different value every time. Drives the
+          // folderName cascade in convex/todos.ts:updateTodoFolder, which
+          // bumps every todo's updatedAt and would otherwise resurface the
+          // whole folder on today's canvas for a mere colour change.
+          const previousName = stateRef.current?.todoFolders.find((f) => f.id === action.folderId)?.name;
+          const appearanceOnly = previousName !== undefined && previousName === action.name;
           const now = Date.now();
           const localFolder = await db.todoFolders.get(action.folderId);
           await db.todoFolders.put({
@@ -2823,6 +2833,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             name: encryptedName,
             nameLower: encryptedName.toLowerCase(),
             icon: action.icon,
+            color: action.color,
             // Carried over, not defaulted: this `put` rebuilds the whole row,
             // so omitting it would silently unpin the folder on every rename.
             pinned: localFolder?.pinned,
@@ -2831,23 +2842,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           });
           setDecryptedTodoFolders((prev) =>
             prev.map((f) =>
-              f.id === action.folderId ? { ...f, name: action.name, icon: action.icon, updatedAt: now } : f,
+              f.id === action.folderId ? { ...f, name: action.name, icon: action.icon, color: action.color, updatedAt: now } : f,
             ),
           );
           // `navigator.onLine`, not try/catch: a disconnected Convex mutation
           // pends rather than rejecting, so the catch below never fires offline
           // and the edit would live only in Dexie until a reload dropped it.
           if (!navigator.onLine) {
-            await enqueueCanvasMutation("todo-folder/update", { id: action.folderId, name: encryptedName, icon: action.icon });
+            await enqueueCanvasMutation("todo-folder/update", { id: action.folderId, name: encryptedName, icon: action.icon, color: action.color, appearanceOnly });
             return;
           }
           try {
-            await updateTodoFolder({ folderId: action.folderId as any, name: encryptedName, icon: action.icon });
+            await updateTodoFolder({ folderId: action.folderId as any, name: encryptedName, icon: action.icon, color: action.color, appearanceOnly });
           } catch {
             // Local Dexie state and the UI are already updated above, so the
             // only thing missing is the server. Queue it rather than surfacing
             // an error: this is a durable pending write, not a failure.
-            enqueueCanvasMutation("todo-folder/update", { id: action.folderId, name: encryptedName, icon: action.icon });
+            enqueueCanvasMutation("todo-folder/update", { id: action.folderId, name: encryptedName, icon: action.icon, color: action.color, appearanceOnly });
             return;
           }
           await db.syncCursors.delete("todoFolders");
@@ -2992,6 +3003,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             pendingSync: true,
             title: action.title,
             icon: action.icon,
+            color: action.color,
             docJson: action.docJson,
             preview: action.preview,
             hashtags: action.hashtags,
@@ -3043,6 +3055,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             clientKey: pending.clientKey!,
             title: action.title,
             icon: action.icon,
+            color: action.color,
             docJson: action.docJson,
             preview: action.preview,
             hashtags: action.hashtags,
@@ -3063,9 +3076,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
           await runWithCanvasOutboxFallback(
             "page/update",
-            { pageId: action.pageId, docJson: encDoc, preview: encPreview, title: encTitle, icon: action.icon, hashtags: action.hashtags },
+            { pageId: action.pageId, docJson: encDoc, preview: encPreview, title: encTitle, icon: action.icon, color: action.color, hashtags: action.hashtags },
             async () => {
-              const doc = await updatePage({ pageId: action.pageId as any, docJson: encDoc, preview: encPreview, title: encTitle, icon: action.icon, hashtags: action.hashtags });
+              const doc = await updatePage({ pageId: action.pageId as any, docJson: encDoc, preview: encPreview, title: encTitle, icon: action.icon, color: action.color, hashtags: action.hashtags });
               if (doc) await persistSyncedPageLocally(doc);
               else scheduleSync(["pages"]);
             },
@@ -3140,7 +3153,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setDecryptedNoteFolders((prev) =>
           prev.some((f) => f.name.toLowerCase() === trimmedName.toLowerCase())
             ? prev
-            : [...prev, { id: localId, name: trimmedName, icon: action.icon, createdAt: now, updatedAt: now }],
+            : [...prev, { id: localId, name: trimmedName, icon: action.icon, color: action.color, createdAt: now, updatedAt: now }],
         );
         void (async () => {
           const encryptedName = await encryptFolderName(trimmedName);
@@ -3151,17 +3164,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             name: encryptedName,
             nameLower: encryptedName.toLowerCase(),
             icon: action.icon,
+            color: action.color,
             createdAt: now,
             updatedAt: now,
           });
 
           if (!navigator.onLine) {
-            await enqueueCanvasMutation("note-folder/create", { localId, name: encryptedName, icon: action.icon });
+            await enqueueCanvasMutation("note-folder/create", { localId, name: encryptedName, icon: action.icon, color: action.color });
             return;
           }
 
           try {
-            const serverId = (await createNoteFolder({ name: encryptedName, icon: action.icon })) as string;
+            const serverId = (await createNoteFolder({ name: encryptedName, icon: action.icon, color: action.color })) as string;
             await adoptServerFolderId(db.noteFolders, localId, serverId, setDecryptedNoteFolders);
             scheduleSync(["noteFolders"]);
           } catch (error) {
@@ -3184,6 +3198,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             name: encryptedName,
             nameLower: encryptedName.toLowerCase(),
             icon: action.icon,
+            color: action.color,
             // Carried over, not defaulted: this `put` rebuilds the whole row,
             // so omitting it would silently unpin the folder on every rename.
             pinned: localFolder?.pinned,
@@ -3192,23 +3207,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           });
           setDecryptedNoteFolders((prev) =>
             prev.map((f) =>
-              f.id === action.folderId ? { ...f, name: action.name, icon: action.icon, updatedAt: now } : f,
+              f.id === action.folderId ? { ...f, name: action.name, icon: action.icon, color: action.color, updatedAt: now } : f,
             ),
           );
           // `navigator.onLine`, not try/catch: a disconnected Convex mutation
           // pends rather than rejecting, so the catch below never fires offline
           // and the edit would live only in Dexie until a reload dropped it.
           if (!navigator.onLine) {
-            await enqueueCanvasMutation("note-folder/update", { id: action.folderId, name: encryptedName, icon: action.icon });
+            await enqueueCanvasMutation("note-folder/update", { id: action.folderId, name: encryptedName, icon: action.icon, color: action.color });
             return;
           }
           try {
-            await updateNoteFolder({ folderId: action.folderId as any, name: encryptedName, icon: action.icon });
+            await updateNoteFolder({ folderId: action.folderId as any, name: encryptedName, icon: action.icon, color: action.color });
           } catch {
             // Local Dexie state and the UI are already updated above, so the
             // only thing missing is the server. Queue it rather than surfacing
             // an error: this is a durable pending write, not a failure.
-            enqueueCanvasMutation("note-folder/update", { id: action.folderId, name: encryptedName, icon: action.icon });
+            enqueueCanvasMutation("note-folder/update", { id: action.folderId, name: encryptedName, icon: action.icon, color: action.color });
             return;
           }
           await db.syncCursors.delete("noteFolders");
@@ -3346,7 +3361,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setDecryptedBookmarkCategories((prev) =>
           prev.some((f) => f.name.toLowerCase() === trimmedName.toLowerCase())
             ? prev
-            : [...prev, { id: localId, name: trimmedName, icon: action.icon, createdAt: now }],
+            : [...prev, { id: localId, name: trimmedName, icon: action.icon, color: action.color, createdAt: now }],
         );
         void (async () => {
           const encryptedName = await encryptFolderName(trimmedName);
@@ -3356,17 +3371,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             userId: authUser?.id ?? "local",
             name: encryptedName,
             icon: action.icon,
+            color: action.color,
             createdAt: now,
             updatedAt: now,
           });
 
           if (!navigator.onLine) {
-            await enqueueCanvasMutation("bookmark-category/create", { localId, name: encryptedName, icon: action.icon });
+            await enqueueCanvasMutation("bookmark-category/create", { localId, name: encryptedName, icon: action.icon, color: action.color });
             return;
           }
 
           try {
-            const serverId = (await createBookmarkCategory({ name: encryptedName, icon: action.icon })) as string;
+            const serverId = (await createBookmarkCategory({ name: encryptedName, icon: action.icon, color: action.color })) as string;
             await adoptServerFolderId(db.bookmarkCategories, localId, serverId, setDecryptedBookmarkCategories);
             scheduleSync(["bookmarkCategories"]);
           } catch (error) {
@@ -3378,12 +3394,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return true;
       }
       case "bookmark-category/update":
-        void db.bookmarkCategories.update(action.categoryId, { icon: action.icon, updatedAt: Date.now() });
+        void db.bookmarkCategories.update(action.categoryId, { icon: action.icon, color: action.color, updatedAt: Date.now() });
         setDecryptedBookmarkCategories((prev) =>
-          prev.map((c) => (c.id === action.categoryId ? { ...c, name: action.name, icon: action.icon } : c)),
+          prev.map((c) => (c.id === action.categoryId ? { ...c, name: action.name, icon: action.icon, color: action.color } : c)),
         );
         void (async () => {
-          await updateBookmarkCategory({ categoryId: action.categoryId as any, name: await encrypt(action.name), icon: action.icon });
+          await updateBookmarkCategory({ categoryId: action.categoryId as any, name: await encrypt(action.name), icon: action.icon, color: action.color });
           scheduleSync(["bookmarkCategories"]);
         })().catch((error) => notifyFolderWriteFailed("category", error));
         return true;

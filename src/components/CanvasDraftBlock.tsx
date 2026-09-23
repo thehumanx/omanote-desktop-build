@@ -20,7 +20,7 @@ import { HashtagPickerDropdown, useHashtagPicker } from "./HashtagPicker";
 import { EmojiPickerDropdown, useEmojiPicker } from "./EmojiPicker";
 import { readLocalStorage, stringCodec, writeLocalStorage } from "../lib/local-storage";
 import { readComposerDraft, writeComposerDraft } from "../lib/composer-draft";
-import { FolderComboboxClearButton, FolderComboboxOptions, useFolderCombobox } from "./FolderCombobox";
+import { FOLDER_FIELD_WIDTH, FolderComboboxClearButton, FolderComboboxOptions, FolderFieldIcon, useFolderCombobox } from "./FolderCombobox";
 import type { DraftPersistence } from "./DraftStatus";
 import { autoResizeTextArea } from "../lib/auto-resize";
 
@@ -1282,7 +1282,13 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                 className="min-w-0 flex-1 resize-none overflow-hidden border-0 bg-transparent px-0 py-0.5 text-[15px] leading-6 text-app-ink caret-app-ink outline-none placeholder:text-app-line-strong selection:bg-app-surface-muted selection:text-app-ink"
               />
             </div>
-              <div ref={bookmarkCategoryContainerRef} className="relative ml-11 w-auto">
+              {/* Same width as the note picker — see FOLDER_FIELD_WIDTH. */}
+              <div ref={bookmarkCategoryContainerRef} className={cn("relative ml-11", FOLDER_FIELD_WIDTH)}>
+              <FolderFieldIcon
+                open
+                icon={bookmarkCategoryCombobox.exactMatch?.icon}
+                color={bookmarkCategoryCombobox.exactMatch?.color}
+              />
               <input
                 ref={bookmarkCategoryInputRef}
                 value={bookmarkCategoryValue}
@@ -1319,7 +1325,7 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                   }
                 }}
                 placeholder={bookmarkCategoryTrimmed ? "Folder" : "Uncategorized"}
-                className="w-full border-b border-app-line bg-transparent px-0 pr-7 py-0.5 text-[15px] text-app-ink-faint outline-none placeholder:text-app-line-strong focus:border-app-line-strong"
+                className="w-full border-b border-app-line bg-transparent pl-6 pr-7 py-0.5 text-[15px] text-app-ink-faint outline-none placeholder:text-app-line-strong focus:border-app-line-strong"
               />
               {bookmarkCategoryValue.trim() ? (
                 <FolderComboboxClearButton
@@ -1350,8 +1356,12 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                       </span>
                     </div>
                   )}
-                  <div className="min-w-0 w-full flex flex-1 flex-col md:flex-row md:gap-3">
-                    <div className="min-w-0 flex-1 md:flex-[7]">
+                  {/* Always a column: the folder field sits on its own second
+                      line at every width, matching where notes have always put
+                      it and where the saved artifact shows it in the feed. It
+                      used to share the first line from `md` up. */}
+                  <div className="min-w-0 w-full flex flex-1 flex-col">
+                    <div className="min-w-0 flex-1">
                     <div className="relative">
                       <div
                         aria-hidden="true"
@@ -1603,7 +1613,10 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                     </div>
                     </div>
                     {mode === "todo" && index === 0 ? (
-                      <div ref={todoFolderContainerRef} className="relative mt-2 md:mt-0 w-full md:w-[30%]">
+                      <div ref={todoFolderContainerRef} className={cn("relative mt-2", FOLDER_FIELD_WIDTH)}>
+                        {/* Open for as long as the composer is: the whole
+                            sheet is the create state. Same for bookmarks. */}
+                        <FolderFieldIcon open icon={todoFolderExactMatch?.icon} color={todoFolderExactMatch?.color} />
                         <input
                           ref={todoFolderInputRef}
                           value={todoFolderValue}
@@ -1637,7 +1650,7 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                             }
                           }}
                           placeholder="Folder"
-                          className="w-full border-b border-app-line bg-transparent px-0 pr-7 py-0.5 text-[15px] text-app-ink-faint outline-none placeholder:text-app-line-strong focus:border-app-line-strong"
+                          className="w-full border-b border-app-line bg-transparent pl-6 pr-7 py-0.5 text-[15px] text-app-ink-faint outline-none placeholder:text-app-line-strong focus:border-app-line-strong"
                         />
                         {todoFolderValue.trim() ? (
                           <FolderComboboxClearButton

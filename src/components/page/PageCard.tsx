@@ -5,6 +5,7 @@ import { Check, Copy, ExternalLink, EyeOff, FileText, Share2, Trash2 } from "luc
 import { formatRelativeEditedAt } from "@omanote/shared";
 import type { PageItem } from "@omanote/shared";
 import { CategoryIconView } from "../../lib/bookmark-category-icon";
+import { folderColorStyle } from "../../lib/folder-color";
 import { pageDocStats } from "../../lib/page-doc";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -86,12 +87,29 @@ export function PageCard({
     stats.images ? `${stats.images} ${stats.images === 1 ? "image" : "images"}` : null,
   ].filter((item): item is string => item !== null);
 
+  // A page's colour has to reach the FileText fallback too, not just a chosen
+  // icon — most pages never pick one, and without this they'd be the only
+  // coloured thing in the app that doesn't look coloured.
+  const palette = folderColorStyle(page.color);
+
   return (
+    // `border-app-line`, matching CanvasContinueWriting's card — the same page
+    // shows up in both places (today's feed and "Continue"), so a different
+    // border read as two different card types. It briefly used
+    // `border-app-surface-muted` to match the folder tab's fill, back when the
+    // surrounding artifact blocks were bordered; they are not any more.
     <div className="group flex min-w-0 flex-col gap-1.5 rounded-app-card border border-app-line bg-app-surface p-3 transition hover:bg-app-surface-hover">
       {/* Row 1: page icon, then the action cluster — spaced apart. */}
       <div className="flex items-center justify-between gap-2">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-app-surface-muted text-app-ink-faint">
-          {page.icon ? <CategoryIconView icon={page.icon} /> : <FileText className="h-4 w-4" />}
+        <span
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-app-surface-muted text-app-ink-faint"
+          style={palette ? { backgroundColor: palette.surface } : undefined}
+        >
+          {page.icon ? (
+            <CategoryIconView icon={page.icon} color={page.color} />
+          ) : (
+            <FileText className="h-4 w-4" style={palette ? { color: palette.ink } : undefined} />
+          )}
         </span>
         <div className="flex items-center gap-1">
           {onToggleHidden && serverPageId ? (

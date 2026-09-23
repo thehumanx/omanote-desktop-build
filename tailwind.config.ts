@@ -111,6 +111,7 @@ export default {
         "app-menu": "var(--shadow-app-menu)",
         "app-dialog": "var(--shadow-app-dialog)",
         "app-drawer": "var(--shadow-app-drawer)",
+        "artifact-group": "var(--shadow-artifact-group)",
         "app-bubble": "var(--shadow-app-bubble)",
         "app-bubble-hover": "var(--shadow-app-bubble-hover)",
       },

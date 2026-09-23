@@ -3,16 +3,14 @@ import { useCanvasDraftValue } from "../app/useCanvasDraftValue";
 import type { NoteFolder, NoteItem } from "@omanote/shared";
 import { normalizeLinkUrl } from "@omanote/shared";
 import { Button, Input } from "./ui";
-import { NoteFolderPicker } from "./NoteFolderPicker";
 import { NoteCanvasEditor } from "./NoteCanvasEditor";
-import { hasMeaningfulNoteInput, isUncategorizedFolderName, readLastNoteFolder, resolveNoteFolderByName, writeLastNoteFolder } from "../lib/note-folder-utils";
+import { isUncategorizedFolderName, readLastNoteFolder, resolveNoteFolderByName, writeLastNoteFolder } from "../lib/note-folder-utils";
 import { HashtagPickerDropdown } from "./HashtagPicker";
 import { EmojiPickerDropdown } from "./EmojiPicker";
 import { parseHashtags } from "../lib/hashtags";
 import { useUserSettings } from "../contexts/UserSettingsContext";
 import { isSaveKeyEvent } from "../lib/editor-shortcuts";
 import { useOutsideClick } from "../lib/useOutsideClick";
-import { SaveShortcutHint } from "./settings/SaveShortcutHint";
 import { BulletAfterBreakExtension, handleNoteEnterKey, HashtagDecorationExtension, MarkdownNoIndentCodeExtension, buildListAwareMarkdown, useTiptapHashtagPicker, useTiptapEmojiPicker } from "../lib/tiptap-note";
 import { normalizeLegacyNoteBodyForTiptap } from "../lib/note-body-migration";
 import { TiptapLinkPopover } from "./TiptapLinkPopover";
@@ -45,7 +43,6 @@ export const NoteInlineEditor = forwardRef<NoteInlineEditorHandle, {
   initialSelectionStart?: number;
   showTags?: boolean;
   layout?: "card" | "canvas";
-  hideFolderPicker?: boolean;
   // Suppresses NoteCanvasEditor's own built-in mobile Cancel/Save row —
   // for callers (like NoteEditorModal) that render their own header with
   // those same actions and would otherwise show both.
@@ -76,7 +73,6 @@ export const NoteInlineEditor = forwardRef<NoteInlineEditorHandle, {
   initialSelectionStart,
   showTags = true,
   layout = "card",
-  hideFolderPicker = false,
   hideMobileActions = false,
   saveOnOutsideClick = false,
   outsideClickContainerRef,
@@ -218,7 +214,6 @@ export const NoteInlineEditor = forwardRef<NoteInlineEditorHandle, {
   emojiHandlerRef.current = emojiPicker.handleKeyDown;
 
   const canSave = Boolean(body.trim());
-  const showFolderPicker = hasMeaningfulNoteInput(body);
   const exactFolderMatch = resolveNoteFolderByName(folders, folderName);
 
   const commit = () => {
@@ -281,7 +276,11 @@ export const NoteInlineEditor = forwardRef<NoteInlineEditorHandle, {
           onFolderNameChange={(nextValue) => setFolderName(nextValue)}
           onCommit={commit}
           onCancel={onCancel}
-          hideFolderPicker={hideFolderPicker}
+          // Always hidden, never a prop: every editor reached through this
+          // component is editing an *existing* note, and editing a note must
+          // not offer to move it between folders. Composing a new note goes
+          // through CanvasDraftBlock, which omits this so the picker shows.
+          hideFolderPicker
           hideMobileActions={hideMobileActions}
         />
       </div>
@@ -320,8 +319,6 @@ export const NoteInlineEditor = forwardRef<NoteInlineEditorHandle, {
           ) : (
             <div className="flex-1" />
           )}
-          {!hideFolderPicker && showFolderPicker ? <NoteFolderPicker folders={folders} value={folderName} onChange={setFolderName} /> : null}
-          <SaveShortcutHint />
           <Button disabled={!canSave} onClick={commit}>
             Save
           </Button>

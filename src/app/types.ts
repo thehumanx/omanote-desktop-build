@@ -126,8 +126,8 @@ export type AppAction =
   // Canvases. `page/update` is dispatched by autosave on every debounce tick,
   // so it carries the whole document each time — see canvas-outbox.ts, where
   // pending updates for one page coalesce rather than queueing.
-  | { type: "page/create"; dateKey: DateKey; title?: string; icon?: string; docJson: string; preview: string; hashtags?: string[]; clientKey?: string }
-  | { type: "page/update"; pageId: string; title?: string; icon?: string; docJson: string; preview: string; hashtags?: string[] }
+  | { type: "page/create"; dateKey: DateKey; title?: string; icon?: string; color?: string; docJson: string; preview: string; hashtags?: string[]; clientKey?: string }
+  | { type: "page/update"; pageId: string; title?: string; icon?: string; color?: string; docJson: string; preview: string; hashtags?: string[] }
   // `silent` skips the delete toast/undo — used for non-user-initiated deletes.
   | { type: "page/delete"; pageId: string; silent?: boolean }
   | { type: "page/restore"; pageId: string }
@@ -135,12 +135,12 @@ export type AppAction =
   // deliberately doesn't bump updatedAt so toggling either never reorders
   // "Continue writing" or the day feed.
   | { type: "page/set-flags"; pageId: string; pinned?: boolean; hidden?: boolean }
-  | { type: "todo-folder/create"; name: string; icon?: string }
-  | { type: "todo-folder/update"; folderId: string; name: string; icon?: string }
+  | { type: "todo-folder/create"; name: string; icon?: string; color?: string }
+  | { type: "todo-folder/update"; folderId: string; name: string; icon?: string; color?: string }
   | { type: "todo-folder/delete"; folderId: string }
   | { type: "todo-folder/delete-with-todos"; folderId: string }
-  | { type: "note-folder/create"; name: string; icon?: string }
-  | { type: "note-folder/update"; folderId: string; name: string; icon?: string }
+  | { type: "note-folder/create"; name: string; icon?: string; color?: string }
+  | { type: "note-folder/update"; folderId: string; name: string; icon?: string; color?: string }
   | { type: "note-folder/delete"; folderId: string }
   | { type: "note-folder/delete-with-notes"; folderId: string }
   | {
@@ -162,8 +162,8 @@ export type AppAction =
   | { type: "bookmark/update"; bookmarkId: string; categoryId?: string; categoryName?: string; url: string; title?: string; siteName?: string; description?: string; thumbnailUrl?: string; faviconUrl?: string; draftKey?: string }
   | { type: "bookmark/delete"; bookmarkId: string }
   | { type: "bookmark/restore"; bookmarkId: string }
-  | { type: "bookmark-category/create"; name: string; icon?: string }
-  | { type: "bookmark-category/update"; categoryId: string; name: string; icon?: string }
+  | { type: "bookmark-category/create"; name: string; icon?: string; color?: string }
+  | { type: "bookmark-category/update"; categoryId: string; name: string; icon?: string; color?: string }
   | { type: "bookmark-category/delete"; categoryId: string }
   | { type: "bookmark-category/delete-with-bookmarks"; categoryId: string }
   // One action for all three folder kinds rather than three near-identical

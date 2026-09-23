@@ -393,6 +393,9 @@ export function TodosScreen() {
   const [newFolderName, setNewFolderName] = useState("");
   const [newFolderError, setNewFolderError] = useState<string | null>(null);
   const [editingIcon, setEditingIcon] = useState<string | undefined>(undefined);
+  // See NotesScreen: the colour being composed before there's a row to
+  // dispatch against (rename/create); the direct path dispatches immediately.
+  const [editingColor, setEditingColor] = useState<string | undefined>(undefined);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [directIconFolderId, setDirectIconFolderId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; count: number } | null>(null);
@@ -685,9 +688,9 @@ export function TodosScreen() {
       return;
     }
     if (renamingFolderId) {
-      dispatch({ type: "todo-folder/update", folderId: renamingFolderId, name, icon: editingIcon });
+      dispatch({ type: "todo-folder/update", folderId: renamingFolderId, name, icon: editingIcon, color: editingColor });
     } else {
-      dispatch({ type: "todo-folder/create", name, icon: editingIcon });
+      dispatch({ type: "todo-folder/create", name, icon: editingIcon, color: editingColor });
     }
     setRenamingFolderId(null);
     setNewFolderName("");
@@ -695,7 +698,7 @@ export function TodosScreen() {
     setEditingIcon(undefined);
     setCreatingFolder(false);
     setDrawerRenaming(false);
-  }, [newFolderName, renamingFolderId, editingIcon, dispatch, duplicateFolderExists]);
+  }, [newFolderName, renamingFolderId, editingIcon, editingColor, dispatch, duplicateFolderExists]);
 
   const commitFolderOnBlur = () => {
     if (duplicateFolderExists) { cancelRenameFolder(); return; }
@@ -714,13 +717,23 @@ export function TodosScreen() {
   const handleIconSelect = useCallback((icon: string | undefined) => {
     if (directIconFolderId) {
       const folder = state.todoFolders.find((f) => f.id === directIconFolderId);
-      if (folder) dispatch({ type: "todo-folder/update", folderId: directIconFolderId, name: folder.name, icon });
+      if (folder) dispatch({ type: "todo-folder/update", folderId: directIconFolderId, name: folder.name, icon, color: folder.color });
       setDirectIconFolderId(null);
       setEditingIcon(undefined);
     } else {
       setEditingIcon(icon);
     }
     setIconPickerOpen(false);
+  }, [directIconFolderId, state.todoFolders, dispatch]);
+
+  // Colour never closes the picker — see NotesScreen for why.
+  const handleColorSelect = useCallback((color: string | undefined) => {
+    if (directIconFolderId) {
+      const folder = state.todoFolders.find((f) => f.id === directIconFolderId);
+      if (folder) dispatch({ type: "todo-folder/update", folderId: directIconFolderId, name: folder.name, icon: folder.icon, color });
+    } else {
+      setEditingColor(color);
+    }
   }, [directIconFolderId, state.todoFolders, dispatch]);
 
   const handleToggleTodo = (todo: TodoItem) => {
@@ -1468,11 +1481,11 @@ export function TodosScreen() {
                                     directIconFolderId === folder.id ? "ring-2 ring-app-line-strong ring-offset-1" : "",
                                   )}
                                 >
-                                  <CategoryIconView icon={folder.icon} size="sm" />
+                                  <CategoryIconView icon={folder.icon} size="sm" color={folder.color} />
                                 </button>
                               ) : (
                                 <span className="flex-shrink-0 text-app-ink-faint">
-                                  <CategoryIconView icon={folder?.icon} size="sm" />
+                                  <CategoryIconView icon={folder?.icon} size="sm" color={folder?.color} />
                                 </span>
                               )}
                               <p className="min-w-0 truncate text-sm font-bold text-app-ink">{folder?.name ?? "All"}</p>
@@ -1695,7 +1708,9 @@ export function TodosScreen() {
         <BookmarkCategoryIconPicker
           anchorRef={iconPickerAnchorRef}
           currentIcon={editingIcon}
+          currentColor={directIconFolderId ? state.todoFolders.find((f) => f.id === directIconFolderId)?.color : editingColor}
           onSelect={handleIconSelect}
+          onSelectColor={handleColorSelect}
           onClose={() => { setIconPickerOpen(false); setDirectIconFolderId(null); }}
         />
       ) : null}

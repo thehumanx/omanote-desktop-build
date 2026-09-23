@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { NoteFolder } from "@omanote/shared";
 import { normalizeLinkUrl } from "@omanote/shared";
+import { cn } from "./ui";
 import { NoteFolderPicker } from "./NoteFolderPicker";
 import { hasMeaningfulNoteInput, isUncategorizedFolderName, resolveNoteFolderByName, writeLastNoteFolder } from "../lib/note-folder-utils";
 import { MobileSaveButton } from "./MobileSaveButton";
@@ -8,7 +9,6 @@ import { HashtagPickerDropdown } from "./HashtagPicker";
 import { EmojiPickerDropdown } from "./EmojiPicker";
 import { X } from "lucide-react";
 import { useUserSettings } from "../contexts/UserSettingsContext";
-import { SaveShortcutHint } from "./settings/SaveShortcutHint";
 import { useMobileKeyboardState } from "./layout/useMobileKeyboardState";
 import { BulletAfterBreakExtension, handleNoteEnterKey, HashtagDecorationExtension, MarkdownNoIndentCodeExtension, buildListAwareMarkdown, useTiptapHashtagPicker, useTiptapEmojiPicker } from "../lib/tiptap-note";
 import { normalizeLegacyNoteBodyForTiptap } from "../lib/note-body-migration";
@@ -19,6 +19,10 @@ import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Markdown } from "tiptap-markdown";
 import { splitBlock } from "@tiptap/pm/commands";
+
+/** Module scope so the defaults stay referentially stable across renders. */
+const EMPTY_NOTE_FOLDERS: NoteFolder[] = [];
+const noop = () => {};
 
 function findScrollParent(el: HTMLElement): { scrollBy: (delta: number) => void } {
   let node: HTMLElement | null = el.parentElement;
@@ -34,13 +38,13 @@ function findScrollParent(el: HTMLElement): { scrollBy: (delta: number) => void 
 
 export function NoteCanvasEditor({
   body,
-  folderName,
-  folders,
+  folderName = "",
+  folders = EMPTY_NOTE_FOLDERS,
   autoFocus = false,
   initialSelectionStart,
   placeholder = "Write your note here",
   onBodyChange,
-  onFolderNameChange,
+  onFolderNameChange = noop,
   onCommit,
   onCancel,
   onPastePlainText,
@@ -51,13 +55,16 @@ export function NoteCanvasEditor({
   hideMobileActions = false,
 }: {
   body: string;
-  folderName: string;
-  folders: NoteFolder[];
+  /** Only meaningful while the picker is shown, i.e. when composing a new
+   *  note — editing an existing one never offers to move it (see
+   *  `hideFolderPicker`). */
+  folderName?: string;
+  folders?: NoteFolder[];
   autoFocus?: boolean;
   initialSelectionStart?: number;
   placeholder?: string;
   onBodyChange: (nextValue: string) => void;
-  onFolderNameChange: (nextValue: string) => void;
+  onFolderNameChange?: (nextValue: string) => void;
   onCommit: (payload: { body: string; folderId?: string; folderName?: string }) => void;
   onCancel?: () => void;
   onPastePlainText?: (url: string) => void;
@@ -106,6 +113,16 @@ export function NoteCanvasEditor({
         horizontalRule: false,
         codeBlock: false,
         link: false,
+        // StarterKit bundles TrailingNode in v3, which appends an empty
+        // paragraph whenever the doc's last node isn't one — so a note
+        // ending in a list always grew a blank line that reappeared the
+        // instant you deleted it (its appendTransaction re-inserts on the
+        // next transaction). A note is a short block of text, not a
+        // document; it doesn't need somewhere to land past the end. Gapcursor
+        // is still on, so a list at the very end is still escapable.
+        // PageEditor deliberately keeps the trailing node — a page *is* a
+        // document, and there you do want a paragraph after a closing list.
+        trailingNode: false,
         code: {
           HTMLAttributes: {
             class: "rounded bg-app-surface-muted px-1.5 py-0.5 font-mono text-[0.92em] text-app-ink",
@@ -288,10 +305,14 @@ export function NoteCanvasEditor({
         />
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        {showFolderPicker ? <NoteFolderPicker folders={folders} value={folderName} onChange={onFolderNameChange} /> : <div />}
-        <div className="flex items-center gap-2">
-          <SaveShortcutHint className="hidden md:inline" />
+      {/* The top margin belongs to the folder picker. With the picker hidden
+          (editing an existing note) this row has no desktop content left, so
+          it must add no height either — otherwise edit mode sits taller than
+          view mode, which renders no such row at all. The save hint used to
+          live here and was what made that gap visible. */}
+      <div className={cn(showFolderPicker && "mt-3", "flex flex-wrap items-center gap-3")}>
+        {showFolderPicker ? <NoteFolderPicker folders={folders} value={folderName} onChange={onFolderNameChange} /> : null}
+        <div className="ml-auto flex items-center gap-2">
           {!hideMobileActions && (!mobileKeyboard.isMobileViewport || mobileKeyboard.keyboardOpen) ? (
             <>
               {onCancel && (

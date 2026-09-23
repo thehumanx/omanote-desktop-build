@@ -14,6 +14,7 @@ export function FolderRow({
 }: {
   folderName: string;
   icon?: string;
+  color?: string;
   count: number;
   selected: boolean;
   onClick: () => void;
@@ -39,6 +40,7 @@ export function FolderCard({
 }: {
   folderName: string;
   icon?: string;
+  color?: string;
   count: number;
   selected: boolean;
   onClick: () => void;

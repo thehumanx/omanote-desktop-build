@@ -2,13 +2,14 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { SignInButton } from "@clerk/react";
 import { CookieNotice } from "../components/CookieNotice";
-import { Zap, MousePointerClick, Lock, Puzzle, Monitor, ChevronDown, Layers, Hash, RefreshCw, CalendarDays, LayoutDashboard, Bell, Share2, Download, Image as ImageIcon } from "lucide-react";
+import { Zap, MousePointerClick, Lock, Puzzle, Monitor, ChevronDown } from "lucide-react";
 import changelogMarkdown from "../../CHANGELOG.md?raw";
 import { SeoHead } from "../seo/SeoHead";
 import { color } from "../design-system/tokens";
 import { readDismissedFlag, writeDismissedFlag } from "../lib/local-storage";
 import { parseLatestVersion } from "../lib/update-checker";
 import { useOutsideClick } from "../lib/useOutsideClick";
+import { EcosystemSection } from "./landing/EcosystemSection";
 import { ProductTour } from "./landing/ProductTour";
 import { ChromeLogo, FirefoxLogo } from "./landing/browser-logos";
 import { ExtensionCaptureDemo } from "./landing/ExtensionCaptureDemo";
@@ -269,102 +270,10 @@ export function LandingScreen() {
       <main className="flex-1">
         {/* Hero. The pinned product tour owns the hero copy at every width and
             reveals the main CTA only once it has explained itself. */}
-        <ProductTour cta={<JournalCta label="Open your canvas. It's free" />} onActiveChange={setTourActive} />
+        <ProductTour cta={<JournalCta label="Start today's canvas — it's free" />} onActiveChange={setTourActive} />
 
-        {/* Offerings */}
-        <section id="offerings" className="border-t border-app-line">
-          <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-16 sm:py-20 lg:py-24">
-            <div className="text-center">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">Offerings</p>
-              <h2 className="font-serif-heading mt-4 text-3xl sm:text-4xl font-black leading-tight">
-                What's in it so far.
-              </h2>
-              <p className="mt-4 text-app-ink-muted leading-relaxed text-[15px] max-w-[560px] mx-auto">
-                A running list of what has shipped since the first version.
-              </p>
-            </div>
-            <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {[
-                {
-                  icon: Layers,
-                  title: "Multi-page canvas",
-                  body: "Full documents inside Canvas, with headings, checklists, links, and images. Create as many as you want, and share any single page as a read-only link.",
-                  span: "sm:col-span-2 lg:col-span-2 lg:row-span-2",
-                  large: true,
-                },
-                {
-                  icon: Hash,
-                  title: "Hashtags connect everything",
-                  body: "Tag a note, a todo, and an event with #health. Now they're linked — Explore and Insights turn the pattern into something you can revisit.",
-                  span: "sm:col-span-2 lg:col-span-2",
-                },
-                {
-                  icon: RefreshCw,
-                  title: "Recurring todos",
-                  body: "Type \"every mon and fri\" or \"pay rent every month until December\" and omanote sets the schedule. Repeats daily, weekly, monthly, or on chosen weekdays, with an end date or a fixed count.",
-                  span: "sm:col-span-2 lg:col-span-2",
-                },
-                {
-                  icon: CalendarDays,
-                  title: "Google Calendar sync",
-                  body: "Todos and Google Calendar events flow both ways, automatically. Mention @someone's email in a todo to invite them.",
-                  span: "",
-                },
-                {
-                  icon: LayoutDashboard,
-                  title: "Insights",
-                  body: "Completion rate, overdue rate, and a 365-day activity heatmap.",
-                  span: "",
-                },
-                {
-                  icon: Bell,
-                  title: "Natural-language reminders",
-                  body: "\"Drink water every 30 minutes for 6 hours\" — parsed and scheduled as you type.",
-                  span: "",
-                },
-                {
-                  icon: ImageIcon,
-                  title: "Image uploads",
-                  body: "Drop images into a page, resize and caption inline. Encrypted before upload.",
-                  span: "",
-                },
-                {
-                  icon: Share2,
-                  title: "Share any folder",
-                  body: "Todo folders, note folders, and bookmark categories can each become a read-only public link. The rest of your canvas stays encrypted and private.",
-                  span: "sm:col-span-2 lg:col-span-2",
-                },
-                {
-                  icon: Download,
-                  title: "Export & import",
-                  body: "Export everything as plain text once decrypted, and import it back. Use it to move accounts or keep your own backup.",
-                  span: "sm:col-span-2 lg:col-span-2",
-                },
-              ].map((card) => (
-                <div
-                  key={card.title}
-                  className={[
-                    "flex flex-col rounded-2xl border border-app-line bg-app-surface p-5 text-left",
-                    card.large ? "justify-between lg:p-6" : "",
-                    card.span,
-                  ].join(" ")}
-                >
-                  <card.icon className={card.large ? "h-8 w-8 text-app-ink-muted" : "h-6 w-6 text-app-ink-muted"} />
-                  <div className={card.large ? "mt-6" : "mt-3"}>
-                    {/* `font-semibold`, not `font-bold`: index.css remaps
-                        `.font-bold` to --app-font-bold-weight (500), so
-                        semibold's 600 is a step *up* from it here, and the only
-                        stop between that 500 and `font-black`'s 900. */}
-                    <p className={card.large ? "text-base font-semibold text-app-ink" : "text-sm font-semibold text-app-ink"}>
-                      {card.title}
-                    </p>
-                    <p className="mt-1.5 text-sm text-app-ink-muted leading-snug">{card.body}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+        {/* Core & ecosystem — what omanote is, and what grows out of it. */}
+        <EcosystemSection />
 
         {/* Extension */}
         <ExtensionSection />
@@ -468,7 +377,7 @@ export function LandingScreen() {
               A minute to set up. Free while it's in early access.
             </p>
             <div className="mt-7 flex justify-center">
-              <JournalCta label="Open your canvas →" />
+              <JournalCta label="Start today's canvas →" />
             </div>
           </div>
         </section>

@@ -478,9 +478,6 @@ export type CanvasArtifactItem = {
    */
   sortAt: number;
   /** Set on a row that is here because it was *edited* today, not created today. */
-  edited?: boolean;
-  /** What that edit was, for the badge — "Edited", "Reopened", "Snoozed". */
-  editLabel?: string;
 } & (
   | { kind: "todo"; data: TodoItem }
   | { kind: "note"; data: NoteItem }
@@ -488,64 +485,6 @@ export type CanvasArtifactItem = {
   | { kind: "event"; data: EventEntry }
   | { kind: "page"; data: PageItem }
 );
-
-/**
- * A todo's completion already writes its own event entry into the day feed
- * ("Finished X"), so a completion must not *also* resurface the todo as an
- * edit — that would report the same action twice, in two shapes.
- *
- * Detected by proximity rather than equality because `toggleTodo` takes an
- * optional client-supplied `completedAt` while stamping `updatedAt` itself,
- * so the two can land a few milliseconds apart.
- */
-const COMPLETION_UPDATE_WINDOW_MS = 2000;
-
-function isCompletionOnlyUpdate(todo: TodoItem): boolean {
-  if (!todo.completedAt) return false;
-  return Math.abs(todo.updatedAt - todo.completedAt) <= COMPLETION_UPDATE_WINDOW_MS;
-}
-
-/**
- * What the "Edited" badge says for a resurfaced artifact.
- *
- * `updatedAt` only records *when* something changed, never what — so the
- * label is read off the activity log, which does record it, rather than
- * guessed from the artifact's current shape. Falls back to a plain "Edited"
- * whenever the log has nothing to say, which is the honest answer: better a
- * vague label than a confidently wrong one.
- *
- * Un-completing a todo is the case worth naming, and it needs the `diff`:
- * `toggleTodo` records it as a plain "edited", indistinguishable from a title
- * change without the `{ status }` payload it now writes alongside.
- */
-function describeCanvasEdit(itemId: string, dateKey: DateKey, activity: ActivityItem[]): string {
-  // Most recent first — `activity` is already stored newest-first, so the
-  // first match is the last thing that happened to this artifact that day.
-  const entry = activity.find(
-    (item) => item.itemId === itemId && toDateKey(new Date(item.timestamp)) === dateKey,
-  );
-  if (!entry) return "Edited";
-
-  if (entry.action === "snoozed") return "Snoozed";
-
-  if (entry.module === "todo" && entry.diff) {
-    try {
-      const parsed = JSON.parse(entry.diff) as { status?: string };
-      if (parsed.status === "open") return "Reopened";
-    } catch {
-      // A malformed diff is not worth failing a badge over.
-    }
-  }
-
-  return "Edited";
-}
-
-/** True when `updatedAt` lands on `dateKey` but the artifact was created earlier. */
-function wasEditedOn(dateKey: DateKey, createdDateKey: DateKey, updatedAt?: number): boolean {
-  if (updatedAt === undefined) return false;
-  if (createdDateKey === dateKey) return false;
-  return toDateKey(new Date(updatedAt)) === dateKey;
-}
 
 /**
  * Every artifact belonging to `dateKey`, sorted chronologically. Shared by the
@@ -591,42 +530,21 @@ export function buildCanvasDayItems(
     .filter((page) => !page.deletedAt && page.createdDateKey === dateKey)
     .map((page) => ({ kind: "page", sortAt: page.createdAt, data: page }));
 
-  const created = [...todoItems, ...noteItems, ...bookmarkItems, ...eventItems, ...pageItems];
-  const seen = new Set(created.map((item) => item.data.id));
-  const edited: CanvasArtifactItem[] = [];
-
-  for (const todo of state.todos) {
-    if (todo.deletedAt || todo.pageId || seen.has(todo.id)) continue;
-    // Series masters never render directly (see getVisibleCanvasTodos), and
-    // a materialized occurrence's "edit" is its own completion.
-    if (todo.recurrence || todo.recurringSourceId) continue;
-    if (!wasEditedOn(dateKey, todo.createdDateKey, todo.updatedAt)) continue;
-    if (isCompletionOnlyUpdate(todo)) continue;
-    edited.push({ kind: "todo", editLabel: describeCanvasEdit(todo.id, dateKey, state.activity), sortAt: todo.updatedAt, data: todo, edited: true });
-  }
-  for (const note of state.notes) {
-    if (note.deletedAt || seen.has(note.id)) continue;
-    if (!wasEditedOn(dateKey, note.createdDateKey, note.updatedAt)) continue;
-    edited.push({ kind: "note", editLabel: describeCanvasEdit(note.id, dateKey, state.activity), sortAt: note.updatedAt, data: note, edited: true });
-  }
-  for (const bookmark of state.bookmarks) {
-    if (bookmark.deletedAt || bookmark.pageId || seen.has(bookmark.id)) continue;
-    if (!wasEditedOn(dateKey, bookmark.createdDateKey, bookmark.updatedAt)) continue;
-    edited.push({ kind: "bookmark", editLabel: describeCanvasEdit(bookmark.id, dateKey, state.activity), sortAt: bookmark.updatedAt!, data: bookmark, edited: true });
-  }
-  for (const event of state.events) {
-    if (event.deletedAt || seen.has(event.id)) continue;
-    // An event entry written *by* a todo completion is already the day's
-    // record of that completion; it has no separate edit worth surfacing.
-    if (event.sourceType === "todo_completed") continue;
-    if (!wasEditedOn(dateKey, event.createdDateKey, event.updatedAt)) continue;
-    edited.push({ kind: "event", editLabel: describeCanvasEdit(event.id, dateKey, state.activity), sortAt: event.updatedAt!, data: event, edited: true });
-  }
-  for (const page of state.pages) {
-    if (page.deletedAt || seen.has(page.id)) continue;
-    if (!wasEditedOn(dateKey, page.createdDateKey, page.updatedAt)) continue;
-    edited.push({ kind: "page", editLabel: describeCanvasEdit(page.id, dateKey, state.activity), sortAt: page.updatedAt, data: page, edited: true });
-  }
-
-  return [...created, ...edited].sort((left, right) => left.sortAt - right.sortAt);
+  // Created that day, and only that day.
+  //
+  // A previous version also resurfaced older artifacts *edited* on this day,
+  // as a second row flagged "EDITED". Removed 2026-09-22: it made the feed
+  // hostage to anything that touched `updatedAt` for non-content reasons. A
+  // folder rename, for instance, cascades a denormalized `folderName` onto
+  // every todo in that folder and bumps each row's `updatedAt` — which this
+  // read as "the user edited 173 todos today" and dumped the lot onto the
+  // canvas. That cascade can't stop bumping (the bump is what drives
+  // incremental sync), so the feed stopped listening instead.
+  //
+  // `updatedAt` is a sync timestamp, not a record of user intent, and it was
+  // being used as both. If edited rows come back, drive them off the activity
+  // log (`state.activity`), which records real user actions.
+  return [...todoItems, ...noteItems, ...bookmarkItems, ...eventItems, ...pageItems].sort(
+    (left, right) => left.sortAt - right.sortAt,
+  );
 }

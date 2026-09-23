@@ -42,6 +42,7 @@ import type * as lib_surveyQuestions from "../lib/surveyQuestions.js";
 import type * as lib_urlGuard from "../lib/urlGuard.js";
 import type * as migrations_backfillPagePinned from "../migrations/backfillPagePinned.js";
 import type * as migrations_clearShortcutSettings from "../migrations/clearShortcutSettings.js";
+import type * as migrations_repairFolderEditBumps from "../migrations/repairFolderEditBumps.js";
 import type * as notes from "../notes.js";
 import type * as pages from "../pages.js";
 import type * as plans from "../plans.js";
@@ -102,6 +103,7 @@ declare const fullApi: ApiFromModules<{
   "lib/urlGuard": typeof lib_urlGuard;
   "migrations/backfillPagePinned": typeof migrations_backfillPagePinned;
   "migrations/clearShortcutSettings": typeof migrations_clearShortcutSettings;
+  "migrations/repairFolderEditBumps": typeof migrations_repairFolderEditBumps;
   notes: typeof notes;
   pages: typeof pages;
   plans: typeof plans;

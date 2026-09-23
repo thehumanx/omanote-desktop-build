@@ -2,6 +2,7 @@ import { toDateKey } from "@omanote/shared";
 import changelogMarkdown from "../../../CHANGELOG.md?raw";
 import { parseLatestVersion } from "../../lib/update-checker";
 import type {
+  BookmarkCategory,
   BookmarkItem,
   DateKey,
   EventEntry,
@@ -66,13 +67,15 @@ export const PREVIEW_NOTE_FOLDERS: NoteFolder[] = [
   { id: "folder-product", name: "Product", icon: "🧩", createdAt: daysAgoAt(120, 9), updatedAt: at(13, 20) },
 ];
 
-const BOOKMARK_CATEGORIES = [
-  { id: "cat-reading", name: "Reading" },
-  { id: "cat-dev", name: "Dev" },
+// Typed, and carrying `icon`, because the canvas folder tab renders a
+// category's own icon when it has one — the same as the note folders above.
+const BOOKMARK_CATEGORIES: BookmarkCategory[] = [
+  { id: "cat-reading", name: "Reading", icon: "📚", createdAt: daysAgoAt(90, 10) },
+  { id: "cat-dev", name: "Dev", icon: "🛠️", createdAt: daysAgoAt(90, 11) },
 ];
 
-export const PREVIEW_CATEGORY_NAME_BY_ID = new Map(
-  BOOKMARK_CATEGORIES.map((category) => [category.id, category.name] as const),
+export const PREVIEW_CATEGORY_BY_ID = new Map(
+  BOOKMARK_CATEGORIES.map((category) => [category.id, category] as const),
 );
 
 const morningRun: EventEntry = {

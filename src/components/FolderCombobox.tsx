@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from "react";
-import { X } from "lucide-react";
+import { FolderPlus, X } from "lucide-react";
+import { CategoryIconView } from "../lib/bookmark-category-icon";
+import { folderColorStyle } from "../lib/folder-color";
 import { cn } from "./ui";
+import { FolderIcon } from "./FolderIcon";
 
 /**
  * The type-to-filter folder/category picker, in one place.
@@ -24,10 +27,21 @@ type FolderComboboxItem = {
   key: string;
   label: string;
   value: string;
+  /** Carried through from the source folder so the menu row can show it. */
+  icon?: string;
+  color?: string;
 };
 
 /** Anything with a stable id and a display name — todo folders, note folders, bookmark categories. */
-type FolderComboboxSource = { id: string; name: string };
+type FolderComboboxSource = { id: string; name: string; icon?: string; color?: string };
+
+/**
+ * Shared width for a folder field. The three call sites used to disagree —
+ * the note picker was a fixed 220px while the composer's todo and bookmark
+ * fields were `w-full`, so the same control spanned the whole sheet in two of
+ * three modes and switching modes visibly resized it. Keep them on this.
+ */
+export const FOLDER_FIELD_WIDTH = "w-[220px] min-w-[180px] max-w-full";
 
 function normalize(value: string) {
   return value.trim().toLowerCase();
@@ -83,6 +97,8 @@ export function useFolderCombobox({
       key: `existing:${folder.id}`,
       label: folder.name,
       value: folder.name,
+      icon: folder.icon,
+      color: folder.color,
     }));
 
     if (trimmed && !exactMatch && (allowCreate?.(trimmed) ?? true)) {
@@ -216,7 +232,19 @@ export function FolderComboboxOptions({
               : "text-app-ink-muted hover:bg-app-surface-hover hover:text-app-ink",
           )}
         >
-          <span className="truncate">{item.label}</span>
+          <span className="flex min-w-0 items-center gap-2">
+            {/* The same glyph the folder shows everywhere else, so a folder is
+                recognisable here before its name is read. The create row gets
+                FolderPlus rather than a folder that doesn't exist yet. */}
+            <span className="flex h-4 w-4 shrink-0 items-center justify-center text-app-ink-faint">
+              {item.kind === "create" ? (
+                <FolderPlus className="h-4 w-4" />
+              ) : (
+                <CategoryIconView icon={item.icon} size="sm" color={item.color} />
+              )}
+            </span>
+            <span className="truncate">{item.label}</span>
+          </span>
           {showCreateHint && item.kind === "create" ? <span className="text-app-ink-faint">New</span> : null}
         </button>
       ))}
@@ -225,6 +253,54 @@ export function FolderComboboxOptions({
 }
 
 /** The inline "x" that empties the field and reopens the full list. */
+/**
+ * The leading folder glyph on a folder/category field. Mirrors
+ * `FolderComboboxClearButton`'s absolute positioning, so both sit in the
+ * input's padding rather than in the text flow — pair it with `pl-6 pr-7`
+ * on the input.
+ *
+ * Open while the field's menu is: picking or typing a folder name *is* the
+ * create/edit state the open flap stands for, and it shuts again once the
+ * value is committed and the artifact is merely being viewed.
+ *
+ * Once the field names a real folder, pass that folder's `icon`/`color` and
+ * the field shows what the folder actually looks like everywhere else — the
+ * same rule `FolderLabel` follows. A folder with only a colour keeps the
+ * animated folder and takes the tint (`FolderIcon` draws in `currentColor`);
+ * a folder with its own icon or emoji shows that instead, static, because an
+ * emoji has no open state and crossfading an arbitrary glyph with an open
+ * folder reads as a rendering bug.
+ */
+export function FolderFieldIcon({
+  open,
+  icon,
+  color,
+}: {
+  open: boolean;
+  /** The selected folder's own icon — a Lucide icon name or an emoji. */
+  icon?: string;
+  /** The selected folder's colour key. */
+  color?: string;
+}) {
+  const palette = folderColorStyle(color);
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "pointer-events-none absolute left-0 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center",
+        palette ? undefined : "text-app-ink-faint",
+      )}
+      style={palette ? { color: palette.ink } : undefined}
+    >
+      {icon ? (
+        <CategoryIconView icon={icon} size="sm" color={color} />
+      ) : (
+        <FolderIcon open={open} strokeWidth={1.75} className="h-4 w-4" />
+      )}
+    </span>
+  );
+}
+
 export function FolderComboboxClearButton({ onClear }: { onClear: () => void }) {
   return (
     <button

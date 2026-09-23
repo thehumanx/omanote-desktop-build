@@ -4,6 +4,16 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.33.7 [September 23, 2026]
+> Making sure your folders show up real on your canvas and elsewhere
+
+- [Add] The artifacts you save on your canvas now show a visible folder with its icon so you know where everything belongs. Things added during separae point of time are grouped together.
+- [Add] Folder's got the colors now, so does the canvas pages. Choose from 8 different pastel palette to enhance your folder and its icons.
+- [Fix] Text rendering in edit and view mode is now matched 100%.
+- [Update] The folders shown while adding artifact in composer has a consistent placement and matched icon + color.
+
+
+
 ### v0.33.6 [September 19, 2026]
 
 > Enter now saves everywhere, canvases and folders can be pinned, and anything you edit today shows up on today's canvas.
@@ -851,6 +861,17 @@ All notable changes to omanote are documented here, organized by product.
 See what's planned next: [omanote.com/s/FeUM44Rd](https://omanote.com/s/FeUM44Rd)
 
 ## Extension Versions
+
+### v3.0 [September 21, 2026]
+
+> Folders show up instantly, the folder list is searchable, and your encryption key no longer stays on this device unless you ask it to.
+
+- [Update] Your encryption key is now kept in memory and cleared when you close your browser, instead of being stored on this device indefinitely. **You'll be asked for your passphrase once after this update**, and after each browser restart — turn on "Stay unlocked on this device" in Settings → Encryption to keep the old behaviour
+- [Fix] Folders took a moment to appear every time you opened the popup or the save box. They now show up straight away and refresh quietly in the background
+- [Add] The folder dropdown has a search box once you have more than a handful of folders, and full keyboard control. Escape closes just the dropdown instead of discarding what you'd typed
+- [Update] The folder dropdown is now a fixed height with its own scrollbar, instead of stretching down the screen to fit every folder
+- [Fix] Stray omanote tabs no longer open on their own — one was left behind every time your sign-in refreshed, and another could appear after an unrelated error
+- [Update] Tightened what a web page can ask the extension to do, and dropped a browser permission it never used
 
 ### v2.5 [July 13, 2026]
 

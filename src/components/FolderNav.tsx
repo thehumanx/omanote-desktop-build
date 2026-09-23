@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode, 
 import { createPortal } from "react-dom";
 import { Ellipsis, Globe, Pencil, Pin, Share2, Trash2 } from "lucide-react";
 import { CategoryIconView } from "../lib/bookmark-category-icon";
+import { folderColorStyle } from "../lib/folder-color";
 import { cn } from "./ui";
 
 /**
@@ -22,6 +23,7 @@ import { cn } from "./ui";
 export function FolderNavRow({
   name,
   icon,
+  color,
   count,
   selected,
   onClick,
@@ -40,6 +42,8 @@ export function FolderNavRow({
 }: {
   name: string;
   icon?: string;
+  /** Palette key — tints the row and its drawn glyph. See folder-color.ts. */
+  color?: string;
   count: number;
   selected: boolean;
   onClick: () => void;
@@ -72,11 +76,11 @@ export function FolderNavRow({
             }}
             className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-app-surface text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
           >
-            <CategoryIconView icon={icon} size="sm" />
+            <CategoryIconView icon={icon} size="sm" color={color} />
           </button>
         ) : (
           <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-app-surface text-app-ink-faint">
-            <CategoryIconView icon={icon} size="sm" />
+            <CategoryIconView icon={icon} size="sm" color={color} />
           </span>
         )}
         <div className="min-w-0 flex-1">
@@ -99,6 +103,12 @@ export function FolderNavRow({
     );
   }
 
+  // The icon's chip is the folder's "container" — tinting it is what makes a
+  // colour visible in the rail, not just on the glyph. Inline because the key
+  // is only known at runtime; it deliberately wins over the hover/selected
+  // background classes, so a coloured folder keeps its tint in every state.
+  const palette = folderColorStyle(color);
+
   return (
     <div
       className={[
@@ -117,8 +127,9 @@ export function FolderNavRow({
             selected ? "bg-app-surface text-app-ink-faint" : "bg-app-surface-muted text-app-ink-faint",
             iconPickerActive ? "ring-2 ring-app-line-strong ring-offset-1" : "",
           ].join(" ")}
+          style={palette ? { backgroundColor: palette.surface } : undefined}
         >
-          <CategoryIconView icon={icon} size="sm" />
+          <CategoryIconView icon={icon} size="sm" color={color} />
         </button>
       ) : (
         <span
@@ -126,8 +137,9 @@ export function FolderNavRow({
             "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md",
             selected ? "bg-app-surface text-app-ink-faint" : "bg-app-surface-muted text-app-ink-faint",
           ].join(" ")}
+          style={palette ? { backgroundColor: palette.surface } : undefined}
         >
-          <CategoryIconView icon={icon} size="sm" />
+          <CategoryIconView icon={icon} size="sm" color={color} />
         </span>
       )}
       <button type="button" onClick={onClick} className="min-w-0 flex-1 text-left">
@@ -162,6 +174,7 @@ export function FolderNavRow({
 export function FolderNavCard({
   name,
   icon,
+  color,
   count,
   selected,
   onClick,
@@ -172,6 +185,8 @@ export function FolderNavCard({
 }: {
   name: string;
   icon?: string;
+  /** Palette key — tints the row and its drawn glyph. See folder-color.ts. */
+  color?: string;
   count: number;
   selected: boolean;
   onClick: () => void;
@@ -181,6 +196,9 @@ export function FolderNavCard({
   actions?: ReactNode;
 }) {
   const iconButtonRef = useRef<HTMLButtonElement>(null);
+
+  // See FolderNavRow: the icon chip carries the folder's colour.
+  const palette = folderColorStyle(color);
 
   return (
     <div
@@ -202,8 +220,9 @@ export function FolderNavCard({
             selected ? "bg-app-surface text-app-ink-faint" : "bg-app-surface-muted text-app-ink-faint",
             iconPickerActive ? "ring-2 ring-app-line-strong ring-offset-1" : "",
           ].join(" ")}
+          style={palette ? { backgroundColor: palette.surface } : undefined}
         >
-          <CategoryIconView icon={icon} size="md" />
+          <CategoryIconView icon={icon} size="md" color={color} />
         </button>
       ) : (
         <button
@@ -213,8 +232,9 @@ export function FolderNavCard({
             "flex h-10 w-10 items-center justify-center rounded-lg",
             selected ? "bg-app-surface text-app-ink-faint" : "bg-app-surface-muted text-app-ink-faint",
           ].join(" ")}
+          style={palette ? { backgroundColor: palette.surface } : undefined}
         >
-          <CategoryIconView icon={icon} size="md" />
+          <CategoryIconView icon={icon} size="md" color={color} />
         </button>
       )}
       <button type="button" onClick={onClick} className="flex w-full items-center justify-center gap-1">

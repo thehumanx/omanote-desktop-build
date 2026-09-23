@@ -1,6 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { clearLocalCache, DEXIE_CACHE_OWNER_KEY } from "../app/db";
-import { readLocalStorageOptional, stringCodec, writeLocalStorage } from "../lib/local-storage";
+import {
+  readLocalStorageOptional,
+  setStorageUserScope,
+  stringCodec,
+  writeLocalStorage,
+} from "../lib/local-storage";
 import { useAuth } from "../app/auth/AuthContext";
 import { useNetworkStatus } from "../hooks/useNetworkStatus";
 
@@ -39,6 +44,13 @@ export function LocalCacheGate({ children }: { children: ReactNode }) {
   const { isOffline } = useNetworkStatus();
   const userId = user?.id ?? null;
   const [clearedFor, setClearedFor] = useState<string | null>(null);
+
+  // Same invariant as the cache below, for the handful of `localStorage` keys
+  // that hold one account's content (see USER_SCOPED_KEYS): they have to
+  // resolve to *this* user before anything reads them. Set during render
+  // rather than in an effect for exactly that reason — an effect runs after
+  // the children have already mounted and read.
+  setStorageUserScope(userId);
 
   useEffect(() => {
     if (!userId) return;

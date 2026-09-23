@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { useAuth as useClerkAuth, useUser } from "@clerk/react";
 import { clearLocalCache, db, DEXIE_CACHE_OWNER_KEY } from "../db";
+import { clearUserScopedStorage } from "../../lib/local-storage";
 import { SignOutConfirmModal } from "../../components/SignOutConfirmModal";
 
 interface AuthContextValue {
@@ -53,6 +54,11 @@ const AuthContext = createContext<AuthContextValue | null>(null);
  * Returns false if the user declined at the confirmation.
  */
 async function clearLocalDataForSignOut(): Promise<void> {
+  // Ahead of the cache clear, and outside the try: these are the drafts and
+  // last-used folders, and they must go even if the Dexie clear throws. Their
+  // keys are already scoped to this user, so this is the "leave nothing
+  // behind on my own machine" half rather than the cross-account guarantee.
+  clearUserScopedStorage();
   try {
     await clearLocalCache();
     // Only drop the owner marker once the cache is actually empty. If the clear

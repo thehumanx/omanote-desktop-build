@@ -191,8 +191,8 @@ export function HistoryScreen() {
     return items;
   }, [dayItemsRaw, pagesOnly, matchIdsByKind]);
 
-  const categoryNameById = useMemo(
-    () => new Map(state.bookmarkCategories.map((category) => [category.id, category.name] as const)),
+  const categoryById = useMemo(
+    () => new Map(state.bookmarkCategories.map((category) => [category.id, category] as const)),
     [state.bookmarkCategories],
   );
 
@@ -240,7 +240,8 @@ export function HistoryScreen() {
           todayKey={todayKey}
           dispatch={dispatch}
           noteFolders={state.noteFolders}
-          categoryNameById={categoryNameById}
+          todoFolders={state.todoFolders}
+          categoryById={categoryById}
           onOpenTodoEditor={(todo) => setEditingTodoId(todo.id)}
           onInlineTodoTitleEdit={handleInlineTodoTitleEdit}
           onToggleTodo={(todo) => dispatch({ type: "todo/toggle", todoId: todo.id })}

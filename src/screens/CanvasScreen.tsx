@@ -67,8 +67,8 @@ export function CanvasScreen() {
   );
   useTopChrome(dateRowElement);
 
-  const categoryNameById = useMemo(
-    () => new Map(state.bookmarkCategories.map((category) => [category.id, category.name] as const)),
+  const categoryById = useMemo(
+    () => new Map(state.bookmarkCategories.map((category) => [category.id, category] as const)),
     [state.bookmarkCategories],
   );
 
@@ -262,7 +262,8 @@ export function CanvasScreen() {
               canvasDateKey={todayKey}
               dispatch={dispatch}
               noteFolders={state.noteFolders}
-              categoryNameById={categoryNameById}
+              todoFolders={state.todoFolders}
+              categoryById={categoryById}
               onOpenTodoEditor={handleOpenTodoEditor}
               onInlineTodoTitleEdit={handleInlineTodoTitleEdit}
               onToggleTodo={handleToggleTodo}

@@ -223,7 +223,11 @@ export const TodoCheckmark = React.forwardRef<HTMLButtonElement | HTMLSpanElemen
   ref,
 ) {
   const classes = cn(
-    "omanote-todo-checkmark overflow-visible rounded-app-chip bg-transparent",
+    // Shape comes from `--component-todo-checkmark-radius` on
+    // `.omanote-todo-checkmark` (the chrome inherits it) rather than a
+    // `rounded-*` utility — a rounded square, not the pill `rounded-app-chip`
+    // gives every other chip.
+    "omanote-todo-checkmark overflow-visible bg-transparent",
     size === "sm"
       ? "omanote-todo-checkmark-sm omanote-todo-checkmark-bleed-sm"
       : "omanote-todo-checkmark-md omanote-todo-checkmark-bleed-md",

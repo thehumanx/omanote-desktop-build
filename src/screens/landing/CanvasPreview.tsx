@@ -11,7 +11,7 @@ import { CanvasContinueWritingView } from "../../components/page/CanvasContinueW
 import { StaticUserSettingsProvider } from "../../contexts/UserSettingsContext";
 import {
   PREVIEW_CANVAS_ITEMS,
-  PREVIEW_CATEGORY_NAME_BY_ID,
+  PREVIEW_CATEGORY_BY_ID,
   PREVIEW_NOTE_FOLDERS,
   PREVIEW_OVERDUE_TODOS,
   PREVIEW_PAGES,
@@ -216,7 +216,7 @@ export function CanvasPreview({
               canvasDateKey={PREVIEW_TODAY_KEY}
               dispatch={noop}
               noteFolders={PREVIEW_NOTE_FOLDERS}
-              categoryNameById={PREVIEW_CATEGORY_NAME_BY_ID}
+              categoryById={PREVIEW_CATEGORY_BY_ID}
               onOpenTodoEditor={noop}
               onInlineTodoTitleEdit={noop}
               onToggleTodo={noop}

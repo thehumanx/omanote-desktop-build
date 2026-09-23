@@ -2,7 +2,7 @@ import type { DateKey, RecurrenceRule } from "@omanote/shared";
 import { prefixedRandomId } from "@omanote/shared";
 import { ConvexError } from "convex/values";
 import { CANVAS_DRAFTS_STORAGE_KEY, draftMapCodec } from "./canvas-drafts";
-import { jsonCodec, writeLocalStorage } from "../lib/local-storage";
+import { jsonCodec, readLocalStorage, writeLocalStorage } from "../lib/local-storage";
 import { db, type OutboxRecord } from "./db";
 import type { FolderScope } from "./types";
 
@@ -54,6 +54,7 @@ type PageUpdatePayload = {
   title?: string;
   icon?: string;
   hashtags?: string[];
+  color?: string;
 };
 
 type PageDeletePayload = {
@@ -213,6 +214,8 @@ type FolderCreatePayload = {
   localId: string;
   name: string;
   icon?: string;
+  /** Palette key; plaintext like `icon`. */
+  color?: string;
 };
 
 /** Folder/category rename or icon change. `name` is already encrypted. */
@@ -220,6 +223,14 @@ type FolderUpdatePayload = {
   id: string;
   name: string;
   icon?: string;
+  /** Palette key; plaintext like `icon`. See src/lib/folder-color.ts. */
+  color?: string;
+  /**
+   * Todo folders only: the name is unchanged, so skip the denormalized
+   * folderName cascade. Computed on the client because the server only ever
+   * sees ciphertext — see convex/todos.ts:updateTodoFolder.
+   */
+  appearanceOnly?: boolean;
 };
 
 /**
@@ -678,9 +689,12 @@ export function clearCanvasDraftForKey(draftKey?: string) {
     // Bails out without writing if nothing was ever stored, same as before —
     // deleting keys from (and re-writing) an empty map would be a harmless
     // no-op, but there's no reason to do the write at all in that case.
-    const raw = window.localStorage.getItem(CANVAS_DRAFTS_STORAGE_KEY);
-    if (!raw) return;
-    const parsed = draftMapCodec.decode(raw);
+    //
+    // Read through `readLocalStorage`, not a raw `getItem`: this key is
+    // user-scoped, and the matching write below already goes through the
+    // scoped helper. A raw read here would inspect a key nobody writes and
+    // silently clear nothing.
+    const parsed = readLocalStorage(CANVAS_DRAFTS_STORAGE_KEY, draftMapCodec, null);
     if (!parsed) return;
     delete parsed[`${draftKey}:body`];
     delete parsed[`${draftKey}:title`];

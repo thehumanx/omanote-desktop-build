@@ -1,7 +1,7 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent, TouchEvent } from "react";
 import { Trash2, WifiOff } from "lucide-react";
-import type { NoteFolder, NoteItem } from "@omanote/shared";
+import type { NoteItem } from "@omanote/shared";
 import type { AppAction } from "../app/types";
 import { useCanvasDraftValue } from "../app/useCanvasDraftValue";
 import { NoteCanvasEditor } from "./NoteCanvasEditor";
@@ -19,7 +19,10 @@ export type CanvasNoteBlockProps = {
   note: NoteItem;
   pendingSync?: boolean;
   dispatch: (action: AppAction) => void;
-  noteFolders: NoteFolder[];
+  /** Lets the enclosing folder group open its folder icon while this note is
+   *  being edited. Reported rather than read off `:focus-within` because on
+   *  mobile the editor renders in a drawer portal, outside the group. */
+  onEditingChange?: (isEditing: boolean) => void;
 };
 
 function areCanvasNoteBlockPropsEqual(prev: CanvasNoteBlockProps, next: CanvasNoteBlockProps) {
@@ -27,50 +30,30 @@ function areCanvasNoteBlockPropsEqual(prev: CanvasNoteBlockProps, next: CanvasNo
     prev.note === next.note &&
     prev.pendingSync === next.pendingSync &&
     prev.dispatch === next.dispatch &&
-    prev.noteFolders === next.noteFolders
+    prev.onEditingChange === next.onEditingChange
   );
 }
 
-function CanvasNoteBlockComponent({ note, pendingSync, dispatch, noteFolders }: CanvasNoteBlockProps) {
+function CanvasNoteBlockComponent({ note, pendingSync, dispatch, onEditingChange }: CanvasNoteBlockProps) {
   const draftKey = `note:${note.id}:body`;
   const { value: body, setValue: setBody, clearDraft } = useCanvasDraftValue(draftKey, note.body);
   const [isEditing, setIsEditing] = useState(false);
   const [initialSelectionStart, setInitialSelectionStart] = useState<number | undefined>(undefined);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const restoreEditScrollRef = useRef<(() => void) | null>(null);
-  const [folderName, setFolderName] = useState(() => {
-    if (note.folderId) {
-      const folder = noteFolders.find((item) => item.id === note.folderId);
-      if (folder) return folder.name;
-    }
-    return note.folderName?.trim() ?? "";
-  });
-
-  const exactFolderMatch = useMemo(
-    () => noteFolders.find((folder) => folder.name.trim().toLowerCase() === folderName.trim().toLowerCase()) ?? null,
-    [folderName, noteFolders],
-  );
   const renderedBody = useMemo(() => normalizeLegacyNoteBodyForTiptap(body), [body]);
-
-  useEffect(() => {
-    if (note.folderId) {
-      const folder = noteFolders.find((item) => item.id === note.folderId);
-      setFolderName(folder?.name ?? note.folderName?.trim() ?? "");
-      return;
-    }
-    setFolderName(note.folderName?.trim() ?? "");
-  }, [note.folderId, note.folderName, noteFolders]);
 
   useEffect(() => {
     if (!isEditing) return;
     setBody(note.body);
-    if (note.folderId) {
-      const folder = noteFolders.find((item) => item.id === note.folderId);
-      setFolderName(folder?.name ?? note.folderName?.trim() ?? "");
-    } else {
-      setFolderName(note.folderName?.trim() ?? "");
-    }
-  }, [isEditing, note.body, note.folderId, note.folderName, setBody, noteFolders]);
+  }, [isEditing, note.body, setBody]);
+
+  useEffect(() => {
+    onEditingChange?.(isEditing);
+    // Unmounting mid-edit (the note is deleted, the day scrolls away) has to
+    // release the flag too, or the group's folder stays stuck open.
+    return () => onEditingChange?.(false);
+  }, [isEditing, onEditingChange]);
 
   const isMobile = useIsMobileViewport();
 
@@ -97,16 +80,19 @@ function CanvasNoteBlockComponent({ note, pendingSync, dispatch, noteFolders }: 
       return;
     }
 
-    const nextFolderValue = folderName.trim();
-    const shouldTreatAsFolder = Boolean(nextFolderValue) && !/^uncategorized$/i.test(nextFolderValue);
+    // Editing a note never moves it — the folder picker is deliberately not
+    // offered here (see `hideFolderPicker` below). The note's *existing*
+    // folder still has to be resent: convex `updateNote` patches folderId
+    // and folderName unconditionally, so omitting them would silently
+    // unfile every note the moment its body was edited.
     dispatch({
       type: "note/update",
       noteId: note.id,
       body: trimmed,
       tags: note.tags,
       hashtags: parseHashtags(trimmed),
-      folderId: exactFolderMatch?.id,
-      folderName: shouldTreatAsFolder ? nextFolderValue : undefined,
+      folderId: note.folderId,
+      folderName: note.folderName,
     });
     clearDraft();
     setIsEditing(false);
@@ -116,12 +102,6 @@ function CanvasNoteBlockComponent({ note, pendingSync, dispatch, noteFolders }: 
     clearDraft();
     setIsEditing(false);
     setBody(note.body);
-    if (note.folderId) {
-      const folder = noteFolders.find((item) => item.id === note.folderId);
-      setFolderName(folder?.name ?? note.folderName?.trim() ?? "");
-    } else {
-      setFolderName(note.folderName?.trim() ?? "");
-    }
   };
 
   const startEditingAt = (x: number, y: number, target: HTMLElement) => {
@@ -252,14 +232,12 @@ function CanvasNoteBlockComponent({ note, pendingSync, dispatch, noteFolders }: 
         <MobileEditDrawer onClose={commit} onCancel={cancelEdit} onSave={commit} canSave={Boolean(body.trim())}>
           <NoteCanvasEditor
             body={body}
-            folderName={folderName}
-            folders={noteFolders}
             autoFocus
             initialSelectionStart={initialSelectionStart}
             onBodyChange={setBody}
-            onFolderNameChange={setFolderName}
             onCommit={commit}
             onCancel={cancelEdit}
+            hideFolderPicker
             hideMobileActions={isMobile}
           />
         </MobileEditDrawer>

@@ -10,7 +10,14 @@ import { extractAllPreviewableUrls } from "../lib/attachment-link-preview";
 import { LinkListItem, UrlLinkPreview } from "../components/AttachmentLinkPreview";
 import { normalizeLegacyNoteBodyForTiptap } from "../lib/note-body-migration";
 import { HashtagChip } from "../components/HashtagChip";
-import { daysBetweenKeys, formatCompletedLabel, formatDueChip, toDateKey } from "@omanote/shared";
+import {
+  daysBetweenKeys,
+  formatCompletedLabel,
+  formatDueChip,
+  formatOverdueGroupHeading,
+  formatRelativeGroupHeading,
+  toDateKey,
+} from "@omanote/shared";
 import type { DateKey } from "@omanote/shared";
 import { Bookmark, CircleCheckBig, ExternalLink } from "lucide-react";
 import { CategoryIconView } from "../lib/bookmark-category-icon";
@@ -274,6 +281,59 @@ function sortTodos(todos: PublicTodoFolder["todos"]) {
   });
 }
 
+/**
+ * Day sections for the public share page, mirroring the in-app todo folder:
+ * overdue days first (most overdue first), then Today, then upcoming days
+ * (soonest first), with undated todos last.
+ *
+ * A past day is only labelled "Overdue by N days" when something in it is
+ * still open — a day whose todos are all done reads as a plain "N days ago",
+ * which is what the in-app Done stack shows.
+ */
+function groupTodosByDate(todos: PublicTodoFolder["todos"], todayKey: string) {
+  const byDateKey = new Map<string, PublicTodoFolder["todos"]>();
+  const undated: PublicTodoFolder["todos"] = [];
+
+  for (const todo of todos) {
+    if (!todo.dueDateKey) {
+      undated.push(todo);
+      continue;
+    }
+    const existing = byDateKey.get(todo.dueDateKey) ?? [];
+    existing.push(todo);
+    byDateKey.set(todo.dueDateKey, existing);
+  }
+
+  const past: { key: string; title: string; todos: PublicTodoFolder["todos"] }[] = [];
+  const today: { key: string; title: string; todos: PublicTodoFolder["todos"] }[] = [];
+  const upcoming: { key: string; title: string; todos: PublicTodoFolder["todos"] }[] = [];
+
+  for (const [dateKey, items] of byDateKey) {
+    const sorted = sortTodos(items);
+    if (dateKey === todayKey) {
+      today.push({ key: dateKey, title: "Today", todos: sorted });
+    } else if (dateKey < todayKey) {
+      const hasOpen = sorted.some((todo) => todo.status === "open");
+      past.push({
+        key: dateKey,
+        title: hasOpen ? formatOverdueGroupHeading(dateKey) : formatRelativeGroupHeading(dateKey),
+        todos: sorted,
+      });
+    } else {
+      upcoming.push({ key: dateKey, title: formatRelativeGroupHeading(dateKey), todos: sorted });
+    }
+  }
+
+  past.sort((a, b) => b.key.localeCompare(a.key));
+  upcoming.sort((a, b) => a.key.localeCompare(b.key));
+
+  const groups = [...past, ...today, ...upcoming];
+  if (undated.length > 0) {
+    groups.push({ key: "no-date", title: "No date", todos: sortTodos(undated) });
+  }
+  return groups;
+}
+
 function formatSharedDate(ts: number) {
   return new Date(ts).toLocaleDateString("en-US", {
     year: "numeric",
@@ -441,46 +501,51 @@ export function SharedFolderPage() {
               <p className="text-sm font-medium text-app-ink-muted">No todos in this folder yet.</p>
             </div>
           ) : (
-            <div className="flex flex-col">
-              {sortTodos(td.todos).map((todo) => {
-                const dueChip = formatDueChip(todo.dueDateKey, todo.dueTime);
-                const overdueDays =
-                  todo.status === "open" && todo.dueDateKey && todo.dueDateKey < sharePageTodayKey
-                    ? daysBetweenKeys(todo.dueDateKey as DateKey, sharePageTodayKey)
-                    : 0;
-                const completedLabel = todo.status === "done" ? formatCompletedLabel(todo.completedAt ?? todo.createdAt) : "";
-                return (
-                  <div
-                    key={todo.id}
-                    className="flex items-start gap-3 py-2"
-                  >
-                    <TodoCheckmark
-                      as="span"
-                      checked={todo.status === "done"}
-                      align="text"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <div className={cn("text-base leading-6", todo.status === "done" ? "text-app-ink-muted line-through" : "text-app-ink")}>
-                          <RichTextPreview value={todo.title} />
+            <div className="flex flex-col gap-6">
+              {groupTodosByDate(td.todos, sharePageTodayKey).map((group) => (
+                <section key={group.key} className="flex flex-col gap-1">
+                  <h2 className="text-sm font-bold text-app-ink-faint">{group.title}</h2>
+                  {group.todos.map((todo) => {
+                    const dueChip = formatDueChip(todo.dueDateKey, todo.dueTime);
+                    const overdueDays =
+                      todo.status === "open" && todo.dueDateKey && todo.dueDateKey < sharePageTodayKey
+                        ? daysBetweenKeys(todo.dueDateKey as DateKey, sharePageTodayKey)
+                        : 0;
+                    const completedLabel = todo.status === "done" ? formatCompletedLabel(todo.completedAt ?? todo.createdAt) : "";
+                    return (
+                      <div
+                        key={todo.id}
+                        className="flex items-start gap-3 py-2"
+                      >
+                        <TodoCheckmark
+                          as="span"
+                          checked={todo.status === "done"}
+                          align="text"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <div className={cn("text-base leading-6", todo.status === "done" ? "text-app-ink-muted line-through" : "text-app-ink")}>
+                              <RichTextPreview value={todo.title} />
+                            </div>
+                            {dueChip ? (
+                              <span className="rounded-md bg-app-surface-muted px-2 py-0.5 text-[11px] text-app-ink-faint whitespace-nowrap">
+                                {dueChip}
+                                {overdueDays > 0 ? <span className="text-warning-ink"> · overdue {overdueDays}d</span> : null}
+                              </span>
+                            ) : null}
+                            {completedLabel ? (
+                              <span className="inline-flex items-center gap-1 text-xs text-app-ink-faint whitespace-nowrap">
+                                <CircleCheckBig className="h-3 w-3" />
+                                {completedLabel}
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
-                        {dueChip ? (
-                          <span className="rounded-md bg-app-surface-muted px-2 py-0.5 text-[11px] text-app-ink-faint whitespace-nowrap">
-                            {dueChip}
-                            {overdueDays > 0 ? <span className="text-warning-ink"> · overdue {overdueDays}d</span> : null}
-                          </span>
-                        ) : null}
-                        {completedLabel ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-app-ink-faint whitespace-nowrap">
-                            <CircleCheckBig className="h-3 w-3" />
-                            {completedLabel}
-                          </span>
-                        ) : null}
                       </div>
-                    </div>
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </section>
+              ))}
             </div>
           )}
         </main>

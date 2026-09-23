@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Ellipsis, Globe, Pencil, Pin, Share2, Trash2 } from "lucide-react";
 import type { TodoFolder } from "@omanote/shared";
 import { CategoryIconView } from "../lib/bookmark-category-icon";
+import { folderColorStyle } from "../lib/folder-color";
 import { cn } from "./ui";
 
 const MENU_WIDTH = 160;
@@ -222,6 +223,12 @@ export function TodoFolderCard({
   searchMatchCount?: number;
   onClick: () => void;
 }) {
+  // The icon's chip is the folder's "container" — tinting it is what makes a
+  // colour visible in the list, not just on the glyph. Inline because the key
+  // is only known at runtime; it deliberately wins over the hover/selected
+  // background classes, so a coloured folder keeps its tint in every state.
+  const palette = folderColorStyle(folder.color);
+
   return (
     <div
       className={cn(
@@ -231,8 +238,11 @@ export function TodoFolderCard({
           : "border-app-line bg-app-surface text-app-ink-muted hover:border-app-line hover:bg-app-surface-hover",
       )}
     >
-      <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-app-surface-muted text-app-ink-faint">
-        <CategoryIconView icon={folder.icon} size="md" />
+      <span
+        className="flex h-10 w-10 items-center justify-center rounded-lg bg-app-surface-muted text-app-ink-faint"
+        style={palette ? { backgroundColor: palette.surface } : undefined}
+      >
+        <CategoryIconView icon={folder.icon} size="md" color={folder.color} />
       </span>
       <button type="button" onClick={onClick} className="flex w-full items-center justify-center gap-1">
         <span className="min-w-0 truncate text-[13px] font-bold leading-tight">{folder.name}</span>
@@ -345,6 +355,9 @@ export const TodoFolderRow = memo(function TodoFolderRow({
     );
   }
 
+  // See TodoFolderCard above — same chip, same reason.
+  const palette = folderColorStyle(folder.color);
+
   return (
     <div
       role="button"
@@ -371,15 +384,19 @@ export const TodoFolderRow = memo(function TodoFolderRow({
             selected ? "bg-app-surface text-app-ink-faint" : "bg-app-surface-muted text-app-ink-faint",
             iconPickerActive ? "ring-2 ring-app-line-strong ring-offset-1" : "",
           )}
+          style={palette ? { backgroundColor: palette.surface } : undefined}
         >
-          <CategoryIconView icon={folder.icon} size="sm" />
+          <CategoryIconView icon={folder.icon} size="sm" color={folder.color} />
         </button>
       ) : (
-        <span className={cn(
-          "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md",
-          selected ? "bg-app-surface text-app-ink-faint" : "bg-app-surface-muted text-app-ink-faint",
-        )}>
-          <CategoryIconView icon={folder.icon} size="sm" />
+        <span
+          className={cn(
+            "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md",
+            selected ? "bg-app-surface text-app-ink-faint" : "bg-app-surface-muted text-app-ink-faint",
+          )}
+          style={palette ? { backgroundColor: palette.surface } : undefined}
+        >
+          <CategoryIconView icon={folder.icon} size="sm" color={folder.color} />
         </span>
       )}
       <span className="flex items-center gap-1.5 min-w-0">

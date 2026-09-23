@@ -597,7 +597,6 @@ export function HashtagGraph({
           note={artifact.data}
           pendingSync={Boolean(artifact.data.pendingSync)}
           dispatch={dispatch}
-          noteFolders={state.noteFolders}
         />
       );
     }

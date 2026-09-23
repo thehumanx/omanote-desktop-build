@@ -43,7 +43,6 @@ export function NoteEditorModal({
           autoFocus
           layout="canvas"
           showTags={false}
-          hideFolderPicker
           hideMobileActions
           persistRecentFolderOnSave
           onCancel={onClose}

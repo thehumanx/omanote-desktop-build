@@ -1,5 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { Link } from "react-router-dom";
 import { CanvasSkeleton } from "../../components/CanvasSkeleton";
 import { OfflineStatusBannerCard } from "../../components/OfflineStatusBanner";
 import { color, motion } from "../../design-system/tokens";
@@ -11,6 +12,7 @@ import {
   introProgressAt,
   isTourHoldingScreen,
   nextSteppedIndex,
+  outroBlockProgress,
   outroProgressAt,
   placeTooltip,
   placeTooltipBeside,
@@ -76,6 +78,11 @@ const TOOLTIP_HEIGHT_ESTIMATE = 200;
  * step settles before the next one starts rather than the two overlapping.
  */
 const STEP_COOLDOWN_MS = 420;
+
+/** Blocks in the closing CTA: headline, body, footnote, buttons, scroll nudge. */
+const OUTRO_BLOCK_COUNT = 5;
+/** How far each closing block rises as it fades in. */
+const OUTRO_BLOCK_RISE = 18;
 
 type AnchorBox = { top: number; left: number; width: number; height: number };
 
@@ -412,6 +419,13 @@ export function ProductTour({
   // The CTA is worth a beat of its own, so it arrives over the first part of
   // the closing unit rather than taking a full viewport of scroll to land.
   const outroEnter = easeInOut(Math.min(1, outroProgressAt(progress, TOUR_STEPS.length) / 0.45));
+  // Rise-and-fade per block, the way the closing lines compose rather than
+  // arrive as one group. 18px is small on purpose: enough to read as movement,
+  // short enough that nothing appears to fly in.
+  const outroBlockStyle = (index: number): React.CSSProperties => {
+    const t = easeInOut(outroBlockProgress(index, OUTRO_BLOCK_COUNT, outroEnter));
+    return { opacity: t, transform: `translateY(${(1 - t) * OUTRO_BLOCK_RISE}px)` };
+  };
   const scale = scaleAt(introProgress, REST_SCALE);
   // The copy doesn't fade — it drifts up slower than the preview does, so the
   // preview overtakes it and it slides away *underneath* the mockup. Fading it
@@ -804,37 +818,63 @@ export function ProductTour({
               pointerEvents: outroEnter > 0.6 ? "auto" : "none",
             }}
           >
-            <div
-              className="flex flex-col items-center gap-5"
-              style={{ transform: `scale(${0.94 + 0.06 * outroEnter})` }}
-            >
-              <h2 className="font-serif-heading max-w-[760px] text-[40px] font-black leading-[1.05]">
+            {/* Each block arrives on its own, rather than the group scaling up
+                as one lump. Still scroll-linked — `outroBlock` slices the
+                outro's own progress into overlapping windows — so scrolling
+                back up plays the stagger in reverse, which a one-shot
+                entrance animation could not do. */}
+            <div className="flex flex-col items-center gap-5">
+              <h2
+                className="font-serif-heading max-w-[760px] text-[40px] font-black leading-[1.05]"
+                style={outroBlockStyle(0)}
+              >
                 If that's how your day works,
                 <br /> omanote might fit.
               </h2>
-              <p className="max-w-[560px] leading-relaxed text-app-ink-muted">
-                This product tour exists because I don't want you signing up expecting a typical note-taking app
-                and finding something else instead. omanote is built for capturing bite-sized thoughts that make
-                up a day. It doesn't replace your notes app or your wiki, and it isn't your "second brain".
+              <p className="max-w-[560px] leading-relaxed text-app-ink-muted" style={outroBlockStyle(1)}>
+                It's built for the bite-sized thoughts that make up a day — a fresh canvas each morning that you
+                fill as you go. It won't replace your notes app or your wiki, and it isn't a "second brain". I'd
+                rather say that now than after you've signed up.
               </p>
-              <p className="max-w-[560px] leading-relaxed text-app-ink-muted">
-                The app is still in beta, some features are early access and still evolving. If this sounds like
-                you, sign up and give it a try.
+              {/* Demoted to a footnote on purpose: at full body size the beta
+                  caveat read as a second argument against signing up. */}
+              <p
+                className="max-w-[460px] text-xs leading-relaxed text-app-ink-faint"
+                style={outroBlockStyle(2)}
+              >
+                Still in beta — some features are early access and evolving.
               </p>
-              <div className="mt-2 flex flex-row flex-wrap items-center justify-center gap-3">
+              <div
+                className="mt-2 flex flex-row flex-wrap items-center justify-center gap-3"
+                style={outroBlockStyle(3)}
+              >
                 {cta}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const target = document.getElementById("offerings");
-                    if (target) scrollToElementEased(target);
-                  }}
-                  className="inline-flex items-center rounded-xl border border-app-line px-5 py-2.5 text-sm font-bold text-app-ink transition-colors duration-app-fast ease-app-out hover:bg-app-surface-hover cursor-pointer"
+                {/* Lighter than the primary on purpose — a roadmap link
+                    shouldn't compete with signup at the close of the tour. */}
+                <Link
+                  to="/s/plans"
+                  className="inline-flex items-center rounded-xl border border-app-line px-5 py-2.5 text-sm font-medium text-app-ink-muted transition-colors duration-app-fast ease-app-out hover:bg-app-surface-hover hover:text-app-ink cursor-pointer"
                 >
-                  See what else it does ↓
-                </button>
+                  See what's coming ↗
+                </Link>
               </div>
             </div>
+
+            {/* The tour has owned the scroll up to here, so say plainly that
+                scrolling now leaves it rather than advancing it. Doubles as
+                the old "see what else it does" action for anyone clicking. */}
+            <button
+              type="button"
+              onClick={() => {
+                const target = document.getElementById("offerings");
+                if (target) scrollToElementEased(target);
+              }}
+              className="absolute inset-x-0 bottom-8 mx-auto inline-flex items-center justify-center gap-1.5 text-xs font-medium text-app-ink-faint transition-colors duration-app-fast hover:text-app-ink-muted cursor-pointer"
+              style={outroBlockStyle(4)}
+            >
+              Keep scrolling for the rest
+              <ArrowDown className="h-3 w-3" />
+            </button>
           </div>
         ) : null}
       </div>

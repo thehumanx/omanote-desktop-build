@@ -30,6 +30,24 @@ function parseLinkToken(token: string): LinkTokenInfo | null {
     };
   }
 
+  // `<https://…>` — markdown's autolink form. tiptap-markdown emits this
+  // whenever a link's text is identical to its href, which is every link the
+  // user just pastes in. Without this branch the angle brackets survived into
+  // the rendered note and the trailing `>` got swallowed into the href.
+  if (token.startsWith("<") && token.endsWith(">")) {
+    const inner = token.slice(1, -1);
+    const href = normalizeLinkUrl(inner);
+    if (!href) return null;
+    return {
+      raw: token,
+      href,
+      displayText: inner,
+      start: 0,
+      end: token.length,
+      isMarkdown: false,
+    };
+  }
+
   if (token.startsWith("http") || token.startsWith("mailto:") || token.startsWith("tel:")) {
     const href = normalizeLinkUrl(token);
     if (!href) return null;
@@ -89,7 +107,10 @@ function inlineNodes(
   onHashtagClick?: (name: string) => void,
   highlightQuery?: string | null,
 ): ReactNode[] {
-  const pattern = /(\[[^\]]+\]\([^)]+\)|(https?:\/\/|mailto:|tel:)[^\s<]+|`[^`]+`|\*\*[^*]+\*\*|\*[^*\s][^*]*\*|(?:^|\s)#[a-zA-Z]\w*|(?:^|\s)@[^\s@]+@[^\s@]+\.[^\s@]+)/g;
+  // Ordered: a backslash escape wins over everything (it exists precisely to
+  // stop the next character being read as syntax), then autolinks before bare
+  // URLs so `<https://…>` isn't matched from the `h` onwards.
+  const pattern = /(\\[^\sA-Za-z0-9]|<(?:https?:\/\/|mailto:|tel:)[^\s>]+>|\[[^\]]+\]\([^)]+\)|(https?:\/\/|mailto:|tel:)[^\s<]+|`[^`]+`|\*\*[^*]+\*\*|\*[^*\s][^*]*\*|(?:^|\s)#[a-zA-Z]\w*|(?:^|\s)@[^\s@]+@[^\s@]+\.[^\s@]+)/g;
   const nodes: ReactNode[] = [];
   let lastIndex = 0;
 
@@ -102,6 +123,22 @@ function inlineNodes(
           {highlightText(text.slice(lastIndex, index), highlightQuery, `h-${baseOffset + lastIndex}`)}
         </span>,
       );
+    }
+
+    // `\]` → `]`. tiptap-markdown escapes markdown punctuation on save, so
+    // the stored body legitimately contains backslashes the reader must not
+    // see — the editor hides them, and before this so did nothing here.
+    // Emitted as its own span rather than unescaped into the surrounding text
+    // so `data-rich-text-source-start` stays aligned with the source for
+    // click-to-caret (resolveRichTextSourceOffsetFromPoint).
+    if (token.length === 2 && token.startsWith("\\")) {
+      nodes.push(
+        <span key={`esc-${baseOffset + index}`} data-rich-text-source-start={baseOffset + index}>
+          {highlightText(token.slice(1), highlightQuery, `h-${baseOffset + index}`)}
+        </span>,
+      );
+      lastIndex = index + token.length;
+      continue;
     }
 
     const hashIndex = token.indexOf("#");
@@ -141,7 +178,10 @@ function inlineNodes(
         );
       }
       nodes.push(<MentionChip key={`${index}-${token}`} email={email} className="mx-0.5 align-middle" />);
-    } else if (token.startsWith("[") || token.startsWith("http") || token.startsWith("mailto:") || token.startsWith("tel:")) {
+      // `<` covers markdown's autolink form, `<https://…>` — keep this in
+      // step with parseLinkToken's branches or a token it can parse never
+      // reaches it.
+    } else if (token.startsWith("[") || token.startsWith("<") || token.startsWith("http") || token.startsWith("mailto:") || token.startsWith("tel:")) {
       const linkToken = parseLinkToken(token);
       if (linkToken) {
         nodes.push(
@@ -252,7 +292,14 @@ function renderListAcc(list: ListAcc, depth: number, paragraphClassName?: string
           key={item.key}
           className={cn(
             "list-item text-zinc-400 marker:text-zinc-400",
-            depth === 0 ? "mb-2 mt-0" : "m-0",
+            // `last:mb-0` is what keeps this renderer agreeing with the
+            // editor after a list. There, the last item's 8px bottom margin
+            // collapses into the next block's 24px margin-top and the max
+            // wins, so the gap is 24. Here the blank line is a real `h-6`
+            // element with no margins to collapse against, so the same 8px
+            // would *add* to its height and the gap would be 32. Mirrored by
+            // `.ProseMirror > ul > li:last-child` in index.css.
+            depth === 0 ? "mb-2 mt-0 last:mb-0" : "m-0",
             paragraphClassName,
           )}
         >

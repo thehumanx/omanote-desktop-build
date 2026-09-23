@@ -10,6 +10,7 @@ import { PageEditor } from "../components/page/PageEditor";
 import { SharePageModal } from "../components/page/SharePageModal";
 import { BookmarkCategoryIconPicker } from "../components/BookmarkCategoryIconPicker";
 import { CategoryIconView } from "../lib/bookmark-category-icon";
+import { folderColorStyle } from "../lib/folder-color";
 import { cn } from "../components/ui";
 import { emptyPageDoc, pageDocStats, pageDocToHashtags, pageDocToPreview, pageDocToShareBlocks } from "../lib/page-doc";
 import { usePageAutosave } from "../lib/use-page-autosave";
@@ -123,14 +124,17 @@ export function PageScreen() {
 
   const [title, setTitle] = useState(page?.title ?? "");
   const [icon, setIcon] = useState(page?.icon);
+  const [color, setColor] = useState(page?.color);
   const [docJson, setDocJson] = useState(page?.docJson ?? emptyPageDoc());
   // Held in refs so the autosave callback stays stable and the flush that runs
   // on unmount reads the latest values rather than the ones captured at mount.
   const titleRef = useRef(title);
   const iconRef = useRef(icon);
+  const colorRef = useRef(color);
   const docJsonRef = useRef(docJson);
   titleRef.current = title;
   iconRef.current = icon;
+  colorRef.current = color;
   docJsonRef.current = docJson;
   const pageIdRef = useRef(pageId);
   pageIdRef.current = page?.id ?? pageId;
@@ -205,6 +209,7 @@ export function PageScreen() {
       pageId: pageIdRef.current,
       title: titleRef.current.trim() || undefined,
       icon: iconRef.current,
+      color: colorRef.current,
       docJson: latestDoc,
       preview: pageDocToPreview(latestDoc),
       hashtags: pageDocToHashtags(latestDoc, titleRef.current),
@@ -248,6 +253,14 @@ export function PageScreen() {
   const handleIconChange = useCallback((next: string | undefined) => {
     setIcon(next);
     iconRef.current = next;
+    save();
+  }, [save]);
+
+  // Set the ref before save(): save() reads colorRef, and React state hasn't
+  // committed yet at this point.
+  const handleColorChange = useCallback((next: string | undefined) => {
+    setColor(next);
+    colorRef.current = next;
     save();
   }, [save]);
 
@@ -311,6 +324,9 @@ export function PageScreen() {
   const [copied, setCopied] = useState(false);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const iconButtonRef = useRef<HTMLButtonElement>(null);
+  // The icon button doubles as the page's colour swatch — same chip the folder
+  // rail tints, so one page reads the same in the rail and in its own header.
+  const iconPalette = folderColorStyle(color);
   const pageUrl = typeof window !== "undefined" ? `${window.location.origin}/p/${page?.id ?? pageId}` : "";
 
   // Only ever called while shareUrl is set — see the Copy button's isShared guard.
@@ -408,8 +424,9 @@ export function PageScreen() {
                 aria-label="Change page icon"
                 onClick={() => setIconPickerOpen((open) => !open)}
                 className="flex h-10 w-10 items-center justify-center rounded-xl text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink"
+                style={iconPalette ? { backgroundColor: iconPalette.surface } : undefined}
               >
-                <CategoryIconView icon={icon} size="md" />
+                <CategoryIconView icon={icon} size="md" color={color} />
               </button>
               <div className="flex items-center gap-2">
                 {serverPageId ? (
@@ -447,6 +464,8 @@ export function PageScreen() {
               <BookmarkCategoryIconPicker
                 anchorRef={iconButtonRef}
                 currentIcon={icon}
+                currentColor={color}
+                onSelectColor={handleColorChange}
                 onSelect={(next) => {
                   handleIconChange(next);
                   setIconPickerOpen(false);

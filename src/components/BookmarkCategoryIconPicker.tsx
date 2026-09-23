@@ -9,11 +9,19 @@ import {
   searchEmoji,
 } from "../lib/bookmark-category-icon";
 import { cn } from "./ui";
+import { FOLDER_COLORS, folderColorStyle, isFolderColor } from "../lib/folder-color";
 
 interface BookmarkCategoryIconPickerProps {
   anchorRef: React.RefObject<HTMLElement | null>;
   currentIcon?: string;
+  /** Palette key; see src/lib/folder-color.ts. */
+  currentColor?: string;
   onSelect: (icon: string | undefined) => void;
+  /**
+   * Omit to hide the colour row entirely — for callers whose subject has
+   * nothing to tint.
+   */
+  onSelectColor?: (color: string | undefined) => void;
   onClose: () => void;
 }
 
@@ -24,7 +32,9 @@ function isMobile() {
 export function BookmarkCategoryIconPicker({
   anchorRef,
   currentIcon,
+  currentColor,
   onSelect,
+  onSelectColor,
   onClose,
 }: BookmarkCategoryIconPickerProps) {
   const [emojiInput, setEmojiInput] = useState("");
@@ -128,6 +138,52 @@ export function BookmarkCategoryIconPicker({
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
+
+      {/* Colour palette. Above the icons on purpose: the colour tints the
+          whole container, so it reads as the broader choice, and picking one
+          re-tints the icon swatches below it as a live preview. */}
+      {onSelectColor ? (
+        <div>
+          <p className="mb-1.5 text-[11px] font-medium text-app-ink-faint">Color</p>
+          <div className="grid grid-cols-9 gap-1">
+            {FOLDER_COLORS.map((color) => {
+              const style = folderColorStyle(color)!;
+              const selected = currentColor === color;
+              return (
+                <button
+                  key={color}
+                  type="button"
+                  aria-label={color}
+                  aria-pressed={selected}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    // Clicking the active colour clears it, so the palette
+                    // doubles as its own undo without a separate control.
+                    onSelectColor(selected ? undefined : color);
+                  }}
+                  className={cn(
+                    "h-7 w-full rounded-lg border transition",
+                    selected ? "border-app-ink" : "border-app-line hover:border-app-line-strong",
+                  )}
+                  style={{ backgroundColor: style.surface }}
+                />
+              );
+            })}
+            <button
+              type="button"
+              aria-label="No color"
+              aria-pressed={!isFolderColor(currentColor)}
+              onMouseDown={(e) => { e.preventDefault(); onSelectColor(undefined); }}
+              className={cn(
+                "flex h-7 w-full items-center justify-center rounded-lg border bg-app-surface transition",
+                !isFolderColor(currentColor) ? "border-app-ink" : "border-app-line hover:border-app-line-strong",
+              )}
+            >
+              <X className="h-3 w-3 text-app-ink-faint" />
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {/* Lucide icon grid */}
       <div>

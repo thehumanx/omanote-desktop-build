@@ -101,6 +101,134 @@ export function sortDescriptorCodec<K extends string, D extends string>(
   };
 }
 
+// ---------------------------------------------------------------------------
+// Per-user scoping
+// ---------------------------------------------------------------------------
+
+/**
+ * Keys holding one account's content, rewritten to include the user's id.
+ *
+ * `localStorage` is shared by every account that signs in on a browser. These
+ * keys were global, and nothing cleared them on sign-out, so user A's
+ * half-typed note sat in user B's composer the moment B signed in — plaintext,
+ * in an app where every *stored* content field is end-to-end encrypted. The
+ * folder keys are milder but leak folder names the same way.
+ *
+ * Deliberately not listed:
+ *   - `omanote.canvas-outbox` — see `LEGACY_KEYS_CLEARED_ON_SIGN_OUT` below.
+ *     Scoping it would *break* it rather than secure it.
+ *   - `omanote.*-backfill-*` — per-browser one-time markers. They arguably
+ *     *should* be per user, but re-scoping means every existing user re-runs
+ *     their backfill on next load, which is a mutation burst rather than a
+ *     correctness fix.
+ *   - sort/view-mode/zoom preferences, which hold no content.
+ */
+const USER_SCOPED_KEYS: ReadonlySet<string> = new Set([
+  "omanote.composer-draft",
+  "omanote.canvas-drafts",
+  "omanote.note-last-folder",
+  "omanote.todo-last-folder",
+  "omanote.bookmark-last-category",
+  "omanote.notes-last-selected-folder",
+  "omanote.todos-last-selected-folder",
+  "omanote.bookmarks-last-selected-category",
+]);
+
+/**
+ * Keys that must not be namespaced, but must not survive a sign-out either.
+ *
+ * `omanote.canvas-outbox` is the pre-Dexie write queue. Nothing writes it any
+ * more: `migrateLegacyOutbox` reads it once, moves the rows into `db.outbox`
+ * and deletes it. Namespacing it would therefore be worse than leaving it
+ * alone — an existing browser's queue sits under the *unscoped* key, so a
+ * scoped read would never find it and those writes, which by definition the
+ * server has never seen, would be dropped silently.
+ *
+ * The cross-account risk is real but different from the one scoping solves:
+ * if A leaves a legacy queue behind and B signs in on the same browser, the
+ * next flush would migrate A's writes into B's account. Deleting the key on
+ * sign-out closes that without touching the migration, which still works for
+ * the case it was written for — the same user upgrading.
+ */
+const LEGACY_KEYS_CLEARED_ON_SIGN_OUT: readonly string[] = ["omanote.canvas-outbox"];
+
+/**
+ * Whose storage the keys above currently resolve to.
+ *
+ * `null` means "signed out, or not yet known" and gets its own namespace
+ * rather than the shared one — so a signed-out surface can never read or
+ * overwrite a signed-in user's draft. Set by `LocalCacheGate`, which already
+ * exists to stop anything reading local data before the owner is confirmed;
+ * see the note there.
+ */
+let userScope: string | null = null;
+
+export function setStorageUserScope(userId: string | null): void {
+  userScope = userId;
+}
+
+/** For tests, which need a clean module between cases. */
+export function getStorageUserScope(): string | null {
+  return userScope;
+}
+
+function scopedKey(key: string): string {
+  if (!USER_SCOPED_KEYS.has(key)) return key;
+  const suffix = key.slice("omanote.".length);
+  return userScope === null ? `omanote.anon.${suffix}` : `omanote.u.${userScope}.${suffix}`;
+}
+
+/**
+ * Moves a pre-scoping value onto the current user's key, once.
+ *
+ * Without this, shipping the change would look to every existing user like
+ * their in-progress draft and last-used folders had been silently discarded.
+ * The legacy key is removed as it's adopted, so the next account to sign in on
+ * this browser finds nothing to inherit — which is the bug being fixed.
+ */
+function adoptLegacyValue(key: string, resolved: string): void {
+  if (resolved === key || userScope === null) return;
+  try {
+    if (window.localStorage.getItem(resolved) !== null) return;
+    const legacy = window.localStorage.getItem(key);
+    if (legacy === null) return;
+    window.localStorage.setItem(resolved, legacy);
+    window.localStorage.removeItem(key);
+  } catch {
+    // Same non-fatal treatment as every other access in this module.
+  }
+}
+
+function readKey(key: string): string | null {
+  const resolved = scopedKey(key);
+  if (resolved !== key) adoptLegacyValue(key, resolved);
+  return window.localStorage.getItem(resolved);
+}
+
+/**
+ * Drops every user-scoped value for the account signing out.
+ *
+ * A backstop rather than the mechanism: scoping already stops the *next* user
+ * reading these. This is for the same browser, same user, "log me out and
+ * leave nothing behind" expectation.
+ */
+export function clearUserScopedStorage(): void {
+  if (typeof window === "undefined") return;
+  try {
+    for (const key of USER_SCOPED_KEYS) {
+      window.localStorage.removeItem(scopedKey(key));
+      // Pre-scoping leftovers, for a browser that never read the key between
+      // this change shipping and signing out.
+      window.localStorage.removeItem(key);
+    }
+    for (const key of LEGACY_KEYS_CLEARED_ON_SIGN_OUT) {
+      window.localStorage.removeItem(key);
+    }
+  } catch {
+    // Non-fatal: sign-out must proceed regardless.
+  }
+}
+
 /**
  * Reads `key`, decoded through `codec`, or `fallback` if the key is absent,
  * storage is unavailable (SSR/tests, private browsing), or the stored value
@@ -109,7 +237,7 @@ export function sortDescriptorCodec<K extends string, D extends string>(
 export function readLocalStorage<T>(key: string, codec: StorageCodec<T>, fallback: T): T {
   if (typeof window === "undefined") return fallback;
   try {
-    const raw = window.localStorage.getItem(key);
+    const raw = readKey(key);
     if (raw === null) return fallback;
     const decoded = codec.decode(raw);
     return decoded === undefined ? fallback : decoded;
@@ -128,7 +256,7 @@ export function readLocalStorage<T>(key: string, codec: StorageCodec<T>, fallbac
 export function readLocalStorageOptional<T>(key: string, codec: StorageCodec<T>): T | undefined {
   if (typeof window === "undefined") return undefined;
   try {
-    const raw = window.localStorage.getItem(key);
+    const raw = readKey(key);
     if (raw === null) return undefined;
     return codec.decode(raw);
   } catch {
@@ -140,7 +268,7 @@ export function readLocalStorageOptional<T>(key: string, codec: StorageCodec<T>)
 export function writeLocalStorage<T>(key: string, codec: StorageCodec<T>, value: T): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(key, codec.encode(value));
+    window.localStorage.setItem(scopedKey(key), codec.encode(value));
   } catch {
     // Quota exceeded, private-browsing restrictions, or storage disabled —
     // every existing call site treated this as non-fatal, so this does too.
@@ -151,7 +279,7 @@ export function writeLocalStorage<T>(key: string, codec: StorageCodec<T>, value:
 export function removeLocalStorage(key: string): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.removeItem(key);
+    window.localStorage.removeItem(scopedKey(key));
   } catch {
     // Same as writeLocalStorage.
   }
@@ -170,7 +298,7 @@ export function removeLocalStorage(key: string): void {
 export function readDismissedFlag(key: string): boolean {
   if (typeof window === "undefined") return true;
   try {
-    return window.localStorage.getItem(key) !== null;
+    return readKey(key) !== null;
   } catch {
     return true;
   }

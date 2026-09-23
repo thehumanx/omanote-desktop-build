@@ -5,6 +5,7 @@ import { formatRelativeEditedAt } from "@omanote/shared";
 import type { AppAction } from "../../app/types";
 import type { PageItem } from "@omanote/shared";
 import { CategoryIconView } from "../../lib/bookmark-category-icon";
+import { folderColorStyle } from "../../lib/folder-color";
 import { pageDocStats } from "../../lib/page-doc";
 import { useCreateCanvas } from "../../lib/use-create-canvas";
 import { PagePinButton } from "./PagePinButton";
@@ -101,11 +102,22 @@ function ContinueWritingCard({
   // Optimistic (clientKey-only) pages have no server id to patch yet.
   const serverPageId = staticPreview ? page.id : page.id !== page.clientKey ? page.id : null;
 
+  // See PageCard — same chip, and the same reason the FileText fallback is
+  // tinted rather than only a chosen icon.
+  const palette = folderColorStyle(page.color);
+
   return (
     <div className="group flex min-w-0 flex-col gap-1.5 rounded-app-card border border-app-line bg-app-surface px-4 py-3 transition-colors duration-150 hover:bg-app-surface-hover">
       <div className="flex items-center justify-between gap-2">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-app-surface-muted text-app-ink-faint">
-          {page.icon ? <CategoryIconView icon={page.icon} /> : <FileText className="h-3.5 w-3.5" />}
+        <span
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-app-surface-muted text-app-ink-faint"
+          style={palette ? { backgroundColor: palette.surface } : undefined}
+        >
+          {page.icon ? (
+            <CategoryIconView icon={page.icon} color={page.color} />
+          ) : (
+            <FileText className="h-3.5 w-3.5" style={palette ? { color: palette.ink } : undefined} />
+          )}
         </span>
         <div className="flex items-center gap-1">
           {serverPageId ? (

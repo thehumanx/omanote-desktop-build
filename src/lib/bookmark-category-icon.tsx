@@ -1,4 +1,5 @@
 import emojilib from "emojilib";
+import { folderColorStyle } from "./folder-color";
 import {
   Bookmark,
   BookOpen,
@@ -152,24 +153,33 @@ export interface CategoryIconViewProps {
   icon?: string;
   size?: "sm" | "md";
   className?: string;
+  /**
+   * The folder's colour key. Tints a drawn glyph with that colour's darker
+   * "ink" shade. **Emoji deliberately ignore it** — they carry their own
+   * colours, and forcing a `color` onto one does nothing on most platforms
+   * while breaking the few that render monochrome.
+   */
+  color?: string;
 }
 
-export function CategoryIconView({ icon, size = "sm", className }: CategoryIconViewProps) {
+export function CategoryIconView({ icon, size = "sm", className, color }: CategoryIconViewProps) {
   const iconSize = size === "sm" ? "h-4 w-4" : "h-5 w-5";
   const textSize = size === "sm" ? "text-base leading-none" : "text-lg leading-none";
+  const palette = folderColorStyle(color);
+  const inkStyle = palette ? { color: palette.ink } : undefined;
 
   if (!icon) {
-    return <Folder className={[iconSize, className].filter(Boolean).join(" ")} />;
+    return <Folder className={[iconSize, className].filter(Boolean).join(" ")} style={inkStyle} />;
   }
 
   const LucideComponent = lucideIconByName.get(icon);
   if (LucideComponent) {
-    return <LucideComponent className={[iconSize, className].filter(Boolean).join(" ")} />;
+    return <LucideComponent className={[iconSize, className].filter(Boolean).join(" ")} style={inkStyle} />;
   }
 
   if (isEmojiString(icon)) {
     return <span className={[textSize, className].filter(Boolean).join(" ")}>{icon}</span>;
   }
 
-  return <Folder className={[iconSize, className].filter(Boolean).join(" ")} />;
+  return <Folder className={[iconSize, className].filter(Boolean).join(" ")} style={inkStyle} />;
 }

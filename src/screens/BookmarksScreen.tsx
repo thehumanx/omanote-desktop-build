@@ -105,6 +105,8 @@ export function BookmarksScreen() {
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [renamingCategoryId, setRenamingCategoryId] = useState<string | null>(null);
   const [editingIcon, setEditingIcon] = useState<string | undefined>(undefined);
+  // See NotesScreen: colour composed before a row exists to dispatch against.
+  const [editingColor, setEditingColor] = useState<string | undefined>(undefined);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const iconPickerAnchorRef = useRef<HTMLButtonElement | null>(null);
   const [directIconCategoryId, setDirectIconCategoryId] = useState<string | null>(null);
@@ -345,7 +347,7 @@ export function BookmarksScreen() {
   const bookmarkSearchQuery = useMemo(() => normalizeSearchQuery(bookmarkSearch), [bookmarkSearch]);
 
   const categoryRows = useMemo(() => {
-    const rows = new Map<string, { id: string; name: string; icon?: string; pinned?: boolean; count: number; matchCount: number; lastUpdated: number; hasMatch: boolean }>();
+    const rows = new Map<string, { id: string; name: string; icon?: string; color?: string; pinned?: boolean; count: number; matchCount: number; lastUpdated: number; hasMatch: boolean }>();
 
     for (const category of state.bookmarkCategories) {
       const rowId = isSavedCategoryName(category.name)
@@ -363,6 +365,7 @@ export function BookmarksScreen() {
         id: rowId,
         name: virtualName ?? category.name,
         icon: virtualName ? undefined : category.icon,
+        color: virtualName ? undefined : category.color,
         // Virtual rows ("Saved", "Synced from GCal") fold several real
         // categories into one, so there's no single row to pin.
         pinned: virtualName ? undefined : category.pinned,
@@ -396,6 +399,7 @@ export function BookmarksScreen() {
           id: rowId,
           name: virtualName ?? "Uncategorized",
           icon: undefined,
+          color: undefined,
           count: 1,
           matchCount: matches ? 1 : 0,
           lastUpdated: bookmark.createdAt,
@@ -560,10 +564,10 @@ export function BookmarksScreen() {
       return;
     }
     if (renamingCategoryId) {
-      dispatch({ type: "bookmark-category/update", categoryId: renamingCategoryId, name, icon: editingIcon });
+      dispatch({ type: "bookmark-category/update", categoryId: renamingCategoryId, name, icon: editingIcon, color: editingColor });
       pendingCategoryRenameIdRef.current = renamingCategoryId;
     } else {
-      dispatch({ type: "bookmark-category/create", name, icon: editingIcon });
+      dispatch({ type: "bookmark-category/create", name, icon: editingIcon, color: editingColor });
       pendingCategorySelectRef.current = name;
     }
     setCreatingCategory(false);
@@ -670,11 +674,11 @@ export function BookmarksScreen() {
                   }}
                   className="flex-shrink-0 rounded-md p-0.5 text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
                 >
-                  <CategoryIconView icon={selectedCategory.icon} size="sm" />
+                  <CategoryIconView icon={selectedCategory.icon} size="sm" color={selectedCategory.color} />
                 </button>
               ) : (
                 <span className="flex-shrink-0 text-app-ink-faint">
-                  <CategoryIconView icon={selectedCategory?.icon} size="sm" />
+                  <CategoryIconView icon={selectedCategory?.icon} size="sm" color={selectedCategory?.color} />
                 </span>
               )}
               <p className="min-w-0 truncate text-sm font-bold text-app-ink">{selectedCategoryLabel}</p>
@@ -994,6 +998,7 @@ export function BookmarksScreen() {
                         key={category.id}
                         categoryName={category.name}
                         icon={category.icon}
+                        color={category.color}
                         count={bookmarkSearchQuery ? category.matchCount : category.count}
                         selected={selectedCategoryId === category.id}
                         onClick={() => openCategoryBookmarks(category.id)}
@@ -1114,6 +1119,7 @@ export function BookmarksScreen() {
                         key={category.id}
                         categoryName={category.name}
                         icon={category.icon}
+                        color={category.color}
                         count={bookmarkSearchQuery ? category.matchCount : category.count}
                         selected={selectedCategoryId === category.id}
                         onClick={() => openCategoryBookmarks(category.id)}
@@ -1293,10 +1299,20 @@ export function BookmarksScreen() {
           key={directIconCategoryId ?? renamingCategoryId ?? "new"}
           anchorRef={iconPickerAnchorRef}
           currentIcon={editingIcon}
+          currentColor={directIconCategoryId ? state.bookmarkCategories.find((c) => c.id === directIconCategoryId)?.color : editingColor}
+          // Colour never closes the picker — see NotesScreen.
+          onSelectColor={(color) => {
+            if (directIconCategoryId) {
+              const category = state.bookmarkCategories.find((c) => c.id === directIconCategoryId);
+              if (category) dispatch({ type: "bookmark-category/update", categoryId: directIconCategoryId, name: category.name, icon: category.icon, color });
+            } else {
+              setEditingColor(color);
+            }
+          }}
           onSelect={(icon) => {
             if (directIconCategoryId) {
               const category = state.bookmarkCategories.find((c) => c.id === directIconCategoryId);
-              if (category) dispatch({ type: "bookmark-category/update", categoryId: directIconCategoryId, name: category.name, icon });
+              if (category) dispatch({ type: "bookmark-category/update", categoryId: directIconCategoryId, name: category.name, icon, color: category.color });
               setDirectIconCategoryId(null);
               setEditingIcon(undefined);
             } else {

@@ -59,6 +59,8 @@ export interface TodoFolder {
   id: string;
   name: string;
   icon?: string;
+  /** Palette key from src/lib/folder-color.ts, not a hex value. */
+  color?: string;
   /** Sorts into the labelled "Pinned" group above the rest of the list. */
   pinned?: boolean;
   createdAt: number;
@@ -84,6 +86,8 @@ export interface NoteFolder {
   id: string;
   name: string;
   icon?: string;
+  /** Palette key from src/lib/folder-color.ts, not a hex value. */
+  color?: string;
   /** Sorts into the labelled "Pinned" group above the rest of the list. */
   pinned?: boolean;
   createdAt: number;
@@ -107,6 +111,8 @@ export interface PageItem {
   title?: string;
   /** Emoji or lucide icon name — same format as bookmarkCategories/noteFolders icons. */
   icon?: string;
+  /** Palette key from src/lib/folder-color.ts, not a hex value. */
+  color?: string;
   docJson: string;
   preview: string;
   hashtags?: string[];
@@ -124,6 +130,8 @@ export interface BookmarkCategory {
   id: string;
   name: string;
   icon?: string;
+  /** Palette key from src/lib/folder-color.ts, not a hex value. */
+  color?: string;
   /** Sorts into the labelled "Pinned" group above the rest of the list. */
   pinned?: boolean;
   createdAt: number;

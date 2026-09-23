@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import type { NoteFolder } from "@omanote/shared";
 import { cn } from "./ui";
 import { isUncategorizedFolderName } from "../lib/note-folder-utils";
-import { FolderComboboxClearButton, FolderComboboxOptions, useFolderCombobox } from "./FolderCombobox";
+import { FOLDER_FIELD_WIDTH, FolderComboboxClearButton, FolderComboboxOptions, FolderFieldIcon, useFolderCombobox } from "./FolderCombobox";
 
 export function NoteFolderPicker({
   folders,
@@ -28,12 +28,13 @@ export function NoteFolderPicker({
   // Deduped by name and alphabetised — note folders are picked by name, not
   // id, so two rows that differ only in whitespace are one suggestion here.
   const sortedFolders = useMemo(() => {
-    const seen = new Map<string, { id: string; name: string }>();
+    const seen = new Map<string, { id: string; name: string; icon?: string; color?: string }>();
     for (const folder of folders) {
       const name = folder.name.trim();
       if (!name) continue;
       const key = name.toLowerCase();
-      if (!seen.has(key)) seen.set(key, { id: folder.id, name });
+      // icon/color ride along so the menu row can draw the folder's own glyph.
+      if (!seen.has(key)) seen.set(key, { id: folder.id, name, icon: folder.icon, color: folder.color });
     }
     return [...seen.values()].sort((left, right) => left.name.localeCompare(right.name));
   }, [folders]);
@@ -93,8 +94,12 @@ export function NoteFolderPicker({
   }, [open, combobox.close]);
 
   return (
-    <div ref={shellRef} className={cn("relative w-[220px] min-w-[180px]", className)}>
+    <div ref={shellRef} className={cn("relative", FOLDER_FIELD_WIDTH, className)}>
       <div className="relative">
+        {/* Always open: this picker only ever appears while a note is being
+            composed (editing an existing note no longer offers to move it),
+            and composing *is* the open-folder state. */}
+        <FolderFieldIcon open icon={combobox.exactMatch?.icon} color={combobox.exactMatch?.color} />
         <input
           ref={inputRef}
           value={value}
@@ -109,7 +114,7 @@ export function NoteFolderPicker({
           }}
           placeholder={placeholder}
           className={cn(
-            "w-full border-b border-app-line bg-transparent px-0 pr-7 py-1 text-sm outline-none focus:border-app-line-strong",
+            "w-full border-b border-app-line bg-transparent pl-6 pr-7 py-1 text-sm outline-none focus:border-app-line-strong",
             inputClassName,
           )}
         />

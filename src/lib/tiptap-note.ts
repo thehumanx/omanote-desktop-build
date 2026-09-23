@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { findActiveHashtag, hashtagColor } from "./hashtags";
 import { findActiveEmojiTrigger } from "./emoji-trigger";
@@ -232,10 +232,19 @@ export function useTiptapHashtagPicker(editor: Editor | null): TiptapHashtagPick
 
   const prefix = activeHashtag?.partial ?? "";
 
-  const allHashtags = useQuery(api.hashtags.listUserHashtags, {
-    prefix: prefix || undefined,
-    limit: 8,
-  });
+  // Skipped unless the caret is actually inside a `#token`, and unless
+  // there's a signed-in user to have hashtags in the first place. Both
+  // matter: the query is `requireUserId`-gated and *throws* for an
+  // anonymous caller, which took down the whole editor when this ran on
+  // the signed-out landing page (the product tour mounts a real composer).
+  // Skipping while idle also stops every mounted editor from holding a
+  // subscription to the user's whole hashtag list for nothing — the same
+  // reasoning as the textarea picker in HashtagPicker.
+  const { isAuthenticated } = useConvexAuth();
+  const allHashtags = useQuery(
+    api.hashtags.listUserHashtags,
+    isAuthenticated && activeHashtag ? { prefix: prefix || undefined, limit: 8 } : "skip",
+  );
   const suggestions = useMemo(() => allHashtags ?? [], [allHashtags]);
 
   useEffect(() => {

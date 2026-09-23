@@ -62,6 +62,30 @@
   --color-chart-bookmark: #5D9F89;
   --color-chart-event: #9F6FDA;
   --color-chart-empty: #E6E6E6;
+  /* Folder colours. Eight light pastels assignable to a folder (or a page)
+     from the icon picker: `surface` tints the container and its canvas tab,
+     `ink` is the darker shade of the same hue used for a Lucide icon. An
+     emoji keeps its own colours and ignores `ink` entirely.
+     Records store the *key* ("rose"), never a hex — so dark mode and the
+     derived ink shade resolve here instead of being baked into user data
+     where they could never be restyled. Keep in step with FOLDER_COLORS in
+     src/lib/folder-color.ts. */
+  --folder-rose-surface: #fff1f2;
+  --folder-rose-ink: #be123c;
+  --folder-amber-surface: #fffbeb;
+  --folder-amber-ink: #b45309;
+  --folder-emerald-surface: #ecfdf5;
+  --folder-emerald-ink: #047857;
+  --folder-teal-surface: #f0fdfa;
+  --folder-teal-ink: #0f766e;
+  --folder-sky-surface: #f0f9ff;
+  --folder-sky-ink: #0369a1;
+  --folder-indigo-surface: #eef2ff;
+  --folder-indigo-ink: #4338ca;
+  --folder-violet-surface: #f5f3ff;
+  --folder-violet-ink: #6d28d9;
+  --folder-pink-surface: #fdf2f8;
+  --folder-pink-ink: #be185d;
   --space-app-page-x: 1rem;
   --space-app-page-y: 1rem;
   --space-app-section-gap: 1.5rem;
@@ -80,10 +104,10 @@
      these small elements get a genuinely small corner instead of scaling
      the same radius used on much bigger cards/panels. */
   --radius-app-badge: 0.25rem;
-  --radius-app-panel: 0.75rem;
+  --radius-app-panel: 0.5rem;
   --radius-app-card: 0.5rem;
-  --radius-app-dialog: 0.75rem;
-  --radius-app-drawer: 0.75rem;
+  --radius-app-dialog: 0.5rem;
+  --radius-app-drawer: 0.5rem;
   --radius-app-icon: 1.375rem;
   /* Tailwind's default border-radius scale, re-pointed at variables so the
      Settings > Look & feel "Corner style" toggle can zero out every
@@ -108,6 +132,10 @@
   --component-segmented-highlight-gloss-start: rgba(255, 255, 255, 0.18);
   --component-segmented-highlight-gloss-end: rgba(255, 255, 255, 0);
   --component-segmented-highlight-gloss-stop: 44%;
+  /* Todo checkmarks are a rounded square, not a circle -- their own token so
+     they don't track `--radius-app-chip` (a pill) and so the shape stays
+     identical in-app, on public share pages and in the canvas. */
+  --component-todo-checkmark-radius: 0.375rem;
   --component-todo-checkmark-size: 1.25rem;
   --component-todo-checkmark-compact-size: 1rem;
   --component-todo-checkmark-bleed: 0.375rem;
@@ -131,6 +159,16 @@
   --shadow-app-drawer: var(--shadow-drawer);
   --shadow-app-bubble: 0 4px 16px rgba(0, 0, 0, 0.1), 0 1px 4px rgba(0, 0, 0, 0.06);
   --shadow-app-bubble-hover: 0 6px 20px rgba(0, 0, 0, 0.12);
+  /* Canvas folder groups. Cast upward (negative y) so it haloes the top edge
+     and the group reads as lifted there without becoming a full card again.
+     Applied to the group's *wrapper*, not its body, so it passes behind the
+     folder tab instead of the body painting over it.
+     Watch the spread against the offset: the first attempt was
+     `0 -6px 14px -6px`, where a spread equal to the offset pulled the shadow
+     back inside the element and nothing rendered at all. The tight value here
+     is close to that line on purpose — it is meant to be barely there — so if
+     you shrink the blur further, shrink the spread with it. */
+  --shadow-artifact-group: 0 -3px 5px -3px rgba(0, 0, 0, 0.06);
   --motion-duration-fast: 150ms;
   --motion-duration-base: 200ms;
   --motion-duration-slow: 300ms;
@@ -187,6 +225,7 @@ html[data-corner-style="sharp"] {
   --component-segmented-radius: 0px;
   --component-segmented-vertical-radius: 0px;
   --component-segmented-item-radius: 0px;
+  --component-todo-checkmark-radius: 0px;
 }
 
 .dark {
@@ -255,6 +294,35 @@ html[data-corner-style="sharp"] {
   --shadow-app-drawer: var(--shadow-drawer);
   --shadow-app-bubble: 0 4px 16px rgba(0, 0, 0, 0.32), 0 1px 4px rgba(0, 0, 0, 0.24);
   --shadow-app-bubble-hover: 0 6px 20px rgba(0, 0, 0, 0.36);
+  /* Heavier than light mode, like every other shadow here — a 10% black
+     halo is invisible against a near-black canvas. */
+  /* Same geometry as light — only the alpha moves, which is the convention
+     every other shadow here follows (see --shadow-drawer, the closest
+     analogue: also cast upward, also the edge of a sheet). The light value is
+     a deliberately tight 5px blur with -3px spread; keeping that silhouette
+     and lifting 0.06 into the 0.4-0.5 band the dark tokens sit in is what
+     makes it read on a dark ground without turning into a halo. */
+  --shadow-artifact-group: 0 -3px 5px -3px rgba(0, 0, 0, 0.45);
+  /* Folder colours, dark. Surfaces are deep desaturated tints rather than the
+     light pastels — a #fff1f2 container on a near-black canvas would glare —
+     and the inks invert to the light end of each hue so they stay legible on
+     them. Same eight keys as light mode; see the light block for the rules. */
+  --folder-rose-surface: #3f1d24;
+  --folder-rose-ink: #fda4af;
+  --folder-amber-surface: #3d2a11;
+  --folder-amber-ink: #fcd34d;
+  --folder-emerald-surface: #113029;
+  --folder-emerald-ink: #6ee7b7;
+  --folder-teal-surface: #0f2e2c;
+  --folder-teal-ink: #5eead4;
+  --folder-sky-surface: #11293d;
+  --folder-sky-ink: #7dd3fc;
+  --folder-indigo-surface: #23244d;
+  --folder-indigo-ink: #a5b4fc;
+  --folder-violet-surface: #2b2150;
+  --folder-violet-ink: #c4b5fd;
+  --folder-pink-surface: #3d1a2d;
+  --folder-pink-ink: #f9a8d4;
   --color-founder-note-paper: 29 27 24;
   --color-founder-note-rule: 83 89 99;
   --color-founder-note-margin: 147 118 118;
@@ -512,6 +580,7 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
 
   .omanote-todo-checkmark {
     position: relative;
+    border-radius: var(--component-todo-checkmark-radius);
     display: inline-flex;
     flex: none;
     align-items: center;
@@ -748,6 +817,34 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
 .omanote-canvas-grid {
   background-image: radial-gradient(circle, rgb(var(--color-canvas-dot)) 1px, transparent 1px);
   background-size: 16px 16px;
+}
+
+/* FolderIcon's two stacked Lucide glyphs — whichever matches the current
+   open/closed state fades in over the other. Driven only by the explicit
+   `open` prop: an earlier version also opened on `:focus-within` of the
+   enclosing group, which fired for any stray focus (tabbing onto a row's
+   delete button) and still missed the real case, since the mobile note
+   editor renders in a drawer portal outside the group entirely. */
+.omanote-folder-glyph {
+  transition:
+    opacity var(--motion-duration-fast) var(--motion-easing-out),
+    transform var(--motion-duration-fast) var(--motion-easing-out);
+}
+
+.omanote-folder-glyph[data-shown="false"] {
+  opacity: 0;
+  transform: scale(0.9);
+}
+
+.omanote-folder-glyph[data-shown="true"] {
+  opacity: 1;
+  transform: scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .omanote-folder-glyph {
+    transition: none;
+  }
 }
 
 @keyframes omanote-page-fade {
@@ -988,6 +1085,14 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
 .ProseMirror > ul > li,
 .ProseMirror > ol > li {
   margin-bottom: 0.5rem;
+}
+/* Zeroed on the last item so a list's trailing space is the *next* block's
+   margin alone, never a sum. RichTextPreview carries the matching
+   `last:mb-0`; see the comment there for why the two renderers drift apart
+   by exactly this 8px otherwise (collapsing vs. a real spacer element). */
+.ProseMirror > ul > li:last-child,
+.ProseMirror > ol > li:last-child {
+  margin-bottom: 0;
 }
 .ProseMirror li > ul,
 .ProseMirror li > ol {
@@ -1391,5 +1496,336 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
   .omanote-mark-stroke {
     animation: none;
     stroke-dashoffset: 0;
+  }
+}
+
+
+/* ─── Landing: core & ecosystem ──────────────────────────────────────────────
+ *
+ * The one section on the page allowed to show off. Everything animates a
+ * transform, an opacity or a registered custom property, so it composites off
+ * the main thread; the whole block is switched off under
+ * `prefers-reduced-motion` at the end.
+ */
+
+/*
+ * Registered so it can be *animated*. A plain `--angle` is an unparsed token
+ * and interpolates as a step function — the conic border would jump rather
+ * than sweep. Browsers without `@property` (Firefox < 128) simply don't
+ * animate it, leaving a static border, which is the intended fallback.
+ */
+@property --eco-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.omanote-eco {
+  background:
+    radial-gradient(120% 80% at 50% 45%, #fbfdf7 0%, rgba(251, 253, 247, 0) 62%),
+    var(--color-app-surface, #ffffff);
+  isolation: isolate;
+}
+
+.omanote-eco-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(to right, rgba(0, 0, 0, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(70% 58% at 50% 55%, #000 10%, transparent 76%);
+  mask-image: radial-gradient(70% 58% at 50% 55%, #000 10%, transparent 76%);
+}
+
+.omanote-eco-bloom {
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  width: min(900px, 88vw);
+  aspect-ratio: 1.5;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--eco-brand) 10%, transparent),
+    transparent 70%
+  );
+}
+
+/* ── Bento ─────────────────────────────────────────────────────────────── */
+
+.omanote-eco-bento {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "core" "a" "b" "c" "d" "e" "f" "g" "h" "i";
+}
+
+@media (min-width: 640px) {
+  .omanote-eco-bento {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-areas:
+      "core core"
+      "a a"
+      "b c"
+      "d e"
+      "f f"
+      "g g"
+      "h i";
+  }
+}
+
+@media (min-width: 1024px) {
+  .omanote-eco-bento {
+    /* Four columns, three rows, the mark holding the middle two cells of the
+       centre row. Exactly one tile is double-width: at 4x3 the core takes two
+       of twelve cells, leaving ten for nine tiles. Spanning any more forces
+       tall rows that leave the short tiles mostly empty. */
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-areas:
+      "a a b c"
+      "d core core e"
+      "f g h i";
+    gap: 16px;
+  }
+}
+
+.omanote-eco-centre {
+  grid-area: core;
+  display: grid;
+  place-items: center;
+  padding: 24px 0;
+}
+
+/* ── Tiles ─────────────────────────────────────────────────────────────── */
+
+.omanote-eco-card {
+  position: relative;
+  display: block;
+  padding: 1px; /* the border layer lives in this ring */
+  border-radius: 18px;
+  background: rgba(17, 24, 12, 0.07);
+  opacity: 0;
+  transform: translateY(16px);
+  transition:
+    opacity 620ms ease,
+    transform 620ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.omanote-eco-bento.is-revealed .omanote-eco-card {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/*
+ * The charge running around the edge.
+ *
+ * A conic gradient with two bright arcs, rotated by the registered `--eco-angle`
+ * above and confined to the 1px ring by the parent's padding. Cheaper and far
+ * crisper than an SVG stroke: one painted layer per tile, rotated by the
+ * compositor.
+ */
+.omanote-eco-card-edge {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: conic-gradient(
+    from var(--eco-angle),
+    transparent 0deg,
+    color-mix(in srgb, var(--eco-brand) 85%, white) 14deg,
+    transparent 40deg,
+    transparent 180deg,
+    color-mix(in srgb, var(--eco-brand) 55%, white) 194deg,
+    transparent 220deg,
+    transparent 360deg
+  );
+  animation: omanote-eco-charge 5.6s linear infinite;
+  animation-delay: var(--eco-delay, 0s);
+  opacity: 0.85;
+}
+
+@keyframes omanote-eco-charge {
+  to {
+    --eco-angle: 360deg;
+  }
+}
+
+.omanote-eco-card-inner {
+  position: relative;
+  z-index: 1;
+  /* Centred rather than top-aligned: the core's row is taller than its text
+     needs, and a two-line tile pinned to the top of it reads as a mistake
+     rather than as a bento. */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  height: 100%;
+  padding: 16px;
+  border-radius: 17px;
+  background: #fff;
+  box-shadow: 0 10px 30px -22px rgba(16, 24, 12, 0.5);
+}
+
+
+.omanote-eco-card:hover {
+  transform: translateY(-3px);
+}
+
+.omanote-eco-card:hover .omanote-eco-card-edge {
+  opacity: 1;
+  animation-duration: 2.4s;
+}
+
+.omanote-eco-card:hover .omanote-eco-card-inner {
+  box-shadow: 0 18px 40px -24px color-mix(in srgb, var(--eco-brand) 70%, transparent);
+}
+
+.omanote-eco-card-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  color: var(--eco-brand);
+  background: color-mix(in srgb, var(--eco-brand) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--eco-brand) 16%, transparent);
+}
+
+/* ── The core ──────────────────────────────────────────────────────────── */
+
+.omanote-eco-core {
+  position: relative;
+  display: grid;
+  place-items: center;
+  /* Gives the cast shadow below room without pushing the grid row taller. */
+  padding-bottom: 18px;
+}
+
+.omanote-eco-core-mark {
+  position: relative;
+  display: block;
+  border-radius: 30px;
+  overflow: hidden;
+  /* Two shadows: a tight contact one, and a wide coloured bounce. Together
+     they read as an object resting in front of the page rather than a sticker
+     on top of it. */
+  box-shadow:
+    0 2px 4px rgba(16, 24, 12, 0.12),
+    0 26px 50px -18px color-mix(in srgb, var(--eco-brand) 55%, transparent);
+}
+
+.omanote-eco-core-mark img {
+  display: block;
+  width: 128px;
+  height: 128px;
+}
+
+/* The broad highlight drifting over the face. */
+.omanote-eco-core-gloss {
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+  background: radial-gradient(
+    46% 38% at 32% 20%,
+    rgba(255, 255, 255, 0.72),
+    rgba(255, 255, 255, 0) 62%
+  );
+  animation: omanote-eco-gloss 9s ease-in-out infinite;
+}
+
+/* The narrow specular streak crossing it, on a longer cycle so the two never
+   settle into an obvious loop together. */
+.omanote-eco-core-spec {
+  position: absolute;
+  inset: -40%;
+  pointer-events: none;
+  background: linear-gradient(
+    118deg,
+    transparent 42%,
+    rgba(255, 255, 255, 0.5) 50%,
+    transparent 58%
+  );
+  animation: omanote-eco-spec 11s ease-in-out infinite;
+}
+
+/* Inner rim light — the give-away detail on glossy 3D marks. */
+.omanote-eco-core-rim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.75),
+    inset 0 -10px 18px -10px rgba(0, 0, 0, 0.35);
+}
+
+/* The cast shadow, sliding against the highlight. */
+.omanote-eco-core-cast {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: 2px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(32, 48, 16, 0.4);
+  filter: blur(11px);
+  animation: omanote-eco-cast 9s ease-in-out infinite;
+}
+
+@keyframes omanote-eco-gloss {
+  0%,
+  100% {
+    transform: translate(-9%, -5%) scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate(11%, 7%) scale(1.12);
+    opacity: 1;
+  }
+}
+
+@keyframes omanote-eco-spec {
+  0%,
+  100% {
+    transform: translateX(-28%);
+  }
+  50% {
+    transform: translateX(28%);
+  }
+}
+
+@keyframes omanote-eco-cast {
+  0%,
+  100% {
+    transform: translateX(6%) scaleX(1);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translateX(-7%) scaleX(1.1);
+    opacity: 0.4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .omanote-eco-card-edge,
+  .omanote-eco-core-gloss,
+  .omanote-eco-core-spec,
+  .omanote-eco-core-cast {
+    animation: none;
+  }
+
+  .omanote-eco-card {
+    opacity: 1;
+    transform: none;
+    transition: none;
   }
 }

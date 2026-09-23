@@ -98,6 +98,9 @@ export function NotesScreen() {
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
   const [editingIcon, setEditingIcon] = useState<string | undefined>(undefined);
+  // Paired with editingIcon: the colour being composed for a folder that's
+  // being renamed or created, before there's a row to dispatch against.
+  const [editingColor, setEditingColor] = useState<string | undefined>(undefined);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const iconPickerAnchorRef = useRef<HTMLButtonElement | null>(null);
   const [directIconFolderId, setDirectIconFolderId] = useState<string | null>(null);
@@ -242,12 +245,13 @@ export function NotesScreen() {
   }, [allFolderNames, newFolderName, renamingFolderId, state.noteFolders]);
 
   const folderRows = useMemo(() => {
-    const rows = new Map<string, { id?: string; name: string; icon?: string; pinned?: boolean; count: number; lastUpdated: number }>();
+    const rows = new Map<string, { id?: string; name: string; icon?: string; color?: string; pinned?: boolean; count: number; lastUpdated: number }>();
     for (const folder of state.noteFolders) {
       rows.set(normalizeNoteFolderName(folder.name), {
         id: folder.id,
         name: folder.name,
         icon: folder.icon,
+        color: folder.color,
         pinned: folder.pinned,
         count: 0,
         lastUpdated: folder.createdAt,
@@ -446,7 +450,6 @@ export function NotesScreen() {
         autoFocus={false}
         layout="canvas"
         showTags={false}
-        hideFolderPicker
         saveOnOutsideClick
         outsideClickContainerRef={composerRootRef}
         persistRecentFolderOnSave
@@ -483,7 +486,7 @@ export function NotesScreen() {
       return;
     }
     if (renamingFolderId) {
-      dispatch({ type: "note-folder/update", folderId: renamingFolderId, name: trimmed, icon: editingIcon });
+      dispatch({ type: "note-folder/update", folderId: renamingFolderId, name: trimmed, icon: editingIcon, color: editingColor });
       pendingFolderRenameRef.current = trimmed;
       if (selectedFolder) {
         setSelectedFolder(trimmed);
@@ -630,13 +633,13 @@ export function NotesScreen() {
                       }}
                       className="flex-shrink-0 rounded-md p-0.5 text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
                     >
-                      <CategoryIconView icon={row.icon} size="sm" />
+                      <CategoryIconView icon={row.icon} size="sm" color={row.color} />
                     </button>
                   );
                 }
                 return (
                   <span className="flex-shrink-0 text-app-ink-faint">
-                    <CategoryIconView icon={row?.icon} size="sm" />
+                    <CategoryIconView icon={row?.icon} size="sm" color={row?.color} />
                   </span>
                 );
               })()}
@@ -783,7 +786,6 @@ export function NotesScreen() {
                     initialSelectionStart={editingNoteSelectionStart}
                     layout="canvas"
                     showTags={false}
-                    hideFolderPicker
                     // renderNotesPanel() renders both the desktop panel and
                     // the mobile drawer at once (CSS hides whichever one
                     // isn't current, it doesn't unmount it — see the ref
@@ -1028,6 +1030,7 @@ export function NotesScreen() {
                         key={folder.id ?? folder.name}
                         folderName={folder.name}
                         icon={folder.icon}
+                        color={folder.color}
                         count={noteFolderMatchCounts?.get(normalizeNoteFolderName(folder.name)) ?? folder.count}
                         selected={selectedFolder ? normalizeNoteFolderName(selectedFolder) === normalizeNoteFolderName(folder.name) : false}
                         onClick={() => openFolderNotes(folder.name)}
@@ -1146,6 +1149,7 @@ export function NotesScreen() {
                         key={folder.id ?? folder.name}
                         folderName={folder.name}
                         icon={folder.icon}
+                        color={folder.color}
                         count={noteFolderMatchCounts?.get(normalizeNoteFolderName(folder.name)) ?? folder.count}
                         selected={selectedFolder ? normalizeNoteFolderName(selectedFolder) === normalizeNoteFolderName(folder.name) : false}
                         onClick={() => openFolderNotes(folder.name)}
@@ -1306,10 +1310,22 @@ export function NotesScreen() {
           key={directIconFolderId ?? renamingFolderId ?? "new"}
           anchorRef={iconPickerAnchorRef}
           currentIcon={editingIcon}
+          currentColor={directIconFolderId ? state.noteFolders.find((f) => f.id === directIconFolderId)?.color : editingColor}
+          // Deliberately does not close the picker: colour and icon are two
+          // choices on one folder, and closing after the first would make
+          // setting both take two trips.
+          onSelectColor={(color) => {
+            if (directIconFolderId) {
+              const folder = state.noteFolders.find((f) => f.id === directIconFolderId);
+              if (folder) dispatch({ type: "note-folder/update", folderId: directIconFolderId, name: folder.name, icon: folder.icon, color });
+            } else {
+              setEditingColor(color);
+            }
+          }}
           onSelect={(icon) => {
             if (directIconFolderId) {
               const folder = state.noteFolders.find((f) => f.id === directIconFolderId);
-              if (folder) dispatch({ type: "note-folder/update", folderId: directIconFolderId, name: folder.name, icon });
+              if (folder) dispatch({ type: "note-folder/update", folderId: directIconFolderId, name: folder.name, icon, color: folder.color });
               setDirectIconFolderId(null);
               setEditingIcon(undefined);
             } else {

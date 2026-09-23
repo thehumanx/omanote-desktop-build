@@ -23,6 +23,133 @@ Each entry is one of:
 - **Renamed** `Component.propName` → `Component.newPropName`. <why>. <migration note>.
 ```
 
+## 2026-09-23
+
+- **Added** an inline `backgroundColor` from `folderColorStyle(color).surface`
+  on every folder **icon chip**: `FolderNavRow`, `FolderNavCard`,
+  `TodoFolderRow`, `TodoFolderCard` and `PageScreen`'s header icon button.
+  Until now the palette key only reached the glyph (`CategoryIconView`'s
+  `color`), so a coloured folder looked untinted in the rails — the chip is
+  the folder's visible "container". The style is inline because the key is
+  runtime-only, and it **deliberately overrides** the
+  `bg-app-surface-muted` / `bg-app-surface` hover-and-selected classes on the
+  same element, so the tint survives selection and hover. If you add a new
+  folder chip, tint it the same way.
+- **Added** `FOLDER_FIELD_WIDTH` (`src/components/FolderCombobox.tsx`) — the
+  shared width for a folder/category field, `w-[220px] min-w-[180px]
+  max-w-full`. The three call sites had disagreed: the note picker was a fixed
+  220px while the composer's todo and bookmark fields were `w-full`, so the
+  same control spanned the whole sheet in two of three modes and visibly
+  resized when the mode changed. Use it rather than restating a width.
+- **Added** `icon` / `color` on `FolderFieldIcon` — the leading glyph in a
+  folder field now shows the *selected* folder's own icon or emoji when it has
+  one, and otherwise keeps the animated `FolderIcon` tinted with the folder's
+  colour (`FolderIcon` draws in `currentColor`, so the wrapper's `color` is
+  all it takes). Same split as `FolderLabel`: custom glyphs are static,
+  because an emoji has no open state. Callers resolve the folder with the
+  combobox's `exactMatch`, which is null mid-typing — the generic folder while
+  the field doesn't yet name anything is correct, not a gap.
+- **Added** `icon` / `color` on `FolderComboboxSource` and
+  `FolderComboboxItem`, and the matching glyph on each row in
+  `FolderComboboxOptions` — `CategoryIconView` for an existing folder,
+  `FolderPlus` for the create row. Sources that reshape their folders before
+  passing them in (`NoteFolderPicker` dedupes by name) have to carry the two
+  fields through or the menu silently falls back to the generic folder.
+- **Changed** `PageCard`'s border `border-app-surface-muted` →
+  `border-app-line`, matching `CanvasContinueWriting`'s card. The same page
+  renders through both (today's day feed and the "Continue" row), so two
+  different borders read as two different kinds of card. The muted border
+  dated from the day the surrounding artifact blocks were bordered to match
+  the folder tab's fill; those borders are gone.
+- **Changed** dark-mode `--shadow-artifact-group` from
+  `0 -3px 10px rgba(0,0,0,0.32)` to `0 -3px 5px -3px rgba(0,0,0,0.45)`. It had
+  kept the geometry of the original light value after that light value was
+  hand-tightened, so dark mode was drawing a much wider halo than light. Dark
+  shadows here move the **alpha only** and keep light's geometry — see
+  `--shadow-drawer` (0.14 → 0.42), `--shadow-menu` (0.12 → 0.38),
+  `--shadow-dialog` (0.18 → 0.48).
+- **Added** the palette `surface` and `ink` on the page-card icon chips in
+  `PageCard` and `CanvasContinueWriting`. The `ink` tint is applied to the
+  `FileText` fallback as well as to a chosen icon, because most pages never
+  pick one — without it a coloured page would be the one coloured thing in the
+  app that doesn't look coloured.
+- **Added** `color` on `TodosScreen`'s mobile drawer header glyph, which was
+  the last `CategoryIconView` on a folder that still dropped it. Bare glyphs
+  with no chip behind them (this one, and the Notes/Bookmarks drawer headers)
+  take the ink tint only — there is no container there to fill.
+
+## 2026-09-22
+
+- **Added** `src/lib/folder-color.ts` — `FOLDER_COLORS` (rose, amber,
+  emerald, teal, sky, indigo, violet, pink), `isFolderColor`, and
+  `folderColorStyle(key)` → `{ surface, ink }`. Both returned values are
+  `var(--folder-<key>-surface|ink)` strings, resolved in `src/index.css` for
+  light and dark. **Store the key, never a hex value** — that is what lets the
+  colour follow the theme and what keeps the design-token audit satisfied,
+  since no component ever names a colour. `src/lib/folder-color.test.ts`
+  guards parity between the table and the CSS.
+- **Added** `--folder-{rose,amber,emerald,teal,sky,indigo,violet,pink}-`
+  `{surface,ink}` (16 properties) in `src/index.css`, defined twice — light
+  and dark.
+- **Added** `CategoryIconView.color` (`src/lib/bookmark-category-icon.tsx`) —
+  applies `{ color: palette.ink }` to lucide glyphs and the `Folder`
+  fallback, and **never to an emoji**. An emoji carries its own colour.
+- **Added** `BookmarkCategoryIconPicker.currentColor` / `.onSelectColor`.
+  Both optional: when `onSelectColor` is absent the swatch row is hidden
+  entirely, which is how `ReaderScreen`'s `rssCategories` (no `color` column)
+  reuse the picker unchanged. Clicking the active swatch clears the colour, as
+  does the ✕ swatch. The picker stays open after a colour pick on purpose.
+- **Added** `color` on `FolderNavRow` / `FolderNavCard` (and their
+  `NoteFolderNav` / `BookmarkCategoryNav` wrappers), `FolderLabel`, and
+  `CanvasDayArtifacts`.
+- **Added** `--shadow-artifact-group` (`shadow-artifact-group`) — the upward
+  shadow separating a canvas artifact group from the feed background, drawn
+  so it passes behind the folder tab.
+- **Changed** `CanvasDayArtifacts.categoryNameById: Map<string, string>` →
+  `categoryById: Map<string, BookmarkCategory>`. A name is no longer enough;
+  the group header needs the icon and colour too.
+- **Changed** `NoteCanvasEditor.folderName` / `.folders` /
+  `.onFolderNameChange` are now optional, so the editor can render with no
+  folder control at all.
+- **Removed** `CanvasArtifactItem.edited` and `.editLabel`
+  (`src/app/reducer.ts`), the `EditedBadge` in `CanvasDayArtifacts`, and the
+  helpers `isCompletionOnlyUpdate`, `describeCanvasEdit`, `wasEditedOn`. The
+  day feed no longer resurfaces edited artifacts — `editLabel` was added
+  2026-09-19 and lived three days. See docs/canvas-feature-handoff.md for why
+  it cannot be rebuilt on `updatedAt`. `sortAt` keeps its name.
+- **Removed** `NoteInlineEditor.hideFolderPicker`. It became dead when note
+  editing lost folder editing entirely; the forwarded `NoteCanvasEditor` now
+  hardcodes it. `NoteCanvasEditor`'s own `hideFolderPicker` is still live.
+- **Removed** `SaveShortcutHint` from `NoteCanvasEditor`'s footer row.
+- **Unchanged (recorded so it isn't retried blind)** light-mode
+  `--color-canvas` briefly went to `250 250 250` and was put back to
+  `255 255 255` the same day. The reasoning was that canvas and
+  `--color-surface` are both pure white in light mode, so the canvas feed's
+  new folder-group cards had no contrast to sit against. It was reverted once
+  those cards grew a muted folder tab, which carries the separation on its
+  own. Two things to know before dimming it again: the token is app-wide and
+  includes `.public-page`, so the landing page moves with it; and dark mode
+  already separates the two (`9 9 11` vs `24 24 27`) and needs no change.
+- **Added** `FolderIcon` (`src/components/FolderIcon.tsx`) — the animated
+  open/closed folder. Stacks Lucide's `Folder` and `FolderOpen` and
+  crossfades between them; driven solely by its `open` prop.
+
+  It shipped for a few hours as a hand-drawn SVG with a hinged flap, on the
+  theory that two paths sharing geometry would give a truer motion than a
+  crossfade. That was a mistake worth recording: the geometry rendered
+  wrong at small sizes, it needed `transform-box: view-box` gymnastics to
+  hinge at all, and it bought nothing — at the 16px this icon actually
+  renders at, a crossfade is indistinguishable from a morph. **Don't
+  hand-draw this icon again.** Lottie was weighed as the alternative and
+  rejected: a player instance per glyph is heavy for something that repeats
+  down a list, and Lottie bakes its colors in, so it can't inherit
+  `currentColor` and would break dark mode and the ink tokens.
+- **Added** `FolderLabel` (`src/components/FolderLabel.tsx`) — the quiet
+  icon + name line naming an artifact's folder.
+- **Added** `FolderFieldIcon` (`src/components/FolderCombobox.tsx`) — the
+  leading glyph for a folder/category input. Absolutely positioned like
+  `FolderComboboxClearButton`; pair it with `pl-6 pr-7` on the input.
+
 ## 2026-09-19
 
 - **Added** `useFolderCombobox` / `FolderComboboxOptions` /
