@@ -1,11 +1,12 @@
 import Dexie, { type Table } from "dexie";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
+import { jsonCodec, readLocalStorage, removeLocalStorage, writeLocalStorage } from "../lib/local-storage";
 
 // Dexie stores raw Convex documents — encrypted fields remain encrypted.
 // The Convex _id string is used as the primary key for all tables.
 
 // RSS items are stored client-only (fetched via Cloudflare proxy, not synced from Convex).
-export interface RssItem {
+interface RssItem {
   _id: string;
   feedId: Id<"rssFeeds">;
   guid: string;
@@ -24,7 +25,7 @@ interface SyncCursor {
   cursor: number;
 }
 
-export interface CachedLinkPreview {
+interface CachedLinkPreview {
   url: string;
   title?: string;
   siteName?: string;
@@ -81,7 +82,7 @@ export interface OutboxRecord {
   nextAttemptAt?: number;
 }
 
-class OmanoteDB extends Dexie {
+export class OmanoteDB extends Dexie {
   syncCursors!: Table<SyncCursor, string>;
   outbox!: Table<OutboxRecord, string>;
   todos!: Table<Doc<"todos">, string>;
@@ -101,8 +102,8 @@ class OmanoteDB extends Dexie {
   rssItems!: Table<RssItem, string>;
   rssReadState!: Table<Doc<"rssReadState">, string>;
 
-  constructor() {
-    super("omanote");
+  constructor(name: string) {
+    super(name);
     this.version(1).stores({
       syncCursors:          "table",
       todos:                "_id, userId, updatedAt, deletedAt, createdDateKey, status, dueDateKey",
@@ -191,25 +192,153 @@ class OmanoteDB extends Dexie {
   }
 }
 
-export const db = new OmanoteDB();
-export type { SyncCursor };
+/**
+ * One database per account: `omanote:<clerk user id>`.
+ *
+ * The cache used to be a single `omanote` database shared by every account on
+ * the browser, and the read paths don't filter by `userId` — so keeping one
+ * account's rows away from another depended on `LocalCacheGate` clearing the
+ * tables before anything read them. That held, but only as long as the ordering
+ * did (see docs/code-quality-audit-2026-09.md §S2). With a database per
+ * account, another account's rows aren't reachable from the open handle at all.
+ */
+export function userDbName(userId: string): string {
+  return `omanote:${userId}`;
+}
 
-/** localStorage key recording which Clerk user the cache in this browser belongs to. */
+/** What's open while nobody is signed in — public share pages cache link previews here. */
+const SIGNED_OUT_DB_NAME = "omanote:signed-out";
+
+/** The shared pre-2026-09 database, copied into the owner's own one once (`migrateLegacyCache`). */
+const LEGACY_DB_NAME = "omanote";
+
+/**
+ * The open cache. `export let` is a live binding: every `db.todos…` in the app
+ * reads whichever instance `selectUserDb` set last, so the ~dozen modules that
+ * import it didn't have to change. Nothing may hold on to `db` itself across a
+ * switch; `LocalCacheGate` remounts the whole signed-in tree when it changes.
+ */
+export let db = new OmanoteDB(SIGNED_OUT_DB_NAME);
+
+/** Instances replaced by a switch, closed once the tree reading them has unmounted. */
+const retired: OmanoteDB[] = [];
+
+/**
+ * Points `db` at `userId`'s database (or the signed-out one). Synchronous and
+ * cheap — Dexie opens lazily — so the gate can call it during render and the
+ * same-user path paints on the first pass.
+ */
+export function selectUserDb(userId: string | null): OmanoteDB {
+  const name = userId === null ? SIGNED_OUT_DB_NAME : userDbName(userId);
+  if (db.name !== name) {
+    retired.push(db);
+    db = new OmanoteDB(name);
+  }
+  // Signing back in before a queued deletion ran keeps the database.
+  if (userId !== null) unmarkForDeletion(name);
+  return db;
+}
+
+/**
+ * Closes the instances a switch replaced, then deletes any database marked by
+ * `markCurrentDbForDeletion`. Run after the old tree has unmounted — closing
+ * earlier would make its still-subscribed live queries throw mid-render.
+ */
+export async function closeRetiredDbs(): Promise<void> {
+  for (const instance of retired.splice(0)) instance.close();
+  for (const name of readPendingDeletions()) {
+    if (name === db.name) continue;
+    try {
+      await Dexie.delete(name);
+      unmarkForDeletion(name);
+    } catch {
+      // Blocked by another tab, or storage unavailable: retried on the next switch.
+    }
+  }
+}
+
+/**
+ * Deletes the current account's database once nothing reads it any more — on
+ * sign-out after the tree has switched away, or on the next load after an
+ * account deletion reloads the page. Callers empty the tables first, so the
+ * rows are gone immediately either way; this removes the database itself.
+ *
+ * Persisted rather than held in memory so a reload in between doesn't lose it.
+ */
+export function markCurrentDbForDeletion(): void {
+  if (db.name === SIGNED_OUT_DB_NAME) return;
+  const pending = readPendingDeletions();
+  if (!pending.includes(db.name)) writeLocalStorage(PENDING_DELETION_KEY, stringListCodec, [...pending, db.name]);
+}
+
+const PENDING_DELETION_KEY = "omanote.dexie-pending-deletion";
+const stringListCodec = jsonCodec((value): value is string[] => Array.isArray(value) && value.every((item) => typeof item === "string"));
+
+function readPendingDeletions(): string[] {
+  return readLocalStorage(PENDING_DELETION_KEY, stringListCodec, []);
+}
+
+function unmarkForDeletion(name: string): void {
+  const pending = readPendingDeletions();
+  if (!pending.includes(name)) return;
+  const rest = pending.filter((item) => item !== name);
+  if (rest.length) writeLocalStorage(PENDING_DELETION_KEY, stringListCodec, rest);
+  else removeLocalStorage(PENDING_DELETION_KEY);
+}
+
+/**
+ * localStorage key naming the last account signed in on this browser.
+ *
+ * No longer an ownership check (the database name is that now). It answers
+ * "whose database do we open" when Clerk can't say — offline, a session can't
+ * be verified — and `RootRoute` reads it as "this device has signed in before".
+ */
 export const DEXIE_CACHE_OWNER_KEY = "omanote.dexie-user";
 
 /**
- * Empties every Dexie table.
+ * One-time move from the shared `omanote` database to `userId`'s own.
+ *
+ * Copied rather than dropped: the old database holds the outbox, and an
+ * offline write still queued there would otherwise be lost, not just
+ * re-downloaded. Only copied when the previous owner marker names this same
+ * account — anyone else's rows are deleted, which is what the old gate did on
+ * a handover anyway.
+ *
+ * Throws if the copy fails, leaving the old database in place so the next load
+ * retries; `bulkPut` makes a repeated copy harmless.
+ */
+export async function migrateLegacyCache(userId: string, previousOwner: string | undefined): Promise<void> {
+  if (!(await Dexie.exists(LEGACY_DB_NAME))) return;
+  if (previousOwner === userId) {
+    const legacy = new OmanoteDB(LEGACY_DB_NAME);
+    try {
+      await legacy.open();
+      const target = selectUserDb(userId);
+      const contents = await Promise.all(legacy.tables.map(async (table) => [table.name, await table.toArray()] as const));
+      await target.transaction("rw", target.tables, async () => {
+        for (const [name, rows] of contents) {
+          if (rows.length) await target.table(name).bulkPut(rows);
+        }
+      });
+    } finally {
+      legacy.close();
+    }
+  }
+  await Dexie.delete(LEGACY_DB_NAME);
+}
+
+/**
+ * Empties every table of the open database.
  *
  * Deliberately iterates `db.tables` instead of listing table names. The
  * previous version of this clear named eight tables by hand and had drifted to
  * cover eight of fourteen — `rssSubscriptions`, `rssCategories`, `rssReadState`,
- * `rssItems`, `rssFeeds`, and `linkPreviews` were all missed. Four of those are
- * user-scoped and the RSS read path filters only on `deletedAt`, never on
- * `userId`, so a second user signing in on the same browser saw the union of
- * both users' subscriptions and read state. See docs/hardening-audit.md §8.1.
+ * `rssItems`, `rssFeeds`, and `linkPreviews` were all missed. See
+ * docs/hardening-audit.md §8.1.
  *
- * A hand-maintained list has to be updated every time a table is added, and
- * nothing fails when it isn't. This cannot fall out of date.
+ * With a database per account this is no longer what keeps accounts apart;
+ * sign-out uses it so the rows disappear at once, before the database itself
+ * is deleted (`markCurrentDbForDeletion`).
  */
 export async function clearLocalCache(): Promise<void> {
   await Promise.all(db.tables.map((table) => table.clear()));

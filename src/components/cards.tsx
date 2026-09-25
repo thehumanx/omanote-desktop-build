@@ -257,7 +257,7 @@ export const NoteCard = memo(function NoteCard({
   }
   return (
     <div className="rounded-app-card border border-app-line bg-app-surface p-4 shadow-none">
-      <p className="text-xs font-bold uppercase tracking-[0.18em] text-app-ink-faint">{formatLongDateKey(note.createdDateKey)}</p>
+      <p className="text-xs font-bold uppercase text-app-ink-faint">{formatLongDateKey(note.createdDateKey)}</p>
       <div className="mt-2 text-sm leading-7 text-app-ink">
         <RichTextPreview value={normalizedBody} className="text-sm leading-7 text-app-ink" paragraphClassName="text-sm leading-7 text-app-ink" highlightQuery={highlightQuery} />
       </div>
@@ -811,7 +811,7 @@ export const BookmarkCard = memo(function BookmarkCard({
                   className="fixed z-app-linked-artifact-sheet w-[360px] max-w-[calc(100vw-16px)] overflow-hidden rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
                   style={{ top: linkedArtifactSheetPosition.top, left: linkedArtifactSheetPosition.left }}
                 >
-                  <div className="px-2 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-app-ink-faint">
+                  <div className="px-2 py-1.5 text-[11px] font-bold uppercase text-app-ink-faint">
                     Linked Artifacts
                   </div>
                   <div className="max-h-72 overflow-y-auto">

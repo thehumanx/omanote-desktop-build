@@ -23,6 +23,30 @@ Each entry is one of:
 - **Renamed** `Component.propName` → `Component.newPropName`. <why>. <migration note>.
 ```
 
+## 2026-09-25
+
+- **Added** `AppLoadingScreen` (`src/components/ui.tsx`) — the one
+  full-screen loading state: canvas background, then the looping
+  `OmanoteMark` fading in after 400ms (`.omanote-loading-delayed`), so a fast
+  load shows nothing. Neutral (`text-app-ink-faint`), not brand green. Replaces the "Loading…" text in `EncryptionGate` and
+  `OnboardingWizard`, `LocalCacheGate`'s blank div, `RootRoute`'s `null` and
+  `App`'s `RouteLoadingFallback`. Use it for any new full-screen wait; keep
+  `LoadingSpinner` for inline ones. Screens that follow each other within
+  250ms continue one animation (fade and draw offset by the elapsed time),
+  since boot passes through several gates that each render their own.
+- **Added** `--omanote-mark-delay` on `OmanoteMark`'s `loop` variant — a
+  negative value resumes the loop mid-cycle.
+- **Removed** every `tracking-*` utility from sans text (94 uses: uppercase
+  labels, eyebrows and badges with `tracking-wide`/`wider`/`widest`/
+  `[0.16em]`–`[0.2em]`, and headings with `tracking-tight`/`[-0.02em]`/
+  `[-0.025em]`), plus the extension popup's `letter-spacing` declarations.
+  Sans text is at 0 tracking everywhere; serif keeps its `-0.02em`
+  (`docs/design-system.md`, "Sans text is never tracked"). Don't add
+  tracking to sans text.
+- **Changed** `.omanote-canvas-grid` dots draw at 62.5% strength —
+  `rgb(var(--color-canvas-dot) / 0.625)` (halved, then raised by a quarter). The `--color-canvas-dot` token itself
+  is unchanged, so anything else using it keeps its colour.
+
 ## 2026-09-23
 
 - **Added** an inline `backgroundColor` from `folderColorStyle(color).surface`

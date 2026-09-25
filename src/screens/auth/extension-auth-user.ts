@@ -1,4 +1,4 @@
-export interface ExtensionAuthUserInput {
+interface ExtensionAuthUserInput {
   fullName?: string | null;
   username?: string | null;
   primaryEmailAddress?: { emailAddress?: string | null } | null;

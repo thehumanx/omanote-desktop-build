@@ -11,7 +11,7 @@ export function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
-export type DesktopPlatform = "macos" | "windows" | "linux";
+type DesktopPlatform = "macos" | "windows" | "linux";
 
 /** OS the desktop shell runs on, or null outside Tauri. */
 export function desktopPlatform(): DesktopPlatform | null {

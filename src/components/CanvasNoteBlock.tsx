@@ -15,7 +15,7 @@ import { captureScrollSnapshot, restoreScrollForNextFrames } from "../lib/preser
 import { resolveRichTextSourceOffsetFromPoint } from "../lib/rich-text-caret";
 import { normalizeLegacyNoteBodyForTiptap } from "../lib/note-body-migration";
 
-export type CanvasNoteBlockProps = {
+type CanvasNoteBlockProps = {
   note: NoteItem;
   pendingSync?: boolean;
   dispatch: (action: AppAction) => void;

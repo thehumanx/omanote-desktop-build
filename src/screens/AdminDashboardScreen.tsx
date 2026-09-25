@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { useAction, useMutation, useQuery } from "convex/react";
-import { AlertTriangle, CheckCircle2, Info, Lightbulb, XCircle } from "lucide-react";
+import { useAction, useConvex, useMutation } from "convex/react";
+import { AlertTriangle, CheckCircle2, Info, Lightbulb, RefreshCw, XCircle } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { BaseModal } from "../components/BaseModal";
 import { Button, cn } from "../components/ui";
@@ -117,7 +117,7 @@ function StatCard({
 }) {
   return (
     <div className="rounded-app-card border border-app-line bg-app-surface p-4">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-app-ink-faint">{label}</p>
+      <p className="text-[11px] font-medium uppercase text-app-ink-faint">{label}</p>
       <p
         className={cn(
           "mt-1.5 text-2xl font-bold tabular-nums",
@@ -181,7 +181,7 @@ function Th({ children, align = "left" }: { children: React.ReactNode; align?: "
   return (
     <th
       className={cn(
-        "border-b border-app-line px-2 py-1.5 text-[11px] font-medium uppercase tracking-wide text-app-ink-faint",
+        "border-b border-app-line px-2 py-1.5 text-[11px] font-medium uppercase text-app-ink-faint",
         align === "right" ? "text-right" : "text-left",
       )}
     >
@@ -757,8 +757,44 @@ function FeedbackList({ data }: { data: PmfDashboard }) {
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
+/**
+ * `getDashboard` reads a dozen whole tables. As a `useQuery` subscription it
+ * re-ran on every write by any user for as long as this tab stayed open, so it
+ * is fetched once instead, with an explicit Refresh.
+ */
+function useDashboardSnapshot() {
+  const convex = useConvex();
+  const [data, setData] = useState<PmfDashboard | undefined>(undefined);
+  const [error, setError] = useState<unknown>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [requestId, setRequestId] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    setRefreshing(true);
+    convex
+      .query(api.adminMetrics.getDashboard, {})
+      .then((next) => {
+        if (alive) setData(next);
+      })
+      .catch((err: unknown) => {
+        if (alive) setError(err);
+      })
+      .finally(() => {
+        if (alive) setRefreshing(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [convex, requestId]);
+
+  // Same failure mode the subscription had: surface to the route's error boundary.
+  if (error) throw error;
+  return { data, refreshing, refresh: () => setRequestId((id) => id + 1) };
+}
+
 export function AdminDashboardScreen() {
-  const data = useQuery(api.adminMetrics.getDashboard, {});
+  const { data, refreshing, refresh } = useDashboardSnapshot();
   const { directory, error: directoryError } = useUserDirectory();
   const [deletingUser, setDeletingUser] = useState<PmfDashboard["users"][number] | null>(null);
 
@@ -788,17 +824,23 @@ export function AdminDashboardScreen() {
 
   return (
     <div className="mx-auto max-w-[1000px] px-4 py-6 sm:px-6">
-      <header>
-        <h1 className="text-lg font-bold text-app-ink">Product health</h1>
-        <p className="mt-1 text-xs text-app-ink-faint">
-          Every figure below excludes your own account unless labelled otherwise. Generated{" "}
-          {new Date(data.generatedAt).toLocaleString()}.
-        </p>
+      <header className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-bold text-app-ink">Product health</h1>
+          <p className="mt-1 text-xs text-app-ink-faint">
+            Every figure below excludes your own account unless labelled otherwise. Generated{" "}
+            {new Date(data.generatedAt).toLocaleString()}.
+          </p>
+        </div>
+        <Button type="button" variant="ghost" onClick={refresh} disabled={refreshing}>
+          <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
+          Refresh
+        </Button>
       </header>
 
       {data.scaleFuse.nearLimit && (
         <div className="mt-5 rounded-app-card border border-amber-300 bg-amber-50 p-4 text-amber-900">
-          <p className="text-[11px] font-medium uppercase tracking-wide opacity-80">Scale warning</p>
+          <p className="text-[11px] font-medium uppercase opacity-80">Scale warning</p>
           <p className="mt-0.5 text-sm">
             This dashboard reads whole tables (`.collect()`), and `{data.scaleFuse.largestTable}` is at{" "}
             {data.scaleFuse.rowCount.toLocaleString()} rows — past the {data.scaleFuse.warnAt.toLocaleString()}-row
@@ -810,7 +852,7 @@ export function AdminDashboardScreen() {
 
       {verdict && verdictStyle && (
         <div className={cn("mt-5 rounded-app-card border p-4", verdictStyle.className)}>
-          <p className="text-[11px] font-medium uppercase tracking-wide opacity-80">Verdict</p>
+          <p className="text-[11px] font-medium uppercase opacity-80">Verdict</p>
           <p className="mt-0.5 text-base font-bold">{verdict.label}</p>
           <p className="mt-1 text-xs leading-relaxed text-app-ink-muted">{verdict.summary}</p>
         </div>
@@ -932,7 +974,7 @@ export function AdminDashboardScreen() {
       <Section title="Module & feature adoption" hint="Distinct non-founder users who have ever used each.">
         <div className="grid gap-6 sm:grid-cols-2">
           <div>
-            <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-app-ink-faint">Modules</p>
+            <p className="mb-2 text-[11px] font-medium uppercase text-app-ink-faint">Modules</p>
             <div className="space-y-2">
               {data.moduleAdoption.map((m) => (
                 <div key={m.module} className="flex items-center gap-3">
@@ -946,7 +988,7 @@ export function AdminDashboardScreen() {
             </div>
           </div>
           <div>
-            <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-app-ink-faint">Features</p>
+            <p className="mb-2 text-[11px] font-medium uppercase text-app-ink-faint">Features</p>
             <div className="space-y-2">
               {data.featureAdoption.map((f) => (
                 <div key={f.key} className="flex items-center gap-3">
@@ -983,7 +1025,7 @@ export function AdminDashboardScreen() {
           <StatCard label="Paying users" value={data.funnel.paying} tone={data.funnel.paying === 0 ? "bad" : "good"} />
         </div>
 
-        <p className="mb-2 mt-6 text-[11px] font-medium uppercase tracking-wide text-app-ink-faint">
+        <p className="mb-2 mt-6 text-[11px] font-medium uppercase text-app-ink-faint">
           Module conversion — touched module A in first 7 days, also touched module B within 14 days of that
         </p>
         <ModuleConversionTable data={data} />
@@ -1043,7 +1085,10 @@ export function AdminDashboardScreen() {
         <DeleteUserModal
           user={deletingUser}
           identity={directory?.get(clerkSubject(deletingUser.userId)) ?? null}
-          onClose={() => setDeletingUser(null)}
+          onClose={() => {
+            setDeletingUser(null);
+            refresh();
+          }}
         />
       )}
     </div>

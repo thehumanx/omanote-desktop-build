@@ -10,6 +10,8 @@ If you close an empty page without typing anything, it's discarded rather than l
 
 ## What goes in a page
 
+A page saves as you type, so Enter never saves here. **Enter** starts a new paragraph and **Shift + Enter** breaks the line within one, like most writing apps. (Notes are different: Enter saves a note, so a new paragraph there is Shift + Enter twice.)
+
 Alongside regular text, headings, and lists, a page can hold:
 
 - **Checklist items.** Type `/todo` or start a line with the checklist block. These are real todos: check one off here or from the Todos screen and it updates in both places. They land in the "Others" folder in Todos and stay out of your daily canvas feed, since the page already shows them.

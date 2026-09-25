@@ -3,7 +3,7 @@ import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { findActiveHashtag, hashtagColor } from "./hashtags";
 import { findActiveEmojiTrigger } from "./emoji-trigger";
-import { searchEmoji, quickPickEmojiSuggestions } from "./bookmark-category-icon";
+import { quickPickEmojiSuggestions, searchEmoji, useEmojiIndex } from "./emoji-search";
 import { Extension, InputRule } from "@tiptap/core";
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import type { EditorState, Transaction } from "@tiptap/pm/state";
@@ -182,7 +182,7 @@ interface ActiveHashtag {
   prosemirrorFrom: number;
 }
 
-export interface TiptapHashtagPickerState {
+interface TiptapHashtagPickerState {
   isOpen: boolean;
   suggestions: Array<{ _id: string; name: string; nameLower: string }>;
   activeIndex: number;
@@ -303,7 +303,7 @@ interface ActiveEmojiTrigger {
   prosemirrorFrom: number;
 }
 
-export interface TiptapEmojiPickerState {
+interface TiptapEmojiPickerState {
   isOpen: boolean;
   suggestions: Array<{ emoji: string; name: string }>;
   activeIndex: number;
@@ -353,9 +353,10 @@ export function useTiptapEmojiPicker(editor: Editor | null): TiptapEmojiPickerSt
 
   const prefix = activeEmoji?.partial ?? "";
 
+  const emojiIndexReady = useEmojiIndex(Boolean(activeEmoji));
   const suggestions = useMemo(
     () => (activeEmoji ? (prefix ? searchEmoji(prefix) : quickPickEmojiSuggestions()) : []),
-    [activeEmoji, prefix],
+    [activeEmoji, prefix, emojiIndexReady],
   );
 
   useEffect(() => {

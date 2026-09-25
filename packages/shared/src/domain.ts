@@ -165,7 +165,6 @@ export interface EventEntry {
   label: string;
   loggedAt: number;
   notes?: string;
-  habitId?: string;
   sourceType?: "manual" | "todo_completed";
   sourceTodoId?: string;
   deletedAt?: number;

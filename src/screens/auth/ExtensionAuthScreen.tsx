@@ -118,13 +118,13 @@ export function ExtensionAuthScreen() {
           className="mx-auto mb-5 block h-16 w-16 rounded-2xl"
         />
 
-        <p className="mb-2 text-xs font-bold uppercase tracking-widest text-app-ink-faint">
+        <p className="mb-2 text-xs font-bold uppercase text-app-ink-faint">
           omanote extension
         </p>
 
         {status === "pending" && (
           <>
-            <h1 className="mb-2.5 text-xl font-black tracking-tight text-app-ink">
+            <h1 className="mb-2.5 text-xl font-black text-app-ink">
               Connecting…
             </h1>
             <p className="text-sm leading-relaxed text-app-ink-faint">
@@ -139,7 +139,7 @@ export function ExtensionAuthScreen() {
         {status === "success" && (
           <>
             <CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-success-solid" aria-hidden="true" />
-            <h1 className="mb-2.5 text-xl font-black tracking-tight text-success-solid">
+            <h1 className="mb-2.5 text-xl font-black text-success-solid">
               Connected!
             </h1>
             <p className="text-sm leading-relaxed text-app-ink-faint">
@@ -151,7 +151,7 @@ export function ExtensionAuthScreen() {
         {status === "error" && (
           <>
             <XCircle className="mx-auto mb-3 h-10 w-10 text-danger-solid" aria-hidden="true" />
-            <h1 className="mb-2.5 text-xl font-black tracking-tight text-danger-solid">
+            <h1 className="mb-2.5 text-xl font-black text-danger-solid">
               Connection failed
             </h1>
             <p className={`text-sm leading-relaxed text-app-ink-faint ${showFirefoxHint ? "mb-3" : "mb-5"}`}>

@@ -1,6 +1,6 @@
 import { isTauri } from "./desktop";
 
-export type DeviceClientType = "web" | "extension" | "desktop";
+type DeviceClientType = "web" | "extension" | "desktop";
 
 const DEVICE_ID_PREFIX = "omanote.deviceId";
 
@@ -11,8 +11,8 @@ function randomId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
-export const CHROME_EXTENSION_STORE_URL = "https://chromewebstore.google.com/detail/omanote/foafmfgfdbdiiggmmfdoalgpfhkejbjn";
-export const FIREFOX_EXTENSION_STORE_URL = "https://addons.mozilla.org/en-US/firefox/addon/omanote/";
+const CHROME_EXTENSION_STORE_URL = "https://chromewebstore.google.com/detail/omanote/foafmfgfdbdiiggmmfdoalgpfhkejbjn";
+const FIREFOX_EXTENSION_STORE_URL = "https://addons.mozilla.org/en-US/firefox/addon/omanote/";
 
 export function detectBrowserName(userAgent: string): string {
   if (/Edg\//.test(userAgent)) return "Edge";

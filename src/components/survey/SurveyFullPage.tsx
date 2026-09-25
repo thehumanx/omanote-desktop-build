@@ -9,7 +9,7 @@ import { ModalPortal } from "../ModalPortal";
 import { Button } from "../ui";
 import { SurveyQuestionBody, type SurveyAnswerDraft } from "./SurveyQuestionBody";
 
-export interface StoredSurveyAnswer {
+interface StoredSurveyAnswer {
   questionId: string;
   choices: string[];
   text?: string;
@@ -258,7 +258,7 @@ export function SurveyFullPage({ initialAnswers, onClose, onCompleted }: SurveyF
                   >
                     <X className="h-5 w-5" />
                   </button>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-app-ink-faint">
+                  <p className="text-[11px] font-bold uppercase text-app-ink-faint">
                     {question.section}
                   </p>
                   <h1 className="mt-1 text-xl font-bold leading-tight text-app-ink">Help improve omanote</h1>

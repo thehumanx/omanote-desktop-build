@@ -56,7 +56,13 @@ async function bootstrap() {
     // network fetch entirely, letting Clerk read its already-cached session
     // from local storage instead. Dynamically imported (not a static import)
     // so this stays a Tauri-only chunk and the web bundle doesn't pay for it.
-    const { Clerk } = await import("@clerk/clerk-js");
+    //
+    // The `no-rhc` build ("no remotely hosted code") is ~850 KB against the
+    // full build's ~1.5 MB. What it leaves out — captcha bot protection, web3
+    // wallets, Google One Tap — only matters for signing in or up inside this
+    // webview, and the desktop app never does: it redeems a one-time ticket
+    // minted in the browser (DesktopAuthListener, `strategy: "ticket"`).
+    const { Clerk } = await import("@clerk/clerk-js/no-rhc");
     bundledClerk = Clerk;
   }
 

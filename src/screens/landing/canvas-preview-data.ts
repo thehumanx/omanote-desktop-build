@@ -1,6 +1,5 @@
 import { toDateKey } from "@omanote/shared";
-import changelogMarkdown from "../../../CHANGELOG.md?raw";
-import { parseLatestVersion } from "../../lib/update-checker";
+import { currentVersion } from "virtual:changelog";
 import type {
   BookmarkCategory,
   BookmarkItem,
@@ -338,7 +337,7 @@ export const PREVIEW_PAGES: PageItem[] = [
  * costs nothing and keeps the preview honest — it advertises whatever actually
  * shipped last, automatically, instead of a made-up version that goes stale.
  */
-const latestVersion = parseLatestVersion(changelogMarkdown);
+const latestVersion = currentVersion;
 
 export const PREVIEW_UPDATE = {
   version: latestVersion?.version ?? "v0.9",

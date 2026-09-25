@@ -27,7 +27,7 @@ export interface SlashCommand {
 }
 
 // Ordered by how often a writer reaches for them, not alphabetically.
-export const SLASH_COMMANDS: SlashCommand[] = [
+const SLASH_COMMANDS: SlashCommand[] = [
   {
     id: "heading1",
     label: "Heading 1",
@@ -131,7 +131,7 @@ export function findActiveSlashQuery(textBeforeCaret: string): string | null {
   return match ? match[1]! : null;
 }
 
-export interface TiptapSlashMenuState {
+interface TiptapSlashMenuState {
   isOpen: boolean;
   commands: SlashCommand[];
   activeIndex: number;

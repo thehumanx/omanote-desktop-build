@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export const MOBILE_VIEWPORT_MEDIA_QUERY = "(max-width: 767px)";
+const MOBILE_VIEWPORT_MEDIA_QUERY = "(max-width: 767px)";
 
 export function isMobileViewport() {
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") {

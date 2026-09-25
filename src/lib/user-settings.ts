@@ -2,8 +2,6 @@ export type ThemeMode = "system" | "light" | "dark";
 export type NavLabelStyle = "label-only" | "icon-label" | "active-label";
 export type FontFamily = "sans" | "serif" | "both";
 export type CornerStyle = "rounded" | "sharp";
-export type RealDashboardStat = "completion_rate" | "todos_done_today" | "habit_streak" | "notes_this_week" | "bookmarks_this_week";
-export type DashboardStat = RealDashboardStat | "random";
 export type ReminderLeadMinutes = 0 | 5 | 10 | 15;
 export type DefaultSnoozeMinutes = 5 | 10 | 15 | 30;
 export type ReminderToastDurationSeconds = 10 | 20 | 30 | 60;
@@ -18,7 +16,6 @@ export interface UserSettings {
   reminderToastDurationSeconds: ReminderToastDurationSeconds;
   themeMode: ThemeMode;
   navLabelStyle: NavLabelStyle;
-  dashboardStat: DashboardStat;
   fontFamily: FontFamily;
   cornerStyle: CornerStyle;
   canvasDotGrid: boolean;
@@ -44,7 +41,6 @@ export interface UserSettingsPatch {
   reminderToastDurationSeconds?: ReminderToastDurationSeconds;
   themeMode?: ThemeMode;
   navLabelStyle?: NavLabelStyle;
-  dashboardStat?: DashboardStat;
   fontFamily?: FontFamily;
   cornerStyle?: CornerStyle;
   canvasDotGrid?: boolean;
@@ -57,12 +53,10 @@ export interface UserSettingsPatch {
   onboardingGoalsOther?: string;
 }
 
-export const THEME_MODES = ["system", "light", "dark"] as const satisfies readonly ThemeMode[];
-export const NAV_LABEL_STYLES = ["label-only", "icon-label", "active-label"] as const satisfies readonly NavLabelStyle[];
-export const FONT_FAMILIES = ["sans", "serif", "both"] as const satisfies readonly FontFamily[];
-export const CORNER_STYLES = ["rounded", "sharp"] as const satisfies readonly CornerStyle[];
-export const REAL_DASHBOARD_STATS = ["completion_rate", "todos_done_today", "habit_streak", "notes_this_week", "bookmarks_this_week"] as const satisfies readonly RealDashboardStat[];
-export const DASHBOARD_STATS: readonly DashboardStat[] = [...REAL_DASHBOARD_STATS, "random"];
+const THEME_MODES = ["system", "light", "dark"] as const satisfies readonly ThemeMode[];
+const NAV_LABEL_STYLES = ["label-only", "icon-label", "active-label"] as const satisfies readonly NavLabelStyle[];
+const FONT_FAMILIES = ["sans", "serif", "both"] as const satisfies readonly FontFamily[];
+const CORNER_STYLES = ["rounded", "sharp"] as const satisfies readonly CornerStyle[];
 export const REMINDER_LEAD_MINUTES = [0, 5, 10, 15] as const satisfies readonly ReminderLeadMinutes[];
 export const DEFAULT_SNOOZE_MINUTES = [5, 10, 15, 30] as const satisfies readonly DefaultSnoozeMinutes[];
 export const REMINDER_TOAST_DURATION_SECONDS = [10, 20, 30, 60] as const satisfies readonly ReminderToastDurationSeconds[];
@@ -79,7 +73,6 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   reminderToastDurationSeconds: 30,
   themeMode: "system",
   navLabelStyle: "active-label",
-  dashboardStat: "completion_rate",
   fontFamily: "sans",
   cornerStyle: "rounded",
   canvasDotGrid: true,
@@ -106,10 +99,6 @@ function isFontFamily(value: unknown): value is FontFamily {
 
 function isCornerStyle(value: unknown): value is CornerStyle {
   return typeof value === "string" && (CORNER_STYLES as readonly string[]).includes(value);
-}
-
-function isDashboardStat(value: unknown): value is DashboardStat {
-  return typeof value === "string" && (DASHBOARD_STATS as readonly string[]).includes(value);
 }
 
 
@@ -154,12 +143,7 @@ export function normalizeUserSettings(input: Record<string, unknown> | null | un
       : DEFAULT_USER_SETTINGS.reminderToastDurationSeconds,
     themeMode: isThemeMode(source.themeMode) ? source.themeMode : DEFAULT_USER_SETTINGS.themeMode,
     navLabelStyle: isNavLabelStyle(source.navLabelStyle) ? source.navLabelStyle : DEFAULT_USER_SETTINGS.navLabelStyle,
-    dashboardStat: isDashboardStat(source.dashboardStat) ? source.dashboardStat : DEFAULT_USER_SETTINGS.dashboardStat,
-    fontFamily: isFontFamily(source.fontFamily)
-      ? source.fontFamily
-      : (source.fontFamily === "fraunces" || source.fontFamily === "lora" || source.fontFamily === "literata" || source.fontFamily === "source-serif-4")
-        ? "serif"
-        : DEFAULT_USER_SETTINGS.fontFamily,
+    fontFamily: isFontFamily(source.fontFamily) ? source.fontFamily : DEFAULT_USER_SETTINGS.fontFamily,
     cornerStyle: isCornerStyle(source.cornerStyle) ? source.cornerStyle : DEFAULT_USER_SETTINGS.cornerStyle,
     canvasDotGrid: isBoolean(source.canvasDotGrid) ? source.canvasDotGrid : DEFAULT_USER_SETTINGS.canvasDotGrid,
     founderNoteSeen: isBoolean(source.founderNoteSeen) ? source.founderNoteSeen : DEFAULT_USER_SETTINGS.founderNoteSeen,

@@ -204,7 +204,7 @@ export function EcosystemSection() {
 
       <div className="relative mx-auto max-w-[1136px] px-4 py-20 sm:px-6 sm:py-24 lg:py-28">
         <div className="text-center">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">
+          <p className="text-[10px] font-bold uppercase text-app-ink-faint">
             Core &amp; ecosystem
           </p>
           <h2 className="font-serif-heading mx-auto mt-4 max-w-[680px] text-3xl font-black leading-tight sm:text-4xl">

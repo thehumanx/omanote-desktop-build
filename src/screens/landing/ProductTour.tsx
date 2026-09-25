@@ -349,7 +349,7 @@ function TourStepList() {
     <ol className="mx-auto mt-14 max-w-[680px] space-y-8">
       {TOUR_STEPS.map((step, index) => (
         <li key={step.title}>
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-app-ink-faint">
+          <p className="text-[11px] font-bold uppercase text-app-ink-faint">
             {index + 1} of {TOUR_STEPS.length}
           </p>
           <h2 className="app-title-font mt-2 text-xl font-bold text-app-ink">{step.title}</h2>
@@ -748,7 +748,7 @@ export function ProductTour({
               />
             ) : null}
             <div className="flex items-center justify-between gap-3">
-              <p className="text-[11px] font-bold uppercase tracking-[0.16em] opacity-70">
+              <p className="text-[11px] font-bold uppercase opacity-70">
                 {stepIndex + 1} of {TOUR_STEPS.length}
               </p>
               {/* Scrolling is still the main way through; these are for anyone

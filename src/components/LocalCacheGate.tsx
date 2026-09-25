@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { clearLocalCache, DEXIE_CACHE_OWNER_KEY } from "../app/db";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
+import { closeRetiredDbs, DEXIE_CACHE_OWNER_KEY, migrateLegacyCache, selectUserDb } from "../app/db";
 import {
   readLocalStorageOptional,
   setStorageUserScope,
@@ -8,105 +8,117 @@ import {
 } from "../lib/local-storage";
 import { useAuth } from "../app/auth/AuthContext";
 import { useNetworkStatus } from "../hooks/useNetworkStatus";
+import { AppLoadingScreen } from "./ui";
+
+/** Set once this browser's shared pre-2026-09 cache has been moved (see `migrateLegacyCache`). */
+export const LEGACY_CACHE_MIGRATED_KEY = "omanote.dexie-namespaced";
 
 /**
- * Makes sure the Dexie cache in this browser belongs to the signed-in user
- * before anything is allowed to read it.
+ * Opens the signed-in account's own Dexie database before anything is allowed
+ * to read the cache.
  *
- * The cache is a single IndexedDB database shared by every account that signs
- * in on this browser, and the read paths do not filter by `userId` — Dexie
- * queries like `db.todos.filter(t => !t.deletedAt)` return whatever is stored.
- * So "the cache belongs to this user" is an invariant that has to hold *before*
- * the first read, not something the reads defend themselves against.
+ * Each account has its own database (`db.ts` `userDbName`), so another
+ * account's rows are never reachable from the open handle. That replaced the
+ * earlier design, one database shared by every account on the browser, where
+ * this gate had to clear the tables on a handover before the first read — and
+ * got the ordering wrong more than once (docs/hardening-audit.md §8.1–8.3,
+ * docs/code-quality-audit-2026-09.md §S2).
  *
- * This used to live as an effect inside `AppProvider`, next to the `useLiveQuery`
- * calls it was meant to protect, where it got all three parts wrong: it cleared
- * eight of fourteen tables, it skipped clearing entirely when the owner marker
- * was absent, and it fired the clear without awaiting it while the live queries
- * one scope below were already subscribed — under a comment promising the old
- * data was "never visible to the new user (even briefly)". See
- * docs/hardening-audit.md §8.1–8.3.
- *
- * Hoisting it to a gate is what makes the guarantee real: nothing that reads
- * the cache is mounted until the check resolves. `DomainGate` and
- * `EncryptionGate` guard their invariants the same way.
- *
- * The gate then kept one hole for a while longer: it keyed on `user === null`,
- * which is also what Clerk reports *while it is still loading*. Since
- * `AuthenticatedAppLayout` mounts off `useConvexAuth()` — a separate auth
- * source that resolves first — there was a window where the gate was mounted,
- * open, and the cache still belonged to the previous user. It now fails closed
- * on "unresolved" and only treats a confirmed `isLoaded` signed-out state as
- * safe. See docs/code-quality-audit-2026-09.md §S2.
+ * What's left for the gate:
+ * - Fail closed while Clerk is still resolving. `user === null` is also what
+ *   Clerk reports while loading, and `AuthenticatedAppLayout` mounts off
+ *   `useConvexAuth()`, which resolves first.
+ * - Point `db` (and the user-scoped localStorage keys) at the right account
+ *   during render, so the same-user path paints on the first pass.
+ * - Remount the whole tree when the account changes, so no live query keeps
+ *   reading the previous account's instance.
+ * - Run the one-time copy out of the old shared database.
  */
 export function LocalCacheGate({ children }: { children: ReactNode }) {
   const { user, isLoaded } = useAuth();
   const { isOffline } = useNetworkStatus();
-  const userId = user?.id ?? null;
-  const [clearedFor, setClearedFor] = useState<string | null>(null);
-
-  // Same invariant as the cache below, for the handful of `localStorage` keys
-  // that hold one account's content (see USER_SCOPED_KEYS): they have to
-  // resolve to *this* user before anything reads them. Set during render
-  // rather than in an effect for exactly that reason — an effect runs after
-  // the children have already mounted and read.
-  setStorageUserScope(userId);
-
-  useEffect(() => {
-    if (!userId) return;
-    const owner = readLocalStorageOptional(DEXIE_CACHE_OWNER_KEY, stringCodec);
-    if (owner === userId) return;
-
-    let cancelled = false;
-    void (async () => {
-      try {
-        await clearLocalCache();
-      } catch {
-        // A failed clear must not be recorded as a successful handover: leaving
-        // the marker unwritten means the next mount tries again rather than
-        // treating another user's rows as this user's. The gate stays closed
-        // and the user sees the fallback below, which is the safe direction to
-        // fail in — showing nothing beats showing someone else's notes.
-        return;
-      }
-      if (cancelled) return;
-      writeLocalStorage(DEXIE_CACHE_OWNER_KEY, stringCodec, userId);
-      setClearedFor(userId);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [userId]);
-
-  // Read the marker during render rather than tracking it in state so the
-  // common path — same user as last time — renders children on the first pass
-  // with no blocking frame. `readLocalStorageOptional` is a single synchronous
-  // `getItem`, and only a genuine owner mismatch closes the gate.
   const owner = readLocalStorageOptional(DEXIE_CACHE_OWNER_KEY, stringCodec);
+  // The marker as it was before this session wrote it: the migration needs to
+  // know who owned the old shared database, not who just signed in.
+  const [previousOwner] = useState(owner);
 
   // Offline, Clerk can't verify a session, so `isLoaded` may never flip. That
   // must not brick the app for a device that has already signed in — `RootRoute`
   // renders this subtree on exactly the same signal (an owner marker while
-  // offline), so honouring it here keeps the two in agreement. There is no
-  // handover risk in this branch: a second user cannot have signed in without a
-  // network, so the marker still names whoever owns the rows.
-  // `readLocalStorageOptional` yields `undefined`, not `null`, when the marker
-  // is absent — comparing against `null` here would make this true on every
-  // offline render and reopen the hole this gate exists to close.
+  // offline), so the marker names the account to open. A second user cannot
+  // have signed in without a network, so it still names the right one.
+  // `readLocalStorageOptional` yields `undefined`, not `null`, when absent.
   const offlineLocalSession = isOffline && owner !== undefined;
+  const accountId = user?.id ?? (offlineLocalSession ? owner : null);
 
-  // The gate must fail *closed* on "we don't know who this is yet". Treating an
-  // unresolved session as signed-out is what let the previous user's rows paint
-  // for a frame during a sign-out → sign-in swap.
-  const isOpen =
-    userId === null
-      ? isLoaded || offlineLocalSession
-      : owner === userId || clearedFor === userId;
+  // Fail closed on "we don't know who this is yet": treating an unresolved
+  // session as signed-out is what once let the previous user's rows paint for
+  // a frame during a sign-out → sign-in swap.
+  const resolved = accountId !== null || isLoaded;
+
+  // Both set during render rather than in an effect: an effect runs after the
+  // children have mounted and read.
+  setStorageUserScope(accountId);
+  const dbName = selectUserDb(resolved ? accountId : null).name;
+
+  const [migrated, setMigrated] = useState(
+    () => readLocalStorageOptional(LEGACY_CACHE_MIGRATED_KEY, stringCodec) !== undefined,
+  );
+
+  useEffect(() => {
+    if (migrated || accountId === null) return;
+    let cancelled = false;
+    void withTimeout(migrateLegacyCache(accountId, previousOwner), MIGRATION_TIMEOUT_MS)
+      .then(
+        () => writeLocalStorage(LEGACY_CACHE_MIGRATED_KEY, stringCodec, "1"),
+        // Old database left in place (or another tab still holds it open):
+        // open the app on what's synced and retry on the next load.
+        () => undefined,
+      )
+      .finally(() => {
+        if (!cancelled) setMigrated(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, migrated, previousOwner]);
+
+  useEffect(() => {
+    if (user?.id) writeLocalStorage(DEXIE_CACHE_OWNER_KEY, stringCodec, user.id);
+  }, [user?.id]);
+
+  const isOpen = resolved && (accountId === null || migrated);
+
+  // After the commit that unmounted whatever read the previous instance.
+  useEffect(() => {
+    void closeRetiredDbs();
+  }, [dbName, isOpen]);
 
   if (!isOpen) {
-    return <div className="min-h-screen bg-app-canvas" aria-busy="true" />;
+    return <AppLoadingScreen />;
   }
 
-  return <>{children}</>;
+  // Keyed on the database so an account switch remounts everything below:
+  // a live query subscribed to the previous instance would otherwise keep
+  // showing its rows.
+  return <Fragment key={dbName}>{children}</Fragment>;
+}
+
+/** A delete blocked by another tab can wait indefinitely; the gate can't. */
+const MIGRATION_TIMEOUT_MS = 5000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("timed out")), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
 }

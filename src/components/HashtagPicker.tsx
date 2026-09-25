@@ -9,7 +9,7 @@ import { HashtagChip } from "./HashtagChip";
 // Hook
 // ---------------------------------------------------------------------------
 
-export interface HashtagPickerState {
+interface HashtagPickerState {
   isOpen: boolean;
   suggestions: Array<{ _id: string; name: string; nameLower: string }>;
   activeIndex: number;

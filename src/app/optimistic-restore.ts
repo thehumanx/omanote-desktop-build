@@ -18,11 +18,8 @@ import { listCanvasOutbox } from "./canvas-outbox";
  * separate table to disagree with the queue.
  *
  * Only the create kinds produce rows here, because only a create has no row
- * anywhere else to stand in for it. **A queued update or delete is still not
- * reflected after a reload**: its target is already in the Dexie cache, so the
- * row reappears with its pre-edit content until the queue drains. Fixing that
- * means overlaying pending edits onto cached rows, which is a different and
- * larger job than this one.
+ * anywhere else to stand in for it. Queued updates and deletes target rows
+ * already in the Dexie cache; `pending-overlay.ts` applies those.
  */
 
 type Decryptors = {

@@ -27,8 +27,51 @@ declare const self: ServiceWorkerGlobalScope;
 self.skipWaiting();
 clientsClaim();
 
-precacheAndRoute(self.__WB_MANIFEST);
+// The bundled Clerk runtime (~850 KB) is only ever loaded by the desktop app
+// (see src/main.tsx), which needs it cached to boot offline. Precaching it made
+// every *web* install download it too. Instead it lives in its own cache,
+// which only a desktop webview ever creates — on first boot, via the route
+// below — and which each new worker then refreshes on install, so an update
+// can't leave desktop pointing at a chunk it hasn't cached.
+const DESKTOP_ONLY_CACHE = "omanote-desktop-only";
+// Rollup names the chunk after the module: `clerk.no-rhc-<hash>.js` today,
+// `clerk-<hash>.js` for the full build.
+const isDesktopOnlyAsset = (path: string) => /(^|\/)assets\/clerk[.-][^/]+\.js$/.test(path);
+const manifestUrl = (entry: string | { url: string }) => (typeof entry === "string" ? entry : entry.url);
+
+const manifest = self.__WB_MANIFEST;
+const desktopOnlyUrls = manifest
+  .map(manifestUrl)
+  .filter(isDesktopOnlyAsset)
+  .map((url) => new URL(url, self.registration.scope).href);
+
+precacheAndRoute(manifest.filter((entry) => !isDesktopOnlyAsset(manifestUrl(entry))));
 cleanupOutdatedCaches();
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    (async () => {
+      if (!(await caches.has(DESKTOP_ONLY_CACHE))) return;
+      const cache = await caches.open(DESKTOP_ONLY_CACHE);
+      await cache.addAll(desktopOnlyUrls);
+      for (const request of await cache.keys()) {
+        if (!desktopOnlyUrls.includes(request.url)) await cache.delete(request);
+      }
+    })(),
+  );
+});
+
+registerRoute(
+  ({ url }) => url.origin === self.location.origin && isDesktopOnlyAsset(url.pathname),
+  async ({ request }) => {
+    const cache = await caches.open(DESKTOP_ONLY_CACHE);
+    const cached = await cache.match(request);
+    if (cached) return cached;
+    const response = await fetch(request);
+    if (response.ok) await cache.put(request, response.clone());
+    return response;
+  },
+);
 
 // Serve the cached app shell for navigations (e.g. reloading offline)
 // instead of failing the request when the network is unreachable.

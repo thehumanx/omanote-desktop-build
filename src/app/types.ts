@@ -22,13 +22,6 @@ import type {
  */
 export type FolderScope = "todo" | "note" | "bookmark";
 
-export interface AuthUser {
-  id: string;
-  name: string;
-  email: string;
-  provider: "demo" | "clerk";
-}
-
 export interface ToastItem {
   id: string;
   title: string;

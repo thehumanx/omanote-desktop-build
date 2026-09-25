@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState, type TouchEvent as ReactTouchEvent, type WheelEvent as ReactWheelEvent } from "react";
+import { useEffect, useState, type TouchEvent as ReactTouchEvent, type WheelEvent as ReactWheelEvent } from "react";
 import { ExternalLink, RefreshCw, Sparkles, FileText, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button, SegmentedPill } from "./ui";
 import { CHANGELOG_TABS, type ChangelogProduct } from "../content/changelog-tabs";
 import { BaseModal } from "./BaseModal";
 import { useUpdate } from "../contexts/UpdateContext";
-import { parseVersions, type VersionInfo } from "../lib/update-checker";
+import { extensionVersions } from "virtual:changelog";
 import { getExtensionStoreUrl } from "../lib/device-info";
 const MODAL_SCROLL_AREA_SELECTOR = "[data-omanote-update-modal-scroll]";
 const UPDATE_MODAL_TAB_ITEMS = CHANGELOG_TABS.map((tab) => ({ key: tab.id, label: tab.label }));
@@ -15,12 +15,11 @@ function isInsideModalScrollArea(target: EventTarget | null) {
 }
 
 export function UpdateModal() {
-  const { isModalOpen, closeModal, latestVersion, modalVersions, isTransitioningToModal, isRunningLatest, changelogMarkdown } = useUpdate();
+  const { isModalOpen, closeModal, latestVersion, modalVersions, isTransitioningToModal, isRunningLatest } = useUpdate();
   const navigate = useNavigate();
   const [isEntered, setIsEntered] = useState(false);
   const [activeTab, setActiveTab] = useState<ChangelogProduct>("application");
-  const extensionVersions = useMemo<VersionInfo[]>(() => parseVersions(changelogMarkdown, "Extension Versions"), []);
-  const latestExtensionVersions = useMemo(() => extensionVersions.slice(0, 1), [extensionVersions]);
+  const latestExtensionVersions = extensionVersions.slice(0, 1);
   const displayedVersions = activeTab === "extension" ? latestExtensionVersions : modalVersions;
   const shouldRenderModal = isModalOpen && Boolean(latestVersion) && modalVersions.length > 0;
   const prefersReducedMotion =
@@ -124,7 +123,7 @@ export function UpdateModal() {
                 <Sparkles className="h-[18px] w-[18px]" />
               </div>
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-app-ink-faint">
+                <p className="text-[11px] font-bold uppercase text-app-ink-faint">
                   Latest updates
                 </p>
                 <h2 className="text-base font-bold leading-tight text-app-ink">{newestVisibleUpdate?.version ?? "Extension"}</h2>

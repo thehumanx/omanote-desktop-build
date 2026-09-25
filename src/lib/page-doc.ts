@@ -10,7 +10,7 @@ import { parseHashtags } from "./hashtags";
  * never has to instantiate an editor to show a snippet.
  */
 
-export const PREVIEW_LENGTH = 200;
+const PREVIEW_LENGTH = 200;
 
 /** An empty document — what a brand new canvas starts from. */
 export function emptyPageDoc(): string {
@@ -60,6 +60,12 @@ export function pageDocToText(docJson: string): string {
       lines[lines.length - 1] += node.text;
       return;
     }
+    // Shift+Enter. Carries no text, so without this the lines either side of
+    // it ran together ("#ideas" + "next" read as the hashtag "#ideasnext").
+    if (node.type === "hardBreak") {
+      lines.push("");
+      return;
+    }
     if (isBlock) lines.push("");
     for (const child of node.content ?? []) {
       walk(child, isBlockNode(child.type));
@@ -97,7 +103,7 @@ export function pageDocToHashtags(docJson: string, title?: string): string[] {
 }
 
 /** One run of text carrying a uniform set of marks — what a share block needs to reproduce bold/italic/etc. without shipping a rich-text renderer. */
-export interface ShareTextRun {
+interface ShareTextRun {
   text: string;
   bold?: boolean;
   italic?: boolean;
@@ -116,7 +122,7 @@ export interface ShareTextRun {
  * rows and have no business in something anyone can fetch. A checklist item
  * publishes as its text plus a checked flag, nothing more.
  */
-export interface SharePageBlock {
+interface SharePageBlock {
   type: string;
   text?: string;
   /** Present alongside `text` for block types that carry inline formatting (marks). */
@@ -145,12 +151,16 @@ export function pageDocToShareBlocks(
 
   const blocks: SharePageBlock[] = [];
 
+  // A line break (Shift+Enter) is kept as "\n"; SharedCanvasView renders
+  // blocks with `white-space: pre-line`.
   const textOf = (node: ProseMirrorNode): string => {
+    if (node.type === "hardBreak") return "\n";
     if (typeof node.text === "string") return node.text;
     return (node.content ?? []).map(textOf).join("");
   };
 
   const runsOf = (node: ProseMirrorNode): ShareTextRun[] => {
+    if (node.type === "hardBreak") return [{ text: "\n" }];
     if (typeof node.text === "string") {
       if (!node.text) return [];
       const run: ShareTextRun = { text: node.text };
@@ -273,7 +283,7 @@ export function pageDocToShareBlocks(
   return blocks;
 }
 
-export interface PageDocStats {
+interface PageDocStats {
   words: number;
   todos: number;
   links: number;

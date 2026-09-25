@@ -175,7 +175,7 @@ export type CanvasDraftBlockHandle = {
   dismiss: () => void;
 };
 
-export type CanvasDraftBlockProps = {
+type CanvasDraftBlockProps = {
   embedded?: boolean;
   // Called after a successful save AND after Cancel (embedded only) — both
   // mean "the composer interaction is over, close it." Nothing about a
@@ -322,9 +322,7 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
   const [pickerOpen, setPickerOpen] = useState(false);
   const [activeCommandIndex, setActiveCommandIndex] = useState(0);
   const [noteFocused, setNoteFocused] = useState(false);
-  const allowTodoBlurRef = useRef(false);
   const allowBookmarkBlurRef = useRef(false);
-  const allowEventBlurRef = useRef(false);
   const [todoLines, setTodoLines] = useState<TodoDraftLine[]>(() =>
     persistedDraft.todoLines.length ? persistedDraft.todoLines.map((text) => createTodoDraftLine(text)) : [createTodoDraftLine()],
   );
@@ -467,15 +465,14 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
   const editorValue = showPicker ? commandValue : body;
   const showNoteFolderPicker = mode === "note" && !showPicker && hasMeaningfulNoteInput(body);
   const noteFolderMatch = useMemo(() => resolveNoteFolderByName(state.noteFolders, noteFolderValue), [noteFolderValue, state.noteFolders]);
-  // Accepting a suggestion hands focus back to the body input; the allow-blur
-  // flag stops that focus move from being read as "the user left the draft",
-  // which would commit it.
+  // Accepting a suggestion hands focus back to the body input. For bookmarks
+  // the allow-blur flag stops the URL field's blur handler from pulling focus
+  // back to itself mid-move.
   const todoFolderCombobox = useFolderCombobox({
     folders: state.todoFolders,
     value: todoFolderValue,
     onChange: setTodoFolderValue,
     onSelect: () => {
-      allowTodoBlurRef.current = true;
       window.requestAnimationFrame(() => focusTodoInput());
     },
   });
@@ -642,9 +639,7 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
   const commit = ({ focusAfter = true }: { focusAfter?: boolean } = {}) => {
     const text = mode === "bookmark" ? bookmarkUrl.trim() : body.trim();
     if (!text) {
-      allowTodoBlurRef.current = false;
       allowBookmarkBlurRef.current = false;
-      allowEventBlurRef.current = false;
       return;
     }
 
@@ -705,13 +700,11 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
     setNoteFolderValue(readLastNoteFolder());
     setBookmarkUrl("");
     setMode("note");
-    allowTodoBlurRef.current = false;
     allowBookmarkBlurRef.current = false;
-    allowEventBlurRef.current = false;
     eventStartedAtRef.current = Date.now();
     suppressSwitcherRef.current = true;
     setMobileSwitcherVisible(false);
-    if (focusAfter) {
+    if (focusAfter && !embedded) {
       focusNoteComposer();
     } else {
       setNoteFocused(false);
@@ -733,9 +726,7 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
     setBody("");
     setMode("note");
     setNoteFocused(false);
-    allowTodoBlurRef.current = true;
     allowBookmarkBlurRef.current = true;
-    allowEventBlurRef.current = true;
   };
 
   const selectCommand = (command: { key: DraftMode; label: string }) => {
@@ -794,7 +785,6 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
     window.requestAnimationFrame(() => {
       eventLineRefs.current[lineId]?.focus();
       window.requestAnimationFrame(() => {
-        allowEventBlurRef.current = false;
       });
     });
   };
@@ -804,7 +794,6 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
       .map((line) => parseTodoDraftInput(line.text))
       .filter((line) => line.title.trim().length > 0);
     if (!parsedLines.length) {
-      allowTodoBlurRef.current = false;
       return;
     }
 
@@ -845,12 +834,13 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
     setTodoLines([nextLine]);
     setActiveTodoLineId(nextLine.id);
     setBody("");
-    allowTodoBlurRef.current = true;
     setMode("note");
     suppressSwitcherRef.current = true;
     setMobileSwitcherVisible(false);
     window.requestAnimationFrame(() => {
-      focusNoteComposer();
+      // Not in the sheet: it closes on save, and focus left in a hidden
+      // editor swallowed the next "/" (see ComposerSheet).
+      if (!embedded) focusNoteComposer();
       suppressSwitcherRef.current = false;
     });
     if (embedded) onDone?.();
@@ -862,7 +852,6 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
     setActiveTodoLineId(nextLine.id);
     setTodoFolderValue(readLastTodoFolder());
     todoFolderCombobox.close();
-    allowTodoBlurRef.current = false;
   };
 
   const commitEventDraft = () => {
@@ -870,7 +859,6 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
       .map((line) => parseEventDraftInput(line.text, eventStartedAtRef.current))
       .filter((line) => line.title.trim().length > 0);
     if (!parsedLines.length) {
-      allowEventBlurRef.current = false;
       return;
     }
 
@@ -887,12 +875,13 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
     setEventLines([nextLine]);
     setActiveEventLineId(nextLine.id);
     eventStartedAtRef.current = Date.now();
-    allowEventBlurRef.current = true;
     setMode("note");
     suppressSwitcherRef.current = true;
     setMobileSwitcherVisible(false);
     window.requestAnimationFrame(() => {
-      focusNoteComposer();
+      // Not in the sheet: it closes on save, and focus left in a hidden
+      // editor swallowed the next "/" (see ComposerSheet).
+      if (!embedded) focusNoteComposer();
       suppressSwitcherRef.current = false;
     });
     if (embedded) onDone?.();
@@ -902,7 +891,6 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
     const nextLine = createTodoDraftLine();
     setEventLines([nextLine]);
     setActiveEventLineId(nextLine.id);
-    allowEventBlurRef.current = false;
   };
 
   const resetBookmarkDraft = () => {
@@ -1076,9 +1064,7 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
     setPickerOpen(false);
     setCommandValue("");
     setCommandFilter("");
-    allowTodoBlurRef.current = true;
     allowBookmarkBlurRef.current = true;
-    allowEventBlurRef.current = true;
 
     if (nextMode === "note") {
       setBody(text);
@@ -1119,20 +1105,14 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
       cancelBookmarkDraft();
     } else if (mode === "todo") {
       resetTodoDraft();
-      allowTodoBlurRef.current = true;
-      allowEventBlurRef.current = true;
       setMode("note");
       window.requestAnimationFrame(() => { focusNoteComposer(); });
     } else if (mode === "event") {
       resetEventDraft();
-      allowTodoBlurRef.current = true;
-      allowEventBlurRef.current = true;
       setMode("note");
       window.requestAnimationFrame(() => { focusNoteComposer(); });
     } else {
       setBody("");
-      allowTodoBlurRef.current = true;
-      allowEventBlurRef.current = true;
       window.requestAnimationFrame(() => { focusNoteComposer(); });
     }
     // In the composer sheet, Cancel means "close" (matching every other
@@ -1144,13 +1124,10 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
   // clearing whatever's typed — unlike Cancel above, which deliberately
   // wipes the draft. Blurring is necessary so a later "/" press isn't
   // swallowed by the global-shortcut's "don't interrupt typing" guard
-  // (the field would otherwise still be focused, just hidden), but blur
-  // alone would trigger the various per-mode "commit on blur" handlers,
-  // so those are suppressed first via the allow*BlurRef flags.
+  // (the field would otherwise still be focused, just hidden). The bookmark
+  // URL field refocuses itself on blur, so that's suppressed first.
   const dismissDraft = () => {
-    allowTodoBlurRef.current = true;
     allowBookmarkBlurRef.current = true;
-    allowEventBlurRef.current = true;
     (document.activeElement as HTMLElement | null)?.blur();
     onDone?.();
   };
@@ -1450,13 +1427,11 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                               return;
                             }
 
+                            // Leaving the field never saves: only Enter or the
+                            // Save action does, as for notes and bookmarks.
+                            // Clicking any non-input part of the composer
+                            // blurs the line, and used to save the draft.
                             hideMobileSwitcherIfFocusLeavesDraft();
-                            if (allowTodoBlurRef.current) {
-                              allowTodoBlurRef.current = false;
-                              return;
-                            }
-
-                            commitTodoDraft();
                             return;
                           }
 
@@ -1466,12 +1441,6 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                           }
 
                           hideMobileSwitcherIfFocusLeavesDraft();
-                          if (allowEventBlurRef.current) {
-                            allowEventBlurRef.current = false;
-                            return;
-                          }
-
-                          commitEventDraft();
                         }}
                         onKeyDown={(event) => {
                           if (mode === "todo" && todoPicker.handleKeyDown(event)) {
@@ -1502,8 +1471,6 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                               resetEventDraft();
                             }
                             setMode("note");
-                            allowTodoBlurRef.current = true;
-                            allowEventBlurRef.current = true;
                             window.requestAnimationFrame(() => {
                               focusNoteComposer();
                             });
@@ -1541,7 +1508,6 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                               });
                               setActiveTodoLineId(nextLine.id);
                             } else {
-                              allowEventBlurRef.current = true;
                               setEventLines((current) => {
                                 const next = [...current];
                                 next.splice(index + 1, 0, nextLine);
@@ -1600,8 +1566,6 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                             } else {
                               resetEventDraft();
                             }
-                            allowTodoBlurRef.current = true;
-                            allowEventBlurRef.current = true;
                             setMode("note");
                             noteFocusPendingRef.current = true;
                             return;
@@ -1644,7 +1608,6 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                             if (todoFolderCombobox.handleKeyDown(event)) return;
                             if (isSaveKeyEvent(event)) {
                               event.preventDefault();
-                              allowTodoBlurRef.current = true;
                               commitTodoDraft();
                               return;
                             }

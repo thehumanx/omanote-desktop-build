@@ -30,7 +30,7 @@ export function CanvasSystemNoticeView({ children }: { children: React.ReactNode
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-3">
-        <p className="shrink-0 text-[11px] font-extrabold uppercase tracking-[0.16em] text-app-ink-faint">Updates</p>
+        <p className="shrink-0 text-[11px] font-extrabold uppercase text-app-ink-faint">Updates</p>
         <div aria-hidden="true" className="h-px min-w-4 flex-1 bg-app-line" />
       </div>
       <div className="divide-y divide-app-line overflow-hidden rounded-app-card border border-app-line bg-app-surface">

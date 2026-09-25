@@ -79,6 +79,58 @@ export function LoadingSpinner({ className, ...props }: React.HTMLAttributes<HTM
   );
 }
 
+/**
+ * When the current unbroken stretch of loading began, shared by every
+ * `AppLoadingScreen`. Boot passes through several gates in turn (RootRoute,
+ * LocalCacheGate, EncryptionGate, a lazy route's Suspense), each rendering its
+ * own screen, and a fresh screen per gate restarted the fade-in and the draw —
+ * the logo appeared, vanished and started over several times in one load.
+ */
+const loadingStretch = { startedAt: 0, mounted: 0, hiddenAt: -Infinity };
+/** A screen that mounts within this long of the last one closing continues it. */
+const LOADING_HANDOFF_MS = 250;
+
+function useLoadingElapsedMs(): number {
+  const [elapsed] = React.useState(() => {
+    const now = performance.now();
+    // Read during render, before the outgoing screen's cleanup runs, so a
+    // same-commit handoff still sees it mounted.
+    const continues = loadingStretch.mounted > 0 || now - loadingStretch.hiddenAt <= LOADING_HANDOFF_MS;
+    if (!continues) loadingStretch.startedAt = now;
+    return now - loadingStretch.startedAt;
+  });
+  React.useEffect(() => {
+    loadingStretch.mounted += 1;
+    return () => {
+      loadingStretch.mounted -= 1;
+      loadingStretch.hiddenAt = performance.now();
+    };
+  }, []);
+  return elapsed;
+}
+
+/**
+ * Full-screen placeholder while the app boots or a gate resolves.
+ *
+ * Blank for the first ~400ms, then the looping mark fades in (the delay is in
+ * CSS, `.omanote-loading-delayed`). Most loads finish inside that window, and a
+ * logo that flashes up and vanishes again reads as a glitch — so on a fast
+ * load this shows nothing at all, only the canvas colour.
+ *
+ * Screens that hand over to each other continue one animation: the fade and
+ * the draw are offset by how long this stretch of loading has already run.
+ */
+export function AppLoadingScreen() {
+  const elapsed = useLoadingElapsedMs();
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-app-canvas" role="status" aria-busy="true" aria-label="Loading">
+      <span className="omanote-loading-delayed text-app-ink-faint" style={{ animationDelay: `${400 - elapsed}ms` }}>
+        <OmanoteMark size={48} variant="loop" style={{ ["--omanote-mark-delay" as string]: `${-elapsed}ms` }} />
+      </span>
+    </div>
+  );
+}
+
 type BadgeVariant = "muted" | "outline" | "success" | "danger";
 type BadgeProps = React.HTMLAttributes<HTMLSpanElement> & {
   variant?: BadgeVariant;
@@ -421,7 +473,7 @@ export const SegmentedHighlight = React.forwardRef<HTMLDivElement, React.HTMLAtt
   },
 );
 
-export type SegmentedPillItem = {
+type SegmentedPillItem = {
   key: string;
   label?: string;
   icon?: React.ReactNode;
@@ -502,18 +554,6 @@ export function SegmentedPill({
       })}
     </SegmentedShell>
   );
-}
-
-export function Panel({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("rounded-app-panel border border-app-line bg-app-surface", className)} {...props} />;
-}
-
-export function DialogSurface({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("rounded-app-dialog border border-app-line bg-app-surface-raised shadow-app-dialog", className)} {...props} />;
-}
-
-export function DrawerSurface({ className, ...props }: React.HTMLAttributes<HTMLElement>) {
-  return <section className={cn("rounded-t-app-drawer bg-app-surface-raised shadow-app-drawer", className)} {...props} />;
 }
 
 export function Tooltip({ children, label }: { children: React.ReactNode; label: string }) {

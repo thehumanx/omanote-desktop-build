@@ -24,7 +24,7 @@ function timeToInput(value?: number) {
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
-export type CanvasEventBlockProps = {
+type CanvasEventBlockProps = {
   event: EventEntry;
   pendingSync?: boolean;
   dispatch: (action: AppAction) => void;

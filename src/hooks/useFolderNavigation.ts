@@ -24,7 +24,7 @@ import {
 } from "../lib/local-storage";
 
 const VIEW_MODES = ["list", "gallery"] as const;
-export type FolderViewMode = (typeof VIEW_MODES)[number];
+type FolderViewMode = (typeof VIEW_MODES)[number];
 const viewModeCodec: StorageCodec<FolderViewMode> = enumCodec(VIEW_MODES);
 
 /**

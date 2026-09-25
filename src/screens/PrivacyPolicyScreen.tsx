@@ -31,15 +31,15 @@ export function PrivacyPolicyScreen() {
       <main className="flex-1">
         <div className="max-w-[720px] mx-auto px-4 sm:px-6 py-14 sm:py-20">
           {/* Header */}
-          <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">Legal</p>
-          <h1 className="mt-4 text-3xl sm:text-4xl font-black tracking-[-0.025em] leading-tight">
+          <p className="text-[10px] font-bold uppercase text-app-ink-faint">Legal</p>
+          <h1 className="mt-4 text-3xl sm:text-4xl font-black leading-tight">
             Privacy Policy
           </h1>
           <p className="mt-3 text-sm text-app-ink-faint">Last updated: {LAST_UPDATED}</p>
 
           {/* Table of contents */}
           <nav className="mt-8 rounded-2xl border border-app-line bg-app-canvas px-5 py-4">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint mb-3">
+            <p className="text-[10px] font-bold uppercase text-app-ink-faint mb-3">
               Contents
             </p>
             <ol className="space-y-1.5 list-decimal list-inside">
@@ -84,7 +84,7 @@ export function PrivacyPolicyScreen() {
 
             {/* 1 */}
             <section id="who-we-are">
-              <h2 className="text-lg font-black text-app-ink tracking-tight">1. Who we are</h2>
+              <h2 className="text-lg font-black text-app-ink">1. Who we are</h2>
               <div className="mt-3 text-[15px] text-app-ink-muted leading-relaxed space-y-3">
                 <p>
                   omanote is an independently developed personal productivity application operated
@@ -103,7 +103,7 @@ export function PrivacyPolicyScreen() {
 
             {/* 2 */}
             <section id="data-we-collect">
-              <h2 className="text-lg font-black text-app-ink tracking-tight">2. Data we collect</h2>
+              <h2 className="text-lg font-black text-app-ink">2. Data we collect</h2>
               <div className="mt-3 text-[15px] text-app-ink-muted leading-relaxed space-y-4">
                 <div>
                   <p className="font-bold text-app-ink mb-1">Account information</p>
@@ -161,7 +161,7 @@ export function PrivacyPolicyScreen() {
 
             {/* 3 */}
             <section id="how-we-use-data">
-              <h2 className="text-lg font-black text-app-ink tracking-tight">3. How we use your data</h2>
+              <h2 className="text-lg font-black text-app-ink">3. How we use your data</h2>
               <div className="mt-3 text-[15px] text-app-ink-muted leading-relaxed space-y-3">
                 <p>We use the data we collect exclusively to:</p>
                 <ul className="list-disc list-inside space-y-1.5 pl-1">
@@ -179,7 +179,7 @@ export function PrivacyPolicyScreen() {
 
             {/* 4 */}
             <section id="legal-basis">
-              <h2 className="text-lg font-black text-app-ink tracking-tight">4. Legal basis for processing (GDPR)</h2>
+              <h2 className="text-lg font-black text-app-ink">4. Legal basis for processing (GDPR)</h2>
               <div className="mt-3 text-[15px] text-app-ink-muted leading-relaxed space-y-3">
                 <p>
                   If you are located in the European Economic Area (EEA) or United Kingdom, we
@@ -216,7 +216,7 @@ export function PrivacyPolicyScreen() {
 
             {/* 5 */}
             <section id="browser-extension">
-              <h2 className="text-lg font-black text-app-ink tracking-tight">5. Browser extension</h2>
+              <h2 className="text-lg font-black text-app-ink">5. Browser extension</h2>
               <div className="mt-3 text-[15px] text-app-ink-muted leading-relaxed space-y-4">
                 <p>
                   The omanote browser extension requests the following permissions. Each is used
@@ -271,7 +271,7 @@ export function PrivacyPolicyScreen() {
 
             {/* 6 */}
             <section id="third-parties">
-              <h2 className="text-lg font-black text-app-ink tracking-tight">6. Third-party services</h2>
+              <h2 className="text-lg font-black text-app-ink">6. Third-party services</h2>
               <div className="mt-3 text-[15px] text-app-ink-muted leading-relaxed space-y-4">
                 <p>
                   omanote uses the following sub-processors. We have agreements in place with each
@@ -322,7 +322,7 @@ export function PrivacyPolicyScreen() {
 
             {/* 7 */}
             <section id="google-calendar">
-              <h2 className="text-lg font-black text-app-ink tracking-tight">7. Google Calendar integration</h2>
+              <h2 className="text-lg font-black text-app-ink">7. Google Calendar integration</h2>
               <div className="mt-3 text-[15px] text-app-ink-muted leading-relaxed space-y-3">
                 <p>
                   Connecting Google Calendar is entirely optional, off by default, and available
@@ -378,7 +378,7 @@ export function PrivacyPolicyScreen() {
 
             {/* 8 */}
             <section id="international-transfers">
-              <h2 className="text-lg font-black text-app-ink tracking-tight">8. International data transfers</h2>
+              <h2 className="text-lg font-black text-app-ink">8. International data transfers</h2>
               <div className="mt-3 text-[15px] text-app-ink-muted leading-relaxed space-y-3">
                 <p>
                   Our sub-processors (Clerk and Convex) are headquartered in the United States.
@@ -397,7 +397,7 @@ export function PrivacyPolicyScreen() {
 
             {/* 9 */}
             <section id="data-retention">
-              <h2 className="text-lg font-black text-app-ink tracking-tight">9. Data retention &amp; deletion</h2>
+              <h2 className="text-lg font-black text-app-ink">9. Data retention &amp; deletion</h2>
               <div className="mt-3 text-[15px] text-app-ink-muted leading-relaxed space-y-3">
                 <p>
                   We retain your account data and encrypted content for as long as your account
@@ -424,7 +424,7 @@ export function PrivacyPolicyScreen() {
 
             {/* 10 */}
             <section id="encryption">
-              <h2 className="text-lg font-black text-app-ink tracking-tight">10. Encryption &amp; your passphrase</h2>
+              <h2 className="text-lg font-black text-app-ink">10. Encryption &amp; your passphrase</h2>
               <div className="mt-3 text-[15px] text-app-ink-muted leading-relaxed space-y-3">
                 <p>
                   omanote encrypts your content client-side using AES-GCM with a key derived from
@@ -448,7 +448,7 @@ export function PrivacyPolicyScreen() {
 
             {/* 11 */}
             <section id="your-rights">
-              <h2 className="text-lg font-black text-app-ink tracking-tight">11. Your rights</h2>
+              <h2 className="text-lg font-black text-app-ink">11. Your rights</h2>
               <div className="mt-3 text-[15px] text-app-ink-muted leading-relaxed space-y-4">
                 <p>
                   Depending on your jurisdiction, you may have the following rights regarding your
@@ -509,7 +509,7 @@ export function PrivacyPolicyScreen() {
 
             {/* 12 */}
             <section id="children">
-              <h2 className="text-lg font-black text-app-ink tracking-tight">12. Children's privacy</h2>
+              <h2 className="text-lg font-black text-app-ink">12. Children's privacy</h2>
               <div className="mt-3 text-[15px] text-app-ink-muted leading-relaxed space-y-3">
                 <p>
                   The Service is not directed at children under the age of 13 (or 16 in the EEA
@@ -529,7 +529,7 @@ export function PrivacyPolicyScreen() {
 
             {/* 13 */}
             <section id="changes">
-              <h2 className="text-lg font-black text-app-ink tracking-tight">13. Changes to this policy</h2>
+              <h2 className="text-lg font-black text-app-ink">13. Changes to this policy</h2>
               <div className="mt-3 text-[15px] text-app-ink-muted leading-relaxed space-y-3">
                 <p>
                   We may update this policy from time to time. When we make material changes, we
@@ -547,7 +547,7 @@ export function PrivacyPolicyScreen() {
 
             {/* 14 */}
             <section id="contact">
-              <h2 className="text-lg font-black text-app-ink tracking-tight">14. Contact</h2>
+              <h2 className="text-lg font-black text-app-ink">14. Contact</h2>
               <div className="mt-3 text-[15px] text-app-ink-muted leading-relaxed space-y-3">
                 <p>
                   For privacy-related questions, data requests, or complaints, contact us at:

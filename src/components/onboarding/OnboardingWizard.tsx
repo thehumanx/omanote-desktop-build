@@ -7,16 +7,9 @@ import { MakeItYoursStep } from "./steps/MakeItYoursStep";
 import { ConnectEnableStep } from "./steps/ConnectEnableStep";
 import { GuideFeedbackStep } from "./steps/GuideFeedbackStep";
 import { PassphraseStep } from "./steps/PassphraseStep";
+import { AppLoadingScreen } from "../ui";
 
 const STEP_COUNT = 5;
-
-function LoadingCard() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-app-canvas">
-      <div className="text-sm text-app-ink-faint">Loading…</div>
-    </div>
-  );
-}
 
 /**
  * Replaces the old `SetupScreen` as `EncryptionGate`'s first-run view. Shown
@@ -43,7 +36,7 @@ export function OnboardingWizard() {
     setIndex(settings.onboardingStep);
   }, [loading, index, settings.onboardingStep]);
 
-  if (loading || index === null) return <LoadingCard />;
+  if (loading || index === null) return <AppLoadingScreen />;
 
   function goTo(nextIndex: number, dir: "next" | "prev") {
     if (nextIndex < 0 || nextIndex >= STEP_COUNT) return;

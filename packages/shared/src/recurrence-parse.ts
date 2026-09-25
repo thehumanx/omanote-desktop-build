@@ -13,15 +13,22 @@ import {
  *
  * Recognizes, anywhere inside a todo draft:
  *   cadence   "every day", "daily", "every 2 weeks", "every other month",
- *             "every mon and fri", "every weekday",
- *             "every month on the last saturday", "every first monday"
+ *             "every mon and fri", "every weekday", "every week on friday",
+ *             "every month on the last saturday", "every first monday",
+ *             "every month on the 5th", "on the 5th of every month",
+ *             "every 15th", "every year on march 3", "yearly", "annually"
  *   reminder  "every 30 minutes", "every hour"   (sub-daily -> repeating
  *             reminder on a single todo, not a series)
  *   window    "for the next 6 hours", "for 2 weeks", "until december",
  *             "until aug 3", "10 times"
+ *   start     "starting monday", "from oct 1", "beginning next month"
  *
  * Sub-daily cadences return kind "reminder"; day-and-up return kind
- * "series" with a ready RecurrenceRule anchored at `todayKey`. The matched
+ * "series" with a ready RecurrenceRule. It's anchored at `todayKey` unless the
+ * phrase names a start or a day: a monthly rule fires on its anchor's day of
+ * the month, so "on the 5th" moves the anchor to the next 5th rather than
+ * being stored separately. A yearly rule is a 12-month one for the same
+ * reason — `RecurrenceRule` has no year frequency. The matched
  * phrases are stripped so the remainder can be used as the todo title.
  * This never guesses: unrecognized phrasing simply returns null, and the
  * UI shows a confirmation chip of what was parsed before saving.
@@ -30,6 +37,13 @@ export type ParsedRecurrence =
   | {
       kind: "series";
       rule: RecurrenceRule;
+      /**
+       * Where `rule.anchorDateKey` came from: "today" (nothing in the phrase
+       * set it), "day" (a day of the month or of the year), or "start" (an
+       * explicit "starting …"). The todo editor keeps an existing series'
+       * anchor unless the phrase changes it.
+       */
+      anchorSource: "today" | "day" | "start";
       cleanedText: string;
       description: string;
     }
@@ -126,7 +140,9 @@ function parseWeekdayList(text: string): RecurrenceWeekday[] | null {
   const parts = text.split(/\s*(?:,|and|&)\s*/i).filter(Boolean);
   const weekdays: RecurrenceWeekday[] = [];
   for (const part of parts) {
-    const weekday = WEEKDAYS[part.trim().toLowerCase()];
+    const token = part.trim().toLowerCase();
+    // "mondays" as well as "monday"
+    const weekday = WEEKDAYS[token] ?? WEEKDAYS[token.replace(/s$/, "")];
     if (weekday === undefined) return null;
     weekdays.push({ weekday });
   }
@@ -140,6 +156,10 @@ interface CadenceMatch {
   interval: number;
   byWeekday?: RecurrenceWeekday[];
   everyMinutes?: number;
+  /** A 12·n-month rule written as years ("every year", "annually"). */
+  yearly?: boolean;
+  /** Set when the cadence itself names the day: "every 15th". */
+  dayOfMonth?: number;
 }
 
 // "every"/"each" both introduce a cadence.
@@ -170,6 +190,37 @@ function findCadence(input: string): CadenceMatch | null {
         byWeekday: [...new Set(ordinals)].map((ordinal) => ({ weekday, ordinal: ordinal as number })),
       };
     }
+  }
+
+  // "every 15th", "every 1st of the month" — a day of the month. Not "every
+  // 2nd day" (an interval) or "every 2nd monday" (matched above).
+  const everyNth = new RegExp(
+    `\\b${EVERY}\\s+(\\d{1,2})(?:st|nd|rd|th)\\b(?!\\s+(?:days?|weeks?|months?|years?|${WEEKDAY_PATTERN})\\b)` +
+      `(?:\\s+(?:day\\s+)?of\\s+(?:the|each|every)\\s+month\\b)?`,
+    "i",
+  ).exec(input);
+  if (everyNth && isDayOfMonth(Number(everyNth[1]))) {
+    return {
+      span: { start: everyNth.index, end: everyNth.index + everyNth[0].length },
+      kind: "series",
+      freq: "month",
+      interval: 1,
+      dayOfMonth: Number(everyNth[1]),
+    };
+  }
+
+  // "every year", "every 2 years", "yearly", "annually"
+  const yearly = new RegExp(`\\b(?:${EVERY}\\s+(?:(\\d+)\\s+|(other)\\s+)?years?|yearly|annually)\\b`, "i").exec(input);
+  if (yearly) {
+    const years = yearly[1] ? Number(yearly[1]) : yearly[2] ? 2 : 1;
+    if (!Number.isInteger(years) || years < 1) return null;
+    return {
+      span: { start: yearly.index, end: yearly.index + yearly[0].length },
+      kind: "series",
+      freq: "month",
+      interval: years * 12,
+      yearly: true,
+    };
   }
 
   // "every weekday" (Mon–Fri) / "every weekend" (Sat, Sun)
@@ -243,6 +294,121 @@ function findCadence(input: string): CadenceMatch | null {
   }
 
   return null;
+}
+
+function isDayOfMonth(day: number): boolean {
+  return Number.isInteger(day) && day >= 1 && day <= 31;
+}
+
+function overlapsAny(span: Match, claimed: Match[]): boolean {
+  return claimed.some((other) => span.start < other.end && other.start < span.end);
+}
+
+/** First match of `pattern` (global) whose span no other phrase has claimed. */
+function firstUnclaimed(input: string, pattern: RegExp, claimed: Match[]): RegExpExecArray | null {
+  for (const match of input.matchAll(pattern)) {
+    const span = { start: match.index, end: match.index + match[0].length };
+    if (!overlapsAny(span, claimed)) return match as RegExpExecArray;
+  }
+  return null;
+}
+
+/**
+ * "on the 5th", "on 5th", "the 5th of every month", "on day 5", "on the 5".
+ * The ordinal suffix, "the" or "day" is required, so a bare number ("at 5",
+ * "5 times") is never read as a day.
+ */
+function findDayOfMonth(input: string, claimed: Match[]): { span: Match; day: number } | null {
+  const patterns = [
+    /\b(?:on\s+)?(?:the\s+)?(\d{1,2})(?:st|nd|rd|th)\b(?:\s+(?:day\s+)?of\b(?:\s+(?:the|each)\s+month\b)?)?/gi,
+    /\bon\s+(?:the\s+)?day\s+(\d{1,2})\b/gi,
+    /\bon\s+the\s+(\d{1,2})\b(?!\s*(?::|\.\d|am\b|pm\b|a\.m|p\.m|times\b|x\b|min|hours?\b|hrs?\b))/gi,
+  ];
+  for (const pattern of patterns) {
+    const match = firstUnclaimed(input, pattern, claimed);
+    if (match && isDayOfMonth(Number(match[1]))) {
+      return { span: { start: match.index, end: match.index + match[0].length }, day: Number(match[1]) };
+    }
+  }
+  return null;
+}
+
+/** "on march 3", "on the 3rd of march", "march 3rd", "3 march". */
+function findDayOfYear(input: string, claimed: Match[]): { span: Match; month: number; day: number } | null {
+  const monthFirst = new RegExp(`\\b(?:on\\s+)?(?:the\\s+)?(${MONTH_PATTERN})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b`, "gi");
+  const dayFirst = new RegExp(`\\b(?:on\\s+)?(?:the\\s+)?(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONTH_PATTERN})\\b`, "gi");
+  const a = firstUnclaimed(input, monthFirst, claimed);
+  if (a) {
+    const month = MONTHS[a[1].toLowerCase()];
+    const day = Number(a[2]);
+    if (month && isDayOfMonth(day)) return { span: { start: a.index, end: a.index + a[0].length }, month, day };
+  }
+  const b = firstUnclaimed(input, dayFirst, claimed);
+  if (b) {
+    const month = MONTHS[b[2].toLowerCase()];
+    const day = Number(b[1]);
+    if (month && isDayOfMonth(day)) return { span: { start: b.index, end: b.index + b[0].length }, month, day };
+  }
+  return null;
+}
+
+/** "on friday", "on mondays and thursdays" — for a weekly cadence that didn't name its days. */
+function findWeekdaysOn(input: string, claimed: Match[]): { span: Match; byWeekday: RecurrenceWeekday[] } | null {
+  const day = `(?:${WEEKDAY_PATTERN})s?`;
+  const pattern = new RegExp(`\\bon\\s+(${day}(?:\\s*(?:,|and|&)\\s*${day})*)\\b`, "gi");
+  const match = firstUnclaimed(input, pattern, claimed);
+  if (!match) return null;
+  const byWeekday = parseWeekdayList(match[1]);
+  return byWeekday ? { span: { start: match.index, end: match.index + match[0].length }, byWeekday } : null;
+}
+
+/** "starting monday", "from oct 1", "beginning next month". */
+function findStart(input: string, todayKey: DateKey, claimed: Match[]): { span: Match; dateKey: DateKey } | null {
+  const match = firstUnclaimed(input, /\b(?:starting|beginning|from|effective)\s+(?:on\s+|from\s+)?([^,;]+)/gi, []);
+  if (!match) return null;
+  const reference = new Date(`${todayKey}T12:00:00`);
+  const first = chrono.parse(match[1], reference, { forwardDate: true })[0];
+  if (!first || first.index !== 0) return null;
+  const span = { start: match.index, end: match.index + match[0].indexOf(match[1]) + first.text.length };
+  if (overlapsAny(span, claimed)) return null;
+  return { span, dateKey: toDateKey(first.start.date()) };
+}
+
+function daysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+function formatDateKey(year: number, month: number, day: number): DateKey {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}` as DateKey;
+}
+
+/** The first date on or after `fromKey` that falls on `day` of its month (skipping months too short for it). */
+function nextDayOfMonth(fromKey: DateKey, day: number): DateKey {
+  let year = Number(fromKey.slice(0, 4));
+  let month = Number(fromKey.slice(5, 7));
+  if (Number(fromKey.slice(8, 10)) > day) month += 1;
+  for (let i = 0; i < 24; i += 1) {
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+    if (day <= daysInMonth(year, month)) return formatDateKey(year, month, day);
+    month += 1;
+  }
+  return fromKey;
+}
+
+/** The first `month`/`day` on or after `fromKey` (Feb 29 waits for a leap year). */
+function nextDayOfYear(fromKey: DateKey, month: number, day: number): DateKey {
+  let year = Number(fromKey.slice(0, 4));
+  if (formatDateKey(year, month, Math.min(day, 28)) < fromKey && formatDateKey(year, month, day) < fromKey) year += 1;
+  for (let i = 0; i < 8; i += 1, year += 1) {
+    if (day <= daysInMonth(year, month)) {
+      const candidate = formatDateKey(year, month, day);
+      if (candidate >= fromKey) return candidate;
+    }
+  }
+  return fromKey;
 }
 
 function findUntil(input: string, todayKey: DateKey): { span: Match; untilDateKey: DateKey } | null {
@@ -403,11 +569,51 @@ export function parseRecurrencePhrase(input: string, todayKey: DateKey): ParsedR
     spans.push(count.span);
   }
 
+  // Everything below reads what's left, so each phrase is claimed once: the
+  // "3rd" in "until aug 3rd" is an end date, not a day of the month.
+  const claimed = [cadence.span, until?.span, duration?.span, count?.span].filter((span): span is Match => !!span);
+  const claim = (span: Match) => {
+    spans.push(span);
+    claimed.push(span);
+  };
+
+  const start = findStart(input, todayKey, claimed);
+  if (start) claim(start.span);
+  const from = start?.dateKey ?? todayKey;
+  let anchorDateKey = from;
+  let anchorSource: "today" | "day" | "start" = start ? "start" : "today";
+  let byWeekday = cadence.byWeekday;
+
+  if (cadence.freq === "month" && !byWeekday) {
+    if (cadence.yearly) {
+      const dayOfYear = findDayOfYear(input, claimed);
+      if (dayOfYear) {
+        claim(dayOfYear.span);
+        anchorDateKey = nextDayOfYear(from, dayOfYear.month, dayOfYear.day);
+        anchorSource = "day";
+      }
+    } else {
+      const found = cadence.dayOfMonth === undefined ? findDayOfMonth(input, claimed) : null;
+      if (found) claim(found.span);
+      const dayOfMonth = cadence.dayOfMonth ?? found?.day;
+      if (dayOfMonth !== undefined) {
+        anchorDateKey = nextDayOfMonth(from, dayOfMonth);
+        anchorSource = "day";
+      }
+    }
+  } else if (cadence.freq === "week" && !byWeekday) {
+    const weekdays = findWeekdaysOn(input, claimed);
+    if (weekdays) {
+      claim(weekdays.span);
+      byWeekday = weekdays.byWeekday;
+    }
+  }
+
   const rule: RecurrenceRule = {
     freq: cadence.freq!,
     interval: cadence.interval,
-    byWeekday: cadence.byWeekday,
-    anchorDateKey: todayKey,
+    byWeekday,
+    anchorDateKey,
     untilDateKey,
     count: ruleCount,
   };
@@ -415,7 +621,13 @@ export function parseRecurrencePhrase(input: string, todayKey: DateKey): ParsedR
   return {
     kind: "series",
     rule,
+    anchorSource,
     cleanedText: removeSpans(input, spans),
-    description: `repeats ${describeRecurrenceRule(rule)}`,
+    description: `repeats ${describeRecurrenceRule(rule)}${anchorSource === "start" ? ` from ${formatStartLabel(anchorDateKey)}` : ""}`,
   };
+}
+
+function formatStartLabel(dateKey: DateKey): string {
+  const date = new Date(`${dateKey}T12:00:00`);
+  return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }

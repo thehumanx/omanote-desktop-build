@@ -19,7 +19,7 @@ export const FOLDER_COLORS = [
   "pink",
 ] as const;
 
-export type FolderColor = (typeof FOLDER_COLORS)[number];
+type FolderColor = (typeof FOLDER_COLORS)[number];
 
 /**
  * Guards a value read back from the server. An unknown key (a colour removed
@@ -31,7 +31,7 @@ export function isFolderColor(value: string | undefined | null): value is Folder
   return typeof value === "string" && (FOLDER_COLORS as readonly string[]).includes(value);
 }
 
-export type FolderColorStyle = {
+type FolderColorStyle = {
   /** Container/tab background. */
   surface: string;
   /** Darker shade of the same hue, for a Lucide icon. */

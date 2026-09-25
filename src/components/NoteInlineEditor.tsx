@@ -1,25 +1,18 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type RefObject } from "react";
 import { useCanvasDraftValue } from "../app/useCanvasDraftValue";
 import type { NoteFolder, NoteItem } from "@omanote/shared";
-import { normalizeLinkUrl } from "@omanote/shared";
 import { Button, Input } from "./ui";
 import { NoteCanvasEditor } from "./NoteCanvasEditor";
 import { isUncategorizedFolderName, readLastNoteFolder, resolveNoteFolderByName, writeLastNoteFolder } from "../lib/note-folder-utils";
-import { HashtagPickerDropdown } from "./HashtagPicker";
-import { EmojiPickerDropdown } from "./EmojiPicker";
 import { parseHashtags } from "../lib/hashtags";
 import { useUserSettings } from "../contexts/UserSettingsContext";
 import { isSaveKeyEvent } from "../lib/editor-shortcuts";
 import { useOutsideClick } from "../lib/useOutsideClick";
-import { BulletAfterBreakExtension, handleNoteEnterKey, HashtagDecorationExtension, MarkdownNoIndentCodeExtension, buildListAwareMarkdown, useTiptapHashtagPicker, useTiptapEmojiPicker } from "../lib/tiptap-note";
+import { useTiptapHashtagPicker, useTiptapEmojiPicker } from "../lib/tiptap-note";
+import { handleNoteEditorKeyDown, handleNoteEditorPaste, noteEditorExtensions, readNoteMarkdown } from "../lib/note-editor-config";
+import { NoteEditorOverlays } from "./NoteEditorOverlays";
 import { normalizeLegacyNoteBodyForTiptap } from "../lib/note-body-migration";
-import { TiptapLinkPopover } from "./TiptapLinkPopover";
 import { useEditor, EditorContent } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import Link from "@tiptap/extension-link";
-import Placeholder from "@tiptap/extension-placeholder";
-import { Markdown } from "tiptap-markdown";
-import { splitBlock } from "@tiptap/pm/commands";
 
 function tagsToInput(tags: string[]) {
   return tags.join(", ");
@@ -123,87 +116,20 @@ export const NoteInlineEditor = forwardRef<NoteInlineEditorHandle, {
   const emojiHandlerRef = useRef<TiptapEmojiPickerState["handleKeyDown"]>(() => false);
 
   const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        heading: false,
-        blockquote: false,
-        horizontalRule: false,
-        codeBlock: false,
-        link: false,
-        code: {
-          HTMLAttributes: {
-            class: "rounded bg-app-surface-muted px-1.5 py-0.5 font-mono text-[0.92em] text-app-ink",
-          },
-        },
-      }),
-      Link.configure({
-        openOnClick: false,
-        enableClickSelection: true,
-        HTMLAttributes: {
-          class: "rounded-sm font-bold text-app-ink underline decoration-2 decoration-zinc-300 underline-offset-2 transition hover:decoration-zinc-900",
-          rel: "noreferrer",
-          target: "_blank",
-        },
-      }),
-      Placeholder.configure({ placeholder: "Write your note here" }),
-      Markdown.configure({ html: false, breaks: true }),
-      HashtagDecorationExtension,
-      MarkdownNoIndentCodeExtension,
-      BulletAfterBreakExtension,
-    ],
+    extensions: noteEditorExtensions("Write your note here"),
     content: normalizeLegacyNoteBodyForTiptap(body),
-    onUpdate: ({ editor }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const markdown = (editor.storage as any).markdown.getMarkdown().replace(/\\\n/g, "\n");
-      setBody(markdown);
-    },
+    onUpdate: ({ editor }) => setBody(readNoteMarkdown(editor)),
     editorProps: {
       attributes: {
         class: "omanote-note-editor relative block w-full min-h-[140px] text-[15px] leading-7 text-app-ink caret-app-ink outline-none",
       },
-      handleKeyDown: (_view, event) => {
-        if (hashtagHandlerRef.current(event)) return true;
-        if (emojiHandlerRef.current(event)) return true;
-
-        // Enter saves, Shift+Enter breaks the line, Shift+Enter twice starts
-        // a paragraph — see handleNoteEnterKey, shared with the other note
-        // editor so the two can't drift apart again.
-        if (handleNoteEnterKey(_view, event, () => commitRef.current())) return true;
-        if (event.key === "Enter") return false;
-
-        if (event.key === "Escape") {
-          event.preventDefault();
-          onCancelRef.current?.();
-          return true;
-        }
-
-        return false;
-      },
-      handlePaste: (view, event) => {
-        const plainText = event.clipboardData?.getData("text/plain") ?? "";
-
-        // URL pasted onto a selection → wrap selection in a link.
-        if (!view.state.selection.empty) {
-          const href = normalizeLinkUrl(plainText);
-          if (href) {
-            editor?.chain().focus().setLink({ href }).run();
-            return true;
-          }
-        }
-
-        // Real HTML lists already paste correctly — don't interfere.
-        const html = event.clipboardData?.getData("text/html") ?? "";
-        if (/<(ul|ol|li)\b/i.test(html)) return false;
-
-        // Convert bullet/indented plain text into a proper markdown list.
-        const listMarkdown = buildListAwareMarkdown(plainText);
-        if (listMarkdown && editor) {
-          editor.chain().focus().insertContent(listMarkdown).run();
-          return true;
-        }
-
-        return false;
-      },
+      handleKeyDown: (view, event) =>
+        handleNoteEditorKeyDown(view, event, {
+          pickerHandlers: [hashtagHandlerRef.current, emojiHandlerRef.current],
+          commit: () => commitRef.current(),
+          cancel: onCancelRef.current,
+        }),
+      handlePaste: (view, event): boolean => handleNoteEditorPaste(view, event, editor),
     },
     autofocus: autoFocus ? "end" : false,
   });
@@ -288,25 +214,7 @@ export const NoteInlineEditor = forwardRef<NoteInlineEditorHandle, {
       <div ref={rootRef} className="rounded-xl border border-app-line bg-app-surface">
         <div ref={editorWrapperRef} className="relative px-3 py-3">
           <EditorContent editor={editor} />
-          <TiptapLinkPopover editor={editor} wrapperRef={editorWrapperRef} />
-          <HashtagPickerDropdown
-            isOpen={hashtagPicker.isOpen}
-            suggestions={hashtagPicker.suggestions}
-            activeIndex={hashtagPicker.activeIndex}
-            onSelect={hashtagPicker.selectSuggestion}
-            onHover={hashtagPicker.setActiveIndex}
-            anchorRef={editorWrapperRef}
-            anchorRect={hashtagPicker.anchorRect}
-          />
-          <EmojiPickerDropdown
-            isOpen={emojiPicker.isOpen}
-            suggestions={emojiPicker.suggestions}
-            activeIndex={emojiPicker.activeIndex}
-            onSelect={emojiPicker.selectSuggestion}
-            onHover={emojiPicker.setActiveIndex}
-            anchorRef={editorWrapperRef}
-            anchorRect={emojiPicker.anchorRect}
-          />
+  <NoteEditorOverlays editor={editor} wrapperRef={editorWrapperRef} hashtagPicker={hashtagPicker} emojiPicker={emojiPicker} />
         </div>
         <div className="flex flex-wrap items-center gap-2 border-t border-app-line px-3 py-2">
           {showTags ? (

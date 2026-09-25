@@ -24,10 +24,10 @@ const IMAGES_URL = "https://omanote-page-images.iambishistha.workers.dev";
 const ALLOWED_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif"]);
 
 /** Hard ceiling the worker enforces on the encrypted upload — a last-resort backstop, not the target (see MAX_UPLOAD_BYTES). */
-export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
 /** Target size for what actually gets uploaded — storage is capped per-user, so every image counts against it. */
-export const MAX_UPLOAD_BYTES = 800 * 1024;
+const MAX_UPLOAD_BYTES = 800 * 1024;
 
 /**
  * Re-encodes an oversized image as JPEG, shrinking quality then dimensions
@@ -81,15 +81,15 @@ async function compressImage(file: File): Promise<Blob> {
   return lastBlob!;
 }
 
-export type ImageTokenGetter = () => Promise<string | null>;
+type ImageTokenGetter = () => Promise<string | null>;
 
 /** Supplied by EncryptionContext — see encryptBinary/decryptBinary there. */
-export interface ImageCrypto {
+interface ImageCrypto {
   encryptBinary: (bytes: ArrayBuffer, mimeType: string) => Promise<ArrayBuffer>;
   decryptBinary: (payload: ArrayBuffer) => Promise<{ bytes: ArrayBuffer; mimeType: string }>;
 }
 
-export class PageImageError extends Error {
+class PageImageError extends Error {
   constructor(message: string, public code: "type" | "size" | "network" | "auth" | "quota" | "decrypt") {
     super(message);
     this.name = "PageImageError";
@@ -211,7 +211,7 @@ export function publicPageImageUrl(key: string): string {
  * has no key: it cannot turn the stored ciphertext into something a visitor
  * could render.
  */
-export async function publishPageImage(
+async function publishPageImage(
   key: string,
   getToken: ImageTokenGetter,
   crypto: ImageCrypto,
@@ -255,7 +255,7 @@ async function deleteImageObject(key: string, getToken: ImageTokenGetter): Promi
 }
 
 /** Deletes a published copy. Safe to call for a key that is already gone. */
-export async function unpublishPageImage(publicKey: string, getToken: ImageTokenGetter): Promise<void> {
+async function unpublishPageImage(publicKey: string, getToken: ImageTokenGetter): Promise<void> {
   return deleteImageObject(publicKey, getToken);
 }
 

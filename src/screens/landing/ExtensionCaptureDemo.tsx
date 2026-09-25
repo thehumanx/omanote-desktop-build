@@ -190,7 +190,7 @@ export function ExtensionCaptureDemo() {
     >
       {/* The page being read. */}
       <div className="absolute inset-x-0 top-6 rounded-2xl border border-app-line bg-app-surface p-5 text-left shadow-app-soft">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">
+        <p className="text-[10px] font-bold uppercase text-app-ink-faint">
           {ARTICLE.domain}
         </p>
         <h3 className="app-title-font mt-2 text-lg font-bold text-app-ink">{ARTICLE.title}</h3>
@@ -261,7 +261,7 @@ export function ExtensionCaptureDemo() {
               </div>
 
               <div className="px-3.5 pt-3">
-                <p className="text-[9px] font-bold uppercase tracking-widest text-app-ink-faint">
+                <p className="text-[9px] font-bold uppercase text-app-ink-faint">
                   Note
                 </p>
                 <div className="mt-1.5 rounded-lg border border-app-line bg-app-canvas px-3 py-2 text-[11px] leading-5 text-app-ink">

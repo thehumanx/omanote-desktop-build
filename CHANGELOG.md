@@ -4,6 +4,23 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.33.8 [September 25, 2026]
+
+> Everything you do offline now sticks, and the app is lighter.
+
+- [Fix] Offline changes are kept and show right away, even after a reload: edits, deletes, new folders, repeating todos, reading and settings. They're sent once when you're back online
+- [Fix] Repeating todos now understand the day you name: "every month on the 5th", "on the 5th of every month", "every week on Friday", "every year on March 3", "starting Monday". Editing a repeat keeps the days you deleted from it
+- [Fix] Clicking inside the composer no longer saves a half-written todo or event, and pressing / right after saving opens it again
+- [Fix] On canvas pages, paragraphs now have space between them, so Enter (new paragraph) and Shift + Enter (new line) look different. Line breaks also show on shared pages
+- [Fix] Todos from Google Calendar stay in the folder you moved them to
+- [Fix] Notes ending in a list no longer grow a blank line
+- [Fix] Reloading while unlocked is faster and no longer flashes the passphrase screen. When there is a wait, you see the omanote logo instead of "Loading…"
+- [Update] Each account keeps its offline data separately, and signing out or deleting your account removes it from the device
+- [Update] Deleting your account now also asks for your passphrase
+- [Update] The canvas dot grid is softer, and letter spacing is even across the app
+- [Update] Link previews on the web match the extension, with real titles and artwork for YouTube and Spotify
+- [Update] The app downloads about 40% less, checks for updates with a few bytes, and the desktop app starts lighter
+
 ### v0.33.7 [September 23, 2026]
 > Making sure your folders show up real on your canvas and elsewhere
 

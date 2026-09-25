@@ -435,7 +435,7 @@ export function appReducer(state: AppState = createInitialState(), action: AppAc
   }
 }
 
-export function getVisibleCanvasTodos(
+function getVisibleCanvasTodos(
   state: AppState,
   dateKey: DateKey,
   // The completion index is date-independent; callers rendering many days can

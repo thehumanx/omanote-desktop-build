@@ -1,10 +1,9 @@
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { installGlobalErrorHandlers, setErrorSink } from "../lib/error-reporting";
 import { detectWebClientType } from "../lib/device-info";
-import changelogMarkdown from "../../CHANGELOG.md?raw";
-import { parseLatestVersion } from "../lib/update-checker";
+import { currentVersion } from "virtual:changelog";
 
 /**
  * Connects the app's error-reporting seam to the backend.
@@ -20,7 +19,7 @@ export function ErrorReporter() {
   // — the same source the landing page footer uses. Deliberately not
   // UpdateContext's `latestVersion`, which is the newest version *available*
   // and would mislabel every report from a client that hasn't updated.
-  const appVersion = useMemo(() => parseLatestVersion(changelogMarkdown)?.version, []);
+  const appVersion = currentVersion?.version;
 
   useEffect(() => {
     const clientType = detectWebClientType();

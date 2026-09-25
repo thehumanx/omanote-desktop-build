@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { useAuth as useClerkAuth, useUser } from "@clerk/react";
-import { clearLocalCache, db, DEXIE_CACHE_OWNER_KEY } from "../db";
+import { clearLocalCache, db, DEXIE_CACHE_OWNER_KEY, markCurrentDbForDeletion } from "../db";
 import { clearUserScopedStorage } from "../../lib/local-storage";
 import { SignOutConfirmModal } from "../../components/SignOutConfirmModal";
 
@@ -38,7 +38,8 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 /**
- * Empties the local cache as part of signing out.
+ * Empties and deletes this account's local database, as part of signing out
+ * or deleting the account.
  *
  * Sign-out used to leave everything in place and defer the wipe to whenever a
  * *different* user next signed in. That left the outgoing user's encrypted rows
@@ -46,12 +47,8 @@ const AuthContext = createContext<AuthContextValue | null>(null);
  * sitting in IndexedDB indefinitely on a shared or borrowed machine, and made
  * cleanup contingent on an event that might never happen.
  *
- * Clearing here also drops the outbox, which is why unsynced writes are
- * confirmed first: the queue is a Dexie table precisely so it cannot survive
- * into another account (see the v6 migration note in db.ts), so "keep the
- * outbox but clear everything else" is not an option.
- *
- * Returns false if the user declined at the confirmation.
+ * This also drops the outbox, which is why sign-out confirms unsynced writes
+ * first.
  */
 async function clearLocalDataForSignOut(): Promise<void> {
   // Ahead of the cache clear, and outside the try: these are the drafts and
@@ -59,15 +56,17 @@ async function clearLocalDataForSignOut(): Promise<void> {
   // keys are already scoped to this user, so this is the "leave nothing
   // behind on my own machine" half rather than the cross-account guarantee.
   clearUserScopedStorage();
+  // Marked first so the database goes even if the clear below throws. The
+  // delete itself waits until LocalCacheGate has switched away from it (or the
+  // next load); the clear is what makes the rows disappear right now.
+  markCurrentDbForDeletion();
+  window.localStorage.removeItem(DEXIE_CACHE_OWNER_KEY);
   try {
     await clearLocalCache();
-    // Only drop the owner marker once the cache is actually empty. If the clear
-    // failed we leave it pointing at the outgoing user, so LocalCacheGate sees
-    // a mismatch and re-clears before the next user reads anything.
-    window.localStorage.removeItem(DEXIE_CACHE_OWNER_KEY);
   } catch {
     // Fall through and sign out regardless — dropping the session is the more
-    // urgent half, and the gate is the backstop for the cache.
+    // urgent half, and the database is still marked for deletion. Another
+    // account signing in opens its own database, never this one.
   }
 }
 
@@ -130,6 +129,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           throw new Error("No authenticated user");
         }
         await user.delete();
+        // Nothing to confirm here, unlike sign-out: the queued writes have
+        // nowhere left to go.
+        await clearLocalDataForSignOut();
       },
       getSessionToken: () => getToken({ template: "convex" }),
     }),

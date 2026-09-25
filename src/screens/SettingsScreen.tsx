@@ -93,7 +93,7 @@ export function SettingsScreen() {
   const { user, deleteAccount, signOut } = useAuth();
   const { settings, loading, updateSettings } = useUserSettings();
   const { themeMode, setThemeMode } = useTheme();
-  const { changePassphrase, exportRecoveryKeyText, lock } = useEncryption();
+  const { changePassphrase, exportRecoveryKeyText, lock, verifyPassphrase } = useEncryption();
   const deleteMyData = useMutation(api.account.deleteMyData);
   const removeDevice = useMutation(api.devices.removeDevice);
   const upsertPushSubscription = useMutation(api.pushSubscriptions.upsertPushSubscription);
@@ -243,6 +243,7 @@ export function SettingsScreen() {
   }
 
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deletePassphrase, setDeletePassphrase] = useState("");
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deletingAccount, setDeletingAccount] = useState(false);
 
@@ -329,7 +330,9 @@ export function SettingsScreen() {
   const disableAppearanceSave = loading || savingAppearance || !hasPendingAppearanceChanges;
   const disableNotificationSave = loading || savingNotifications || !hasPendingNotificationChanges;
   const canChangePassphrase = currentPassphrase.length > 0 && nextPassphrase.length > 0 && confirmPassphrase.length > 0;
-  const canDeleteAccount = deleteConfirmation.trim() === "DELETE";
+  // The passphrase is the one thing a signed-in session alone doesn't prove —
+  // it keeps someone at an unlocked, unattended device from wiping the account.
+  const canDeleteAccount = deleteConfirmation.trim() === "DELETE" && deletePassphrase.length > 0;
 
   useTopChrome(null);
 
@@ -549,6 +552,11 @@ export function SettingsScreen() {
 
   async function handleDeleteAccount() {
     if (deletingAccount || !canDeleteAccount) return;
+    setDeleteError(null);
+    if (!(await verifyPassphrase(deletePassphrase))) {
+      setDeleteError("That passphrase doesn't match. Enter the passphrase you use to unlock omanote.");
+      return;
+    }
     openConfirm({
       title: "Delete account",
       message: "This permanently deletes your omanote data and your account. This cannot be undone.",
@@ -1256,6 +1264,17 @@ export function SettingsScreen() {
                 className="mt-3 w-full rounded-md border border-danger-line bg-app-surface px-3 py-2 text-sm text-app-ink outline-none focus:border-danger-ink"
                 value={deleteConfirmation}
                 onChange={(e) => setDeleteConfirmation(e.target.value)}
+              />
+              <p className="mt-3 text-xs leading-relaxed text-danger-ink">
+                Then enter your encryption passphrase to confirm it's you.
+              </p>
+              <input
+                type="password"
+                autoComplete="current-password"
+                aria-label="Encryption passphrase"
+                className="mt-2 w-full rounded-md border border-danger-line bg-app-surface px-3 py-2 text-sm text-app-ink outline-none focus:border-danger-ink"
+                value={deletePassphrase}
+                onChange={(e) => setDeletePassphrase(e.target.value)}
               />
               <div className="mt-4 flex justify-end">
                 <Button

@@ -13,7 +13,7 @@ export type LinkedArtifactReference = {
   createdDateKey: DateKey;
 };
 
-export type LinkedArtifactBookmark = BookmarkItem & {
+type LinkedArtifactBookmark = BookmarkItem & {
   linkedArtifactReferences: LinkedArtifactReference[];
 };
 

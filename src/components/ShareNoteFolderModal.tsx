@@ -1,39 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { Check, Copy, Eye, Link, X, LayoutList, LayoutGrid } from "lucide-react";
-import { BaseModal } from "./BaseModal";
-import { ShareEncryptionNotice } from "./ShareEncryptionNotice";
-import { ShareLinkMetaEditor } from "./ShareLinkMetaEditor";
-import { cn } from "./ui";
 import { useApp } from "../app/AppProvider";
-import { useShareLinkMeta } from "../lib/use-share-link-meta";
-import { buildShareUrl, SHARE_DOMAIN } from "../lib/share-url";
+import { ShareFolderModalShell } from "./ShareFolderModalShell";
 
-
-function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={cn(
-        "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none",
-        checked ? "bg-action-primary" : "bg-app-line",
-      )}
-    >
-      <span
-        className={cn(
-          "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-app-surface shadow-sm transition duration-200",
-          checked ? "translate-x-4" : "translate-x-0",
-        )}
-      />
-    </button>
-  );
-}
-
+/** Share modal for a note folder. */
 export function ShareNoteFolderModal({
   folderId,
   folderName,
@@ -46,237 +18,37 @@ export function ShareNoteFolderModal({
   onClose: () => void;
 }) {
   const { state } = useApp();
-  const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
-  const [isTogglingShare, setIsTogglingShare] = useState(false);
-  const [snapshotPushed, setSnapshotPushed] = useState(false);
-  const copyResetRef = useRef<number | null>(null);
+  const noteFolderId = folderId as Id<"noteFolders">;
 
-  const share = useQuery(api.sharedNoteFolders.getFolderShare, {
-    folderId: folderId as Id<"noteFolders">,
-  });
+  const share = useQuery(api.sharedNoteFolders.getFolderShare, { folderId: noteFolderId });
   const setShareActive = useMutation(api.sharedNoteFolders.setShareActive);
   const updateShareSnapshot = useMutation(api.sharedNoteFolders.updateShareSnapshot);
-  const setLinkViewModeMutation = useMutation(api.sharedNoteFolders.setLinkViewMode);
-  const generateThumbnailUploadUrl = useMutation(api.sharedFolderMeta.generateThumbnailUploadUrl);
-  const setNoteShareThumbnail = useMutation(api.sharedFolderMeta.setNoteShareThumbnail);
-  const setNoteShareSlug = useMutation(api.sharedFolderMeta.setNoteShareSlug);
-  const setNoteShareDescription = useMutation(api.sharedFolderMeta.setNoteShareDescription);
+  const setLinkViewMode = useMutation(api.sharedNoteFolders.setLinkViewMode);
 
-  const meta = useShareLinkMeta({
-    share,
-    folderName,
-    generateUploadUrl: generateThumbnailUploadUrl,
-    setThumbnail: (storageId) => {
-      if (!share) return Promise.resolve();
-      return setNoteShareThumbnail({ shareId: share._id, storageId });
-    },
-    setSlug: (slug) => {
-      if (!share) return Promise.resolve();
-      return setNoteShareSlug({ shareId: share._id, slug });
-    },
-    setDescription: (description) => {
-      if (!share) return Promise.resolve();
-      return setNoteShareDescription({ shareId: share._id, description });
-    },
-  });
-
-  const isActive = share?.isActive ?? false;
-  const shareUrl = share ? buildShareUrl(share.customSlug || share.shareCode) : null;
-
-  const folderNotes = state.notes
-    .filter((n) => n.folderId === folderId && !n.deletedAt)
-    .sort((a, b) => a.createdAt - b.createdAt)
-    .map((n) => ({
-      id: n.id,
-      title: n.title,
-      body: n.body,
-      tags: n.tags,
-    }));
-
-  const pushSnapshot = useCallback(async () => {
-    await updateShareSnapshot({
-      folderId: folderId as Id<"noteFolders">,
-      folderName,
-      folderIcon,
-      notes: folderNotes,
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [updateShareSnapshot, folderId, folderName, folderIcon, state.notes]);
-
-  useEffect(() => {
-    if (snapshotPushed || share === undefined || !share?.isActive) return;
-    setSnapshotPushed(true);
-    void pushSnapshot();
-  }, [share, snapshotPushed, pushSnapshot]);
-
-  useEffect(() => {
-    return () => {
-      if (copyResetRef.current !== null) window.clearTimeout(copyResetRef.current);
-    };
-  }, []);
-
-  const handleToggle = async (nextActive: boolean) => {
-    if (isTogglingShare) return;
-    setIsTogglingShare(true);
-    try {
-      await setShareActive({
-        folderId: folderId as Id<"noteFolders">,
-        isActive: nextActive,
+  const pushSnapshot = useCallback(
+    () =>
+      updateShareSnapshot({
+        folderId: noteFolderId,
         folderName,
-      });
-      if (nextActive) {
-        setSnapshotPushed(true);
-        void pushSnapshot();
-      }
-    } finally {
-      setIsTogglingShare(false);
-    }
-  };
-
-  const handleCopy = async () => {
-    if (!shareUrl) return;
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-    } catch {
-      const el = document.createElement("textarea");
-      el.value = shareUrl;
-      el.style.position = "fixed";
-      el.style.opacity = "0";
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand("copy");
-      document.body.removeChild(el);
-    }
-    setCopyState("copied");
-    copyResetRef.current = window.setTimeout(() => setCopyState("idle"), 2000);
-  };
+        folderIcon,
+        notes: state.notes
+          .filter((n) => n.folderId === folderId && !n.deletedAt)
+          .sort((a, b) => a.createdAt - b.createdAt)
+          .map((n) => ({ id: n.id, title: n.title, body: n.body, tags: n.tags })),
+      }),
+    [updateShareSnapshot, noteFolderId, folderId, folderName, folderIcon, state.notes],
+  );
 
   return (
-    <BaseModal onClose={onClose} onBackdropMouseDown={onClose} zIndex="z-app-dialog">
-      <div
-        className="w-full max-w-md rounded-app-dialog border border-app-line bg-app-surface p-5 shadow-soft"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-          <div className="mb-4 flex items-start justify-between gap-3">
-            <div>
-              <h2 className="text-base font-bold text-app-ink">Share folder</h2>
-              <p className="mt-0.5 text-sm text-app-ink-faint truncate max-w-[300px]">{folderName}</p>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink-muted"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-
-          <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-app-line bg-app-surface-muted px-4 py-3">
-            <div className="flex items-center gap-2 min-w-0">
-              <Link className="h-4 w-4 flex-shrink-0 text-app-ink-faint" />
-              <span className="text-sm text-app-ink-muted font-medium">Public link</span>
-            </div>
-            <Toggle checked={isActive} onChange={handleToggle} />
-          </div>
-
-          {share !== undefined && (
-            <>
-              <div
-                className={cn(
-                  "mb-4 flex items-center gap-2 rounded-xl border px-3 py-2.5 transition-colors",
-                  isActive ? "border-app-line bg-app-surface" : "border-app-line bg-app-surface-muted",
-                )}
-              >
-                <span
-                  className={cn(
-                    "min-w-0 flex-1 truncate text-[13px] font-mono",
-                    isActive ? "text-app-ink-muted" : "text-app-ink-faint",
-                  )}
-                >
-                  {shareUrl ?? `https://${SHARE_DOMAIN}/s/········`}
-                </span>
-                <button
-                  type="button"
-                  disabled={!isActive || !shareUrl}
-                  onClick={handleCopy}
-                  aria-label="Copy link"
-                  className={cn(
-                    "flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md transition",
-                    isActive
-                      ? "text-app-ink-faint hover:bg-app-surface-hover hover:text-app-ink"
-                      : "cursor-not-allowed text-app-line-strong",
-                  )}
-                >
-                  {copyState === "copied" ? (
-                    <Check className="h-3.5 w-3.5 text-green-500" />
-                  ) : (
-                    <Copy className="h-3.5 w-3.5" />
-                  )}
-                </button>
-              </div>
-
-              {isActive && share && (
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-1.5 text-xs text-app-ink-faint">
-                    <Eye className="h-3.5 w-3.5" />
-                    <span>
-                      {share.viewCount === 0
-                        ? "Not opened yet"
-                        : share.viewCount === 1
-                          ? "Opened 1 time"
-                          : `Opened ${share.viewCount} times`}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3 rounded-xl border border-app-line bg-app-surface-muted px-4 py-3">
-                    <span className="text-sm text-app-ink-muted font-medium">Link view</span>
-                    <div className="flex overflow-hidden rounded-md border border-app-line">
-                      <button
-                        type="button"
-                        onClick={() => setLinkViewModeMutation({ folderId: folderId as Id<"noteFolders">, linkViewMode: "card" })}
-                        className={cn(
-                          "flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium transition",
-                          (share.linkViewMode ?? "card") === "card"
-                            ? "bg-app-surface text-app-ink"
-                            : "bg-app-surface-muted text-app-ink-faint hover:text-app-ink-muted",
-                        )}
-                      >
-                        <LayoutGrid className="h-3.5 w-3.5" />
-                        Card
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setLinkViewModeMutation({ folderId: folderId as Id<"noteFolders">, linkViewMode: "list" })}
-                        className={cn(
-                          "flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium transition",
-                          share.linkViewMode === "list"
-                            ? "bg-app-surface text-app-ink"
-                            : "bg-app-surface-muted text-app-ink-faint hover:text-app-ink-muted",
-                        )}
-                      >
-                        <LayoutList className="h-3.5 w-3.5" />
-                        List
-                      </button>
-                    </div>
-                  </div>
-
-                  <ShareLinkMetaEditor domain={SHARE_DOMAIN} {...meta} />
-                </div>
-              )}
-
-              {!isActive && (
-                <p className="text-xs text-app-ink-faint">
-                  Turn on public link to share this folder with anyone.
-                </p>
-              )}
-
-              <ShareEncryptionNotice noun="notes" className="mt-3" />
-            </>
-          )}
-
-          {share === undefined && (
-            <div className="h-10 animate-pulse rounded-xl bg-app-surface-muted" />
-          )}
-        </div>
-    </BaseModal>
+    <ShareFolderModalShell
+      folderName={folderName}
+      share={share}
+      setActive={(isActive) => setShareActive({ folderId: noteFolderId, isActive, folderName })}
+      pushSnapshot={pushSnapshot}
+      setLinkViewMode={(linkViewMode) => void setLinkViewMode({ folderId: noteFolderId, linkViewMode })}
+      metaKind="note"
+      encryptionNoun="notes"
+      onClose={onClose}
+    />
   );
 }

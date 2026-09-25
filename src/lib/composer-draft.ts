@@ -4,7 +4,7 @@ import type { DraftMode } from "../app/types";
 const COMPOSER_DRAFT_KEY = "omanote.composer-draft";
 const DRAFT_MODES: DraftMode[] = ["note", "todo", "bookmark", "event"];
 
-export type PersistedComposerDraft = {
+type PersistedComposerDraft = {
   mode: DraftMode;
   body: string;
   todoLines: string[];

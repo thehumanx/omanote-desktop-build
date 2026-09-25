@@ -108,7 +108,7 @@ function ToastStack({
                       </div>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-bold uppercase tracking-wide text-app-ink-faint">Reminder</p>
+                      <p className="text-[11px] font-bold uppercase text-app-ink-faint">Reminder</p>
                       <p className="mt-0.5 text-sm font-medium text-app-ink leading-snug">{toast.title}</p>
                     </div>
                     <Button

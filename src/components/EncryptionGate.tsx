@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useEncryption } from "../contexts/EncryptionContext";
 import { OnboardingWizard } from "./onboarding/OnboardingWizard";
 import { OnboardingLogoReveal } from "./onboarding/OnboardingLogoReveal";
-import { Button } from "./ui";
+import { AppLoadingScreen, Button } from "./ui";
 
 // ---------------------------------------------------------------------------
 // Shared form layout
@@ -60,7 +60,7 @@ function PassphraseForm({
   return (
     <div className="flex min-h-screen items-center justify-center bg-app-canvas px-4">
       <div className="w-full max-w-md rounded-xl border border-app-line bg-app-surface p-6 shadow-app-soft">
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-app-ink-faint">omanote</p>
+        <p className="text-xs font-bold uppercase text-app-ink-faint">omanote</p>
         <h1 className="mt-2 text-2xl font-black text-app-ink">{heading}</h1>
         <p className="mt-2 text-sm leading-6 text-app-ink-muted">{description}</p>
 
@@ -200,18 +200,6 @@ function ResetPassphraseScreen() {
 }
 
 // ---------------------------------------------------------------------------
-// Loading screen
-// ---------------------------------------------------------------------------
-
-function LoadingScreen() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-app-canvas">
-      <div className="text-sm text-app-ink-faint">Loading…</div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Gate — renders children only when unlocked
 // ---------------------------------------------------------------------------
 
@@ -238,7 +226,7 @@ export function EncryptionGate({ children }: { children: React.ReactNode }) {
     setPrevIsSetup(isSetup);
   }
 
-  if (isSetup === null || isRestoringSession) return <LoadingScreen />;
+  if (isSetup === null || isRestoringSession) return <AppLoadingScreen />;
   if (!isSetup) return <OnboardingWizard />;
   if (isLocked) return <UnlockScreen />;
   if (needsPassphraseReset) return <ResetPassphraseScreen />;

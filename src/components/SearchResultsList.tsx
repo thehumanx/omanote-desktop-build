@@ -74,7 +74,7 @@ export function SearchResultsList({
       {groupedResults.map((group) => (
         <section key={group.kind} className="space-y-2">
           <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold uppercase tracking-[0.18em] text-app-ink-faint">{kindLabel(group.kind)}</h2>
+            <h2 className="text-xs font-bold uppercase text-app-ink-faint">{kindLabel(group.kind)}</h2>
             <span className="text-xs text-app-ink-faint">{group.items.length}</span>
           </div>
           <div>
@@ -108,7 +108,7 @@ export function SearchResultsList({
                   <p className="truncate text-sm font-bold text-app-ink">{result.title}</p>
                   <p className="mt-0.5 line-clamp-2 text-sm text-app-ink-muted">{result.subtitle}</p>
                 </div>
-                <span className="shrink-0 text-[11px] uppercase tracking-wide text-app-ink-faint">{result.kind === "page" ? "canvas" : result.kind}</span>
+                <span className="shrink-0 text-[11px] uppercase text-app-ink-faint">{result.kind === "page" ? "canvas" : result.kind}</span>
               </button>
             ))}
           </div>

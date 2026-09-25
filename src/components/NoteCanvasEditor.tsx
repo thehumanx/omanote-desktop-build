@@ -1,24 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { NoteFolder } from "@omanote/shared";
-import { normalizeLinkUrl } from "@omanote/shared";
 import { cn } from "./ui";
 import { NoteFolderPicker } from "./NoteFolderPicker";
 import { hasMeaningfulNoteInput, isUncategorizedFolderName, resolveNoteFolderByName, writeLastNoteFolder } from "../lib/note-folder-utils";
 import { MobileSaveButton } from "./MobileSaveButton";
-import { HashtagPickerDropdown } from "./HashtagPicker";
-import { EmojiPickerDropdown } from "./EmojiPicker";
 import { X } from "lucide-react";
 import { useUserSettings } from "../contexts/UserSettingsContext";
 import { useMobileKeyboardState } from "./layout/useMobileKeyboardState";
-import { BulletAfterBreakExtension, handleNoteEnterKey, HashtagDecorationExtension, MarkdownNoIndentCodeExtension, buildListAwareMarkdown, useTiptapHashtagPicker, useTiptapEmojiPicker } from "../lib/tiptap-note";
+import { useTiptapHashtagPicker, useTiptapEmojiPicker } from "../lib/tiptap-note";
+import { handleNoteEditorKeyDown, handleNoteEditorPaste, noteEditorExtensions, readNoteMarkdown } from "../lib/note-editor-config";
+import { NoteEditorOverlays } from "./NoteEditorOverlays";
 import { normalizeLegacyNoteBodyForTiptap } from "../lib/note-body-migration";
-import { TiptapLinkPopover } from "./TiptapLinkPopover";
 import { useEditor, EditorContent } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import Link from "@tiptap/extension-link";
-import Placeholder from "@tiptap/extension-placeholder";
-import { Markdown } from "tiptap-markdown";
-import { splitBlock } from "@tiptap/pm/commands";
 
 /** Module scope so the defaults stay referentially stable across renders. */
 const EMPTY_NOTE_FOLDERS: NoteFolder[] = [];
@@ -106,107 +99,22 @@ export function NoteCanvasEditor({
   commitRef.current = commit;
 
   const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        heading: false,
-        blockquote: false,
-        horizontalRule: false,
-        codeBlock: false,
-        link: false,
-        // StarterKit bundles TrailingNode in v3, which appends an empty
-        // paragraph whenever the doc's last node isn't one — so a note
-        // ending in a list always grew a blank line that reappeared the
-        // instant you deleted it (its appendTransaction re-inserts on the
-        // next transaction). A note is a short block of text, not a
-        // document; it doesn't need somewhere to land past the end. Gapcursor
-        // is still on, so a list at the very end is still escapable.
-        // PageEditor deliberately keeps the trailing node — a page *is* a
-        // document, and there you do want a paragraph after a closing list.
-        trailingNode: false,
-        code: {
-          HTMLAttributes: {
-            class: "rounded bg-app-surface-muted px-1.5 py-0.5 font-mono text-[0.92em] text-app-ink",
-          },
-        },
-      }),
-      Link.configure({
-        openOnClick: false,
-        enableClickSelection: true,
-        HTMLAttributes: {
-          class: "rounded-sm font-bold text-app-ink underline decoration-2 decoration-zinc-300 underline-offset-2 transition hover:decoration-zinc-900",
-          rel: "noreferrer",
-          target: "_blank",
-        },
-      }),
-      Placeholder.configure({ placeholder }),
-      Markdown.configure({ html: false, breaks: true }),
-      HashtagDecorationExtension,
-      MarkdownNoIndentCodeExtension,
-      BulletAfterBreakExtension,
-    ],
+    extensions: noteEditorExtensions(placeholder),
     content: normalizeLegacyNoteBodyForTiptap(body),
-    onUpdate: ({ editor }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const markdown = (editor.storage as any).markdown.getMarkdown().replace(/\\\n/g, "\n");
-      onBodyChange(markdown);
-    },
+    onUpdate: ({ editor }) => onBodyChange(readNoteMarkdown(editor)),
     onFocus: () => setBodyFocused(true),
     onBlur: () => setBodyFocused(false),
     editorProps: {
       attributes: {
         class: "omanote-note-editor relative block w-full text-[15px] leading-6 text-app-ink caret-app-ink outline-none",
       },
-      handleKeyDown: (_view, event) => {
-        if (hashtagHandlerRef.current(event)) return true;
-        if (emojiHandlerRef.current(event)) return true;
-
-        // Enter saves, Shift+Enter breaks the line, Shift+Enter twice starts
-        // a paragraph — see handleNoteEnterKey, shared with the other note
-        // editor so the two can't drift apart again.
-        if (handleNoteEnterKey(_view, event, () => commitRef.current())) return true;
-        if (event.key === "Enter") return false;
-
-        if (event.key === "Escape") {
-          event.preventDefault();
-          onCancelRef.current?.();
-          return true;
-        }
-
-        return false;
-      },
-      handlePaste: (view, event) => {
-        const plainText = event.clipboardData?.getData("text/plain") ?? "";
-
-        // URL pasted onto a selection → wrap selection in a link.
-        if (!view.state.selection.empty) {
-          const href = normalizeLinkUrl(plainText);
-          if (href) {
-            editor?.chain().focus().setLink({ href }).run();
-            return true;
-          }
-        }
-
-        if (view.state.doc.textContent.trim() === "") {
-          const normalizedUrl = normalizeLinkUrl(plainText);
-          if (normalizedUrl) {
-            onPastePlainText?.(normalizedUrl);
-            return true;
-          }
-        }
-
-        // Real HTML lists already paste correctly — don't interfere.
-        const html = event.clipboardData?.getData("text/html") ?? "";
-        if (/<(ul|ol|li)\b/i.test(html)) return false;
-
-        // Convert bullet/indented plain text into a proper markdown list.
-        const listMarkdown = buildListAwareMarkdown(plainText);
-        if (listMarkdown && editor) {
-          editor.chain().focus().insertContent(listMarkdown).run();
-          return true;
-        }
-
-        return false;
-      },
+      handleKeyDown: (view, event) =>
+        handleNoteEditorKeyDown(view, event, {
+          pickerHandlers: [hashtagHandlerRef.current, emojiHandlerRef.current],
+          commit: () => commitRef.current(),
+          cancel: onCancelRef.current,
+        }),
+      handlePaste: (view, event): boolean => handleNoteEditorPaste(view, event, editor, onPastePlainText),
     },
   });
 
@@ -284,25 +192,7 @@ export function NoteCanvasEditor({
     <div ref={shellRef} className="relative z-20 overflow-visible">
       <div ref={editorWrapperRef} className="relative">
         <EditorContent editor={editor} />
-        <TiptapLinkPopover editor={editor} wrapperRef={editorWrapperRef} />
-        <HashtagPickerDropdown
-          isOpen={hashtagPicker.isOpen}
-          suggestions={hashtagPicker.suggestions}
-          activeIndex={hashtagPicker.activeIndex}
-          onSelect={hashtagPicker.selectSuggestion}
-          onHover={hashtagPicker.setActiveIndex}
-          anchorRef={editorWrapperRef}
-          anchorRect={hashtagPicker.anchorRect}
-        />
-        <EmojiPickerDropdown
-          isOpen={emojiPicker.isOpen}
-          suggestions={emojiPicker.suggestions}
-          activeIndex={emojiPicker.activeIndex}
-          onSelect={emojiPicker.selectSuggestion}
-          onHover={emojiPicker.setActiveIndex}
-          anchorRef={editorWrapperRef}
-          anchorRect={emojiPicker.anchorRect}
-        />
+<NoteEditorOverlays editor={editor} wrapperRef={editorWrapperRef} hashtagPicker={hashtagPicker} emojiPicker={emojiPicker} />
       </div>
 
       {/* The top margin belongs to the folder picker. With the picker hidden

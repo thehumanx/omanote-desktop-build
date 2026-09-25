@@ -16,7 +16,7 @@ export function LoginScreen() {
       />
       <div className="public-page flex min-h-screen items-center justify-center bg-app-canvas px-4">
       <div className="w-full max-w-md rounded-xl border border-app-line bg-app-surface p-6 shadow-soft">
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-app-ink-muted">omanote</p>
+        <p className="text-xs font-bold uppercase text-app-ink-muted">omanote</p>
         <h1 className="mt-2 text-2xl font-black text-app-ink">Sign in to your canvas</h1>
         <p className="mt-2 text-sm leading-6 text-app-ink-muted">
           Sign in with Google to continue to your canvas.

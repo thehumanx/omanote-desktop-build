@@ -142,7 +142,7 @@ export function BookmarkEditorModal({
 
           <div className="mt-4 space-y-4">
             <div ref={categoryMenuRef} className="relative space-y-2">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-app-ink-faint">Category</p>
+              <p className="text-xs font-bold uppercase text-app-ink-faint">Category</p>
               <div className="relative">
                 <Input
                   value={categoryName}

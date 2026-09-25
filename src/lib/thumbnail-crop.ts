@@ -1,5 +1,5 @@
-export const THUMBNAIL_WIDTH = 1200;
-export const THUMBNAIL_HEIGHT = 630;
+const THUMBNAIL_WIDTH = 1200;
+const THUMBNAIL_HEIGHT = 630;
 const THUMBNAIL_QUALITY = 0.8;
 
 /**

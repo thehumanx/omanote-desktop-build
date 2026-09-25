@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { findActiveEmojiTrigger } from "../lib/emoji-trigger";
-import { searchEmoji, quickPickEmojiSuggestions } from "../lib/bookmark-category-icon";
+import { quickPickEmojiSuggestions, searchEmoji, useEmojiIndex } from "../lib/emoji-search";
 
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
 
-export interface EmojiSuggestion {
+interface EmojiSuggestion {
   emoji: string;
   name: string;
 }
 
-export interface EmojiPickerState {
+interface EmojiPickerState {
   isOpen: boolean;
   suggestions: EmojiSuggestion[];
   activeIndex: number;
@@ -53,10 +53,11 @@ export function useEmojiPicker({
   const active = useMemo(() => findActiveEmojiTrigger(value, cursorPos), [value, cursorPos]);
   const prefix = active?.partial ?? "";
 
+  const emojiIndexReady = useEmojiIndex(Boolean(active));
   const suggestions = useMemo(() => {
     if (!active) return [];
     return prefix ? searchEmoji(prefix) : quickPickEmojiSuggestions();
-  }, [active, prefix]);
+  }, [active, prefix, emojiIndexReady]);
 
   useEffect(() => { setActiveIndex(0); }, [prefix]);
 

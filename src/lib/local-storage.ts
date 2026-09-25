@@ -117,10 +117,6 @@ export function sortDescriptorCodec<K extends string, D extends string>(
  * Deliberately not listed:
  *   - `omanote.canvas-outbox` — see `LEGACY_KEYS_CLEARED_ON_SIGN_OUT` below.
  *     Scoping it would *break* it rather than secure it.
- *   - `omanote.*-backfill-*` — per-browser one-time markers. They arguably
- *     *should* be per user, but re-scoping means every existing user re-runs
- *     their backfill on next load, which is a mutation burst rather than a
- *     correctness fix.
  *   - sort/view-mode/zoom preferences, which hold no content.
  */
 const USER_SCOPED_KEYS: ReadonlySet<string> = new Set([
@@ -132,6 +128,9 @@ const USER_SCOPED_KEYS: ReadonlySet<string> = new Set([
   "omanote.notes-last-selected-folder",
   "omanote.todos-last-selected-folder",
   "omanote.bookmarks-last-selected-category",
+  "omanote.hashtag-repair-done",
+  "omanote.user-settings-cache",
+  "omanote.user-settings-pending",
 ]);
 
 /**
@@ -165,11 +164,6 @@ let userScope: string | null = null;
 
 export function setStorageUserScope(userId: string | null): void {
   userScope = userId;
-}
-
-/** For tests, which need a clean module between cases. */
-export function getStorageUserScope(): string | null {
-  return userScope;
 }
 
 function scopedKey(key: string): string {

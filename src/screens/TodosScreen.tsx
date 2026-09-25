@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toDateKey, type DateKey, type TodoFilter, type TodoFolder, type TodoItem } from "@omanote/shared";
-import { ArrowDown, ArrowUp, Calendar, CalendarClock, ChevronLeft, CircleCheck, ClockAlert, LayoutGrid, LayoutList, ListChecks, MoreHorizontal, Pencil, Plus, PartyPopper, Share2, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Calendar, CalendarClock, CircleCheck, ClockAlert, LayoutGrid, LayoutList, ListChecks, Plus, PartyPopper } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -20,6 +20,7 @@ import { FolderNavGroups } from "../components/FolderNav";
 import { groupByPinned } from "../lib/pinned-folders";
 import { TodoListRow } from "../components/TodoListRow";
 import { Button, cn, SegmentedPill } from "../components/ui";
+import { FolderDrawerHeader } from "../components/FolderDrawerHeader";
 import { VirtualList, type VirtualListHandle } from "../components/VirtualList";
 import { formatCompletedLabel, formatOverdueGroupHeading, formatRelativeGroupHeading, getSeriesListBucket, isClosedSeriesMaster } from "@omanote/shared";
 import { useEdgeSwipeBack } from "../lib/useEdgeSwipeBack";
@@ -1406,159 +1407,93 @@ export function TodosScreen() {
                   vertical scrolling. */}
               <div aria-hidden="true" className="absolute inset-y-0 left-0 z-10 w-6" {...edgeSwipeProps} />
               <div className="flex flex-col pt-[env(safe-area-inset-top)]">
-                <div className="mb-3 flex items-center gap-2 border-b border-app-line px-4 pb-3 pt-3">
-                  <button
-                    type="button"
-                    aria-label="Back to folders"
-                    onClick={() => setMobileTodosOpen(false)}
-                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-                  >
-                    <ChevronLeft className="h-5 w-5" />
-                  </button>
-                  {drawerRenaming ? (
-                    <div className="flex min-w-0 flex-1 items-center gap-2">
-                      <button
-                        ref={iconPickerAnchorRef}
-                        type="button"
-                        aria-label="Change icon"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          const folder = effectiveTodoFolders.find((f) => f.id === selectedFolderId);
-                          if (folder) {
-                            setDirectIconFolderId(folder.id);
-                            setEditingIcon(folder.icon);
-                            setIconPickerOpen(true);
-                          }
-                        }}
-                        className={cn(
-                          "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md transition hover:bg-app-surface-hover hover:text-app-ink",
-                          directIconFolderId ? "ring-2 ring-app-line-strong ring-offset-1" : "bg-app-surface-muted text-app-ink-faint",
-                        )}
-                      >
-                        <CategoryIconView icon={editingIcon} size="sm" />
-                      </button>
-                      <input
-                        ref={drawerRenameInputRef}
-                        autoFocus
-                        value={newFolderName}
-                        onChange={(e) => { setNewFolderName(e.target.value); setNewFolderError(null); }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") { e.preventDefault(); commitFolder(); }
-                          else if (e.key === "Escape") { e.preventDefault(); cancelRenameFolder(); }
-                        }}
-                        onBlur={iconPickerOpen ? undefined : commitFolder}
-                        placeholder="Folder name"
-                        className="min-w-0 flex-1 border-0 bg-transparent p-0 text-sm font-bold text-app-ink outline-none placeholder:text-app-ink-faint"
-                      />
-                      {newFolderError ? (
-                        <div className="absolute left-14 top-full z-app-tooltip mt-2 rounded-md border border-danger-line bg-app-surface px-2 py-1 text-xs text-danger-ink shadow-soft">
-                          {newFolderError}
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex min-w-0 flex-1 items-center gap-2">
-                        {(() => {
-                          const folder = effectiveTodoFolders.find((f) => f.id === selectedFolderId);
-                          const isManaged = folder && folder.id !== "__others__";
-                          return (
-                            <>
-                              {isManaged ? (
-                                <button
-                                  ref={drawerDirectIconButtonRef}
-                                  type="button"
-                                  aria-label="Change icon"
-                                  onMouseDown={(e) => {
-                                    e.preventDefault();
-                                    setDirectIconFolderId(folder.id);
-                                    setEditingIcon(folder.icon);
-                                    setIconPickerOpen(true);
-                                    drawerDirectIconButtonRef.current && (iconPickerAnchorRef.current = drawerDirectIconButtonRef.current);
-                                  }}
-                                  className={cn(
-                                    "flex-shrink-0 rounded-md p-0.5 text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink",
-                                    directIconFolderId === folder.id ? "ring-2 ring-app-line-strong ring-offset-1" : "",
-                                  )}
-                                >
-                                  <CategoryIconView icon={folder.icon} size="sm" color={folder.color} />
-                                </button>
-                              ) : (
-                                <span className="flex-shrink-0 text-app-ink-faint">
-                                  <CategoryIconView icon={folder?.icon} size="sm" color={folder?.color} />
-                                </span>
-                              )}
-                              <p className="min-w-0 truncate text-sm font-bold text-app-ink">{folder?.name ?? "All"}</p>
-                            </>
-                          );
-                        })()}
-                      </div>
-                      {(() => {
-                        const folder = effectiveTodoFolders.find((f) => f.id === selectedFolderId);
-                        const isManaged = folder && folder.id !== "__others__";
-                        if (!isManaged) return null;
-                        return (
-                          <div className="flex flex-shrink-0 items-center gap-1">
-                            <button
-                              type="button"
-                              aria-label="Share folder"
-                              onClick={() => setShareFolderModal({ folderId: folder.id, folderName: folder.name, folderIcon: folder.icon })}
-                              className="flex h-7 w-7 items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-                            >
-                              <Share2 className="h-4 w-4" />
-                            </button>
-                            <div className="relative" ref={drawerMenuRef}>
-                              <button
-                                type="button"
-                                aria-label="Folder actions"
-                                aria-expanded={drawerMenuOpen}
-                                onClick={() => setDrawerMenuOpen((c) => !c)}
-                                className="flex h-7 w-7 items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                              </button>
-                              {drawerMenuOpen ? (
-                                <div
-                                  role="menu"
-                                  className="absolute right-0 top-full z-app-menu mt-1 w-44 rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
-                                >
-                                  <button
-                                    type="button"
-                                    role="menuitem"
-                                    onClick={() => {
-                                      setRenamingFolderId(folder.id);
-                                      setNewFolderName(folder.name);
-                                      setEditingIcon(folder.icon);
-                                      setNewFolderError(null);
-                                      setDrawerMenuOpen(false);
-                                      setDrawerRenaming(true);
-                                    }}
-                                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink"
-                                  >
-                                    <Pencil className="h-4 w-4" />
-                                    Rename
-                                  </button>
-                                  <button
-                                    type="button"
-                                    role="menuitem"
-                                    onClick={() => {
-                                      setDeleteTarget({ id: folder.id, name: folder.name, count: folderCounts.get(folder.id) ?? 0 });
-                                      setDrawerMenuOpen(false);
-                                    }}
-                                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-danger-ink transition hover:bg-danger-surface"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                    Delete
-                                  </button>
-                                </div>
-                              ) : null}
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </>
-                  )}
-                </div>
+                {(() => {
+                  const folder = effectiveTodoFolders.find((f) => f.id === selectedFolderId);
+                  const managedFolder = folder && folder.id !== "__others__" ? folder : null;
+                  return (
+                    <FolderDrawerHeader
+                      onBack={() => setMobileTodosOpen(false)}
+                      rename={
+                        drawerRenaming
+                          ? {
+                              icon: editingIcon,
+                              iconButton: {
+                                ref: iconPickerAnchorRef,
+                                highlighted: Boolean(directIconFolderId),
+                                onMouseDown: () => {
+                                  if (!folder) return;
+                                  setDirectIconFolderId(folder.id);
+                                  setEditingIcon(folder.icon);
+                                  setIconPickerOpen(true);
+                                },
+                              },
+                              inputRef: drawerRenameInputRef,
+                              autoFocus: true,
+                              placeholder: "Folder name",
+                              value: newFolderName,
+                              onChange: (value) => {
+                                setNewFolderName(value);
+                                setNewFolderError(null);
+                              },
+                              onCommit: commitFolder,
+                              onCancel: cancelRenameFolder,
+                              onBlur: iconPickerOpen ? undefined : commitFolder,
+                              error: newFolderError,
+                            }
+                          : null
+                      }
+                      icon={folder?.icon}
+                      color={folder?.color}
+                      label={folder?.name ?? "All"}
+                      iconButton={
+                        managedFolder
+                          ? {
+                              ref: drawerDirectIconButtonRef,
+                              highlighted: directIconFolderId === managedFolder.id,
+                              onMouseDown: () => {
+                                setDirectIconFolderId(managedFolder.id);
+                                setEditingIcon(managedFolder.icon);
+                                setIconPickerOpen(true);
+                                if (drawerDirectIconButtonRef.current) iconPickerAnchorRef.current = drawerDirectIconButtonRef.current;
+                              },
+                            }
+                          : undefined
+                      }
+                      actions={
+                        managedFolder
+                          ? {
+                              noun: "folder",
+                              onShare: () =>
+                                setShareFolderModal({
+                                  folderId: managedFolder.id,
+                                  folderName: managedFolder.name,
+                                  folderIcon: managedFolder.icon,
+                                }),
+                              menuOpen: drawerMenuOpen,
+                              onToggleMenu: () => setDrawerMenuOpen((c) => !c),
+                              menuRef: drawerMenuRef,
+                              onRename: () => {
+                                setRenamingFolderId(managedFolder.id);
+                                setNewFolderName(managedFolder.name);
+                                setEditingIcon(managedFolder.icon);
+                                setNewFolderError(null);
+                                setDrawerMenuOpen(false);
+                                setDrawerRenaming(true);
+                              },
+                              onDelete: () => {
+                                setDeleteTarget({
+                                  id: managedFolder.id,
+                                  name: managedFolder.name,
+                                  count: folderCounts.get(managedFolder.id) ?? 0,
+                                });
+                                setDrawerMenuOpen(false);
+                              },
+                            }
+                          : null
+                      }
+                    />
+                  );
+                })()}
               </div>
               <div ref={drawerScrollRef} className="scrollbar-hide mt-4 min-h-0 flex-1 overflow-y-auto px-4 pb-16" data-drawer-todos-list>
                 {drawerFilter === "active" ? (

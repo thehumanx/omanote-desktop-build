@@ -103,14 +103,8 @@ type CreatedItem = {
   folderName?: string;
 };
 
-export type InsightsFolderHighlight = { name: string; count: number } | null;
-export type InsightsTimingHighlight = {
-  averageDayLabel: string;
-  averageHourLabel: string;
-  peakDayLabel: string;
-  peakHourLabel: string;
-};
-export type InsightsFavoriteArtifact = {
+type InsightsFolderHighlight = { name: string; count: number } | null;
+type InsightsFavoriteArtifact = {
   type: CreatedItemKind;
   count: number;
 };

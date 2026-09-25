@@ -409,7 +409,19 @@ function formatUntilLabel(untilDateKey: string): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
+/** A 12·n-month rule with no weekday pattern reads, and is written, as years. */
+function yearsOf(rule: RecurrenceRule): number | null {
+  return rule.freq === "month" && !rule.byWeekday?.length && rule.interval % 12 === 0 ? rule.interval / 12 : null;
+}
+
 export function describeRecurrenceRule(rule: RecurrenceRule): string {
+  const years = yearsOf(rule);
+  if (years !== null) {
+    let yearly = `${years === 1 ? "every year" : `every ${years} years`} on ${formatUntilLabel(rule.anchorDateKey)}`;
+    if (rule.untilDateKey !== undefined) yearly += ` until ${formatUntilLabel(rule.untilDateKey)}`;
+    if (rule.count !== undefined) yearly += `, ${rule.count} ${rule.count === 1 ? "time" : "times"}`;
+    return yearly;
+  }
   const unit = rule.freq;
   let base = rule.interval === 1 ? `every ${unit}` : `every ${rule.interval} ${unit}s`;
 
@@ -434,6 +446,7 @@ export function describeRecurrenceRule(rule: RecurrenceRule): string {
 }
 
 const WEEKDAY_FULL = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+const MONTH_WORDS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
 const ORDINAL_WORDS: Record<number, string> = { 1: "first", 2: "second", 3: "third", 4: "fourth", 5: "fifth", [-1]: "last" };
 
 /**
@@ -452,8 +465,17 @@ export function ruleToEditablePhrase(rule: RecurrenceRule): string {
     const weekday = rule.byWeekday[0].weekday;
     const ordinals = rule.byWeekday.map((entry) => ORDINAL_WORDS[entry.ordinal ?? 1] ?? "first").join(" and ");
     base = `every month on the ${ordinals} ${WEEKDAY_FULL[weekday]}`;
+  } else if (yearsOf(rule) !== null) {
+    const years = yearsOf(rule)!;
+    const { month, day } = parseDateKey(rule.anchorDateKey);
+    base = `${years === 1 ? "every year" : `every ${years} years`} on ${MONTH_WORDS[month - 1]} ${day}`;
   } else {
     base = rule.interval === 1 ? `every ${rule.freq}` : `every ${rule.interval} ${rule.freq}s`;
+    // The anchor carries the day: a monthly rule fires on its day of the
+    // month, a weekly one on its weekday. Spelled out so re-parsing the phrase
+    // later (on another day) lands on the same schedule.
+    if (rule.freq === "month") base += ` on the ${ordinalDayLabel(parseDateKey(rule.anchorDateKey).day)}`;
+    if (rule.freq === "week") base += ` on ${WEEKDAY_FULL[normalizedWeekdays(rule)[0]]}`;
   }
   if (rule.count !== undefined) base += `, ${rule.count} times`;
   else if (rule.untilDateKey !== undefined) base += ` until ${rule.untilDateKey}`;

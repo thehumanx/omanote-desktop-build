@@ -12,7 +12,7 @@ const DEFAULT_WRITE_PATH = "/canvas";
 
 type Mode = "write" | "read";
 
-export function isReaderPath(pathname: string) {
+function isReaderPath(pathname: string) {
   return pathname === "/reader" || pathname.startsWith("/reader/");
 }
 

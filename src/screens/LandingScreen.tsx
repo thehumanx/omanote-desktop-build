@@ -3,11 +3,10 @@ import { Link } from "react-router-dom";
 import { SignInButton } from "@clerk/react";
 import { CookieNotice } from "../components/CookieNotice";
 import { Zap, MousePointerClick, Lock, Puzzle, Monitor, ChevronDown } from "lucide-react";
-import changelogMarkdown from "../../CHANGELOG.md?raw";
+import { currentVersion as bundledVersion } from "virtual:changelog";
 import { SeoHead } from "../seo/SeoHead";
 import { color } from "../design-system/tokens";
 import { readDismissedFlag, writeDismissedFlag } from "../lib/local-storage";
-import { parseLatestVersion } from "../lib/update-checker";
 import { useOutsideClick } from "../lib/useOutsideClick";
 import { EcosystemSection } from "./landing/EcosystemSection";
 import { ProductTour } from "./landing/ProductTour";
@@ -128,7 +127,7 @@ function ExtensionSection() {
 
           {/* Right: copy + download buttons */}
           <div className="order-1 lg:order-2">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">
+            <p className="text-[10px] font-bold uppercase text-app-ink-faint">
               Browser extension
             </p>
             <h2 className="font-serif-heading mt-4 text-3xl sm:text-4xl font-black leading-tight">
@@ -228,7 +227,7 @@ function JournalCta({ label = "Start your daily canvas", inverted }: { label?: s
 // ─── Main landing page ────────────────────────────────────────────────────────
 export function LandingScreen() {
   const year = new Date().getFullYear();
-  const currentVersion = parseLatestVersion(changelogMarkdown)?.version ?? "v0.9";
+  const currentVersion = bundledVersion?.version ?? "v0.9";
   // The tour takes the whole viewport, so the page nav slides away for the
   // duration — otherwise it sits on top of the app it's meant to be showing.
   const [tourActive, setTourActive] = useState(false);
@@ -281,7 +280,7 @@ export function LandingScreen() {
         {/* Privacy */}
         <section className="border-t border-app-line">
           <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-16 sm:py-20 text-center">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">Privacy</p>
+            <p className="text-[10px] font-bold uppercase text-app-ink-faint">Privacy</p>
             <h2 className="font-serif-heading mt-4 text-2xl sm:text-3xl font-black leading-tight">
               Your data stays private.
             </h2>
@@ -301,7 +300,7 @@ export function LandingScreen() {
         {/* FAQ */}
         <section className="border-t border-app-line">
           <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-16 sm:py-20">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">FAQ</p>
+            <p className="text-[10px] font-bold uppercase text-app-ink-faint">FAQ</p>
             <h2 className="font-serif-heading mt-4 text-2xl sm:text-3xl font-black leading-tight">
               Common questions.
             </h2>
@@ -322,7 +321,7 @@ export function LandingScreen() {
         {/* The name */}
         <section id="why" className="border-t border-app-line">
           <div className="max-w-[620px] mx-auto px-4 sm:px-6 py-16 sm:py-20 lg:py-24 text-center">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">
+            <p className="text-[10px] font-bold uppercase text-app-ink-faint">
               The name
             </p>
             <h2 className="font-serif-heading mt-4 text-3xl sm:text-4xl font-black leading-tight">
@@ -418,7 +417,7 @@ export function LandingScreen() {
             {/* Right: link groups only. */}
             <div className="flex gap-12">
               <div className="flex flex-col gap-2.5">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">Product</p>
+                <p className="text-[10px] font-bold uppercase text-app-ink-faint">Product</p>
                 <a
                   href="https://omanote.com/s/FeUM44Rd"
                   target="_blank"
@@ -449,7 +448,7 @@ export function LandingScreen() {
                 </a>
               </div>
               <div className="flex flex-col gap-2.5">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">Legal</p>
+                <p className="text-[10px] font-bold uppercase text-app-ink-faint">Legal</p>
                 <Link
                   to="/privacy"
                   className="text-xs text-app-ink-faint underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"

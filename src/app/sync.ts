@@ -229,7 +229,7 @@ async function syncRssFeeds(queryFn: SyncQueryFn): Promise<void> {
   if (toUpdate.length) await db.rssSubscriptions.bulkPut(toUpdate);
 }
 
-export interface SyncResult {
+interface SyncResult {
   todos: number;
   todoFolders: number;
   notes: number;

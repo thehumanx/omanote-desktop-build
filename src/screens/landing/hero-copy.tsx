@@ -1,11 +1,10 @@
-import changelogMarkdown from "../../../CHANGELOG.md?raw";
-import { parseLatestVersion } from "../../lib/update-checker";
+import { currentVersion as bundledVersion } from "virtual:changelog";
 
 /**
  * Read once at module load: the changelog is bundled at build time, so the
  * badge always shows whatever actually shipped last without any plumbing.
  */
-const currentVersion = parseLatestVersion(changelogMarkdown)?.version ?? "v0.9";
+const currentVersion = bundledVersion?.version ?? "v0.9";
 
 /**
  * The landing page's headline, in one place.
@@ -22,7 +21,7 @@ const currentVersion = parseLatestVersion(changelogMarkdown)?.version ?? "v0.9";
 export function LandingHeroCopy({ headingClassName = "" }: { headingClassName?: string }) {
   return (
     <>
-      <p className="inline-flex items-center rounded-full border border-app-line bg-app-canvas px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-app-ink-muted">
+      <p className="inline-flex items-center rounded-full border border-app-line bg-app-canvas px-3 py-1 text-[11px] font-bold uppercase text-app-ink-muted">
         A canvas for your thoughts · {currentVersion}
       </p>
       <h1

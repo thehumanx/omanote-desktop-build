@@ -30,8 +30,8 @@ export function TermsScreen() {
 
       <main className="flex-1">
         <div className="max-w-[720px] mx-auto px-4 sm:px-6 py-14 sm:py-20">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-app-ink-faint">Legal</p>
-          <h1 className="mt-4 text-3xl sm:text-4xl font-black tracking-[-0.025em] leading-tight">
+          <p className="text-[10px] font-bold uppercase text-app-ink-faint">Legal</p>
+          <h1 className="mt-4 text-3xl sm:text-4xl font-black leading-tight">
             Terms of Use
           </h1>
           <p className="mt-3 text-sm text-app-ink-faint">Last updated: {LAST_UPDATED}</p>

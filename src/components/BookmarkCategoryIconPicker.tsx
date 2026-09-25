@@ -6,8 +6,8 @@ import {
   QUICK_PICK_EMOJIS,
   CategoryIconView,
   parseIconInput,
-  searchEmoji,
 } from "../lib/bookmark-category-icon";
+import { searchEmoji, useEmojiIndex } from "../lib/emoji-search";
 import { cn } from "./ui";
 import { FOLDER_COLORS, folderColorStyle, isFolderColor } from "../lib/folder-color";
 
@@ -40,6 +40,7 @@ export function BookmarkCategoryIconPicker({
   const [emojiInput, setEmojiInput] = useState("");
   const [suggestions, setSuggestions] = useState<Array<{ name: string; emoji: string }>>([]);
   const [activeIdx, setActiveIdx] = useState(-1);
+  const emojiIndexReady = useEmojiIndex(true);
   const [position, setPosition] = useState<{ top: number; left?: number; right?: number } | null>(null);
   const [positioned, setPositioned] = useState(false);
   const mobile = isMobile();
@@ -93,6 +94,13 @@ export function BookmarkCategoryIconPicker({
     return () => document.removeEventListener("pointerdown", handlePointerDown, true);
   }, [onClose]);
 
+  // Anything typed before the emoji index finished loading got no
+  // suggestions; fill them in once it arrives.
+  useEffect(() => {
+    if (emojiIndexReady && emojiInput) setSuggestions(searchEmoji(emojiInput));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [emojiIndexReady]);
+
   function handleEmojiInputChange(value: string) {
     setEmojiInput(value);
     setActiveIdx(-1);
@@ -128,7 +136,7 @@ export function BookmarkCategoryIconPicker({
       style={!mobile ? { ...(position ?? { top: -9999, left: -9999 }), opacity: positioned ? 1 : 0 } : undefined}
     >
       <div className="flex items-center justify-between">
-        <span className="text-xs font-bold uppercase tracking-wide text-app-ink-faint">Icon</span>
+        <span className="text-xs font-bold uppercase text-app-ink-faint">Icon</span>
         <button
           type="button"
           aria-label="Close icon picker"

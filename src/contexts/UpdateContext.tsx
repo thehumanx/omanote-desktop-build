@@ -1,18 +1,17 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import bundledChangelogMarkdown from "../../CHANGELOG.md?raw";
+import { appVersions } from "virtual:changelog";
 import { isTauri } from "../lib/desktop";
-import { getLastSeenVersion, getUnseenVersions, markVersionSeen, parseVersions, type VersionInfo } from "../lib/update-checker";
+import type { VersionInfo } from "../lib/changelog-parse";
+import { getLastSeenVersion, getUnseenVersions, markVersionSeen } from "../lib/update-checker";
 
 const MODAL_OPEN_TRANSITION_MS = 320;
 
 type ChangelogManifest = {
   version: string;
   versions: VersionInfo[];
-  changelog: string;
 };
 
 type UpdateContextValue = {
-  changelogMarkdown: string;
   latestVersion: VersionInfo | null;
   unseenVersions: VersionInfo[];
   modalVersions: VersionInfo[];
@@ -27,14 +26,13 @@ type UpdateContextValue = {
   dismissBanner: () => void;
 };
 
-export const UpdateContext = createContext<UpdateContextValue | null>(null);
+const UpdateContext = createContext<UpdateContextValue | null>(null);
 
 const POLL_INTERVAL_MS = 5 * 60 * 1000;
-const LIVE_VERSION_URL = "https://omanote.com/version.json";
+const LIVE_ORIGIN = "https://omanote.com";
 
 export function UpdateProvider({ children }: { children: ReactNode }) {
-  const [versions, setVersions] = useState<VersionInfo[]>(() => parseVersions(bundledChangelogMarkdown));
-  const [changelogMarkdown, setChangelogMarkdown] = useState(bundledChangelogMarkdown);
+  const [versions, setVersions] = useState<VersionInfo[]>(appVersions);
   const bundledVersion = useRef<string | null>(versions[0]?.version ?? null);
   const [lastSeen, setLastSeen] = useState<string | null>(() => getLastSeenVersion());
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -81,7 +79,7 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
     // In Tauri dev mode the local dev server is the source of truth — skip remote fetch.
     if (isDesktop && import.meta.env.DEV) return;
 
-    const endpointUrl = isDesktop ? LIVE_VERSION_URL : "/version.json";
+    const origin = isDesktop ? LIVE_ORIGIN : "";
 
     const check = async () => {
       try {
@@ -90,12 +88,17 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
         // header for the tauri://localhost origin. The http plugin issues the
         // request natively from Rust instead, bypassing that restriction.
         const doFetch = isDesktop ? (await import("@tauri-apps/plugin-http")).fetch : fetch;
-        const res = await doFetch(endpointUrl, { cache: "no-store" });
+        // Poll the ~30-byte file; only pull release notes once there's
+        // actually something new (see src/build/vite-changelog-plugin.ts).
+        const latestRes = await doFetch(`${origin}/version-latest.json`, { cache: "no-store" });
+        if (!latestRes.ok) return;
+        const latest: { version?: string } = await latestRes.json();
+        if (!latest.version || !bundledVersion.current || latest.version === bundledVersion.current) return;
+        const res = await doFetch(`${origin}/version.json`, { cache: "no-store" });
         if (!res.ok) return;
         const data: ChangelogManifest = await res.json();
-        if (data.version && bundledVersion.current && data.version !== bundledVersion.current) {
+        if (data.version && data.version !== bundledVersion.current) {
           setVersions(data.versions ?? []);
-          if (data.changelog) setChangelogMarkdown(data.changelog);
           setIsBannerDismissed(false);
         }
       } catch {
@@ -169,7 +172,6 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
   return (
     <UpdateContext.Provider
       value={{
-        changelogMarkdown,
         latestVersion,
         unseenVersions,
         modalVersions,

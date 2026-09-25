@@ -64,4 +64,4 @@ export function usePageAutosave(save: (reason: AutosaveReason) => void) {
   return { schedule, flush };
 }
 
-export type AutosaveReason = "debounce" | "hidden" | "unload" | "unmount" | "manual";
+type AutosaveReason = "debounce" | "hidden" | "unload" | "unmount" | "manual";

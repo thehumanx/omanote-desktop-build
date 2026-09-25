@@ -183,7 +183,7 @@ export function StorageUsagePanel({ isMobileDrawer = false }: { isMobileDrawer?:
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-app-ink-faint">
               <ImageIcon className="h-4 w-4" />
-              <span className="text-xs font-medium uppercase tracking-wide">Images</span>
+              <span className="text-xs font-medium uppercase">Images</span>
             </div>
             <button
               type="button"
@@ -201,7 +201,7 @@ export function StorageUsagePanel({ isMobileDrawer = false }: { isMobileDrawer?:
         <div className="rounded-2xl border border-app-line bg-app-surface p-4">
           <div className="flex items-center gap-2 text-app-ink-faint">
             <FileText className="h-4 w-4" />
-            <span className="text-xs font-medium uppercase tracking-wide">Text</span>
+            <span className="text-xs font-medium uppercase">Text</span>
           </div>
           <p className="mt-2 text-xl font-bold tabular-nums text-app-ink">{formatBytes(usage?.textBytes ?? 0)}</p>
           <p className="text-xs text-app-ink-faint">
@@ -211,7 +211,7 @@ export function StorageUsagePanel({ isMobileDrawer = false }: { isMobileDrawer?:
       </div>
 
       <div className="rounded-2xl border border-app-line bg-app-surface px-4">
-        <h3 className="pt-4 text-xs font-bold uppercase tracking-wide text-app-ink-faint">By type</h3>
+        <h3 className="pt-4 text-xs font-bold uppercase text-app-ink-faint">By type</h3>
         <div className="mt-1">
           {breakdown.map((row) => (
             <Row key={row.key} icon={row.icon} label={row.label} count={row.count} bytes={row.bytes} />

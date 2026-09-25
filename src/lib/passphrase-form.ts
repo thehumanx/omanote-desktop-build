@@ -1,10 +1,10 @@
-export interface PassphraseChangeInput {
+interface PassphraseChangeInput {
   current: string;
   next: string;
   confirm: string;
 }
 
-export type PassphraseValidationResult =
+type PassphraseValidationResult =
   | { ok: true }
   | {
       ok: false;

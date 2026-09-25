@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useEdgeSwipeBack } from "../lib/useEdgeSwipeBack";
 import { useHistoryBackClose } from "../lib/useHistoryBackClose";
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, LayoutGrid, LayoutList, MoreHorizontal, Pencil, Plus, Share2, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, LayoutGrid, LayoutList, Plus } from "lucide-react";
 import type { NoteItem } from "@omanote/shared";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
@@ -14,6 +14,7 @@ import { groupByPinned } from "../lib/pinned-folders";
 import { BookmarkCategoryIconPicker } from "../components/BookmarkCategoryIconPicker";
 import { CategoryIconView } from "../lib/bookmark-category-icon";
 import { NoteCard } from "../components/cards";
+import { FolderDrawerHeader } from "../components/FolderDrawerHeader";
 import { VirtualList, type VirtualListHandle } from "../components/VirtualList";
 import { useTopChrome } from "../components/layout/useTopChrome";
 import { ExpandableSearch } from "../components/ExpandableSearch";
@@ -567,150 +568,74 @@ export function NotesScreen() {
             panel) dismisses it, so the rest of the panel keeps native
             vertical scrolling. */}
         <div aria-hidden="true" className="absolute inset-y-0 left-0 z-10 w-6" {...edgeSwipeProps} />
-        {isMobileDrawer && drawerRenaming ? (
-          <div className="relative mb-3 flex items-center gap-2 border-b border-app-line px-4 pb-3 pt-3">
-            <button
-              type="button"
-              aria-label="Back to folders"
-              onClick={() => setMobileNotesOpen(false)}
-              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <button
-              ref={iconPickerAnchorRef}
-              type="button"
-              aria-label="Change icon"
-              onMouseDown={(e) => { e.preventDefault(); setIconPickerOpen(true); }}
-              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-app-surface-muted text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-            >
-              <CategoryIconView icon={editingIcon} size="sm" />
-            </button>
-            <input
-              ref={drawerRenameInputRef}
-              value={newFolderName}
-              onChange={(e) => { setNewFolderName(e.target.value); setNewFolderError(null); }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") { e.preventDefault(); commitNewFolder(); }
-                else if (e.key === "Escape") { e.preventDefault(); cancelNewFolder(); }
-              }}
-              onBlur={iconPickerOpen ? undefined : commitNewFolderOnBlur}
-              className="min-w-0 flex-1 border-0 bg-transparent p-0 text-sm font-bold text-app-ink outline-none placeholder:text-app-ink-faint"
-            />
-            {newFolderError ? (
-              <div className="absolute left-14 top-full z-app-tooltip mt-2 rounded-md border border-danger-line bg-app-surface px-2 py-1 text-xs text-danger-ink shadow-soft">
-                {newFolderError}
-              </div>
-            ) : null}
-          </div>
-        ) : (
-          <div className="mb-3 flex items-center gap-2 border-b border-app-line px-4 pb-3 pt-3">
-            <button
-              type="button"
-              aria-label="Back to folders"
-              onClick={() => setMobileNotesOpen(false)}
-              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <div className="flex min-w-0 flex-1 items-center gap-2">
-              {(() => {
-                const row = visibleFolderRows.find(
-                  (f) => selectedFolder && normalizeNoteFolderName(f.name) === normalizeNoteFolderName(selectedFolder),
-                );
-                if (row?.id) {
-                  return (
-                    <button
-                      ref={drawerDirectIconButtonRef}
-                      type="button"
-                      aria-label="Change icon"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        setDirectIconFolderId(row.id!);
+        {(() => {
+          const row = visibleFolderRows.find(
+            (f) => selectedFolder && normalizeNoteFolderName(f.name) === normalizeNoteFolderName(selectedFolder),
+          );
+          const rowId = row?.id;
+          return (
+            <FolderDrawerHeader
+              onBack={() => setMobileNotesOpen(false)}
+              rename={
+                isMobileDrawer && drawerRenaming
+                  ? {
+                      icon: editingIcon,
+                      iconButton: { ref: iconPickerAnchorRef, onMouseDown: () => setIconPickerOpen(true) },
+                      inputRef: drawerRenameInputRef,
+                      value: newFolderName,
+                      onChange: (value) => {
+                        setNewFolderName(value);
+                        setNewFolderError(null);
+                      },
+                      onCommit: commitNewFolder,
+                      onCancel: cancelNewFolder,
+                      onBlur: iconPickerOpen ? undefined : commitNewFolderOnBlur,
+                      error: newFolderError,
+                    }
+                  : null
+              }
+              icon={row?.icon}
+              color={row?.color}
+              label={selectedFolderLabel}
+              iconButton={
+                rowId
+                  ? {
+                      ref: drawerDirectIconButtonRef,
+                      onMouseDown: () => {
+                        setDirectIconFolderId(rowId);
                         setEditingIcon(row.icon);
                         iconPickerAnchorRef.current = drawerDirectIconButtonRef.current;
                         setIconPickerOpen(true);
-                      }}
-                      className="flex-shrink-0 rounded-md p-0.5 text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-                    >
-                      <CategoryIconView icon={row.icon} size="sm" color={row.color} />
-                    </button>
-                  );
-                }
-                return (
-                  <span className="flex-shrink-0 text-app-ink-faint">
-                    <CategoryIconView icon={row?.icon} size="sm" color={row?.color} />
-                  </span>
-                );
-              })()}
-              <p className="min-w-0 truncate text-sm font-bold text-app-ink">{selectedFolderLabel}</p>
-            </div>
-            {isMobileDrawer && (() => {
-              const row = visibleFolderRows.find(
-                (f) => selectedFolder && normalizeNoteFolderName(f.name) === normalizeNoteFolderName(selectedFolder),
-              );
-              if (!row?.id) return null;
-              return (
-                <div className="flex flex-shrink-0 items-center gap-1">
-                  <button
-                    type="button"
-                    aria-label="Share folder"
-                    onClick={() => setShareTarget({ id: row.id ?? "", name: row.name, icon: row.icon })}
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-                  >
-                    <Share2 className="h-4 w-4" />
-                  </button>
-                  <div className="relative" ref={drawerFolderMenuOpen ? drawerFolderMenuRef : undefined}>
-                    <button
-                      type="button"
-                      aria-label="Folder actions"
-                      aria-expanded={drawerFolderMenuOpen}
-                      onClick={() => setDrawerFolderMenuOpen((current) => !current)}
-                      className="flex h-7 w-7 items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-                    >
-                      <MoreHorizontal className="h-4 w-4" />
-                    </button>
-                    {drawerFolderMenuOpen ? (
-                      <div
-                        role="menu"
-                        className="absolute right-0 top-full z-app-menu mt-1 w-44 rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
-                      >
-                        <button
-                          type="button"
-                          role="menuitem"
-                          onClick={() => {
-                            setRenamingFolderId(row.id ?? null);
-                            setNewFolderName(row.name);
-                            setEditingIcon(row.id ? folderIconById.get(row.id) : undefined);
-                            setNewFolderError(null);
-                            setDrawerFolderMenuOpen(false);
-                            setDrawerRenaming(true);
-                          }}
-                          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink"
-                        >
-                          <Pencil className="h-4 w-4" />
-                          Rename
-                        </button>
-                        <button
-                          type="button"
-                          role="menuitem"
-                          onClick={() => {
-                            setDeleteTarget({ id: row.id ?? "", name: row.name, count: row.count });
-                            setDrawerFolderMenuOpen(false);
-                          }}
-                          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-danger-ink transition hover:bg-danger-surface"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Delete
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        )}
+                      },
+                    }
+                  : undefined
+              }
+              actions={
+                isMobileDrawer && rowId
+                  ? {
+                      noun: "folder",
+                      onShare: () => setShareTarget({ id: rowId, name: row.name, icon: row.icon }),
+                      menuOpen: drawerFolderMenuOpen,
+                      onToggleMenu: () => setDrawerFolderMenuOpen((current) => !current),
+                      menuRef: drawerFolderMenuRef,
+                      onRename: () => {
+                        setRenamingFolderId(rowId);
+                        setNewFolderName(row.name);
+                        setEditingIcon(folderIconById.get(rowId));
+                        setNewFolderError(null);
+                        setDrawerFolderMenuOpen(false);
+                        setDrawerRenaming(true);
+                      },
+                      onDelete: () => {
+                        setDeleteTarget({ id: rowId, name: row.name, count: row.count });
+                        setDrawerFolderMenuOpen(false);
+                      },
+                    }
+                  : null
+              }
+            />
+          );
+        })()}
       </div>
       <div className={cn("mb-3 flex items-center justify-between gap-3", isMobileDrawer && "px-4")}>
         <div className="flex min-w-0 flex-1 items-center gap-3">

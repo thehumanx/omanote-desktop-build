@@ -6,7 +6,7 @@ export function formatTodayLabel(date: Date): string {
   return `Today · ${month} ${day}`;
 }
 
-export type CanvasDateRowProps = {
+type CanvasDateRowProps = {
   label: string;
   /** "enter" shows a chevron that opens /history; "exit" shows a close icon that returns to /canvas. */
   mode: "enter" | "exit";

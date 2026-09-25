@@ -9,7 +9,7 @@ import { readLocalStorageOptional, stringCodec } from "./lib/local-storage";
 import { useNetworkStatus } from "./hooks/useNetworkStatus";
 import { lazyWithReload } from "./lib/lazy-with-reload";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { LoadingSpinner } from "./components/ui";
+import { AppLoadingScreen } from "./components/ui";
 import { DesktopAuthListener } from "./components/desktop/DesktopAuthListener";
 import { DesktopUpdateBanner } from "./components/desktop/DesktopUpdateBanner";
 
@@ -118,12 +118,12 @@ function RootRoute() {
   // Convex can't confirm a session with no network, so `isLoading` never
   // resolves offline — without this the app would render nothing forever on
   // a device that's already signed in. `omanote.dexie-user` is written on
-  // every successful sign-in (see AppProvider), so its presence is a durable
+  // every successful sign-in (see LocalCacheGate), so its presence is a durable
   // "this device has signed in before" signal independent of a live Convex
   // connection. Once connectivity returns, real auth state takes over again.
   const hasLocalSession = isOffline && !!readLocalStorageOptional("omanote.dexie-user", stringCodec);
 
-  if (isLoading && !hasLocalSession) return null;
+  if (isLoading && !hasLocalSession) return <AppLoadingScreen />;
 
   if (!isAuthenticated && !hasLocalSession) {
     // The desktop app behaves like an app, not a website: no landing page,
@@ -189,20 +189,6 @@ function PublicDocLayout() {
   );
 }
 
-/**
- * Shown while a route chunk downloads.
- *
- * Previously `null`, which made a slow chunk and a failed one look identical —
- * a blank screen either way, with no signal that anything was happening.
- */
-function RouteLoadingFallback() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-app-canvas" aria-busy="true">
-      <LoadingSpinner className="text-app-ink-faint" />
-    </div>
-  );
-}
-
 export default function App() {
   const inDesktopShell = isTauri();
   const location = useLocation();
@@ -211,7 +197,9 @@ export default function App() {
     // app on the fallback: navigating elsewhere resets the boundary. The root
     // boundary in main.tsx stays as the backstop for anything above this.
     <ErrorBoundary resetKey={location.pathname}>
-    <Suspense fallback={<RouteLoadingFallback />}>
+    {/* While a route chunk downloads. Was `null` once, which made a slow chunk
+        and a failed one look identical. */}
+    <Suspense fallback={<AppLoadingScreen />}>
       {inDesktopShell && <DesktopAuthListener />}
       {inDesktopShell && <DesktopUpdateBanner />}
       <Routes>

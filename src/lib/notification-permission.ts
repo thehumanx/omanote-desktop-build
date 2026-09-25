@@ -1,6 +1,6 @@
 import { readLocalStorage, removeLocalStorage, stringCodec, writeLocalStorage } from "./local-storage";
 
-export const NOTIFICATION_BANNER_DISMISSED_KEY = "omanote:notification-permission-dismissed";
+const NOTIFICATION_BANNER_DISMISSED_KEY = "omanote:notification-permission-dismissed";
 
 export function isNotificationBannerDismissed() {
   return readLocalStorage(NOTIFICATION_BANNER_DISMISSED_KEY, stringCodec, "") === "true";

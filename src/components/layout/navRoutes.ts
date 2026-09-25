@@ -2,7 +2,7 @@ import type { DraftMode } from "../../app/types";
 
 export const navRoutePaths = ["/canvas", "/todos", "/notes", "/bookmarks", "/event"] as const;
 
-export type NavRoutePath = (typeof navRoutePaths)[number];
+type NavRoutePath = (typeof navRoutePaths)[number];
 
 // Routes that aren't tabs of their own but belong to one — /history is a
 // second view of the canvas, so the Canvas tab stays highlighted (and swipe

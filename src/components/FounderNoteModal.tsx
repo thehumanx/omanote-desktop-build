@@ -97,7 +97,7 @@ export function FounderNoteModal({ open, onClose }: FounderNoteModalProps) {
 
         <div className="founder-note-body max-h-[85dvh] overflow-y-auto px-6 pb-6 pt-[2.5rem]">
           <div className="pl-8 pr-10 pb-[2.5rem]">
-            <p className="text-[11px] font-bold uppercase leading-[2.5rem] tracking-[0.2em] text-app-ink-faint/80">
+            <p className="text-[11px] font-bold uppercase leading-[2.5rem] text-app-ink-faint/80">
               From the founder
             </p>
             <h2 className="text-xl font-bold leading-[2.5rem] text-app-ink">A note from Bibek</h2>

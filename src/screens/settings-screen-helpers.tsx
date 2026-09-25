@@ -193,7 +193,7 @@ export const CATEGORIES: { id: CategoryId; label: string; Icon: React.ElementTyp
 export function NavLabelPreview({ style }: { style: NavLabelStyle }) {
   return (
     <div className="flex flex-col items-center gap-3 px-6 py-5">
-      <p className="text-[11px] font-medium uppercase tracking-widest text-app-ink-faint">Preview</p>
+      <p className="text-[11px] font-medium uppercase text-app-ink-faint">Preview</p>
       <div className="inline-flex items-center gap-1.5 rounded-full border border-app-line bg-app-surface px-3 py-2 shadow-sm">
         {NAV_PREVIEW_TABS.map((tab, i) => {
           const isActive = i === 0;

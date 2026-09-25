@@ -21,7 +21,7 @@ function buildMonthCells(year: number, month: number): (DateKey | null)[] {
   return cells;
 }
 
-export type HistoryDatePickerProps = {
+type HistoryDatePickerProps = {
   selectedDateKey: DateKey;
   /** Oldest day that has anything — earlier days aren't selectable. */
   minDateKey: DateKey;

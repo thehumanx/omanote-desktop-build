@@ -10,13 +10,13 @@
 
 import { openInSystemBrowser } from "./desktop";
 
-export const PROD_WEB_URL = "https://omanote.com";
+const PROD_WEB_URL = "https://omanote.com";
 
 const STATE_KEY = "omanote:desktop-auth-state";
 
 /** Website origin to send the user to for sign-in. In dev the Vite server
  * is both the app and the website, so the browser flow stays on dev too. */
-export function desktopAuthWebOrigin(): string {
+function desktopAuthWebOrigin(): string {
   return import.meta.env.DEV ? window.location.origin : PROD_WEB_URL;
 }
 
@@ -35,7 +35,7 @@ export async function startDesktopSignIn(): Promise<void> {
   await openInSystemBrowser(url);
 }
 
-export type DesktopAuthCallback = { token: string };
+type DesktopAuthCallback = { token: string };
 
 /**
  * Parses an omanote:// deep link. Returns the sign-in token when the URL is

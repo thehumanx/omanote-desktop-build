@@ -12,7 +12,7 @@
  * Keep steps in scroll order: the tour derives its step index from scroll
  * position by array index.
  */
-export type TourStep = {
+type TourStep = {
   anchor: string | null;
   title: string;
   body: string;

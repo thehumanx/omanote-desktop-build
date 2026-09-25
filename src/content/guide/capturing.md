@@ -30,7 +30,7 @@ When you're making a todo or event, you can write the timing in plain language a
 - `Submit report friday`
 - `Team lunch in 2 hours`
 
-Recurring phrases work too, such as `every day`, `every mon and fri`, or `every month on the last saturday`. See **Recurring todos & reminders** for the full set.
+Recurring phrases work too, such as `every day`, `every mon and fri`, `every month on the 5th`, or `every month on the last saturday`. See **Recurring todos & reminders** for the full set.
 
 ## Hashtags and emoji
 

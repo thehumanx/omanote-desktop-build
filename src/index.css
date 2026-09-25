@@ -719,49 +719,6 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
   display: none;
 }
 
-.app-range-slider {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 4px;
-  border-radius: var(--radius-full);
-  background: rgb(var(--color-line));
-  outline: none;
-  cursor: pointer;
-}
-
-.app-range-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: var(--radius-full);
-  background: rgb(var(--color-ink));
-  border: 2px solid rgb(var(--color-surface));
-  box-shadow: 0 0 0 1px rgb(var(--color-line-strong));
-  cursor: pointer;
-  transition: box-shadow 150ms ease;
-}
-
-.app-range-slider::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  border-radius: var(--radius-full);
-  background: rgb(var(--color-ink));
-  border: 2px solid rgb(var(--color-surface));
-  box-shadow: 0 0 0 1px rgb(var(--color-line-strong));
-  cursor: pointer;
-  transition: box-shadow 150ms ease;
-}
-
-.app-range-slider:focus-visible::-webkit-slider-thumb {
-  box-shadow: 0 0 0 3px rgb(var(--color-focus) / 0.25);
-}
-
-.app-range-slider:focus-visible::-moz-range-thumb {
-  box-shadow: 0 0 0 3px rgb(var(--color-focus) / 0.25);
-}
-
 @keyframes omanote-week-slide-next {
   from {
     opacity: 0;
@@ -814,8 +771,24 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
   }
 }
 
+/* AppLoadingScreen: nothing for 400ms, then fade in — see ui.tsx, which sets
+   animation-delay inline to continue a stretch already under way. */
+@keyframes omanote-loading-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.omanote-loading-delayed {
+  opacity: 0;
+  animation: omanote-loading-in 250ms ease-out 400ms forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .omanote-loading-delayed {
+    animation-duration: 1ms;
+  }
+}
+
 .omanote-canvas-grid {
-  background-image: radial-gradient(circle, rgb(var(--color-canvas-dot)) 1px, transparent 1px);
+  background-image: radial-gradient(circle, rgb(var(--color-canvas-dot) / 0.625) 1px, transparent 1px);
   background-size: 16px 16px;
 }
 
@@ -1133,6 +1106,20 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
 }
 .omanote-note-editor > p + p {
   margin-top: 1.5rem;
+}
+/* Canvas pages: Enter starts a paragraph, Shift+Enter breaks the line. With
+   no gap the two looked identical. 0.75rem matches the published page
+   (SharedCanvasView's gap-3). */
+.omanote-page-editor > p + p,
+.omanote-page-editor > p + ul,
+.omanote-page-editor > p + ol,
+.omanote-page-editor > ul + p,
+.omanote-page-editor > ol + p,
+.omanote-page-editor > p + blockquote,
+.omanote-page-editor > blockquote + p,
+.omanote-page-editor > p + pre,
+.omanote-page-editor > pre + p {
+  margin-top: 0.75rem;
 }
 .omanote-note-editor > p + ul,
 .omanote-note-editor > p + ol,
@@ -1463,16 +1450,18 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
   animation: omanote-mark-reveal-outer var(--omanote-mark-duration, 1750ms) cubic-bezier(0.4, 0, 0.15, 1) backwards;
 }
 
+/* --omanote-mark-delay (negative) resumes the loop mid-cycle; AppLoadingScreen
+   uses it so consecutive screens continue one animation. */
 .omanote-mark--loop .omanote-mark-inner {
-  animation: omanote-mark-loop-inner var(--omanote-mark-duration, 3000ms) linear infinite;
+  animation: omanote-mark-loop-inner var(--omanote-mark-duration, 3000ms) linear var(--omanote-mark-delay, 0ms) infinite;
 }
 
 .omanote-mark--loop .omanote-mark-diagonal {
-  animation: omanote-mark-loop-diagonal var(--omanote-mark-duration, 3000ms) linear infinite;
+  animation: omanote-mark-loop-diagonal var(--omanote-mark-duration, 3000ms) linear var(--omanote-mark-delay, 0ms) infinite;
 }
 
 .omanote-mark--loop .omanote-mark-outer {
-  animation: omanote-mark-loop-outer var(--omanote-mark-duration, 3000ms) linear infinite;
+  animation: omanote-mark-loop-outer var(--omanote-mark-duration, 3000ms) linear var(--omanote-mark-delay, 0ms) infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

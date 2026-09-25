@@ -54,7 +54,7 @@ export function DesktopAuthScreen() {
           className="mx-auto mb-5 block h-16 w-16 rounded-2xl"
         />
 
-        <p className="mb-2 text-xs font-bold uppercase tracking-widest text-app-ink-faint">
+        <p className="mb-2 text-xs font-bold uppercase text-app-ink-faint">
           omanote desktop
         </p>
 
@@ -66,7 +66,7 @@ export function DesktopAuthScreen() {
 
         {isLoaded && !isSignedIn && (
           <>
-            <h1 className="mb-2.5 text-xl font-black tracking-tight text-app-ink">
+            <h1 className="mb-2.5 text-xl font-black text-app-ink">
               Sign in to continue
             </h1>
             <p className="mb-6 text-sm leading-relaxed text-app-ink-faint">
@@ -85,7 +85,7 @@ export function DesktopAuthScreen() {
 
         {isLoaded && isSignedIn && status === "pending" && (
           <>
-            <h1 className="mb-2.5 text-xl font-black tracking-tight text-app-ink">
+            <h1 className="mb-2.5 text-xl font-black text-app-ink">
               Connecting…
             </h1>
             <p className="text-sm leading-relaxed text-app-ink-faint">
@@ -100,7 +100,7 @@ export function DesktopAuthScreen() {
         {status === "ready" && (
           <>
             <MonitorCheck className="mx-auto mb-3 h-10 w-10 text-success-solid" aria-hidden="true" />
-            <h1 className="mb-2.5 text-xl font-black tracking-tight text-success-solid">
+            <h1 className="mb-2.5 text-xl font-black text-success-solid">
               Almost there!
             </h1>
             <p className="mb-5 text-sm leading-relaxed text-app-ink-faint">
@@ -116,7 +116,7 @@ export function DesktopAuthScreen() {
         {status === "error" && (
           <>
             <XCircle className="mx-auto mb-3 h-10 w-10 text-danger-solid" aria-hidden="true" />
-            <h1 className="mb-2.5 text-xl font-black tracking-tight text-danger-solid">
+            <h1 className="mb-2.5 text-xl font-black text-danger-solid">
               Connection failed
             </h1>
             <p className="mb-5 text-sm leading-relaxed text-app-ink-faint">{errorMsg}</p>

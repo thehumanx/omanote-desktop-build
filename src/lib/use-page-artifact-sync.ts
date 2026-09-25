@@ -13,7 +13,7 @@ import {
 } from "./page-artifact-sync";
 
 /** Reads every checklist block out of the live document, in order. */
-export function collectTodoBlocks(editor: Editor): Array<TodoBlock & { pos: number }> {
+function collectTodoBlocks(editor: Editor): Array<TodoBlock & { pos: number }> {
   const blocks: Array<TodoBlock & { pos: number }> = [];
   editor.state.doc.descendants((node, pos) => {
     if (node.type.name !== "pageTodo") return;
@@ -27,7 +27,7 @@ export function collectTodoBlocks(editor: Editor): Array<TodoBlock & { pos: numb
 }
 
 /** Reads every link block out of the live document, in order. */
-export function collectBookmarkBlocks(editor: Editor): Array<BookmarkBlock & { pos: number }> {
+function collectBookmarkBlocks(editor: Editor): Array<BookmarkBlock & { pos: number }> {
   const blocks: Array<BookmarkBlock & { pos: number }> = [];
   editor.state.doc.descendants((node, pos) => {
     if (node.type.name !== "pageBookmark") return;

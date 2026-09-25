@@ -52,7 +52,7 @@ export interface GuideTopic {
   body?: string;
 }
 
-export interface GuideCategory {
+interface GuideCategory {
   id: string;
   title: string;
   icon: LucideIcon;

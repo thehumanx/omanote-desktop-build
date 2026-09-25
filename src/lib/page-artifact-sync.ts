@@ -14,7 +14,7 @@ export interface TodoBlock {
   text: string;
 }
 
-export interface TodoBlockDiff {
+interface TodoBlockDiff {
   /** Blocks that need a `todos` row created, with the key to assign. */
   create: Array<{ todoKey: string; text: string }>;
   /** Rows whose title has drifted from the block text. */

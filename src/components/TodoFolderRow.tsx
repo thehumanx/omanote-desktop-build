@@ -28,7 +28,7 @@ function computePosition(buttonEl: HTMLButtonElement): { top?: number; bottom?: 
   };
 }
 
-export function TodoFolderActionMenu({
+function TodoFolderActionMenu({
   folderName,
   isOpen,
   menuRef,

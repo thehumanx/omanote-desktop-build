@@ -6,7 +6,7 @@ import { jsonCodec, readLocalStorage, writeLocalStorage } from "../lib/local-sto
 // try/catch boilerplate around it.
 export const CANVAS_DRAFTS_STORAGE_KEY = "omanote.canvas-drafts";
 
-export type DraftMap = Record<string, unknown>;
+type DraftMap = Record<string, unknown>;
 
 const isDraftMap = (value: unknown): value is DraftMap => value !== null && typeof value === "object";
 export const draftMapCodec = jsonCodec(isDraftMap);

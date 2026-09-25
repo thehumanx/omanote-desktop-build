@@ -4,7 +4,7 @@ const AXIS_LOCK_THRESHOLD = 6;
 const SWIPE_DISTANCE_THRESHOLD = 56;
 
 /** Either an element ref, or `window` to cover the whole screen. */
-export type SwipeTarget = RefObject<HTMLElement | null> | Window;
+type SwipeTarget = RefObject<HTMLElement | null> | Window;
 
 /**
  * Horizontal swipe navigation on a touch surface.

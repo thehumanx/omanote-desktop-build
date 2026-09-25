@@ -8,8 +8,7 @@ import { isMobileViewport } from "./mobile";
  * the note editor ignored both anyway, hardcoding Cmd/Ctrl+Enter to save and
  * Enter to split a paragraph. So a note saved differently from every other
  * artifact, which is the inconsistency this replaces. The settings, their
- * columns, and the conflict resolution are gone; see
- * `migrations/clearShortcutSettings`.
+ * Convex columns (dropped 2026-09-24), and the conflict resolution are gone.
  *
  * Cmd/Ctrl+Enter still saves. It's an additive alias, not a second keymap:
  * nothing else binds it, so accepting it costs nothing and spares the muscle

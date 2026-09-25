@@ -71,7 +71,7 @@ export function DesktopOnboardingScreen() {
             alt=""
             className="mx-auto mb-6 block h-20 w-20 rounded-app-icon shadow-soft"
           />
-          <h1 className="text-3xl font-black tracking-tight">Welcome to omanote</h1>
+          <h1 className="text-3xl font-black">Welcome to omanote</h1>
           <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-app-ink-muted">
             Your calm space to write, plan, and read.
           </p>

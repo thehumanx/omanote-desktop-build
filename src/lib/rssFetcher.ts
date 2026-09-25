@@ -18,7 +18,7 @@ export class RssFetchError extends Error {
  * Produces a Clerk session JWT for the proxy. Pass
  * `() => getToken({ template: "convex" })` from `useAuth()`.
  */
-export type ProxyTokenGetter = () => Promise<string | null>;
+type ProxyTokenGetter = () => Promise<string | null>;
 
 /**
  * Fetches and parses an RSS/Atom feed via the CORS proxy.

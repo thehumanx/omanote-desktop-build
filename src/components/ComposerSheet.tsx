@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { formatCanvasDateLabel, toDateKey } from "@omanote/shared";
 import type { DateKey } from "@omanote/shared";
 import type { DraftMode } from "../app/types";
@@ -89,6 +89,25 @@ export function ComposerSheet() {
         window.cancelAnimationFrame(secondFrame);
       }
     };
+  }, [open]);
+
+  // Closed means unfocusable. The sheet is only hidden, not unmounted (see
+  // below), so focus left inside it — a save refocused the editor on its way
+  // out — sat in an invisible field: the next "/" was typed into it, and
+  // useGlobalCaptureShortcut ignores keys aimed at an editable target, so the
+  // composer wouldn't reopen until something else took focus. `inert` also
+  // keeps Tab out of it. A layout effect, so it's lifted before the reopen's
+  // deferred focus runs. (React 18 has no `inert` prop, hence the attribute.)
+  useLayoutEffect(() => {
+    const section = sectionRef.current;
+    if (!section) return;
+    if (open) {
+      section.removeAttribute("inert");
+      return;
+    }
+    section.setAttribute("inert", "");
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && section.contains(active)) active.blur();
   }, [open]);
 
   // CanvasDraftBlock stays mounted even while the sheet is visually closed

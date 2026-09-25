@@ -10,10 +10,8 @@ import {
   useTiptapHashtagPicker,
 } from "../../lib/tiptap-note";
 import { useTiptapSlashMenu } from "../../lib/tiptap-slash-menu";
-import { HashtagPickerDropdown } from "../HashtagPicker";
-import { EmojiPickerDropdown } from "../EmojiPicker";
+import { NoteEditorOverlays } from "../NoteEditorOverlays";
 import { SlashMenuDropdown } from "./SlashMenuDropdown";
-import { TiptapLinkPopover } from "../TiptapLinkPopover";
 import { PageTodoNode, PageTodoProvider, type PageTodoLookup } from "./PageTodoNode";
 import { PageBookmarkNode, PageBookmarkProvider, type PageBookmarkLookup } from "./PageBookmarkNode";
 import { PageImageNode } from "./PageImageNode";
@@ -224,7 +222,7 @@ export function PageEditor({
         }}
       />
       <EditorContent editor={editor} />
-      <TiptapLinkPopover editor={editor} wrapperRef={wrapperRef} />
+      <NoteEditorOverlays editor={editor} wrapperRef={wrapperRef} hashtagPicker={hashtagPicker} emojiPicker={emojiPicker} />
       <SlashMenuDropdown
         isOpen={slashMenu.isOpen}
         commands={slashMenu.commands}
@@ -233,24 +231,6 @@ export function PageEditor({
         onHover={slashMenu.setActiveIndex}
         anchorRef={wrapperRef}
         anchorRect={slashMenu.anchorRect}
-      />
-      <HashtagPickerDropdown
-        isOpen={hashtagPicker.isOpen}
-        suggestions={hashtagPicker.suggestions}
-        activeIndex={hashtagPicker.activeIndex}
-        onSelect={hashtagPicker.selectSuggestion}
-        onHover={hashtagPicker.setActiveIndex}
-        anchorRef={wrapperRef}
-        anchorRect={hashtagPicker.anchorRect}
-      />
-      <EmojiPickerDropdown
-        isOpen={emojiPicker.isOpen}
-        suggestions={emojiPicker.suggestions}
-        activeIndex={emojiPicker.activeIndex}
-        onSelect={emojiPicker.selectSuggestion}
-        onHover={emojiPicker.setActiveIndex}
-        anchorRef={wrapperRef}
-        anchorRect={emojiPicker.anchorRect}
       />
     </div>
     </PageBookmarkProvider>

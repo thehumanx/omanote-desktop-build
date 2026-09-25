@@ -205,7 +205,7 @@ export function CanvasPreview({
                   step about it has to point at the heading, not the section. */}
               <p
                 data-tour-anchor="today-heading"
-                className="shrink-0 text-[11px] font-extrabold uppercase tracking-[0.16em] text-app-ink-faint"
+                className="shrink-0 text-[11px] font-extrabold uppercase text-app-ink-faint"
               >
                 Today
               </p>

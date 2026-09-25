@@ -2,7 +2,7 @@
 // Color palette – light bg + darker text of the same hue
 // ---------------------------------------------------------------------------
 
-export const HASHTAG_COLORS = [
+const HASHTAG_COLORS = [
   { bg: "bg-violet-100", text: "text-violet-700", darkBg: "dark:bg-violet-950/50", darkText: "dark:text-violet-300", svgBg: "#ede9fe", svgText: "#6d28d9", darkSvgBg: "#221043", darkSvgText: "#c4b5fd" },
   { bg: "bg-sky-100", text: "text-sky-700", darkBg: "dark:bg-sky-950/50", darkText: "dark:text-sky-300", svgBg: "#e0f2fe", svgText: "#0369a1", darkSvgBg: "#0b2233", darkSvgText: "#7dd3fc" },
   { bg: "bg-emerald-100", text: "text-emerald-700", darkBg: "dark:bg-emerald-950/50", darkText: "dark:text-emerald-300", svgBg: "#d1fae5", svgText: "#047857", darkSvgBg: "#07201b", darkSvgText: "#6ee7b7" },
@@ -15,7 +15,7 @@ export const HASHTAG_COLORS = [
   { bg: "bg-lime-100", text: "text-lime-700", darkBg: "dark:bg-lime-950/50", darkText: "dark:text-lime-300", svgBg: "#ecfccb", svgText: "#4d7c0f", darkSvgBg: "#16220a", darkSvgText: "#bef264" },
 ];
 
-export type HashtagColor = { bg: string; text: string; darkBg: string; darkText: string; svgBg: string; svgText: string; darkSvgBg: string; darkSvgText: string };
+type HashtagColor = { bg: string; text: string; darkBg: string; darkText: string; svgBg: string; svgText: string; darkSvgBg: string; darkSvgText: string };
 
 // ---------------------------------------------------------------------------
 // Deterministic color index from hashtag name
@@ -30,7 +30,7 @@ function simpleHash(str: string): number {
   return Math.abs(hash);
 }
 
-export function hashtagColorIndex(name: string): number {
+function hashtagColorIndex(name: string): number {
   return simpleHash(name.toLowerCase()) % HASHTAG_COLORS.length;
 }
 

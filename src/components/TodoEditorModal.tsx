@@ -75,6 +75,32 @@ function formatCompletedAt(value?: number) {
   return `${time}, ${day}`;
 }
 
+/**
+ * The rule to save when an existing series' Repeat text is edited.
+ *
+ * The original start is kept so editing the count or end doesn't shift the
+ * schedule — unless the new text names a start ("starting monday") or a day
+ * the old start doesn't fall on ("on the 10th" for a series on the 5th).
+ * Days deleted from the series ("delete only this day") are kept either way;
+ * the Repeat text can't express them, so re-parsing would otherwise drop them.
+ */
+export function mergeEditedRule(
+  previous: RecurrenceRule,
+  parsed: RecurrenceRule,
+  anchorSource: "today" | "day" | "start",
+): RecurrenceRule {
+  // "MM-DD" for a yearly rule, "DD" for a monthly one.
+  const dayPart = (dateKey: string) => dateKey.slice(parsed.interval % 12 === 0 ? 5 : 8);
+  const keepAnchor =
+    anchorSource === "today" ||
+    (anchorSource === "day" && parsed.freq === previous.freq && dayPart(previous.anchorDateKey) === dayPart(parsed.anchorDateKey));
+  return {
+    ...parsed,
+    anchorDateKey: keepAnchor ? previous.anchorDateKey : parsed.anchorDateKey,
+    ...(previous.exceptions?.length ? { exceptions: previous.exceptions } : {}),
+  };
+}
+
 export function TodoEditorModal({
   todo,
   folders = [],
@@ -217,7 +243,7 @@ export function TodoEditorModal({
     const repeatText = draftRepeat.trim();
     const parsedRepeatOnSave = repeatText ? parseRecurrencePhrase(repeatText, todayKey) : null;
     if (repeatText && !parsedRepeatOnSave) {
-      setError("Try a repeat like every day, every mon and fri, or every week, 5 times.");
+      setError("Try a repeat like every day, every mon and fri, or every month on the 5th.");
       return;
     }
 
@@ -228,10 +254,8 @@ export function TodoEditorModal({
     let reminderEveryMinutes: number | null | undefined;
     let reminderUntil: number | null | undefined;
     if (parsedRepeatOnSave?.kind === "series") {
-      // Keep the original series start so editing the count/end doesn't shift
-      // the schedule; a fresh series anchors on today.
       recurrence = todo?.recurrence
-        ? { ...parsedRepeatOnSave.rule, anchorDateKey: todo.recurrence.anchorDateKey }
+        ? mergeEditedRule(todo.recurrence, parsedRepeatOnSave.rule, parsedRepeatOnSave.anchorSource)
         : parsedRepeatOnSave.rule;
       reminderEveryMinutes = null;
       reminderUntil = null;
@@ -468,7 +492,7 @@ export function TodoEditorModal({
                 setError("");
               }}
               onKeyDown={handleKeyDown}
-              placeholder="Repeat — e.g. every day, every mon and fri, every week 5 times"
+              placeholder="Repeat — e.g. every day, every mon and fri, every month on the 5th"
               className={`min-w-0 flex-1 rounded-none border-0 border-b border-app-line bg-transparent px-0 ${FIELD_ROW_PADDING} text-[15px] text-app-ink-faint outline-none placeholder:text-app-line-strong focus:border-app-line-strong`}
             />
           </div>

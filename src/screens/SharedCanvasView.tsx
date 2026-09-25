@@ -5,7 +5,7 @@ import { normalizeLinkUrl } from "@omanote/shared";
 import { publicPageImageUrl } from "../lib/page-images";
 import { cn } from "../components/ui";
 
-export interface PublicCanvasTextRun {
+interface PublicCanvasTextRun {
   text: string;
   bold?: boolean;
   italic?: boolean;
@@ -15,7 +15,7 @@ export interface PublicCanvasTextRun {
   href?: string;
 }
 
-export interface PublicCanvasBlock {
+interface PublicCanvasBlock {
   type: string;
   text?: string;
   runs?: PublicCanvasTextRun[];
@@ -30,7 +30,7 @@ export interface PublicCanvasBlock {
   siteName?: string;
 }
 
-export interface PublicCanvas {
+interface PublicCanvas {
   shareCode: string;
   slug: string | null;
   title: string;
@@ -197,7 +197,7 @@ function LinkBlock({ block }: { block: PublicCanvasBlock }) {
  * nothing or mutate a stranger's todo; showing state without interaction is
  * the honest option.
  */
-export function SharedCanvasBlocks({ blocks }: { blocks: PublicCanvasBlock[] }) {
+function SharedCanvasBlocks({ blocks }: { blocks: PublicCanvasBlock[] }) {
   const nodes: ReactNode[] = [];
   let index = 0;
 
@@ -301,7 +301,8 @@ export function SharedCanvasBlocks({ blocks }: { blocks: PublicCanvasBlock[] }) 
     index += 1;
   }
 
-  return <div className="flex flex-col gap-3">{nodes}</div>;
+  // pre-line: a line break inside a paragraph arrives as "\n" (page-doc.ts).
+  return <div className="flex flex-col gap-3 whitespace-pre-line">{nodes}</div>;
 }
 
 export function SharedCanvasView({

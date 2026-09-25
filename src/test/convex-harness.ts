@@ -28,7 +28,7 @@ import type { TestConvex } from "convex-test";
 
 // Any address whose domain is in ALLOWED_EMAIL_DOMAINS works; the local part is
 // irrelevant to the check, so one shared value keeps failures easy to read.
-export const TEST_EMAIL = "test@gmail.com";
+const TEST_EMAIL = "test@gmail.com";
 
 export function convexTest<Schema extends GenericSchema>(
   schema?: SchemaDefinition<Schema, boolean>,

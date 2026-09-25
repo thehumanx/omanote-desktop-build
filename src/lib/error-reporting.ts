@@ -16,9 +16,9 @@
 import { ENCRYPTED_PREFIX } from "./crypto";
 
 /** Where scrubbed reports go. Null until an app-level sink registers one. */
-export type ErrorSink = (report: ErrorReport) => void;
+type ErrorSink = (report: ErrorReport) => void;
 
-export interface ErrorReport {
+interface ErrorReport {
   /** Where in the app this came from — a fixed label, never interpolated. */
   context: string;
   /** Constructor name, e.g. "TypeError". */

@@ -87,7 +87,7 @@ export function UpdateNotificationBanner({ inline = false }: { inline?: boolean 
             </div>
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-app-ink-faint">
+            <p className="text-[11px] font-bold uppercase text-app-ink-faint">
               Update available
             </p>
             <p className="mt-1.5 text-sm font-bold leading-snug text-app-ink">

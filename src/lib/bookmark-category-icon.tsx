@@ -1,4 +1,3 @@
-import emojilib from "emojilib";
 import { folderColorStyle } from "./folder-color";
 import {
   Bookmark,
@@ -24,7 +23,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export interface CategoryIconDef {
+interface CategoryIconDef {
   name: string;
   label: string;
   component: LucideIcon;
@@ -57,7 +56,7 @@ const lucideIconByName = new Map<string, LucideIcon>(
   LUCIDE_CATEGORY_ICONS.map(({ name, component }) => [name, component]),
 );
 
-export const EMOJI_SHORTCODES: Record<string, string> = {
+const EMOJI_SHORTCODES: Record<string, string> = {
   folder: "📁",
   star: "⭐",
   heart: "❤️",
@@ -98,48 +97,10 @@ function isEmojiString(value: string): boolean {
   return /\p{Emoji}/u.test(value) && !LUCIDE_CATEGORY_ICONS.some((i) => i.name === value);
 }
 
-export function resolveShortcode(raw: string): string {
+function resolveShortcode(raw: string): string {
   const colonMatch = raw.match(/^:([a-z0-9_-]+):$/);
   const name = colonMatch ? colonMatch[1] : raw.toLowerCase().trim();
   return EMOJI_SHORTCODES[name] ?? raw;
-}
-
-type EmojiEntry = { emoji: string; name: string; keywords: string[] };
-let _emojiIndex: EmojiEntry[] | null = null;
-
-function getEmojiIndex(): EmojiEntry[] {
-  if (_emojiIndex) return _emojiIndex;
-  _emojiIndex = Object.entries(emojilib as Record<string, string[]>).map(([emoji, keywords]) => ({
-    emoji,
-    name: (keywords[0] ?? "").replace(/_/g, " "),
-    keywords: keywords as string[],
-  }));
-  return _emojiIndex;
-}
-
-export function searchEmoji(query: string): Array<{ emoji: string; name: string }> {
-  const q = query.toLowerCase().trim();
-  if (!q) return [];
-  const index = getEmojiIndex();
-  const exact: EmojiEntry[] = [];
-  const starts: EmojiEntry[] = [];
-  const contains: EmojiEntry[] = [];
-  for (const entry of index) {
-    const hit = entry.keywords.some((k) => k === q || k.replace(/_/g, " ") === q);
-    const startHit = !hit && entry.keywords.some((k) => k.startsWith(q) || k.replace(/_/g, " ").startsWith(q));
-    const containsHit = !hit && !startHit && entry.keywords.some((k) => k.includes(q) || k.replace(/_/g, " ").includes(q));
-    if (hit) exact.push(entry);
-    else if (startHit) starts.push(entry);
-    else if (containsHit) contains.push(entry);
-  }
-  return [...exact, ...starts, ...contains].slice(0, 8).map(({ emoji, name }) => ({ emoji, name }));
-}
-
-/** Quick-pick emoji suggestions with their resolved names, for showing before the user types a search query. */
-export function quickPickEmojiSuggestions(): Array<{ emoji: string; name: string }> {
-  const index = getEmojiIndex();
-  const nameByEmoji = new Map(index.map(({ emoji, name }) => [emoji, name]));
-  return QUICK_PICK_EMOJIS.map((emoji) => ({ emoji, name: nameByEmoji.get(emoji) ?? "" }));
 }
 
 export function parseIconInput(raw: string): string {
@@ -149,7 +110,7 @@ export function parseIconInput(raw: string): string {
   return resolved;
 }
 
-export interface CategoryIconViewProps {
+interface CategoryIconViewProps {
   icon?: string;
   size?: "sm" | "md";
   className?: string;

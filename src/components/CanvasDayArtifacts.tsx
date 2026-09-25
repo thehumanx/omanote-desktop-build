@@ -9,13 +9,12 @@ import { BookmarkCard } from "./cards";
 import { PageCard } from "./page/PageCard";
 import { FolderLabel } from "./FolderLabel";
 
-export type { CanvasArtifactItem };
 
 /** Module scope so these stay referentially stable across renders. */
 const EMPTY_TODO_FOLDERS: TodoFolder[] = [];
 const EMPTY_EDITING_IDS: ReadonlySet<string> = new Set<string>();
 
-export type CanvasDayArtifactsProps = {
+type CanvasDayArtifactsProps = {
   items: CanvasArtifactItem[];
   canvasDateKey: string;
   /** Reference date for todo "overdue Xd" badges — defaults to canvasDateKey. Pass the real today when canvasDateKey is a historical day (history browsing). */
@@ -39,7 +38,7 @@ export type CanvasDayArtifactsProps = {
   staticPreview?: boolean;
 };
 
-export type ItemGroup =
+type ItemGroup =
   // Every artifact that belongs to a folder, collected into one card so the
   // folder is named once instead of once per row.
   | { kind: "folder"; folderKey: string; label: string; icon?: string; color?: string; items: CanvasArtifactItem[]; sortAt: number }

@@ -235,7 +235,7 @@ function FolderAttachedLinks({ notes, linkViewMode }: { notes: PublicNote[]; lin
 
   return (
     <div className="mt-2 rounded-2xl border border-app-line bg-app-surface px-6 py-6">
-      <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-app-ink-faint">
+      <p className="mb-3 text-xs font-bold uppercase text-app-ink-faint">
         Attached links
       </p>
       {linkViewMode === "list" ? (

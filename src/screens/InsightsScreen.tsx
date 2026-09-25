@@ -918,7 +918,7 @@ const ActivityRhythmCard = memo(function ActivityRhythmCard({ data }: { data: Ac
   return (
     <div className="rounded-app-card bg-app-surface border border-app-line p-4 sm:p-6">
       <div className="mb-4 flex items-center gap-2">
-        <p className="text-xs font-bold uppercase tracking-widest text-app-ink-faint/70">Activity rhythm</p>
+        <p className="text-xs font-bold uppercase text-app-ink-faint/70">Activity rhythm</p>
         <button
           type="button"
           className="rounded-full p-0.5 text-app-ink-faint transition-colors hover:text-app-ink"
@@ -1039,7 +1039,7 @@ const ContentCompositionCard = memo(function ContentCompositionCard({
 
   return (
     <div className="rounded-app-card bg-app-surface p-6 border border-app-line">
-      <p className="text-xs font-bold uppercase tracking-widest text-app-ink-faint/70">Content composition</p>
+      <p className="text-xs font-bold uppercase text-app-ink-faint/70">Content composition</p>
       <div className="mt-4 grid gap-8 border-t border-app-line pt-5 md:grid-cols-2">
         <div>
           <div className="mb-4 flex items-center gap-4 text-[11px] text-app-ink-faint">
@@ -1222,7 +1222,7 @@ export function InsightsScreen() {
               <>
                 <div className="rounded-app-card bg-app-surface p-4 border border-app-line">
                   <div className="mb-4 flex items-center justify-between">
-                    <p className="text-xs font-bold uppercase tracking-widest text-app-ink-faint/70">Productivity flow</p>
+                    <p className="text-xs font-bold uppercase text-app-ink-faint/70">Productivity flow</p>
                     {dCompleted != null && <DeltaBadge delta={dCompleted} label={deltaLabel} />}
                   </div>
                   <div className="grid gap-5 border-t border-app-line pt-5 md:grid-cols-2">
@@ -1269,7 +1269,7 @@ export function InsightsScreen() {
             ) : (
               <div className="overflow-hidden rounded-app-card bg-app-surface border border-app-line p-4 sm:p-6">
                 <div className="mb-4 flex items-baseline justify-between">
-                  <p className="text-xs font-bold uppercase tracking-widest text-app-ink-faint/70">Activity heatmap</p>
+                  <p className="text-xs font-bold uppercase text-app-ink-faint/70">Activity heatmap</p>
                   <p className="text-xs text-app-ink-faint">Last 365 days</p>
                 </div>
                 <div className="border-t border-app-line pt-5">
@@ -1294,7 +1294,7 @@ export function InsightsScreen() {
 
           {content !== undefined && content.topHashtags.length > 0 && (
             <section className="rounded-app-card bg-app-surface p-6 border border-app-line">
-              <p className="text-xs font-bold uppercase tracking-widest text-app-ink-faint/70">Top hashtags</p>
+              <p className="text-xs font-bold uppercase text-app-ink-faint/70">Top hashtags</p>
               <div className="mt-4 flex flex-wrap gap-2 border-t border-app-line pt-5">
                 {content.topHashtags.map(({ name, count }) => (
                   <span key={name} className="inline-flex items-center gap-1.5 rounded-full bg-app-surface-muted px-3 py-1.5 text-sm text-app-ink">

@@ -31,9 +31,9 @@ const OUTER_PATH = "M 76.348 19.652 A 40.09 40.09 0 1 1 19.652 76.348 A 40.09 40
 /** Runs from the inner ring's lower-left inner edge, through the centre, out to the outer ring. */
 const DIAGONAL_PATH = "M 35.478 60.522 L 76.348 19.652";
 
-export type OmanoteMarkVariant = "static" | "reveal" | "loop";
+type OmanoteMarkVariant = "static" | "reveal" | "loop";
 
-export type OmanoteMarkProps = Omit<React.SVGProps<SVGSVGElement>, "viewBox"> & {
+type OmanoteMarkProps = Omit<React.SVGProps<SVGSVGElement>, "viewBox"> & {
   /** Rendered width and height. A number is px; pass "100%" to fill a sized parent. */
   size?: number | string;
   /** `reveal` draws once, `loop` cycles for loading states. */

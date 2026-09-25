@@ -245,6 +245,28 @@ type FolderSetPinnedPayload = {
 };
 
 /** Folder/category removal. `withContents` cascades to the items inside. */
+// RSS reading state. Unlike artifacts, the optimistic write is already in
+// Dexie (rssReadState); these make it reach the server too, instead of being
+// overwritten by the next sync when an offline mutation never lands.
+type RssMarkReadPayload = { feedId: string; itemId: string; read: boolean };
+type RssToggleSavedPayload = {
+  feedId: string;
+  itemId: string;
+  saved: boolean;
+  savedTitle?: string;
+  savedUrl?: string;
+  savedSummary?: string;
+  savedThumbnailUrl?: string;
+  savedAuthor?: string;
+};
+type RssMarkFeedReadPayload = { feedId: string };
+// Reading-list organisation. The reader applies each of these to Dexie first;
+// these carry the same change to the server.
+type RssCategoryUpdatePayload = { categoryId: string; name: string; icon?: string };
+type RssCategoryDeletePayload = { categoryId: string };
+type RssSubscriptionUpdatePayload = { subscriptionId: string; categoryId?: string };
+type RssUnsubscribePayload = { subscriptionId: string };
+
 type FolderDeletePayload = {
   id: string;
   withContents?: boolean;
@@ -313,6 +335,13 @@ type CanvasPayloadMap = {
   "google/event-delete": GoogleEventDeletePayload;
   "google/event-entry-push": GoogleEventEntryPushPayload;
   "google/event-entry-delete": GoogleEventEntryDeletePayload;
+  "rss/mark-read": RssMarkReadPayload;
+  "rss/toggle-saved": RssToggleSavedPayload;
+  "rss/mark-feed-read": RssMarkFeedReadPayload;
+  "rss/category-update": RssCategoryUpdatePayload;
+  "rss/category-delete": RssCategoryDeletePayload;
+  "rss/subscription-update": RssSubscriptionUpdatePayload;
+  "rss/unsubscribe": RssUnsubscribePayload;
 };
 
 export type CanvasKind = keyof CanvasPayloadMap;
@@ -353,6 +382,23 @@ function toRecord(item: OutboxItem): OutboxRecord {
  */
 export async function listCanvasOutbox(): Promise<ReadonlyArray<{ kind: CanvasKind; createdAt: number; payload: unknown }>> {
   return readOutbox();
+}
+
+/**
+ * Drops queued writes of `kind` whose payload matches, and returns how many.
+ *
+ * For taking back a write the server has never seen — un-completing a
+ * recurring occurrence that was completed offline has no server row to
+ * un-complete, so the queued completion is withdrawn instead.
+ */
+export async function dropQueuedCanvasMutations<K extends CanvasKind>(
+  kind: K,
+  match: (payload: CanvasPayloadMap[K]) => boolean,
+): Promise<number> {
+  const items = await readOutbox();
+  const ids = items.filter((item) => item.kind === kind && match(item.payload as CanvasPayloadMap[K])).map((item) => item.id);
+  if (ids.length) await db.outbox.bulkDelete(ids);
+  return ids.length;
 }
 
 /** Oldest first, so the queue drains in the order the user made the writes. */
@@ -471,7 +517,9 @@ export async function enqueueCanvasMutation<K extends CanvasKind>(
 /**
  * The id of a queued item this write makes redundant, if any.
  *
- * Only `page/update` qualifies. Autosave fires on a debounce while the user
+ * `page/update` qualifies, and so do `rss/mark-read` / `rss/toggle-saved` for
+ * the same item: each sets an absolute state (read or not, saved or not), so
+ * the newest one is the only one that matters. Autosave fires on a debounce while the user
  * types, and each payload carries the *entire* encrypted document — so an
  * offline writing session would otherwise queue one full copy of the canvas
  * every second or so, all but the last of which are already stale by the time
@@ -486,6 +534,11 @@ async function findSupersededItemId<K extends CanvasKind>(
   kind: K,
   payload: CanvasPayloadMap[K],
 ): Promise<string | undefined> {
+  if (kind === "rss/mark-read" || kind === "rss/toggle-saved") {
+    const itemId = (payload as RssMarkReadPayload).itemId;
+    const rows = await db.outbox.toArray();
+    return rows.find((row) => row.kind === kind && (row.payload as RssMarkReadPayload).itemId === itemId)?.id;
+  }
   if (kind !== "page/update") return undefined;
   const pageId = (payload as PageUpdatePayload).pageId;
   const rows = await db.outbox.toArray();
@@ -602,7 +655,30 @@ export async function runWithCanvasOutboxFallback<K extends CanvasKind>(
 const MAX_ATTEMPTS = 5;
 const MAX_ITEM_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-export async function flushCanvasOutbox(handlers: HandlerMap) {
+let flushInFlight: Promise<void> | null = null;
+
+/**
+ * Sends every queued write. Skipped while offline, and coalesced while a flush
+ * is already running.
+ *
+ * Both guards matter because AppProvider calls this on mount and whenever its
+ * handler map changes identity, online or not. Offline, a handler's Convex
+ * mutation doesn't reject — it pends in the client's in-memory queue — so each
+ * of those flushes hung on the first item and left one more copy of the same
+ * call waiting. Nine were observed for a single queued folder create, all sent
+ * on reconnect. Handlers are idempotent server-side, but every copy still
+ * spent a write rate-limit token.
+ */
+export function flushCanvasOutbox(handlers: HandlerMap): Promise<void> {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return Promise.resolve();
+  if (flushInFlight) return flushInFlight;
+  flushInFlight = flushCanvasOutboxOnce(handlers).finally(() => {
+    flushInFlight = null;
+  });
+  return flushInFlight;
+}
+
+async function flushCanvasOutboxOnce(handlers: HandlerMap) {
   await migrateLegacyOutbox();
 
   const items = await readOutbox();

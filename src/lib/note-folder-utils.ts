@@ -2,7 +2,6 @@ import { readLocalStorage, stringCodec, writeLocalStorage } from "./local-storag
 import { NOTE_LAST_FOLDER_KEY } from "@omanote/shared";
 
 export {
-  NOTE_LAST_FOLDER_KEY,
   UNCATEGORIZED_FOLDER_LABEL,
   normalizeNoteFolderName,
   isUncategorizedFolderName,

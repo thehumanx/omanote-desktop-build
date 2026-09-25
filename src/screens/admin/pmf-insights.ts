@@ -15,7 +15,7 @@ export type Insight = {
   suggestion: string;
 };
 
-export const SEVERITY_RANK: Record<InsightSeverity, number> = {
+const SEVERITY_RANK: Record<InsightSeverity, number> = {
   critical: 0,
   warning: 1,
   info: 2,
@@ -81,7 +81,7 @@ export function totalActiveUsers(data: PmfDashboard): number {
 // `adminMetrics.getUserDirectory`, an action the dashboard already fetches for
 // names/emails; `signups` here is that action's result count, non-admin.
 
-export type ActivationStage = {
+type ActivationStage = {
   id: "signups" | "onboarded" | "everCreated" | "returnedDay2";
   label: string;
   value: number;
@@ -489,7 +489,7 @@ export function deriveInsights(data: PmfDashboard): Insight[] {
 
 // ─── Headline verdict ─────────────────────────────────────────────────────────
 
-export type Verdict = {
+type Verdict = {
   label: string;
   tone: InsightSeverity;
   summary: string;

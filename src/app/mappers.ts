@@ -77,10 +77,12 @@ export function mapPage(page: Doc<"pages">): PageItem {
     docJson: page.docJson,
     preview: page.preview,
     hashtags: page.hashtags ?? undefined,
-    // `starred` is the field's pre-rename name; rows predating
-    // migrations/backfillPagePinned still carry it. Drop the fallback once
-    // that migration has run on every deployment.
-    pinned: page.pinned ?? page.starred ?? undefined,
+    // `starred` is the field's pre-rename name. The server has none left
+    // (legacyAudit, 2026-09-24), but the rename backfill didn't bump
+    // `updatedAt`, so incremental sync never refreshed this device's Dexie
+    // copy — a cached row can still carry `starred` and no `pinned`. The field
+    // is gone from the schema type, hence the cast.
+    pinned: page.pinned ?? (page as { starred?: boolean }).starred ?? undefined,
     hidden: page.hidden ?? undefined,
     deletedAt: page.deletedAt ?? undefined,
     createdAt: page.createdAt,
@@ -139,7 +141,6 @@ export function mapEvent(event: Doc<"eventEntries">) {
     label: event.label,
     loggedAt: event.loggedAt,
     notes: event.notes ?? undefined,
-    habitId: event.habitId ? String(event.habitId) : undefined,
     sourceType: event.sourceType ?? "manual",
     sourceTodoId: event.sourceTodoId ? String(event.sourceTodoId) : undefined,
     deletedAt: event.deletedAt ?? undefined,

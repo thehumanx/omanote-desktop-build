@@ -181,7 +181,7 @@ function CanvasTodoBlockComponent({
             >
               <RichTextPreview value={todo.title} onLinkEdit={editTodoTitle} />
             </div>
-            {todo.priority === "high" ? <span className="rounded-app-badge border border-app-line px-2 py-0.5 text-[11px] uppercase tracking-wide text-app-ink-muted">High</span> : null}
+            {todo.priority === "high" ? <span className="rounded-app-badge border border-app-line px-2 py-0.5 text-[11px] uppercase text-app-ink-muted">High</span> : null}
             {todo.recurrence || todo.recurringSourceId ? (
               <span
                 title={todo.recurrence ? describeRecurrenceRule(todo.recurrence) : "recurring"}

@@ -10,7 +10,7 @@ function formatDateFilterLabel(dateKey: DateKey, todayKey: DateKey): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-export type HistoryFilterBarProps = {
+type HistoryFilterBarProps = {
   query: string;
   onQueryChange: (query: string) => void;
   pagesOnly: boolean;

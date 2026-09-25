@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MutableRefObject, type RefObject } from "react";
 
-export type HighlightStyle = {
+type HighlightStyle = {
   transform: string;
   width: number;
   height: number;

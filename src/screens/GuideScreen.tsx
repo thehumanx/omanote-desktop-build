@@ -18,7 +18,7 @@ import {
 // guide content matches the rest of omanote without extra design work.
 const PROSE_CLASS =
   "omanote-article max-w-2xl text-[15px] leading-7 text-app-ink " +
-  "[&_h1]:mb-2 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:tracking-tight " +
+  "[&_h1]:mb-2 [&_h1]:text-2xl [&_h1]:font-bold " +
   "[&_h2]:mt-8 [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-bold " +
   "[&_h3]:mt-6 [&_h3]:mb-1 [&_h3]:text-base [&_h3]:font-bold " +
   "[&_p]:my-3 [&_a]:text-info-ink [&_a]:underline " +
@@ -51,7 +51,7 @@ function GuideSidebarContents({ activeSlug }: { activeSlug: string }) {
         const Icon = category.icon;
         return (
           <div key={category.id} className="mb-5">
-            <div className="mb-1.5 flex items-center gap-2 px-2 text-xs font-bold uppercase tracking-wide text-app-ink-faint">
+            <div className="mb-1.5 flex items-center gap-2 px-2 text-xs font-bold uppercase text-app-ink-faint">
               <Icon className="h-3.5 w-3.5" />
               {category.title}
             </div>

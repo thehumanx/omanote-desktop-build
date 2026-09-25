@@ -6,7 +6,7 @@
 
 import { readLocalStorage, stringCodec, writeLocalStorage } from "./local-storage";
 
-export const DESKTOP_NOTIFICATIONS_ENABLED_KEY = "omanote:desktop-notifications-enabled";
+const DESKTOP_NOTIFICATIONS_ENABLED_KEY = "omanote:desktop-notifications-enabled";
 
 export function desktopNotificationsEnabled(): boolean {
   // Default on — the OS permission prompt is the real gate. Anything other

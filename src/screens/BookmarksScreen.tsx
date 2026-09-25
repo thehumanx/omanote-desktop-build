@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useEdgeSwipeBack } from "../lib/useEdgeSwipeBack";
 import { useHistoryBackClose } from "../lib/useHistoryBackClose";
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, Globe, LayoutGrid, LayoutList, MoreHorizontal, Pencil, Plus, Share2, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, LayoutGrid, LayoutList, Plus } from "lucide-react";
 import type { BookmarkCategory, BookmarkItem } from "@omanote/shared";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
@@ -14,6 +14,7 @@ import { groupByPinned } from "../lib/pinned-folders";
 import { BookmarkCategoryIconPicker } from "../components/BookmarkCategoryIconPicker";
 import { CategoryIconView } from "../lib/bookmark-category-icon";
 import { BookmarkCard } from "../components/cards";
+import { FolderDrawerHeader } from "../components/FolderDrawerHeader";
 import { VirtualList, type VirtualListHandle } from "../components/VirtualList";
 import { useTopChrome } from "../components/layout/useTopChrome";
 import { ExpandableSearch } from "../components/ExpandableSearch";
@@ -613,139 +614,72 @@ export function BookmarksScreen() {
             panel) dismisses it, so the rest of the panel keeps native
             vertical scrolling. */}
         <div aria-hidden="true" className="absolute inset-y-0 left-0 z-10 w-6" {...edgeSwipeProps} />
-        {isMobileDrawer && drawerRenaming ? (
-          <div className="relative mb-3 flex items-center gap-2 border-b border-app-line px-4 pb-3 pt-3">
-            <button
-              type="button"
-              aria-label="Back to folders"
-              onClick={() => setMobileBookmarksOpen(false)}
-              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <button
-              ref={iconPickerAnchorRef}
-              type="button"
-              aria-label="Change icon"
-              onMouseDown={(e) => { e.preventDefault(); setIconPickerOpen(true); }}
-              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-app-surface-muted text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-            >
-              <CategoryIconView icon={editingIcon} size="sm" />
-            </button>
-            <input
-              ref={drawerRenameInputRef}
-              value={newCategoryName}
-              onChange={(e) => { setNewCategoryName(e.target.value); setNewCategoryError(null); }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") { e.preventDefault(); commitCategory(); }
-                else if (e.key === "Escape") { e.preventDefault(); cancelCategory(); }
-              }}
-              onBlur={iconPickerOpen ? undefined : commitCategoryOnBlur}
-              className="min-w-0 flex-1 border-0 bg-transparent p-0 text-sm font-bold text-app-ink outline-none placeholder:text-app-ink-faint"
-            />
-            {newCategoryError ? (
-              <div className="absolute left-14 top-full z-app-tooltip mt-2 rounded-md border border-danger-line bg-app-surface px-2 py-1 text-xs text-danger-ink shadow-soft">
-                {newCategoryError}
-              </div>
-            ) : null}
-          </div>
-        ) : (
-          <div className="mb-3 flex items-center gap-2 border-b border-app-line px-4 pb-3 pt-3">
-            <button
-              type="button"
-              aria-label="Back to folders"
-              onClick={() => setMobileBookmarksOpen(false)}
-              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <span className="flex min-w-0 flex-1 items-center gap-1.5">
-              {selectedCategory && managedCategoryIds.has(selectedCategory.id) ? (
-                <button
-                  ref={drawerDirectIconButtonRef}
-                  type="button"
-                  aria-label="Change icon"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
+        <FolderDrawerHeader
+          onBack={() => setMobileBookmarksOpen(false)}
+          rename={
+            isMobileDrawer && drawerRenaming
+              ? {
+                  icon: editingIcon,
+                  iconButton: { ref: iconPickerAnchorRef, onMouseDown: () => setIconPickerOpen(true) },
+                  inputRef: drawerRenameInputRef,
+                  value: newCategoryName,
+                  onChange: (value) => {
+                    setNewCategoryName(value);
+                    setNewCategoryError(null);
+                  },
+                  onCommit: commitCategory,
+                  onCancel: cancelCategory,
+                  onBlur: iconPickerOpen ? undefined : commitCategoryOnBlur,
+                  error: newCategoryError,
+                }
+              : null
+          }
+          icon={selectedCategory?.icon}
+          color={selectedCategory?.color}
+          label={selectedCategoryLabel}
+          isPublic={Boolean(selectedCategory && sharedCategoryIdSet.has(selectedCategory.id))}
+          iconButton={
+            selectedCategory && managedCategoryIds.has(selectedCategory.id)
+              ? {
+                  ref: drawerDirectIconButtonRef,
+                  onMouseDown: () => {
                     setDirectIconCategoryId(selectedCategory.id);
                     setEditingIcon(selectedCategory.icon);
                     iconPickerAnchorRef.current = drawerDirectIconButtonRef.current;
                     setIconPickerOpen(true);
-                  }}
-                  className="flex-shrink-0 rounded-md p-0.5 text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-                >
-                  <CategoryIconView icon={selectedCategory.icon} size="sm" color={selectedCategory.color} />
-                </button>
-              ) : (
-                <span className="flex-shrink-0 text-app-ink-faint">
-                  <CategoryIconView icon={selectedCategory?.icon} size="sm" color={selectedCategory?.color} />
-                </span>
-              )}
-              <p className="min-w-0 truncate text-sm font-bold text-app-ink">{selectedCategoryLabel}</p>
-              {selectedCategory && sharedCategoryIdSet.has(selectedCategory.id) && (
-                <Globe className="h-3.5 w-3.5 flex-shrink-0 text-app-ink-faint" aria-label="Public" />
-              )}
-            </span>
-            {isMobileDrawer && selectedCategoryId && managedCategoryIds.has(selectedCategoryId) && selectedCategory ? (
-              <div className="flex flex-shrink-0 items-center gap-1">
-                <button
-                  type="button"
-                  aria-label="Share category"
-                  onClick={() => setShareFolderModal({ categoryId: selectedCategory.id, categoryName: selectedCategory.name, categoryIcon: selectedCategory.icon })}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-                >
-                  <Share2 className="h-4 w-4" />
-                </button>
-                <div className="relative" ref={drawerCategoryMenuOpen ? drawerCategoryMenuRef : undefined}>
-                  <button
-                    type="button"
-                    aria-label="Category actions"
-                    aria-expanded={drawerCategoryMenuOpen}
-                    onClick={() => setDrawerCategoryMenuOpen((c) => !c)}
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                  </button>
-                  {drawerCategoryMenuOpen ? (
-                    <div
-                      role="menu"
-                      className="absolute right-0 top-full z-app-menu mt-1 w-44 rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
-                    >
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setRenamingCategoryId(selectedCategory.id);
-                          setNewCategoryName(selectedCategory.name);
-                          setEditingIcon(selectedCategory.icon);
-                          setNewCategoryError(null);
-                          setDrawerCategoryMenuOpen(false);
-                          setDrawerRenaming(true);
-                        }}
-                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink"
-                      >
-                        <Pencil className="h-4 w-4" />
-                        Rename
-                      </button>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setDeleteTarget({ id: selectedCategory.id, name: selectedCategory.name, count: selectedCategory.count });
-                          setDrawerCategoryMenuOpen(false);
-                        }}
-                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-danger-ink transition hover:bg-danger-surface"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Delete
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
-          </div>
-        )}
+                  },
+                }
+              : undefined
+          }
+          actions={
+            isMobileDrawer && selectedCategory && managedCategoryIds.has(selectedCategory.id)
+              ? {
+                  noun: "category",
+                  onShare: () =>
+                    setShareFolderModal({
+                      categoryId: selectedCategory.id,
+                      categoryName: selectedCategory.name,
+                      categoryIcon: selectedCategory.icon,
+                    }),
+                  menuOpen: drawerCategoryMenuOpen,
+                  onToggleMenu: () => setDrawerCategoryMenuOpen((c) => !c),
+                  menuRef: drawerCategoryMenuRef,
+                  onRename: () => {
+                    setRenamingCategoryId(selectedCategory.id);
+                    setNewCategoryName(selectedCategory.name);
+                    setEditingIcon(selectedCategory.icon);
+                    setNewCategoryError(null);
+                    setDrawerCategoryMenuOpen(false);
+                    setDrawerRenaming(true);
+                  },
+                  onDelete: () => {
+                    setDeleteTarget({ id: selectedCategory.id, name: selectedCategory.name, count: selectedCategory.count });
+                    setDrawerCategoryMenuOpen(false);
+                  },
+                }
+              : null
+          }
+        />
       </div>
       <div className={cn("mb-3 flex items-center gap-3 lg:px-0", isMobileDrawer ? "justify-end px-4" : "justify-between")}>
         {!isMobileDrawer ? (

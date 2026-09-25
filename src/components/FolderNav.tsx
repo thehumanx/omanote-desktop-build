@@ -272,7 +272,7 @@ export function FolderNavCard({
 function FolderNavSectionLabel({ children }: { children: ReactNode }) {
   return (
     <div className="flex items-center gap-2 px-2 pb-1 pt-1">
-      <span className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-app-ink-faint">{children}</span>
+      <span className="text-[11px] font-extrabold uppercase text-app-ink-faint">{children}</span>
       <span aria-hidden="true" className="h-px min-w-4 flex-1 bg-app-line" />
     </div>
   );

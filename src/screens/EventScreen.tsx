@@ -1,817 +1,33 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { addDays, buildDateStripWindow, formatMonthDayRange, listVirtualOccurrencesForDates, parseEventDraftInputForDate, parseVirtualOccurrenceId, toDateKey } from "@omanote/shared";
-import type { DateKey, TodoFolder, TodoItem } from "@omanote/shared";
-import { CalendarDays, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, Clock3, List, Plus, Trash2, X } from "lucide-react";
+import type { DateKey, TodoItem } from "@omanote/shared";
+import { CalendarDays, CheckCheck, ChevronLeft, ChevronRight, List, Trash2 } from "lucide-react";
 import { useApp } from "../app/AppProvider";
 import { useIsMobileViewport } from "../lib/mobile";
-import { BaseModal } from "../components/BaseModal";
 import { EventEditorModal } from "../components/EventEditorModal";
 import { TodoEditorModal } from "../components/TodoEditorModal";
-import { TodoListRow } from "../components/TodoListRow";
-import { AttachmentLinkPreview } from "../components/AttachmentLinkPreview";
-import { RichTextPreview } from "../components/rich-text";
 import { useTopChrome } from "../components/layout/useTopChrome";
 import { ExpandableSearch } from "../components/ExpandableSearch";
 import { matchesQuery, normalizeSearchQuery } from "../lib/search-match";
-import { DrawerHeaderRow } from "../components/DrawerHeaderRow";
-import { Button, SegmentedPill, TodoCheckmark, cn } from "../components/ui";
-import { VirtualList, type VirtualListHandle } from "../components/VirtualList";
-import { handlePasteAsLink } from "../lib/link-utils";
-import { useUserSettings } from "../contexts/UserSettingsContext";
-import { isNewlineKeyEvent, isSaveKeyEvent } from "../lib/editor-shortcuts";
-import { SaveShortcutHint } from "../components/settings/SaveShortcutHint";
-import { HashtagPickerDropdown, useHashtagPicker } from "../components/HashtagPicker";
-import { EmojiPickerDropdown, useEmojiPicker } from "../components/EmojiPicker";
+import { Button, SegmentedPill } from "../components/ui";
 import { enumCodec, readLocalStorage, writeLocalStorage } from "../lib/local-storage";
-import { autoResizeTextArea } from "../lib/auto-resize";
+import { CALENDAR_TOP_PADDING, CLUSTER_STACK_HEIGHT, CalendarEntry, EMPTY_HOUR_LAYOUT, HOURS, getCalendarHourLayout, getWeekEntryClusters } from "./events/calendar-layout";
+import { calendarEntryTimeLabel, calendarEntryTitle, formatHourLabel, isTodoCompletedEvent, isTodoEntry } from "./events/event-format";
+import { CalendarTodoRow } from "./events/CalendarTodoRow";
+import { AgendaView, type AgendaDay } from "./events/AgendaView";
+import { TimelineView } from "./events/TimelineView";
+import { EventClusterModal } from "./events/EventClusterModal";
+import { EventCreateModal } from "./events/EventCreateModal";
 
 type EventView = "week" | "timeline";
+
 const EVENT_VIEW_KEY = "event-view";
+
 const eventViewCodec = enumCodec<EventView>(["week", "timeline"]);
-
-const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
-const HOUR_ROW_HEIGHT = 72;
-const EMPTY_HOUR_ROW_HEIGHT = 44;
-const EVENT_BLOCK_HEIGHT = 56;
-const EVENT_BLOCK_DURATION_MINUTES = 50;
-const CALENDAR_TOP_PADDING = 92;
-const CLUSTER_STACK_HEIGHT = 92;
-
-type EventItem = ReturnType<typeof useApp>["state"]["events"][number];
-
-type CalendarEntry =
-  | { kind: "event"; id: string; dateKey: string; startMinutes: number; event: EventItem }
-  | { kind: "todo"; id: string; dateKey: string; startMinutes: number; todo: TodoItem };
-
-type EventCluster = {
-  id: string;
-  dateKey: string;
-  top: number;
-  entries: CalendarEntry[];
-};
-
-type CalendarHourLayout = {
-  rowHeights: number[];
-  hourTops: number[];
-  totalHeight: number;
-};
-
-function formatHourLabel(hour: number) {
-  const suffix = hour >= 12 ? "PM" : "AM";
-  const normalizedHour = hour % 12 === 0 ? 12 : hour % 12;
-  return `${normalizedHour} ${suffix}`;
-}
-
-function formatEventTime(timestamp: number) {
-  return new Date(timestamp)
-    .toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
-    .replace(":00", "")
-    .replace(/\s+/g, "");
-}
-
-function isTodoCompletedEvent(event: EventItem) {
-  return event.sourceType === "todo_completed";
-}
-
-function isTodoEntry(entry: CalendarEntry): entry is Extract<CalendarEntry, { kind: "todo" }> {
-  return entry.kind === "todo";
-}
-
-function calendarEntryTitle(entry: CalendarEntry) {
-  return isTodoEntry(entry) ? entry.todo.title : entry.event.label;
-}
-
-function calendarEntryTimeLabel(entry: CalendarEntry) {
-  if (isTodoEntry(entry)) return entry.todo.dueTime ? formatTodoDueTime(entry.todo.dueTime) : "";
-  return formatEventTime(entry.event.loggedAt);
-}
-
-function formatTodoDueTime(time: string) {
-  const [hourRaw, minuteRaw] = time.split(":");
-  const hour = Number(hourRaw);
-  const minute = Number(minuteRaw);
-  return new Date(2026, 0, 1, hour, minute)
-    .toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
-    .replace(":00", "")
-    .replace(/\s+/g, "");
-}
-
-function CalendarTodoRow({
-  todo,
-  compact = false,
-  onOpen,
-}: {
-  todo: TodoItem;
-  compact?: boolean;
-  onOpen: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={`Open todo ${todo.title}`}
-      onClick={(event) => {
-        event.stopPropagation();
-        onOpen();
-      }}
-      className={[
-        "group/todo flex w-full items-center gap-2 text-left transition",
-        compact ? "px-1 py-0.5" : "px-0 py-0",
-      ].join(" ")}
-    >
-      <TodoCheckmark
-        as="span"
-        aria-hidden="true"
-        checked={todo.status === "done"}
-        size="sm"
-      />
-      <span className={["min-w-0 flex-1 truncate font-bold text-app-ink", compact ? "text-xs" : "text-sm leading-5"].join(" ")}>
-        {todo.title}
-      </span>
-    </button>
-  );
-}
-
-function formatDateLabel(dateKey: string, todayKey: string): string {
-  if (dateKey === todayKey) return "Today";
-  const date = new Date(`${dateKey}T00:00:00`);
-  const weekday = date.toLocaleDateString("en-US", { weekday: "short" });
-  const monthDay = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  return `${weekday}, ${monthDay}`;
-}
 
 /** How far forward the mobile agenda runs. See `agendaDateKeys`. */
 const AGENDA_DAY_COUNT = 60;
-
-/** Stand-in used on mobile, where the hour gutter is never laid out. */
-const EMPTY_HOUR_LAYOUT: CalendarHourLayout = { rowHeights: [], hourTops: [], totalHeight: 0 };
-
-function formatEntryTime(startMinutes: number): string {
-  const hours = Math.floor(startMinutes / 60);
-  const minutes = startMinutes % 60;
-  const date = new Date();
-  date.setHours(hours, minutes, 0, 0);
-  return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-}
-
-type AgendaDay = {
-  dateKey: string;
-  allDayTodos: TodoItem[];
-  timed: CalendarEntry[];
-};
-
-/**
- * The calendar as a continuous, forward-looking list — what the week grid
- * becomes on mobile.
- *
- * The grid needs an hour gutter and seven columns (~920px). Below `md` that
- * used to collapse to a single day paged with arrows, so finding next
- * Thursday took seven taps. This is the same content, read top to bottom:
- * every day that has something scheduled, with today always shown even when
- * it's empty so there is a "you are here".
- *
- * Windowed by day rather than by row, matching `TimelineView` — the day
- * header and its entries have to stay together, and a row is only reachable
- * once its day is mounted.
- */
-function AgendaView({
-  days,
-  todayKey,
-  scrollRef,
-  onEditEvent,
-  onEditTodo,
-  onToggleTodo,
-}: {
-  days: AgendaDay[];
-  todayKey: string;
-  scrollRef: RefObject<HTMLElement>;
-  onEditEvent: (eventId: string) => void;
-  onEditTodo: (todoId: string) => void;
-  onToggleTodo: (todoId: string) => void;
-}) {
-  if (!days.length) {
-    return <p className="py-12 text-center text-sm text-app-ink-faint">Nothing scheduled</p>;
-  }
-
-  return (
-    <VirtualList
-      items={days}
-      getKey={(day) => day.dateKey}
-      scrollRef={scrollRef}
-      className="w-full min-w-0 pb-4"
-      gap={16}
-      threshold={12}
-      estimateSize={140}
-      overscan={4}
-      renderItem={(day) => {
-        const isToday = day.dateKey === todayKey;
-        return (
-          <section aria-label={formatDateLabel(day.dateKey, todayKey)}>
-            <div className="flex items-baseline gap-2 border-b border-app-line pb-1">
-              <h3 className={cn("text-sm font-bold", isToday ? "text-app-ink" : "text-app-ink-muted")}>
-                {formatDateLabel(day.dateKey, todayKey)}
-              </h3>
-              <span className="text-[11px] text-app-ink-faint">
-                {day.allDayTodos.length + day.timed.length || "nothing"}
-              </span>
-            </div>
-            <ul className="mt-2 flex flex-col gap-1">
-              {day.allDayTodos.map((todo) => (
-                <li key={`all-day-${todo.id}`} className="flex items-start gap-3 rounded-app-panel px-2 py-1.5">
-                  <span className="w-14 flex-none pt-0.5 text-[11px] uppercase tracking-wide text-app-ink-faint">All day</span>
-                  <TodoCheckmark
-                    type="button"
-                    checked={todo.status === "done"}
-                    align="text"
-                    onClick={() => onToggleTodo(todo.id)}
-                    aria-label={todo.status === "done" ? `Reopen ${todo.title}` : `Complete ${todo.title}`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => onEditTodo(todo.id)}
-                    className={cn(
-                      "min-w-0 flex-1 text-left text-sm",
-                      todo.status === "done" ? "text-app-ink-faint line-through" : "text-app-ink",
-                    )}
-                  >
-                    {todo.title}
-                  </button>
-                </li>
-              ))}
-              {day.timed.map((entry) => (
-                <li key={`${entry.kind}-${entry.id}`} className="flex items-start gap-3 rounded-app-panel px-2 py-1.5">
-                  <span className="w-14 flex-none pt-0.5 text-[11px] tabular-nums text-app-ink-faint">
-                    {formatEntryTime(entry.startMinutes)}
-                  </span>
-                  {entry.kind === "todo" ? (
-                    <TodoCheckmark
-                      type="button"
-                      checked={entry.todo.status === "done"}
-                      align="text"
-                      onClick={() => onToggleTodo(entry.todo.id)}
-                      aria-label={entry.todo.status === "done" ? `Reopen ${entry.todo.title}` : `Complete ${entry.todo.title}`}
-                    />
-                  ) : (
-                    // Same icons the timeline and week grid use: a double
-                    // check marks an event that a completed todo generated,
-                    // a clock marks one logged directly. A bare dot said
-                    // neither.
-                    <span
-                      aria-hidden="true"
-                      data-agenda-event-icon={isTodoCompletedEvent(entry.event) ? "completed-todo" : "logged"}
-                      className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-app-surface-muted"
-                    >
-                      {isTodoCompletedEvent(entry.event) ? (
-                        <CheckCheck className="h-3 w-3 text-app-ink-faint" />
-                      ) : (
-                        <Clock3 className="h-3 w-3 text-app-ink-faint" />
-                      )}
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => (entry.kind === "todo" ? onEditTodo(entry.todo.id) : onEditEvent(entry.event.id))}
-                    className={cn(
-                      "min-w-0 flex-1 text-left text-sm",
-                      entry.kind === "todo" && entry.todo.status === "done"
-                        ? "text-app-ink-faint line-through"
-                        : "text-app-ink",
-                    )}
-                  >
-                    {entry.kind === "todo" ? entry.todo.title : entry.event.label}
-                  </button>
-                </li>
-              ))}
-              {!day.allDayTodos.length && !day.timed.length ? (
-                <li className="px-2 py-1.5 text-sm text-app-ink-faint">Nothing scheduled</li>
-              ) : null}
-            </ul>
-          </section>
-        );
-      }}
-    />
-  );
-}
-
-function getCalendarHourLayout(entries: CalendarEntry[], weekDateKeys: string[]): CalendarHourLayout {
-  const occupiedHours = new Set<number>();
-  for (const entry of entries) {
-    if (!weekDateKeys.includes(entry.dateKey)) continue;
-    occupiedHours.add(Math.floor(entry.startMinutes / 60));
-  }
-
-  const rowHeights = HOURS.map((hour) => (occupiedHours.has(hour) ? HOUR_ROW_HEIGHT : EMPTY_HOUR_ROW_HEIGHT));
-  const hourTops: number[] = [];
-  let nextTop = 0;
-  for (const rowHeight of rowHeights) {
-    hourTops.push(nextTop);
-    nextTop += rowHeight;
-  }
-
-  return {
-    rowHeights,
-    hourTops,
-    totalHeight: nextTop + CALENDAR_TOP_PADDING,
-  };
-}
-
-function getMinuteTop(startMinutes: number, hourLayout: CalendarHourLayout) {
-  const hour = Math.floor(startMinutes / 60);
-  const minute = startMinutes % 60;
-  return hourLayout.hourTops[hour] + (minute / 60) * hourLayout.rowHeights[hour];
-}
-
-function TimelineView({
-  events,
-  todayKey,
-  focusedEventId,
-  onEdit,
-  onDelete,
-  onDeleteTodoEvent,
-  onLogEvent,
-  highlightQuery,
-  scrollRef,
-}: {
-  events: EventItem[];
-  todayKey: string;
-  focusedEventId: string | null;
-  onEdit: (eventId: string) => void;
-  onDelete: (eventId: string) => void;
-  onDeleteTodoEvent: (todoId: string) => void;
-  onLogEvent: () => void;
-  highlightQuery?: string | null;
-  /** The screen owns the scroll container; the timeline windows inside it. */
-  scrollRef: React.RefObject<HTMLElement>;
-}) {
-  const listRef = useRef<VirtualListHandle>(null);
-  const dateGroups = useMemo(() => {
-    const byDate = new Map<string, EventItem[]>();
-    for (const event of events) {
-      const key = event.createdDateKey;
-      const group = byDate.get(key) ?? [];
-      group.push(event);
-      byDate.set(key, group);
-    }
-
-    // Always include today; only include past dates that have events
-    const groups: { dateKey: string; events: EventItem[] }[] = [];
-
-    // Today always appears
-    groups.push({
-      dateKey: todayKey,
-      events: [...(byDate.get(todayKey) ?? [])].sort((a, b) => b.loggedAt - a.loggedAt),
-    });
-
-    // Past dates with events, sorted newest first
-    const pastKeys = [...byDate.keys()]
-      .filter((k) => k < todayKey)
-      .sort((a, b) => b.localeCompare(a));
-
-    for (const key of pastKeys) {
-      groups.push({
-        dateKey: key,
-        events: [...(byDate.get(key) ?? [])].sort((a, b) => b.loggedAt - a.loggedAt),
-      });
-    }
-
-    return groups;
-  }, [events, todayKey]);
-
-  // Scrolling to a deep-linked event lives here rather than in EventScreen
-  // because this is where the day grouping is: the timeline is windowed by
-  // day, so the day has to come into view before its rows exist to scroll to.
-  useEffect(() => {
-    if (!focusedEventId) return;
-    const groupKey = dateGroups.find((group) => group.events.some((event) => event.id === focusedEventId))?.dateKey;
-    if (groupKey) listRef.current?.scrollToKey(groupKey);
-    const frame = requestAnimationFrame(() => {
-      const row = document.querySelector(`[data-event-row-id="${focusedEventId}"]`);
-      row?.scrollIntoView({ behavior: "smooth", block: "center" });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [focusedEventId, dateGroups]);
-
-  if (dateGroups.length === 0) {
-    return <p className="py-12 text-center text-sm text-app-ink-faint">No events yet</p>;
-  }
-
-  return (
-    <VirtualList
-      ref={listRef}
-      scrollRef={scrollRef}
-      items={dateGroups}
-      getKey={eventDateGroupKey}
-      className="w-full min-w-0 pb-4"
-      // No gap: each day draws the connecting timeline rule as absolutely
-      // positioned segments that are only continuous because days sit flush
-      // against each other.
-      gap={0}
-      threshold={12}
-      estimateSize={260}
-      overscan={4}
-      renderItem={({ dateKey, events: dayEvents }, groupIndex) => {
-        const label = formatDateLabel(dateKey, todayKey);
-        const isFirst = groupIndex === 0;
-        const isLast = groupIndex === dateGroups.length - 1;
-
-        return (
-          <div className="relative">
-            {/* Outer date line — top segment (skip for first) */}
-            {!isFirst && (
-              <div className="absolute left-[11px] top-0 h-[17px] w-px bg-app-line" />
-            )}
-            {/* Outer date line — bottom segment (skip for last) */}
-            {!isLast && (
-              <div className="absolute bottom-0 left-[11px] top-[22px] w-px bg-app-line" />
-            )}
-
-            {/* Date header row */}
-            <div className="relative flex items-center gap-1.5 py-2.5">
-              {/* Date dot */}
-              <div className="relative z-10 flex h-[14px] w-[22px] shrink-0 items-center justify-center">
-                <div className="h-[10px] w-[10px] rounded-full border-2 border-app-ink-faint bg-app-canvas" />
-              </div>
-              <span className="app-title-font text-sm font-bold text-app-ink">{label}</span>
-              <span className="rounded-app-badge bg-app-surface-muted px-2 py-0.5 text-[11px] font-bold text-app-ink-muted">
-                {dayEvents.length}
-              </span>
-            </div>
-
-            {/* Today empty state */}
-            {dateKey === todayKey && dayEvents.length === 0 && (
-              <div className="ml-10 mb-3 rounded-app-card bg-app-surface-muted px-5 py-6">
-                <div className="flex flex-col items-center gap-3 text-center">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-app-surface">
-                    <CalendarDays className="h-4 w-4 text-app-ink-faint" />
-                  </div>
-                  <p className="text-sm text-app-ink-faint">Today seems eventless so far</p>
-                  <Button
-                    type="button"
-                    onClick={onLogEvent}
-                    className="gap-1.5 px-3.5 py-1.5 text-xs"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Log your event
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Events — indented with their own timeline */}
-            {dayEvents.length > 0 && (
-              <div className="relative ml-6 pb-3">
-                {dayEvents.map((event, eventIndex) => {
-                  const isTodoCEvent = isTodoCompletedEvent(event);
-                  const isFirstEvent = eventIndex === 0;
-                  const isLastEvent = eventIndex === dayEvents.length - 1;
-                  return (
-                    <div key={event.id} data-event-row-id={event.id} className={["relative flex items-start gap-3 py-1.5 rounded-lg transition-colors duration-700", focusedEventId === event.id ? "bg-app-surface-hover" : ""].join(" ")}>
-                      {/* Inner event line — top segment (skip for first event) */}
-                      {!isFirstEvent && (
-                        <div className="absolute left-[10px] top-0 h-[6px] w-px bg-app-line" />
-                      )}
-                      {/* Inner event line — bottom segment (skip for last event) */}
-                      {!isLastEvent && (
-                        <div className="absolute left-[10px] top-[26px] bottom-0 w-px bg-app-line" />
-                      )}
-                      {/* Event type icon on the inner line */}
-                      <div className="relative z-10 flex w-[21px] shrink-0 items-center justify-center">
-                        <div className="flex h-[20px] w-[20px] items-center justify-center rounded-full bg-app-surface-muted">
-                          {isTodoCEvent
-                            ? <CheckCheck className="h-3 w-3 text-app-ink-faint" />
-                            : <Clock3 className="h-3 w-3 text-app-ink-faint" />
-                          }
-                        </div>
-                      </div>
-
-                      {isTodoCEvent ? (
-                        /* Todo event: read-only, with link/hashtag rendering */
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-start gap-1.5">
-                            <span className="w-[68px] shrink-0 tabular-nums text-xs text-app-ink-faint">
-                              {formatEventTime(event.loggedAt)}
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <RichTextPreview
-                                value={event.label}
-                                paragraphClassName="text-sm text-app-ink-muted"
-                                highlightQuery={highlightQuery}
-                              />
-                              <AttachmentLinkPreview
-                                textValues={[event.label, event.notes]}
-                                className="mt-2"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        /* Normal event: clickable, hover bg, delete on hover */
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          className="group/event relative min-w-0 flex-1 cursor-pointer rounded-lg px-2 -mx-2 transition hover:bg-app-surface-hover"
-                          onClick={() => onEdit(event.id)}
-                          onDoubleClick={() => onEdit(event.id)}
-                          onKeyDown={(e) => { if (e.key === "Enter") onEdit(event.id); }}
-                        >
-                          {/* Delete button — visible on hover */}
-                          <button
-                            type="button"
-                            aria-label="Delete event"
-                            onClick={(e) => { e.stopPropagation(); onDelete(event.id); }}
-                            className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full text-app-ink-faint opacity-0 transition hover:bg-app-surface-muted hover:text-app-ink-muted group-hover/event:opacity-100"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-
-                          <div className="flex items-start gap-1.5 pr-6">
-                            <span className="w-[68px] shrink-0 tabular-nums text-xs text-app-ink-faint">
-                              {formatEventTime(event.loggedAt)}
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <RichTextPreview
-                                value={event.label}
-                                paragraphClassName="text-sm text-app-ink-muted"
-                                highlightQuery={highlightQuery}
-                              />
-                              {event.notes && (
-                                <RichTextPreview
-                                  value={event.notes}
-                                  className="mt-0.5"
-                                  paragraphClassName="text-xs text-app-ink-faint"
-                                  highlightQuery={highlightQuery}
-                                />
-                              )}
-                              <AttachmentLinkPreview
-                                textValues={[event.label, event.notes]}
-                                className="mt-2"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      }}
-    />
-  );
-}
-
-/** Module scope for referential stability — VirtualList memoises its key map on it. */
-const eventDateGroupKey = (group: { dateKey: string }) => group.dateKey;
-
-function getWeekEntryClusters(entries: CalendarEntry[], weekDateKeys: string[], hourLayout: CalendarHourLayout): Record<string, EventCluster[]> {
-  const grouped = new Map<string, CalendarEntry[]>();
-  for (const entry of entries) {
-    if (!weekDateKeys.includes(entry.dateKey)) continue;
-    const next = grouped.get(entry.dateKey) ?? [];
-    next.push(entry);
-    grouped.set(entry.dateKey, next);
-  }
-
-  const clustersByDateKey: Record<string, EventCluster[]> = {};
-  for (const dateKey of weekDateKeys) {
-    const dayEntries = [...(grouped.get(dateKey) ?? [])].sort((left, right) => left.startMinutes - right.startMinutes);
-    const clusters: EventCluster[] = [];
-    let currentCluster: EventCluster | null = null;
-    let currentClusterEnd = -1;
-
-    for (const entry of dayEntries) {
-      const startMinutes = entry.startMinutes;
-      const endMinutes = startMinutes + EVENT_BLOCK_DURATION_MINUTES;
-
-      if (!currentCluster || startMinutes >= currentClusterEnd) {
-        currentCluster = {
-          id: `${dateKey}:${entry.id}`,
-          dateKey,
-          top: getMinuteTop(startMinutes, hourLayout),
-          entries: [entry],
-        };
-        clusters.push(currentCluster);
-        currentClusterEnd = endMinutes;
-        continue;
-      }
-
-      currentCluster.entries.push(entry);
-      currentClusterEnd = Math.max(currentClusterEnd, endMinutes);
-    }
-
-    clustersByDateKey[dateKey] = clusters;
-  }
-
-  return clustersByDateKey;
-}
-
-function EventClusterModal({
-  entries,
-  onClose,
-  onEdit,
-  onToggleTodo,
-  onUpdateTodo,
-  onDeleteTodo,
-  onDeleteTodoEvent,
-  onOpenTodoEditor,
-}: {
-  entries: CalendarEntry[];
-  onClose: () => void;
-  onEdit: (eventId: string) => void;
-  onToggleTodo: (todoId: string) => void;
-  onUpdateTodo: (todoId: string, payload: { title: string; dueDateKey?: string; dueTime?: string; folderId?: string; folderName?: string }) => void;
-  onDeleteTodo: (todoId: string) => void;
-  onDeleteTodoEvent: (todoId: string) => void;
-  onOpenTodoEditor: (todoId: string) => void;
-}) {
-  const sortedEntries = [...entries].sort((left, right) => left.startMinutes - right.startMinutes);
-
-  return (
-    <BaseModal onClose={onClose} onBackdropMouseDown={onClose}>
-      <div
-        className="w-full max-w-lg rounded-app-dialog border border-app-line bg-app-surface p-5 shadow-soft"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-app-ink-faint">
-              {sortedEntries.length} items
-            </p>
-            <p className="mt-1 text-sm text-app-ink-muted">{sortedEntries[0] ? calendarEntryTimeLabel(sortedEntries[0]) : ""}</p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="space-y-1">
-          {sortedEntries.map((entry) => {
-            const event = entry.kind === "event" ? entry.event : null;
-            const todo = entry.kind === "todo" ? entry.todo : null;
-            const timeLabel = calendarEntryTimeLabel(entry);
-
-            return (
-            <div key={entry.id}>
-              {todo ? (
-                <div className="flex items-start gap-3 py-1.5">
-                  {timeLabel ? (
-                    <div className="min-w-[76px] rounded-app-badge bg-app-surface-muted px-2 py-1 text-xs font-bold text-app-ink-faint">
-                      {timeLabel}
-                    </div>
-                  ) : null}
-                  <div className="min-w-0 flex-1">
-                    <TodoListRow
-                      todo={todo}
-                      canvasDateKey={entry.dateKey}
-                      onToggle={onToggleTodo}
-                      onDelete={onDeleteTodo}
-                      onSaveEdit={(todoId, payload) => onUpdateTodo(todoId, payload)}
-                      onOpenEditor={(t) => onOpenTodoEditor(t.id)}
-                    />
-                  </div>
-                </div>
-              ) : (
-              <div className="flex items-start gap-3 py-1.5">
-                {timeLabel ? (
-                  <div className="min-w-[76px] rounded-app-badge bg-app-surface-muted px-2 py-1 text-xs font-bold text-app-ink-faint">
-                    {timeLabel}
-                  </div>
-                ) : null}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    {event && isTodoCompletedEvent(event) ? <CheckCheck className="h-4 w-4 text-app-ink-faint" /> : null}
-                    <p className="text-sm font-bold text-app-ink">{calendarEntryTitle(entry)}</p>
-                  </div>
-                  {event?.notes ? <p className="mt-1 text-sm leading-6 text-app-ink-muted">{event.notes}</p> : null}
-                  <AttachmentLinkPreview textValues={[event?.label, event?.notes]} className="mt-2" />
-                </div>
-                {event && !isTodoCompletedEvent(event) ? (
-                  <Button variant="ghost" onClick={() => onEdit(event.id)}>
-                    Open
-                  </Button>
-                ) : event?.sourceTodoId ? (
-                  <button
-                    type="button"
-                    aria-label="Uncheck todo"
-                    onClick={() => onDeleteTodoEvent(event.sourceTodoId!)}
-                    className="flex h-7 w-7 items-center justify-center rounded-full text-app-ink-faint transition hover:bg-app-surface-hover hover:text-app-ink-muted"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                ) : null}
-              </div>
-              )}
-            </div>
-          );
-          })}
-        </div>
-      </div>
-    </BaseModal>
-  );
-}
-
-// Floating card overlay on mobile -- inset from all edges, fully rounded --
-// and a centered dialog on desktop, matching TodoEditorModal/BookmarkEditorModal.
-const EVENT_CREATE_BACKDROP_CLASS = "items-end px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:items-center md:px-app-page md:pb-0";
-const EVENT_CREATE_SURFACE_CLASS =
-  "w-full max-w-2xl rounded-app-dialog border border-app-line bg-app-surface-raised p-5 shadow-app-drawer md:bg-app-surface md:shadow-soft";
-
-function EventCreateModal({
-  dateKey,
-  startedAt,
-  onClose,
-  onSave,
-}: {
-  dateKey: DateKey;
-  startedAt: number;
-  onClose: () => void;
-  onSave: (value: string) => void;
-}) {
-  const [value, setValue] = useState("");
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const canSave = Boolean(value.trim());
-  const { settings } = useUserSettings();
-  const hashtagPicker = useHashtagPicker({ value, textareaRef, onChange: setValue });
-  const emojiPicker = useEmojiPicker({ value, textareaRef, onChange: setValue });
-
-  useEffect(() => {
-    textareaRef.current?.focus();
-    if (textareaRef.current) autoResizeTextArea(textareaRef.current);
-  }, []);
-
-  useEffect(() => {
-    if (textareaRef.current) autoResizeTextArea(textareaRef.current);
-  }, [value]);
-
-  return (
-    <BaseModal onClose={onClose} onBackdropMouseDown={onClose} className={EVENT_CREATE_BACKDROP_CLASS}>
-      <div className={EVENT_CREATE_SURFACE_CLASS} onMouseDown={(event) => event.stopPropagation()}>
-        <DrawerHeaderRow
-          className="-mx-5 -mt-5 mb-2 px-4 pt-3 pb-2 md:hidden"
-          onCancel={onClose}
-          onSave={() => onSave(value)}
-          canSave={canSave}
-        />
-        <div className="flex items-center justify-between gap-2">
-          <div className="rounded-app-badge border border-app-line bg-app-surface-muted px-2 py-0.5 text-xs font-medium text-app-ink-faint">
-            {new Date(startedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }).replace(":00", "").replace(/\s+/g, "")}
-          </div>
-          <SaveShortcutHint className="hidden text-sm md:inline" />
-        </div>
-        <div className="mt-3">
-          <textarea
-            ref={textareaRef}
-            value={value}
-            onChange={(event) => setValue(event.target.value)}
-            onPaste={(event) => {
-              handlePasteAsLink(event, value, setValue);
-            }}
-            onKeyDown={(event) => {
-              if (hashtagPicker.handleKeyDown(event)) return;
-              if (emojiPicker.handleKeyDown(event)) return;
-              if (event.key !== "Enter") return;
-              if (isSaveKeyEvent(event)) {
-                event.preventDefault();
-                onSave(value);
-                return;
-              }
-              if (isNewlineKeyEvent(event)) {
-                return;
-              }
-              event.preventDefault();
-            }}
-            rows={1}
-            placeholder="Write your event"
-            className="block w-full resize-none border-0 bg-transparent p-0 text-[15px] leading-6 text-app-ink caret-app-ink outline-none placeholder:text-app-line-strong selection:bg-app-surface-muted selection:text-app-ink"
-          />
-          <p className="mt-1 text-xs text-app-ink-faint">{dateKey}</p>
-        </div>
-        <HashtagPickerDropdown
-          isOpen={hashtagPicker.isOpen}
-          suggestions={hashtagPicker.suggestions}
-          activeIndex={hashtagPicker.activeIndex}
-          onSelect={hashtagPicker.selectSuggestion}
-          onHover={hashtagPicker.setActiveIndex}
-          anchorRef={textareaRef}
-        />
-        <EmojiPickerDropdown
-          isOpen={emojiPicker.isOpen}
-          suggestions={emojiPicker.suggestions}
-          activeIndex={emojiPicker.activeIndex}
-          onSelect={emojiPicker.selectSuggestion}
-          onHover={emojiPicker.setActiveIndex}
-          anchorRef={textareaRef}
-        />
-      </div>
-    </BaseModal>
-  );
-}
 
 export function EventScreen() {
   const { state, dispatch } = useApp();
@@ -1025,7 +241,7 @@ export function EventScreen() {
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-app-ink-faint">
+          <p className="text-xs font-bold uppercase text-app-ink-faint">
             {eventView === "timeline" ? "Timeline" : isMobileCalendar ? "Schedule" : "Week view"}
           </p>
           <p className="mt-1 text-sm text-app-ink-muted">
@@ -1145,7 +361,7 @@ export function EventScreen() {
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <p className={["text-[11px] font-bold uppercase tracking-[0.18em]", isToday ? "text-app-ink-faint" : "text-app-ink-faint"].join(" ")}>
+                          <p className={["text-[11px] font-bold uppercase", isToday ? "text-app-ink-faint" : "text-app-ink-faint"].join(" ")}>
                             {date.toLocaleDateString("en-US", { weekday: "short" })}
                           </p>
                           <p className={["mt-1 text-sm font-bold", isToday ? "text-app-ink" : "text-app-ink-faint"].join(" ")}>
@@ -1183,7 +399,7 @@ export function EventScreen() {
                       height: calendarHourLayout.rowHeights[hour],
                     }}
                   >
-                    <span className="absolute -top-2 right-3 bg-app-surface-muted px-1 text-[10px] font-bold uppercase tracking-[0.18em] text-app-ink-faint">
+                    <span className="absolute -top-2 right-3 bg-app-surface-muted px-1 text-[10px] font-bold uppercase text-app-ink-faint">
                       {formatHourLabel(hour)}
                     </span>
                   </div>
@@ -1236,7 +452,7 @@ export function EventScreen() {
                             }}
                           >
                             <div className="flex items-center justify-between gap-3">
-                              <p className="min-w-0 text-[10px] font-bold uppercase tracking-[0.18em] text-app-ink-faint">
+                              <p className="min-w-0 text-[10px] font-bold uppercase text-app-ink-faint">
                                 {allDayTodos.length} todos
                               </p>
                               <span className="shrink-0 rounded-app-badge bg-app-surface-muted px-2 py-0.5 text-[10px] font-bold text-app-ink-muted">
@@ -1294,7 +510,7 @@ export function EventScreen() {
                               }}
                             >
                               <div className="flex items-center justify-between gap-3">
-                                <p className="min-w-0 text-[10px] font-bold uppercase tracking-[0.18em] text-app-ink-faint">
+                                <p className="min-w-0 text-[10px] font-bold uppercase text-app-ink-faint">
                                   {calendarEntryTimeLabel(cluster.entries[0])} · {cluster.entries.length} items
                                 </p>
                                 <span className="shrink-0 rounded-app-badge bg-app-surface-muted px-2 py-0.5 text-[10px] font-bold text-app-ink-muted">
@@ -1332,7 +548,7 @@ export function EventScreen() {
                                 }}
                               >
                               <div className="flex items-center gap-2">
-                                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-app-ink-faint">
+                                <p className="text-[10px] font-bold uppercase text-app-ink-faint">
                                   {calendarEntryTimeLabel(firstEntry)}
                                 </p>
                                 <CheckCheck className="h-3.5 w-3.5 text-app-ink-faint" />
@@ -1365,7 +581,7 @@ export function EventScreen() {
                                 if (firstEntry) setEditingEventId(firstEntry.event.id);
                               }}
                             >
-                              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-app-ink-faint">
+                              <p className="text-[10px] font-bold uppercase text-app-ink-faint">
                                 {firstEntry ? calendarEntryTimeLabel(firstEntry) : ""}
                               </p>
                               <p className="mt-1 line-clamp-2 text-sm font-bold leading-5 text-app-ink">{firstEntry ? firstEntry.event.label : ""}</p>

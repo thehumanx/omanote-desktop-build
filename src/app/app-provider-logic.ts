@@ -176,6 +176,15 @@ export async function resolveTodoFolder(
       : { folderId: existing.id, folderName: existing.name };
   }
 
+  // Offline, `createFolder` doesn't reject — a Convex mutation pends until
+  // reconnect — so the catch below could never supply its fallback, and the
+  // todo create awaiting this never reached the outbox: shown optimistically,
+  // gone after a reload. Send the name instead; `ensureTodoFolder` creates the
+  // folder when the queued todo is delivered.
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    return { folderId: undefined, folderName: trimmed };
+  }
+
   const inflight = deps.inflight.get(key);
   if (inflight) return inflight;
 

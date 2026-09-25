@@ -100,7 +100,7 @@ export function FeedbackModal({ onClose }: FeedbackModalProps) {
         {/* Header */}
         <div className="flex items-center justify-between p-5 pb-4">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-app-ink-faint">
+            <p className="text-[11px] font-bold uppercase text-app-ink-faint">
               Omanote
             </p>
             <h2 className="text-base font-bold leading-tight text-app-ink">Share your thoughts</h2>

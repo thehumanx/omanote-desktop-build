@@ -1,11 +1,10 @@
-import { useContext, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import bundledChangelogMarkdown from "../../CHANGELOG.md?raw";
+import changelogMarkdown from "../../CHANGELOG.md?raw";
 import { CHANGELOG_TABS, type ChangelogProduct } from "../content/changelog-tabs";
 import { SegmentedPill } from "../components/ui";
 import { useTopChrome } from "../components/layout/useTopChrome";
-import { parseLatestVersion } from "../lib/update-checker";
-import { UpdateContext } from "../contexts/UpdateContext";
+import { currentVersion } from "virtual:changelog";
 
 type MarkdownBlock =
   | { type: "h3"; text: string }
@@ -136,9 +135,7 @@ function renderInline(text: string): ReactNode[] {
 export function UpdatesScreen() {
   const [activeTab, setActiveTab] = useState<ChangelogProduct>("application");
   const activeTabConfig = CHANGELOG_TABS.find((tab) => tab.id === activeTab) ?? CHANGELOG_TABS[0];
-  const ctx = useContext(UpdateContext);
-  const changelogMarkdown = ctx?.changelogMarkdown ?? bundledChangelogMarkdown;
-  const versionLabel = useMemo(() => parseLatestVersion(changelogMarkdown)?.version ?? "", [changelogMarkdown]);
+  const versionLabel = currentVersion?.version ?? "";
 
   const topChrome = useMemo(
     () => (
@@ -162,8 +159,8 @@ export function UpdatesScreen() {
   return (
     <div className="mx-auto w-full max-w-[980px] px-4 py-8 sm:px-6">
       <section className="rounded-2xl border border-app-line bg-app-surface p-5 sm:p-6">
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-app-ink-faint">omanote updates</p>
-        <h2 className="mt-3 text-2xl font-black tracking-[-0.02em] text-app-ink">What shipped and what is coming next.</h2>
+        <p className="text-xs font-bold uppercase text-app-ink-faint">omanote updates</p>
+        <h2 className="mt-3 text-2xl font-black text-app-ink">What shipped and what is coming next.</h2>
         <p className="mt-3 max-w-[760px] text-sm leading-relaxed text-app-ink-muted">
           Every release, big or small, right here — nothing held back.
         </p>

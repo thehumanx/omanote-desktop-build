@@ -59,6 +59,11 @@ interface EncryptionContextValue {
   unlock: (passphrase: string) => Promise<void>;
   /** Unlock with a recovery key instead of a passphrase. */
   unlockWithRecoveryKey: (recoveryKey: string) => Promise<void>;
+  /**
+   * True if `passphrase` unwraps this account's key. Changes no state — for
+   * re-confirming identity before an irreversible action (account deletion).
+   */
+  verifyPassphrase: (passphrase: string) => Promise<boolean>;
   /** Re-wrap the content key with a new passphrase after verifying the current passphrase. */
   changePassphrase: (currentPassphrase: string, nextPassphrase: string) => Promise<void>;
   /**
@@ -132,22 +137,22 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
   const restoreAttemptedForRef = useRef<string | null>(null);
 
   // Derive isSetup from the Convex query state.
-  // undefined → still loading → null (unless a cached "this device is set
-  //             up" flag exists and we're offline — see below)
+  // undefined → still loading → null (unless this device has seen the
+  //             record before — see below)
   // null      → no record    → false
   // object    → record found → true
   //
-  // Convex can't confirm this with no network, so `keyRecord` stays
-  // `undefined` forever offline. Without a fallback, a device that's already
-  // set up would be stuck showing "loading" indefinitely instead of
-  // proceeding to unlock from the locally cached content key. The flag only
-  // unblocks this loading gate — actual decryption still requires either the
-  // correct passphrase or an already-unlocked key restored from storage, so
-  // this can't expose data on its own.
-  const cachedIsSetup =
-    isOffline && userSessionKey
-      ? readLocalStorageOptional(encryptionSetupStorageKey(userSessionKey), stringCodec) === "true"
-      : false;
+  // The cached "this device is set up" flag stands in while the query loads,
+  // online as well as off. Offline, Convex can't answer at all, so without it
+  // a set-up device would sit on the loading screen forever. Online, waiting
+  // for the answer put a full server round trip in front of every reload,
+  // even though the key it then restores lives in local IndexedDB. The flag
+  // only lets the restore start early: decryption still needs the restored key
+  // or the passphrase, and if the server then says there's no record, the
+  // effect below re-locks.
+  const cachedIsSetup = userSessionKey
+    ? readLocalStorageOptional(encryptionSetupStorageKey(userSessionKey), stringCodec) === "true"
+    : false;
   const isSetup: boolean | null =
     keyRecord === undefined ? (cachedIsSetup ? true : null) : keyRecord !== null;
 
@@ -203,6 +208,7 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
     restoreAttemptedForRef.current = userSessionKey;
     setIsRestoringSession(true);
     let canceled = false;
+    let settled = false;
 
     void (async () => {
       try {
@@ -220,6 +226,7 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
           void clearSessionContentKey(userSessionKey);
         }
       } finally {
+        settled = true;
         if (!canceled) {
           setIsRestoringSession(false);
         }
@@ -228,6 +235,12 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
 
     return () => {
       canceled = true;
+      // A restore cancelled mid-read never finished, so it must not count as
+      // attempted — otherwise the re-run returns at the guard above and
+      // `isRestoringSession` stays true forever. StrictMode's mount → unmount
+      // → mount does exactly this whenever `isSetup` is already true on the
+      // first render, which the cached setup flag makes the normal case.
+      if (!settled) restoreAttemptedForRef.current = null;
     };
   }, [isSetup, isLocked, userSessionKey]);
 
@@ -329,6 +342,19 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
   // ---------------------------------------------------------------------------
   // change passphrase
   // ---------------------------------------------------------------------------
+  const verifyPassphrase = useCallback(
+    async (passphrase: string) => {
+      if (!keyRecord?.wrappedKey || !passphrase) return false;
+      try {
+        await unwrapContentKey(keyRecord.wrappedKey, await deriveWrappingKey(passphrase, keyRecord.salt));
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [keyRecord],
+  );
+
   const changePassphrase = useCallback(
     async (currentPassphrase: string, nextPassphrase: string) => {
       setError(null);
@@ -513,17 +539,32 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
     return decryptBytes(payload, keyRef.current);
   }, []);
 
+  // The restore effect above only starts after the first render with
+  // `isSetup === true`, so that render would otherwise report "locked, not
+  // restoring" and flash the unlock screen for a frame on every reload of an
+  // already-unlocked session. A restore that hasn't been attempted yet counts
+  // as in progress.
+  const restorePending =
+    isSetup === true && isLocked && userSessionKey !== null && restoreAttemptedForRef.current !== userSessionKey;
+  // No key saved for this session, so the passphrase is needed — but unlocking
+  // unwraps the key from the server record, which may not have arrived yet
+  // (the cached flag above let us get here early). Keep loading until it has,
+  // rather than show a form that can't work. Offline it never arrives; the
+  // form shows as before.
+  const awaitingKeyRecord = isSetup === true && isLocked && keyRecord === undefined && !isOffline;
+
   return (
     <EncryptionContext.Provider
       value={{
         isSetup,
         isLocked,
-        isRestoringSession,
+        isRestoringSession: isRestoringSession || restorePending || awaitingKeyRecord,
         needsPassphraseReset,
         error,
         setup,
         unlock,
         unlockWithRecoveryKey,
+        verifyPassphrase,
         changePassphrase,
         resetPassphrase,
         exportRecoveryKeyText,
