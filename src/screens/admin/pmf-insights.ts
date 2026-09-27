@@ -29,6 +29,16 @@ export function pct(numerator: number, denominator: number): number {
   return Math.round((numerator / denominator) * 100);
 }
 
+/**
+ * "3 of 17", plus the percentage once the group is big enough for one to mean
+ * anything. With a couple of dozen users a single person moves a percentage
+ * by five points, so small groups read as counts.
+ */
+export function ofTotal(numerator: number, denominator: number, minForPct = 30): string {
+  const base = `${numerator} of ${denominator}`;
+  return denominator >= minForPct ? `${base} (${pct(numerator, denominator)}%)` : base;
+}
+
 function plural(n: number, singular: string, pluralForm = `${singular}s`): string {
   return `${n} ${n === 1 ? singular : pluralForm}`;
 }
@@ -383,7 +393,7 @@ const activationFunnelRule: Rule = (data) => {
     title: "Activation funnel",
     detail: `${onboarded} onboarded → ${everCreated} created something (${pct(everCreated, onboarded)}%) → ${returnedDay2} returned on a second day (${pct(returnedDay2, onboarded)}%).`,
     suggestion:
-      "activityHistory only records writes, so a read-only session looks like a dormant user. Add lightweight session instrumentation to see where in this funnel people actually drop.",
+      "The biggest drop between two stages is where onboarding loses people. Watch someone new sign up and note the moment they hesitate.",
   };
 };
 
@@ -397,16 +407,16 @@ const sessionGapRule: Rule = (data) => {
       severity: "ok",
       title: "Write-based activity tracks session-based activity closely",
       detail: `${trueActiveLast7} users opened the app in the last 7 days; ${writeActiveLast7} of them also wrote something (${100 - gap}% overlap).`,
-      suggestion: "activityHistory alone is a reasonable proxy for active users right now.",
+      suggestion: "Nearly everyone who opens the app also writes; reading-only use is rare.",
     };
   }
   return {
     id: "session-gap",
     severity: gap >= 35 ? "warning" : "info",
     title: "A meaningful slice of active users never shows up in write-based metrics",
-    detail: `${readOnlyLast7} of ${trueActiveLast7} users active in the last 7 days (${gap}%) opened the app but wrote nothing — every other chart above misses them entirely.`,
+    detail: `${readOnlyLast7} of ${trueActiveLast7} users active in the last 7 days opened the app but wrote nothing.`,
     suggestion:
-      "Treat write-based retention numbers as a floor, not the full picture. Ask a few of these read-only users what they're doing in the app if it isn't editing.",
+      "They're getting something from reading alone, or they came to capture and didn't. Ask a few of them which.",
   };
 };
 
@@ -434,18 +444,75 @@ const pmfBehaviorMismatchRule: Rule = (data) => {
   };
 };
 
-const declaredVsActualGapRule: Rule = (data) => {
-  const total = data.declaredGoalsBreakdown.reduce((sum, g) => sum + g.declared, 0);
-  if (total < 10) return null;
-  const worst = [...data.declaredGoalsBreakdown].sort((a, b) => a.activationRate - b.activationRate)[0];
-  if (!worst || worst.activationRate >= 50) return null;
+const activationRule: Rule = (data) => {
+  const { eligible, activated, rule, retention30 } = data.activation;
+  if (eligible === 0) return null;
+  const share = pct(activated, eligible);
+  const split =
+    retention30.activated.eligible > 0 && retention30.notActivated.eligible > 0
+      ? ` Of those old enough to tell, ${ofTotal(retention30.activated.retained, retention30.activated.eligible)} activated users were still around after 30 days, against ${ofTotal(retention30.notActivated.retained, retention30.notActivated.eligible)} who didn't activate.`
+      : "";
+  const definition = `${rule.minItems}+ items across ${rule.minTypes}+ types within ${rule.windowDays} days`;
+  if (share >= 50) {
+    return {
+      id: "activation",
+      severity: "ok",
+      title: "Most new users reach the activation moment",
+      detail: `${ofTotal(activated, eligible)} users past their first week reached it (${definition}).${split}`,
+      suggestion: "Check the split above: if activated users don't retain better, the moment is the wrong one.",
+    };
+  }
   return {
-    id: "declared-vs-actual",
-    severity: worst.activationRate < 25 ? "warning" : "info",
-    title: `Users who said "${worst.goal}" mostly never acted on it`,
-    detail: `${worst.declared} users declared this at onboarding, but only ${worst.activationRate}% went on to create anything at all.`,
+    id: "activation",
+    severity: share < 25 ? "critical" : "warning",
+    title: "Most new users never reach the activation moment",
+    detail: `Only ${ofTotal(activated, eligible)} users past their first week reached it (${definition}).${split}`,
     suggestion:
-      "This is intent that never became behavior — either the feature for this use case is hard to find, or the stated goal doesn't match what the product actually delivers for it.",
+      "This is the number onboarding exists to move. Get new users to a second artifact type in their first session (a todo from a note, a bookmark from the composer).",
+  };
+};
+
+const growthRule: Rule = (data) => {
+  // The newest complete week; the current one is still filling in.
+  const week = [...data.growth].reverse().find((w) => !w.partial);
+  if (!week || week.churned === 0) return null;
+  const ratio = week.quickRatio ?? 0;
+  return {
+    id: "quick-ratio",
+    severity: ratio >= 1 ? "ok" : ratio >= 0.5 ? "warning" : "critical",
+    title: ratio >= 1 ? `Growing: quick ratio ${ratio}` : `Shrinking: quick ratio ${ratio}`,
+    detail: `Last full week: ${week.new} new and ${week.resurrected} returning after a gap, against ${week.churned} who stopped.`,
+    suggestion:
+      ratio >= 1
+        ? "More people are arriving or coming back than leaving. Above 4 is what fast-growing consumer products see."
+        : "More people stopped than started or came back. Reach out to last week's churned users while they still remember why.",
+  };
+};
+
+const stickinessRule: Rule = (data) => {
+  const { mau, stickiness, dauAvg7 } = data.activeUsers;
+  if (mau === 0) return null;
+  return {
+    id: "stickiness",
+    severity: stickiness >= 30 ? "ok" : stickiness >= 15 ? "warning" : "critical",
+    title: `Daily ÷ monthly actives is ${stickiness}%`,
+    detail: `About ${dauAvg7} users show up on a typical day, out of ${mau} active in the last 28 days.`,
+    suggestion:
+      stickiness >= 30
+        ? "That's daily-habit territory. Protect the morning capture flow."
+        : "A capture tool should be opened most days. Look for what would bring someone back tomorrow: a reminder, today's canvas, a due todo.",
+  };
+};
+
+const qualityRule: Rule = (data) => {
+  const { errors7, usersWithErrors7, lostChanges7 } = data.quality;
+  if (errors7 === 0) return null;
+  return {
+    id: "quality",
+    severity: lostChanges7 > 0 ? "critical" : usersWithErrors7 >= 3 ? "warning" : "info",
+    title: lostChanges7 > 0 ? `${plural(lostChanges7, "offline change")} lost this week` : "Users hit errors this week",
+    detail: `${plural(errors7, "crash report")} from ${plural(usersWithErrors7, "user")} in the last 7 days.`,
+    suggestion: "A user who loses work rarely says so; they just stop coming back. Fix these before anything else.",
   };
 };
 
@@ -478,7 +545,10 @@ const RULES: Rule[] = [
   surveySampleRule,
   sessionGapRule,
   pmfBehaviorMismatchRule,
-  declaredVsActualGapRule,
+  activationRule,
+  growthRule,
+  stickinessRule,
+  qualityRule,
 ];
 
 export function deriveInsights(data: PmfDashboard): Insight[] {

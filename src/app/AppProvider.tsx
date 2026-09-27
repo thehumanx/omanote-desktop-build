@@ -776,7 +776,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const result = await Promise.all(rawEvents.map(async (r) => ({
         ...mapEvent(r),
         label: await decrypt(r.label).catch(() => ""),
-        notes: r.notes ? await decrypt(r.notes) : undefined,
+        // A "completed" event shows just its name. Older ones were stored
+        // with the todo's notes (a Google-imported todo's description).
+        notes: r.notes && r.sourceType !== "todo_completed" ? await decrypt(r.notes) : undefined,
       })));
       if (!cancelled) { setDecryptedEvents(result); markContentLoaded("events"); }
     })();
@@ -1844,6 +1846,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await completeRecurringOccurrence({
           todoId: payload.todoId as any,
           occurrenceDateKey: payload.occurrenceDateKey,
+          eventDateKey: payload.eventDateKey,
           completedAt: payload.completedAt,
         });
       },

@@ -189,3 +189,40 @@ export function getVirtualOccurrenceForDate(
     occurrenceState: getOccurrenceStateForDate(master, dateKey, todayKey),
   };
 }
+
+/**
+ * The occurrence a series still owes, for the canvas's overdue section: its
+ * latest occurrence, when that was before today and isn't done. It stays owed
+ * until the next occurrence date arrives, which then takes over in Today (so a
+ * missed daily is never overdue; a missed Monday weekly is, Tuesday to Sunday).
+ * Older misses stay on their own days as "missed" and never pile up here.
+ */
+export function getOverdueOccurrence(
+  master: TodoItem,
+  completedDates: ReadonlySet<string> | undefined,
+  todayKey: DateKey,
+): (TodoItem & { occurrenceState: OccurrenceState }) | null {
+  if (!master.recurrence || master.deletedAt || master.status !== "open") return null;
+  const rule = master.recurrence as RecurrenceRule;
+  const latest = previousOccurrenceOnOrBefore(rule, todayKey);
+  if (!latest || latest >= todayKey || latest < master.createdDateKey) return null;
+  // A later date removed with "only this day" still counts as the next due:
+  // it replaced this one, so this one isn't owed any more.
+  if (previousOccurrenceOnOrBefore({ ...rule, exceptions: undefined }, todayKey) !== latest) return null;
+  return getVirtualOccurrenceForDate(master, completedDates, latest, todayKey);
+}
+
+/**
+ * A series that starts after the day it was created shows on that day like a
+ * future todo ("Starts Sep 28 · every day"), and then on its own dates. Returns
+ * the master with `dueDateKey` set to its first occurrence, or null on any
+ * other day or when the series already fires on or before its creation day.
+ */
+export function getSeriesStartPreview(master: TodoItem, dateKey: DateKey): TodoItem | null {
+  if (!master.recurrence || master.deletedAt || master.status !== "open") return null;
+  if (dateKey !== master.createdDateKey) return null;
+  const rule = master.recurrence as RecurrenceRule;
+  if (previousOccurrenceOnOrBefore(rule, dateKey) !== null) return null;
+  const first = nextOccurrenceOnOrAfter(rule, dateKey);
+  return first ? { ...master, dueDateKey: first } : null;
+}

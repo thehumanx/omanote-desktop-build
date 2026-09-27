@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { SeoHead } from "../seo/SeoHead";
 
-const LAST_UPDATED = "September 5, 2026";
+const LAST_UPDATED = "September 25, 2026";
 const CONTACT_EMAIL = "omanote@iambishistha.com";
 
 export function PrivacyPolicyScreen() {
@@ -130,9 +130,25 @@ export function PrivacyPolicyScreen() {
                 <div>
                   <p className="font-bold text-app-ink mb-1">Technical and usage data</p>
                   <p>
-                    We do not use analytics tools or behavioral tracking. Standard server logs
-                    (request timestamps, error codes, anonymised IP addresses) may be retained for
-                    up to 30 days for security and operational purposes only.
+                    Standard server logs (request timestamps, error codes, anonymised IP addresses)
+                    may be retained for up to 30 days for security and operational purposes only.
+                  </p>
+                  <p className="mt-2">
+                    To understand how omanote is used and whether it is working, we record usage
+                    metadata about your account — never the content of anything you write: which
+                    days you open the app, how many items of each type you create or complete on
+                    a day, which apps you use it from (web, desktop, extension), and reports of
+                    errors the app runs into. We look at this in aggregate and to spot problems.
+                  </p>
+                  <p className="mt-2">
+                    When you first visit our website, we note where you came from — the referring
+                    website's domain (not the full address) and any campaign tags in the link —
+                    and keep it in your browser. If you then sign up, it is stored with your new
+                    account so we can tell which channels bring people who find omanote useful.
+                  </p>
+                  <p className="mt-2">
+                    Our website uses Vercel Web Analytics for aggregate page-view counts. It does
+                    not use cookies or identify you across sites.
                   </p>
                 </div>
                 <div>
@@ -168,6 +184,10 @@ export function PrivacyPolicyScreen() {
                   <li>Authenticate you and maintain your account session.</li>
                   <li>Store and synchronise your encrypted content across your devices.</li>
                   <li>Diagnose technical problems and maintain service reliability.</li>
+                  <li>
+                    Understand, in aggregate, how the Service is used and where new users come
+                    from, so we can improve it.
+                  </li>
                   <li>Respond to your support or data-access requests.</li>
                 </ul>
                 <p>
@@ -195,7 +215,7 @@ export function PrivacyPolicyScreen() {
                     {
                       basis: "Legitimate interests",
                       detail:
-                        "Retaining minimal server logs for security monitoring and service reliability, where our interests do not override your rights.",
+                        "Retaining minimal server logs for security monitoring and service reliability, and recording usage metadata and signup source to understand and improve the Service, where our interests do not override your rights.",
                     },
                     {
                       basis: "Compliance with legal obligations",

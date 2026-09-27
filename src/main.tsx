@@ -12,6 +12,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { registerServiceWorker } from "./lib/push-subscription";
 import { isTauri, installExternalLinkHandler } from "./lib/desktop";
 import { clerkFrontendApiHost, installClerkNativeFetch } from "./lib/desktop-clerk-fetch";
+import { captureFirstTouch } from "./lib/acquisition";
 import "./index.css";
 
 const rawClerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string | undefined;
@@ -71,6 +72,10 @@ async function bootstrap() {
   // Push subscriptions still skip themselves separately (pushUnavailable()),
   // this only adds precaching + the offline navigation fallback.
   registerServiceWorker();
+
+  // Where this visitor came from, kept until they sign up (lib/acquisition.ts).
+  // Web only: the desktop app has no referrer or landing URL to speak of.
+  if (!isTauri()) captureFirstTouch();
 
   ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <React.StrictMode>

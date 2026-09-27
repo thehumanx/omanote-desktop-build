@@ -31,7 +31,11 @@ export function CanvasWeekAtGlanceView({
             <span>🔥 {glance.streakDays} {glance.streakDays === 1 ? "day" : "days"}</span>
             <span className="text-app-line-strong">·</span>
             {glance.todosCount + glance.notesCount + glance.bookmarksCount + glance.eventsCount === 0 ? (
-              <span>Save your first thought, todo, or link</span>
+              <span>
+                {/* No "/" key on a phone; the + compose button is on both layouts. */}
+                <span className="md:hidden">Tap +</span>
+                <span className="hidden md:inline">Hit / or click +</span> to save your first thought, todo, or link
+              </span>
             ) : (
               <>
                 <span>✅ {glance.todosCount} {glance.todosCount === 1 ? "todo" : "todos"}</span>

@@ -1186,6 +1186,22 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
   animation: omanote-fade-in-up 400ms var(--motion-easing-out, ease-out) both;
 }
 
+/* A stack of elements rising in one after another. Each element sets
+   --stagger-index (fractions allowed, for a tighter run such as a row of
+   chips). `backwards`, not `both`: it holds the hidden start state through the
+   delay, then hands back to the element's own styles, so a :active transform
+   on a button still works afterwards. */
+.omanote-stagger-in {
+  animation: omanote-fade-in-up 520ms var(--motion-easing-out, ease-out) backwards;
+  animation-delay: calc(var(--stagger-index, 0) * 80ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .omanote-stagger-in {
+    animation: none;
+  }
+}
+
 .omanote-toast-enter {
   animation: omanote-toast-enter-from-top 180ms var(--motion-easing-out, ease-out);
 }
@@ -1263,10 +1279,30 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
 
 /* ─── Onboarding wizard ────────────────────────────────────────────────────── */
 
+/* Moving between wizard steps (OnboardingWizard): every step's header —
+   title, subtitle, carousel dots — sits at the same fixed spot at the top, so
+   it only cross-fades in place; the body underneath slides in from the side
+   it's coming from. The old step stays mounted, fading out under the new one,
+   for the length of the exit (STEP_EXIT_MS). Classes go on the step wrapper
+   and reach its `.omanote-wizard-header` / `.omanote-wizard-body`.
+   `backwards`, not `both`: a transform left behind would become the
+   containing block for anything fixed inside. */
+@keyframes omanote-wizard-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes omanote-wizard-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
 @keyframes omanote-wizard-step-in-next {
   from {
     opacity: 0;
-    transform: translateX(12px);
+    transform: translateX(20px);
   }
   to {
     opacity: 1;
@@ -1277,7 +1313,7 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
 @keyframes omanote-wizard-step-in-prev {
   from {
     opacity: 0;
-    transform: translateX(-12px);
+    transform: translateX(-20px);
   }
   to {
     opacity: 1;
@@ -1285,27 +1321,70 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
   }
 }
 
+@keyframes omanote-wizard-step-out-next {
+  to {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+}
+
+@keyframes omanote-wizard-step-out-prev {
+  to {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+}
+
+/* Starts 140ms late so the outgoing step clears first. */
+.omanote-wizard-page-in-next .omanote-wizard-header,
+.omanote-wizard-page-in-prev .omanote-wizard-header {
+  animation: omanote-wizard-fade-in 480ms var(--motion-easing-out, ease-out) 140ms backwards;
+}
+
+.omanote-wizard-page-in-next .omanote-wizard-body {
+  animation: omanote-wizard-step-in-next 480ms var(--motion-easing-out, ease-out) 140ms backwards;
+}
+
+.omanote-wizard-page-in-prev .omanote-wizard-body {
+  animation: omanote-wizard-step-in-prev 480ms var(--motion-easing-out, ease-out) 140ms backwards;
+}
+
+.omanote-wizard-page-out-next .omanote-wizard-header,
+.omanote-wizard-page-out-prev .omanote-wizard-header {
+  animation: omanote-wizard-fade-out 240ms var(--motion-easing-in, ease-in) forwards;
+}
+
+.omanote-wizard-page-out-next .omanote-wizard-body {
+  animation: omanote-wizard-step-out-next 240ms var(--motion-easing-in, ease-in) forwards;
+}
+
+.omanote-wizard-page-out-prev .omanote-wizard-body {
+  animation: omanote-wizard-step-out-prev 240ms var(--motion-easing-in, ease-in) forwards;
+}
+
+/* The carousels inside a step (MakeItYoursStep, ConnectEnableStep): the body
+   slide alone, when moving between their configs. */
 .omanote-wizard-step-next {
-  animation: omanote-wizard-step-in-next 220ms var(--motion-easing-out, ease-out) both;
+  animation: omanote-wizard-step-in-next 480ms var(--motion-easing-out, ease-out) backwards;
 }
 
 .omanote-wizard-step-prev {
-  animation: omanote-wizard-step-in-prev 220ms var(--motion-easing-out, ease-out) both;
+  animation: omanote-wizard-step-in-prev 480ms var(--motion-easing-out, ease-out) backwards;
 }
 
+/* The app fading in after the post-onboarding logo. Opacity only: this
+   wraps the whole app, and any transform on it (even a finished scale(1) kept
+   by `both`) makes it the containing block for the fixed bottom nav, which
+   then sat at the bottom of the page instead of the screen — below the fold
+   until the next reload. */
 @keyframes omanote-onboarding-reveal-in {
   from {
     opacity: 0;
-    transform: scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
   }
 }
 
 .omanote-onboarding-reveal {
-  animation: omanote-onboarding-reveal-in 420ms var(--motion-easing-out, ease-out) both;
+  animation: omanote-onboarding-reveal-in 420ms var(--motion-easing-out, ease-out) backwards;
 }
 
 /* ─── Founder note: CRT power-on entrance ─────────────────────────────────── */
@@ -1473,6 +1552,16 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
   .omanote-onboarding-reveal,
   .omanote-founder-note-crt-in {
     animation: none;
+  }
+
+  .omanote-wizard-page-in-next :is(.omanote-wizard-header, .omanote-wizard-body),
+  .omanote-wizard-page-in-prev :is(.omanote-wizard-header, .omanote-wizard-body) {
+    animation: none;
+  }
+
+  .omanote-wizard-page-out-next,
+  .omanote-wizard-page-out-prev {
+    display: none;
   }
 
   .omanote-survey-check-path {

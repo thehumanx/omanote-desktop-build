@@ -238,6 +238,10 @@ export function useTodoActions({
           const occurrenceDateKey = virtual?.dateKey ?? getLiveOccurrenceDateKey(master, toDateKey(new Date()));
           if (!occurrenceDateKey) return true;
           const completedAt = action.completedAt ?? Date.now();
+          // Same as a plain todo: the done row stays on the occurrence's day,
+          // and the "completed" event goes on the day it was ticked — which
+          // for a late tick from the overdue section is today, not then.
+          const completedEventDateKey = toDateKey(new Date(completedAt));
           const togglingId = action.todoId;
           const optimisticClientKey = prefixedRandomId("toggle-event");
           localDispatch({ type: "todo/mark-toggling", todoId: togglingId, targetStatus: "done" });
@@ -250,20 +254,21 @@ export function useTodoActions({
               label: conjugateTitleToPastTense(master.title),
               loggedAt: completedAt,
               createdAt: completedAt,
-              createdDateKey: occurrenceDateKey,
+              createdDateKey: completedEventDateKey,
               sourceType: "todo_completed",
               sourceTodoId: master.id,
             },
           });
           void runWithCanvasOutboxFallback(
             "todo/complete-occurrence",
-            { todoId: master.id, occurrenceDateKey, completedAt },
+            { todoId: master.id, occurrenceDateKey, completedAt, eventDateKey: completedEventDateKey },
             async () => {
               const eventLabel = await encrypt(conjugateTitleToPastTense(master.title));
               const cloneId = await completeRecurringOccurrence({
                 todoId: master.id as any,
                 occurrenceDateKey,
                 eventLabel,
+                eventDateKey: completedEventDateKey,
                 completedAt,
               });
               scheduleSync(["todos", "events"]);
@@ -271,7 +276,7 @@ export function useTodoActions({
               void convexClient
                 .query(api.events.getDerivedEventEntryForTodo, { todoId: cloneId as any })
                 .then((derived) => {
-                  if (derived) pushEventEntryToGoogleCalendar(derived._id, derivedLabel, master.notes);
+                  if (derived) pushEventEntryToGoogleCalendar(derived._id, derivedLabel);
                 });
               localDispatch({ type: "todo/clear-toggling", todoId: togglingId });
               // The server event references the materialized clone, not the
@@ -344,7 +349,7 @@ export function useTodoActions({
                 void convexClient
                   .query(api.events.getDerivedEventEntryForTodo, { todoId: action.todoId as any })
                   .then((derived) => {
-                    if (derived) pushEventEntryToGoogleCalendar(derived._id, derivedLabel, snapshot.notes);
+                    if (derived) pushEventEntryToGoogleCalendar(derived._id, derivedLabel);
                   });
               }
             } else {

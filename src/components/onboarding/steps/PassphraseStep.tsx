@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { useEncryption } from "../../../contexts/EncryptionContext";
 import { Button } from "../../ui";
-import { OnboardingFooter } from "../OnboardingChrome";
+import { OnboardingFooter, OnboardingStepHeader } from "../OnboardingChrome";
 
 /** Final wizard step — sets up E2E encryption from a passphrase the user types themselves. */
 export function PassphraseStep({ onBack, onSubmitted }: { onBack: () => void; onSubmitted: () => void }) {
@@ -37,15 +37,9 @@ export function PassphraseStep({ onBack, onSubmitted }: { onBack: () => void; on
 
   return (
     <div>
-      <div className="flex flex-col items-center text-center">
-        <h1 className="text-2xl font-black text-app-ink">Lock it down</h1>
-        <p className="mt-2 text-sm leading-6 text-app-ink-muted">
-          omanote can not be truly privacy-first without your passphrase. Add a passphrase you'd
-          not forget easily.
-        </p>
-      </div>
+      <OnboardingStepHeader title="Lock it down" subtitle="omanote can not be truly privacy-first without your passphrase. Add a passphrase you'd not forget easily." />
 
-      <form className="mt-6 space-y-3" onSubmit={handleSubmit}>
+      <form className="omanote-wizard-body mt-6 space-y-3" onSubmit={handleSubmit}>
         <div>
           <label className="mb-1 block text-xs font-medium text-app-ink-muted" htmlFor="onboarding-passphrase">
             Passphrase

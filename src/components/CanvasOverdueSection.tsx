@@ -88,7 +88,9 @@ export function CanvasOverdueSection({
                 onInlineTitleEdit={onInlineTitleEdit}
                 onToggle={onToggle}
                 onDelete={onDelete}
-                onReschedule={onReschedule}
+                // One day of a series can't be moved on its own (snooze is
+                // blocked for series too); tick it or open the series.
+                onReschedule={todo.recurrence ? undefined : onReschedule}
               />
             ))}
           </div>

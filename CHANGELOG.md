@@ -4,6 +4,17 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.33.9 [September 27, 2026]
+
+> Repeating todos behave the way you'd expect, and getting started feels smoother.
+
+- [Fix] A repeating todo that starts later now shows on the day you create it, like "Starts Wed, Sep 30 · every day"
+- [Fix] A missed repeating todo waits in Overdues until the next one is due
+- [Fix] Finishing a repeating todo late logs it on the day you did it, just like any other todo
+- [Fix] The navigation bar no longer slips below the screen right after setup
+- [Update] Completed todos show up as events with just their name, without the description
+- [Update] Setup moves between steps smoothly, and an empty canvas tells you how to start: hit / or click +
+
 ### v0.33.8 [September 25, 2026]
 
 > Everything you do offline now sticks, and the app is lighter.

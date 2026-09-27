@@ -155,6 +155,8 @@ type TodoCompleteOccurrencePayload = {
   todoId: string;
   occurrenceDateKey: string;
   completedAt?: number;
+  /** The tick's local day, for the "completed" event. Absent on entries queued before 2026-09-27. */
+  eventDateKey?: string;
 };
 
 type TodoUncompleteOccurrencePayload = {

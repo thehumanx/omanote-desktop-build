@@ -9,9 +9,11 @@
  */
 
 import type * as account from "../account.js";
+import type * as acquisition from "../acquisition.js";
 import type * as actions_linkPreview from "../actions/linkPreview.js";
 import type * as actions_rssFetch from "../actions/rssFetch.js";
 import type * as adminMetrics from "../adminMetrics.js";
+import type * as adminRollup from "../adminRollup.js";
 import type * as appSessions from "../appSessions.js";
 import type * as bookmarks from "../bookmarks.js";
 import type * as canvas from "../canvas.js";
@@ -41,8 +43,6 @@ import type * as lib_shareSnapshots from "../lib/shareSnapshots.js";
 import type * as lib_slug from "../lib/slug.js";
 import type * as lib_surveyQuestions from "../lib/surveyQuestions.js";
 import type * as lib_urlGuard from "../lib/urlGuard.js";
-import type * as migrations_backfillActivityHistoryCreatedAt from "../migrations/backfillActivityHistoryCreatedAt.js";
-import type * as migrations_legacyAudit from "../migrations/legacyAudit.js";
 import type * as migrations_repairFolderEditBumps from "../migrations/repairFolderEditBumps.js";
 import type * as notes from "../notes.js";
 import type * as pages from "../pages.js";
@@ -71,9 +71,11 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   account: typeof account;
+  acquisition: typeof acquisition;
   "actions/linkPreview": typeof actions_linkPreview;
   "actions/rssFetch": typeof actions_rssFetch;
   adminMetrics: typeof adminMetrics;
+  adminRollup: typeof adminRollup;
   appSessions: typeof appSessions;
   bookmarks: typeof bookmarks;
   canvas: typeof canvas;
@@ -103,8 +105,6 @@ declare const fullApi: ApiFromModules<{
   "lib/slug": typeof lib_slug;
   "lib/surveyQuestions": typeof lib_surveyQuestions;
   "lib/urlGuard": typeof lib_urlGuard;
-  "migrations/backfillActivityHistoryCreatedAt": typeof migrations_backfillActivityHistoryCreatedAt;
-  "migrations/legacyAudit": typeof migrations_legacyAudit;
   "migrations/repairFolderEditBumps": typeof migrations_repairFolderEditBumps;
   notes: typeof notes;
   pages: typeof pages;

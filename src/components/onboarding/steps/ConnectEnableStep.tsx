@@ -6,7 +6,7 @@ import { useUserSettings } from "../../../contexts/UserSettingsContext";
 import { friendlyErrorMessage } from "../../../lib/errors";
 import { Button, Switch, cn } from "../../ui";
 import { color } from "../../../design-system/tokens";
-import { OnboardingFooter } from "../OnboardingChrome";
+import { OnboardingFooter, OnboardingStepHeader } from "../OnboardingChrome";
 
 // Flat brand accents, not themed surfaces — see the brand block in tokens.ts.
 const CONNECTED_PILL_BG = color.brandCtaTint;
@@ -29,6 +29,9 @@ export function ConnectEnableStep({ onNext, onBack }: { onNext: () => void; onBa
   const { settings, updateSettings } = useUserSettings();
   const [configIndex, setConfigIndex] = useState(0);
   const [direction, setDirection] = useState<"next" | "prev">("next");
+  // The step's own arrival already slides the body in; the carousel only
+  // animates once the user moves between its configs.
+  const [hasMoved, setHasMoved] = useState(false);
   const googleConnection = useQuery(api.googleAuth.getConnectionStatus, {});
   const startGoogleConnect = useAction(api.googleAuth.startConnect);
   const [googlePending, setGooglePending] = useState(false);
@@ -62,6 +65,7 @@ export function ConnectEnableStep({ onNext, onBack }: { onNext: () => void; onBa
 
   function goTo(nextIndex: number, dir: "next" | "prev") {
     setDirection(dir);
+    setHasMoved(true);
     setConfigIndex(nextIndex);
   }
 
@@ -107,27 +111,25 @@ export function ConnectEnableStep({ onNext, onBack }: { onNext: () => void; onBa
 
   return (
     <div>
-      <div className="flex flex-col items-center text-center">
-        <h1 className="text-2xl font-black text-app-ink">Connect a few things</h1>
-        <p className="mt-2 text-sm leading-6 text-app-ink-muted">
-          Both optional — you can enable these in Settings later.
-        </p>
-      </div>
+      <OnboardingStepHeader title="Connect a few things" subtitle="Both optional — you can enable these in Settings later.">
+        <div className="mt-8 flex items-center justify-center gap-1.5">
+          {Array.from({ length: CONFIG_COUNT }).map((_, i) => (
+            <span
+              key={i}
+              className={cn(
+                "h-1.5 rounded-full transition-[width,background-color] duration-app-fast",
+                i === configIndex ? "w-5 bg-app-ink" : "w-1.5 bg-app-line-strong",
+              )}
+            />
+          ))}
+        </div>
+      </OnboardingStepHeader>
 
-      <div className="mt-8 flex items-center justify-center gap-1.5">
-        {Array.from({ length: CONFIG_COUNT }).map((_, i) => (
-          <span
-            key={i}
-            className={cn(
-              "h-1.5 rounded-full transition-[width,background-color] duration-app-fast",
-              i === configIndex ? "w-5 bg-app-ink" : "w-1.5 bg-app-line-strong",
-            )}
-          />
-        ))}
-      </div>
-
-      <div className="mt-4 min-h-[180px]">
-        <div key={configIndex} className={direction === "next" ? "omanote-wizard-step-next" : "omanote-wizard-step-prev"}>
+      <div className="omanote-wizard-body mt-4 min-h-[180px]">
+        <div
+          key={configIndex}
+          className={hasMoved ? (direction === "next" ? "omanote-wizard-step-next" : "omanote-wizard-step-prev") : undefined}
+        >
           {configIndex === 0 && (
             <div className="rounded-app-panel border border-app-line bg-app-surface p-4">
               <p className="text-sm font-bold text-app-ink">Google Calendar</p>

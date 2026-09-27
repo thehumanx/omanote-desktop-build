@@ -8,6 +8,7 @@ import {
   activationFunnel,
   deriveInsights,
   deriveVerdict,
+  ofTotal,
   pct,
   totalActiveUsers,
   type Insight,
@@ -320,18 +321,20 @@ function UsersTable({
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[880px] border-collapse">
+      <table className="w-full min-w-[1020px] border-collapse">
         <thead>
           <tr>
             <Th>User</Th>
+            <Th>Last 28 days</Th>
             <Th>First seen</Th>
-            <Th>Last wrote</Th>
+            <Th>Last active</Th>
             <Th>Last sign-in</Th>
             <Th align="right">Active days</Th>
             <Th align="right">Events</Th>
             <Th align="right">Modules</Th>
             <Th>Todos</Th>
             <Th>Clients</Th>
+            <Th>Source</Th>
             <Th>{null}</Th>
           </tr>
         </thead>
@@ -355,6 +358,14 @@ function UsersTable({
                   >
                     {identity.email}
                   </a>
+                )}
+              </Td>
+              <Td>
+                <ActivityStrip days={u.last28} />
+                {u.activated !== null && (
+                  <span className={cn("ml-1.5 text-[10px]", u.activated ? "text-emerald-600" : "text-app-ink-faint")}>
+                    {u.activated ? "activated" : "not activated"}
+                  </span>
                 )}
               </Td>
               <Td>{formatDate(u.firstActiveAt)}</Td>
@@ -395,6 +406,9 @@ function UsersTable({
               </Td>
               <Td>
                 <span className="text-[11px] text-app-ink-faint">{u.devices.join(", ") || "—"}</span>
+              </Td>
+              <Td>
+                <span className="text-[11px] text-app-ink-faint">{u.source ?? "—"}</span>
               </Td>
               <Td align="right">
                 {!u.isAdmin && (
@@ -623,30 +637,43 @@ function PmfSegmentsTable({ data }: { data: PmfDashboard }) {
   );
 }
 
-function DeclaredGoalsTable({ data }: { data: PmfDashboard }) {
-  if (data.declaredGoalsBreakdown.length === 0) {
-    return <p className="text-xs text-app-ink-faint">No declared onboarding goals yet.</p>;
-  }
+function GrowthTable({ data }: { data: PmfDashboard }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[480px] border-collapse">
+      <table className="w-full min-w-[560px] border-collapse">
         <thead>
           <tr>
-            <Th>Declared goal</Th>
-            <Th align="right">Users</Th>
-            <Th align="right">Activation rate</Th>
-            <Th align="right">Retention past D30</Th>
+            <Th>Week of</Th>
+            <Th align="right">Active</Th>
+            <Th align="right">New</Th>
+            <Th align="right">Retained</Th>
+            <Th align="right">Back</Th>
+            <Th align="right">Churned</Th>
+            <Th align="right">Quick ratio</Th>
           </tr>
         </thead>
         <tbody>
-          {data.declaredGoalsBreakdown.map((g) => (
-            <tr key={g.goal}>
-              <Td>{humanizeChoice(g.goal)}</Td>
-              <Td align="right">{g.declared}</Td>
-              <Td align="right" className={g.activationRate < 50 ? "text-red-600" : undefined}>
-                {g.activationRate}%
+          {data.growth.map((week) => (
+            <tr key={week.weekStartDay} className={week.partial ? "text-app-ink-faint" : undefined}>
+              <Td>
+                {formatDate(week.weekStartDay * DAY_MS)}
+                {week.partial && <span className="ml-1.5 text-[10px] text-app-ink-faint">so far</span>}
               </Td>
-              <Td align="right">{g.retentionRate}%</Td>
+              <Td align="right" className="font-bold">
+                {week.active}
+              </Td>
+              <Td align="right">{week.new}</Td>
+              <Td align="right">{week.retained}</Td>
+              <Td align="right">{week.resurrected}</Td>
+              <Td align="right" className={week.churned > 0 ? "text-red-600" : undefined}>
+                {week.churned}
+              </Td>
+              <Td
+                align="right"
+                className={cn(week.quickRatio !== null && (week.quickRatio >= 1 ? "text-emerald-600" : "text-red-600"))}
+              >
+                {week.quickRatio ?? "—"}
+              </Td>
             </tr>
           ))}
         </tbody>
@@ -655,45 +682,137 @@ function DeclaredGoalsTable({ data }: { data: PmfDashboard }) {
   );
 }
 
-function GoalReconciliationTable({ data }: { data: PmfDashboard }) {
-  if (data.goalReconciliation.length === 0) {
+function PowerCurve({ data }: { data: PmfDashboard }) {
+  const max = Math.max(1, ...data.powerCurve);
+  const total = data.powerCurve.reduce((sum, n) => sum + n, 0);
+  if (total === 0) return <p className="text-xs text-app-ink-faint">Nobody active in the last 28 days.</p>;
+  return (
+    <div>
+      <div className="flex h-28 items-end gap-[3px]" role="img" aria-label="Users by number of active days in the last 28">
+        {data.powerCurve.map((users, index) => (
+          <div key={index} className="flex h-full flex-1 flex-col justify-end" title={`${index + 1} days: ${users} users`}>
+            <div
+              className={cn("w-full rounded-t-sm", index >= 14 ? "bg-emerald-500" : "bg-app-ink/50")}
+              style={{ height: `${(users / max) * 100}%`, minHeight: users > 0 ? 2 : 0 }}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="mt-1 flex justify-between text-[10px] text-app-ink-faint">
+        <span>1 day</span>
+        <span>14</span>
+        <span>28 days</span>
+      </div>
+    </div>
+  );
+}
+
+function AcquisitionTable({ data }: { data: PmfDashboard }) {
+  const { sources, untracked } = data.acquisition;
+  if (sources.length === 0) {
     return (
       <p className="text-xs text-app-ink-faint">
-        No one has both declared an onboarding goal and answered the later survey's "what do you use it for" question
-        yet.
+        No tracked signups yet. Tracking started on 2026-09-25; {plural(untracked, "user")} signed up before it.
       </p>
     );
   }
   return (
     <div className="overflow-x-auto">
-      <p className="mb-2 text-xs text-app-ink-faint">
-        Based on {data.usersWithBothGoalAnswers} user{data.usersWithBothGoalAnswers === 1 ? "" : "s"} who answered
-        both questions.
-      </p>
-      <table className="w-full min-w-[560px] border-collapse">
+      <table className="w-full min-w-[480px] border-collapse">
         <thead>
           <tr>
-            <Th>Goal</Th>
-            <Th align="right">Declared at onboarding</Th>
-            <Th align="right">Still true later</Th>
-            <Th align="right">Mentioned later, not declared</Th>
+            <Th>Source</Th>
+            <Th align="right">Signups</Th>
+            <Th align="right">Activated</Th>
+            <Th align="right">Active 7d</Th>
           </tr>
         </thead>
         <tbody>
-          {data.goalReconciliation.map((g) => (
-            <tr key={g.goal}>
-              <Td>{humanizeChoice(g.goal)}</Td>
-              <Td align="right">{g.declaredAtOnboarding > 0 ? g.declaredAtOnboarding : "—"}</Td>
-              <Td align="right" className={g.declaredAtOnboarding > 0 && g.confirmationRate < 50 ? "text-red-600" : undefined}>
-                {g.declaredAtOnboarding > 0 ? `${g.confirmedLater} (${g.confirmationRate}%)` : "—"}
+          {sources.map((row) => (
+            <tr key={row.source}>
+              <Td>{row.source}</Td>
+              <Td align="right" className="font-bold">
+                {row.signups}
               </Td>
-              <Td align="right">{g.newlyMentioned > 0 ? g.newlyMentioned : "—"}</Td>
+              <Td align="right">{ofTotal(row.activated, row.signups)}</Td>
+              <Td align="right">{ofTotal(row.activeLast7, row.signups)}</Td>
             </tr>
           ))}
+          <tr>
+            <Td className="text-app-ink-faint">Before tracking</Td>
+            <Td align="right" className="text-app-ink-faint">
+              {untracked}
+            </Td>
+            <Td>{null}</Td>
+            <Td>{null}</Td>
+          </tr>
         </tbody>
       </table>
     </div>
   );
+}
+
+function GoalsTable({ data }: { data: PmfDashboard }) {
+  const { rows, answered, unanswered } = data.goals;
+  if (rows.length === 0) {
+    return <p className="text-xs text-app-ink-faint">Nobody has picked a goal yet.</p>;
+  }
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[480px] border-collapse">
+        <thead>
+          <tr>
+            <Th>Came for</Th>
+            <Th align="right">Users</Th>
+            <Th align="right">Activated</Th>
+            <Th align="right">Active 7d</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.goal}>
+              <Td>{row.label}</Td>
+              <Td align="right" className="font-bold">
+                {row.users}
+              </Td>
+              <Td align="right">{ofTotal(row.activated, row.users)}</Td>
+              <Td align="right">{ofTotal(row.activeLast7, row.users)}</Td>
+            </tr>
+          ))}
+          <tr>
+            <Td className="text-app-ink-faint">No answer</Td>
+            <Td align="right" className="text-app-ink-faint">
+              {unanswered}
+            </Td>
+            <Td>{null}</Td>
+            <Td>{null}</Td>
+          </tr>
+        </tbody>
+      </table>
+      <p className="mt-2 text-xs text-app-ink-faint">{plural(answered, "user")} answered. People can pick several, so rows overlap.</p>
+    </div>
+  );
+}
+
+/** Last 28 days, oldest first: grey opened, dark wrote. */
+function ActivityStrip({ days }: { days: number[] }) {
+  return (
+    <span className="inline-flex gap-px" aria-label={`Active on ${days.filter((d) => d > 0).length} of the last 28 days`}>
+      {days.map((level, index) => (
+        <span
+          key={index}
+          className={cn(
+            "inline-block h-3 w-1 rounded-sm",
+            level === 2 ? "bg-app-ink" : level === 1 ? "bg-app-ink/30" : "bg-app-line",
+          )}
+        />
+      ))}
+    </span>
+  );
+}
+
+function plural(n: number, word: string): string {
+  return `${n} ${n === 1 ? word : `${word}s`}`;
 }
 
 const FEEDBACK_STATUSES = ["new", "planned", "done", "declined"] as const;
@@ -758,12 +877,14 @@ function FeedbackList({ data }: { data: PmfDashboard }) {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 /**
- * `getDashboard` reads a dozen whole tables. As a `useQuery` subscription it
- * re-ran on every write by any user for as long as this tab stayed open, so it
- * is fetched once instead, with an explicit Refresh.
+ * Fetched once, with an explicit Refresh, not subscribed: a subscription re-ran
+ * on every write by any user while this tab was open. Each load first folds any
+ * activity since the last hourly roll-up into `userDays` (`catchUpNow`, which
+ * only reads the new rows), so the numbers are current.
  */
 function useDashboardSnapshot() {
   const convex = useConvex();
+  const catchUpNow = useAction(api.adminRollup.catchUpNow);
   const [data, setData] = useState<PmfDashboard | undefined>(undefined);
   const [error, setError] = useState<unknown>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -772,8 +893,10 @@ function useDashboardSnapshot() {
   useEffect(() => {
     let alive = true;
     setRefreshing(true);
-    convex
-      .query(api.adminMetrics.getDashboard, {})
+    catchUpNow({})
+      // A failed catch-up still leaves the last hourly roll-up to show.
+      .catch(() => undefined)
+      .then(() => convex.query(api.adminMetrics.getDashboard, {}))
       .then((next) => {
         if (alive) setData(next);
       })
@@ -786,7 +909,7 @@ function useDashboardSnapshot() {
     return () => {
       alive = false;
     };
-  }, [convex, requestId]);
+  }, [catchUpNow, convex, requestId]);
 
   // Same failure mode the subscription had: surface to the route's error boundary.
   if (error) throw error;
@@ -828,8 +951,8 @@ export function AdminDashboardScreen() {
         <div>
           <h1 className="text-lg font-bold text-app-ink">Product health</h1>
           <p className="mt-1 text-xs text-app-ink-faint">
-            Every figure below excludes your own account unless labelled otherwise. Generated{" "}
-            {new Date(data.generatedAt).toLocaleString()}.
+            Every figure below excludes your own account unless labelled otherwise. Active means opened the app or
+            wrote something. Generated {new Date(data.generatedAt).toLocaleString()}.
           </p>
         </div>
         <Button type="button" variant="ghost" onClick={refresh} disabled={refreshing}>
@@ -842,10 +965,9 @@ export function AdminDashboardScreen() {
         <div className="mt-5 rounded-app-card border border-amber-300 bg-amber-50 p-4 text-amber-900">
           <p className="text-[11px] font-medium uppercase opacity-80">Scale warning</p>
           <p className="mt-0.5 text-sm">
-            This dashboard reads whole tables (`.collect()`), and `{data.scaleFuse.largestTable}` is at{" "}
-            {data.scaleFuse.rowCount.toLocaleString()} rows — past the {data.scaleFuse.warnAt.toLocaleString()}-row
-            warning line. It'll keep working for a while, but this is the point to move the underlying query to a
-            rolled-up table before it silently gets slow.
+            The daily roll-up this page reads (`{data.scaleFuse.largestTable}`) is at{" "}
+            {data.scaleFuse.rowCount.toLocaleString()} rows, past the {data.scaleFuse.warnAt.toLocaleString()}-row
+            warning line. Time to add a monthly roll-up on top of it so each load stays small.
           </p>
         </div>
       )}
@@ -875,7 +997,7 @@ export function AdminDashboardScreen() {
                 key={stage.id}
                 label={stage.label}
                 value={stage.value}
-                sub={index === 0 ? undefined : `${stage.pctOfPrevious}% of previous · ${stage.pctOfSignups}% of signups`}
+                sub={index === 0 ? undefined : `${ofTotal(stage.value, funnelStages[index - 1].value)} from the previous step`}
                 tone={index > 0 && stage.pctOfPrevious !== null && stage.pctOfPrevious < 50 ? "bad" : "neutral"}
               />
             ))}
@@ -883,17 +1005,75 @@ export function AdminDashboardScreen() {
         )}
       </Section>
 
+      <Section title={`North star: ${data.northStar.label.toLowerCase()}`} hint={data.northStar.definition + ". The one number to move."}>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StatCard
+            label="This week"
+            value={data.northStar.thisWeek}
+            sub={`${data.northStar.lastWeek} the week before`}
+            tone={data.northStar.thisWeek >= data.northStar.lastWeek ? "good" : "bad"}
+          />
+          <StatCard label="Daily actives" value={data.activeUsers.dauAvg7} sub={`average over 7 days · ${data.activeUsers.dau} today`} />
+          <StatCard label="Weekly / 28-day actives" value={`${data.activeUsers.wau} / ${data.activeUsers.mau}`} />
+          <StatCard
+            label="Stickiness"
+            value={`${data.activeUsers.stickiness}%`}
+            sub="daily ÷ 28-day actives"
+            tone={data.activeUsers.stickiness >= 30 ? "good" : data.activeUsers.stickiness < 15 ? "bad" : "neutral"}
+          />
+        </div>
+      </Section>
+
+      <Section
+        title="Activation"
+        hint={`Activated means ${data.activation.rule.minItems}+ items across ${data.activation.rule.minTypes}+ types within ${data.activation.rule.windowDays} days of signing up. Users still inside their first week aren't counted either way yet.`}
+      >
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StatCard
+            label="Activated"
+            value={data.activation.activated}
+            sub={`${ofTotal(data.activation.activated, data.activation.eligible)} past their first week`}
+            tone={pct(data.activation.activated, data.activation.eligible) >= 50 ? "good" : "bad"}
+          />
+          <StatCard label="In their first week" value={data.activation.inWindow} sub="not decided yet" />
+          <StatCard
+            label="Time to activate"
+            value={data.activation.medianDaysToActivate === null ? "—" : `${data.activation.medianDaysToActivate}d`}
+            sub="median, from signup"
+          />
+          <StatCard
+            label="Still here at 30 days"
+            value={`${data.activation.retention30.activated.retained} vs ${data.activation.retention30.notActivated.retained}`}
+            sub={`activated (of ${data.activation.retention30.activated.eligible}) vs not (of ${data.activation.retention30.notActivated.eligible})`}
+          />
+        </div>
+      </Section>
+
+      <Section
+        title="Growth accounting"
+        hint="Each week's actives split into new, retained from the week before, back after a gap, and last week's actives who didn't return. Quick ratio = (new + back) ÷ churned; above 1 is growing."
+      >
+        <GrowthTable data={data} />
+      </Section>
+
+      <Section
+        title="Power user curve"
+        hint="How many of the last 28 days each active user showed up. A second hump on the right (green, 15+ days) is a habit forming."
+      >
+        <PowerCurve data={data} />
+      </Section>
+
       <Section title="Headline" hint="Onboarded means the user completed end-to-end encryption setup.">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <StatCard label="Onboarded" value={data.funnel.onboarded} />
-          <StatCard label="Ever created" value={data.funnel.everCreated} sub={`${pct(data.funnel.everCreated, data.funnel.onboarded)}% of onboarded`} />
+          <StatCard label="Ever created" value={data.funnel.everCreated} sub={`${ofTotal(data.funnel.everCreated, data.funnel.onboarded)} onboarded`} />
           <StatCard
             label="Returned day 2"
             value={data.funnel.returnedDay2}
-            sub={`${pct(data.funnel.returnedDay2, data.funnel.onboarded)}% of onboarded`}
+            sub={`${ofTotal(data.funnel.returnedDay2, data.funnel.onboarded)} onboarded`}
             tone={pct(data.funnel.returnedDay2, data.funnel.onboarded) < 40 ? "bad" : "good"}
           />
-          <StatCard label="Active 7d" value={data.funnel.activeLast7} sub={`WAU/MAU ${pct(data.funnel.activeLast7, Math.max(1, data.funnel.activeLast30))}%`} />
+          <StatCard label="Active 7d" value={data.funnel.activeLast7} sub={`of ${data.funnel.activeLast30} active in 30d`} />
           <StatCard label="Active 30d" value={data.funnel.activeLast30} />
           <StatCard
             label="Dormant 30d+"
@@ -904,8 +1084,8 @@ export function AdminDashboardScreen() {
       </Section>
 
       <Section
-        title="Session activity (reads + writes)"
-        hint="Everything else on this page is derived from activityHistory, which only records writes. This section comes from appSessions instead, so it also counts users who opened the app and read without editing."
+        title="Reading vs. writing"
+        hint="Of the users active in the last 7 days, how many wrote something and how many only opened the app."
       >
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <StatCard label="True active 7d" value={data.sessionActivity.trueActiveLast7} sub="opened the app at all" />
@@ -942,7 +1122,7 @@ export function AdminDashboardScreen() {
                 <span className="w-24 shrink-0 text-xs text-app-ink-muted">{bucket.label}</span>
                 <Bar value={bucket.retained} max={Math.max(1, bucket.eligible)} tone={share < 25 ? "bad" : "good"} />
                 <span className="w-28 shrink-0 text-right text-xs tabular-nums text-app-ink-faint">
-                  {bucket.retained}/{bucket.eligible} ({share}%)
+                  {ofTotal(bucket.retained, bucket.eligible)}
                 </span>
               </div>
             );
@@ -950,7 +1130,7 @@ export function AdminDashboardScreen() {
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard label="1 day only" value={dist.oneDay} tone="bad" sub={`${pct(dist.oneDay, active)}% of active`} />
+          <StatCard label="1 day only" value={dist.oneDay} tone="bad" sub={`${ofTotal(dist.oneDay, active)} active`} />
           <StatCard label="2–3 days" value={dist.twoToThree} />
           <StatCard label="4–9 days" value={dist.fourToNine} />
           <StatCard label="10+ days" value={dist.tenPlus} tone="good" />
@@ -1039,17 +1219,35 @@ export function AdminDashboardScreen() {
       </Section>
 
       <Section
-        title="Declared goals vs. actual usage"
-        hint="What people said they came for (Welcome step, optional) versus whether they ever created anything at all."
+        title="Where signups come from"
+        hint="First visit's source: a campaign tag (utm_source or ?ref=), else the referring site, else direct. Page views and referrers for visitors who didn't sign up are in Vercel Analytics."
       >
-        <DeclaredGoalsTable data={data} />
+        <AcquisitionTable data={data} />
       </Section>
 
       <Section
-        title="What they came for vs. what they say they use it for"
-        hint="Reconciles the Welcome step's declared goal against the same options re-asked in the later survey — a low confirmation rate means the pitch and the product are drifting apart for that use case."
+        title="What people came for"
+        hint="The optional multi-select on the first onboarding screen. Read it against activation: a goal whose users don't stick is a promise the product isn't keeping."
       >
-        <GoalReconciliationTable data={data} />
+        <GoalsTable data={data} />
+      </Section>
+
+      <Section title="Quality, last 7 days" hint="Crash reports from users other than you. A lost change is an offline write the app had to give up on.">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <StatCard label="Crash reports" value={data.quality.errors7} tone={data.quality.errors7 > 0 ? "bad" : "good"} />
+          <StatCard label="Users affected" value={data.quality.usersWithErrors7} />
+          <StatCard label="Lost changes" value={data.quality.lostChanges7} tone={data.quality.lostChanges7 > 0 ? "bad" : "good"} />
+        </div>
+        {data.quality.topContexts.length > 0 && (
+          <ul className="mt-3 space-y-1 text-xs text-app-ink-muted">
+            {data.quality.topContexts.map((row) => (
+              <li key={row.context} className="flex justify-between gap-3">
+                <span className="truncate font-mono text-[11px]">{row.context}</span>
+                <span className="tabular-nums">{row.count}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </Section>
 
       <Section title={`Survey — ${data.survey.completed} of ${data.survey.started} completed`}>
@@ -1062,7 +1260,7 @@ export function AdminDashboardScreen() {
 
       <Section
         title="All users"
-        hint="Sorted by most recent activity. Red is dormant or one-day-only; a blue sign-in means they're still opening the app without writing anything."
+        hint="Sorted by most recent activity. The strip is the last 28 days: dark wrote, grey only opened. At this size, reading these rows is the analysis."
       >
         {directoryError && (
           <p className="mb-2 text-xs text-amber-700">
@@ -1076,9 +1274,8 @@ export function AdminDashboardScreen() {
       </Section>
 
       <p className="mt-10 text-[11px] leading-relaxed text-app-ink-faint">
-        Caveat: every metric above is derived from activityHistory, which only records writes — a user who
-        reads without editing counts as dormant. The last sign-in column is the one exception, and it comes
-        from Clerk. Where the two disagree, treat the sign-in as the truth about churn.
+        Built from a daily roll-up of activity and app opens, updated hourly and on every load of this page. App
+        opens have been recorded since mid-2026; before that only writes were, so older days undercount reading.
       </p>
 
       {deletingUser && (

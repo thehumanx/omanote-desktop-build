@@ -193,7 +193,7 @@ export const guideCategories: GuideCategory[] = [
 
 // Shown in the guide header (like the changelog version on /updates). Bump
 // when guide content is meaningfully revised.
-export const GUIDE_LAST_UPDATED = "Sep 5, 2026";
+export const GUIDE_LAST_UPDATED = "Sep 27, 2026";
 
 export const defaultGuideSlug = guideCategories[0].topics[0].slug;
 

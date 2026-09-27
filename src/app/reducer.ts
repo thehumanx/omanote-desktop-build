@@ -1,4 +1,4 @@
-import { buildRecurringCompletionIndex, getVirtualOccurrenceForDate, toDateKey } from "@omanote/shared";
+import { buildRecurringCompletionIndex, getSeriesStartPreview, getVirtualOccurrenceForDate, toDateKey } from "@omanote/shared";
 import type { ActivityItem, BookmarkItem, DateKey, EventEntry, NoteItem, PageItem, TodoItem } from "@omanote/shared";
 import { createInitialState } from "./demo-data";
 import type { AppAction, AppState, ToastItem } from "./types";
@@ -460,7 +460,14 @@ function getVisibleCanvasTodos(
         dateKey,
         todayKey,
       );
-      if (occurrence) visible.push(occurrence);
+      if (occurrence) {
+        visible.push(occurrence);
+      } else {
+        // Not firing here, but created here and not started yet: shown like a
+        // future todo so the series isn't invisible until its first date.
+        const preview = getSeriesStartPreview(todo, dateKey);
+        if (preview) visible.push(preview);
+      }
       continue;
     }
     if (isTodoVisibleOnCanvas(todo, dateKey)) visible.push(todo);

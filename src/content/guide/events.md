@@ -20,7 +20,7 @@ The **timeline** shows the same events as one chronological list, ordered by whe
 
 ## Completed todos become events
 
-When you complete a todo, omanote automatically logs it as an event, phrased in the past tense ("Submitted report"). These auto-logged events are read-only because they mirror the todo, and they appear in the same timeline as everything else you record.
+When you complete a todo, omanote automatically logs it as an event, phrased in the past tense ("Submitted report"). These auto-logged events are read-only because they mirror the todo, and they appear in the same timeline as everything else you record, on the day you completed the todo. They carry just the name: the todo's notes (or, for a todo from Google Calendar, the event's description) stay with the todo.
 
 ## Notes and hashtags
 

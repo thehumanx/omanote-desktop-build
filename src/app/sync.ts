@@ -25,8 +25,8 @@ const MAX_BATCH_SIZE = 8000;
  * ends mid-tie — 500 rows where the last few were all written in the same
  * millisecond — advancing to `max` drops the rest of that tie permanently,
  * because the cursor is persisted and never goes back. Bulk writes are what
- * produce the ties: `backfillGoogleCalendarTodoFolders`, the `updatedAt`
- * backfills, and import all stamp many rows from one `Date.now()`.
+ * produce the ties: a folder rename's cascade and import both stamp many rows
+ * from one `Date.now()`.
  *
  * Resuming one millisecond *before* the last timestamp re-requests that whole
  * millisecond next time. The overlap is free — every table is written with
@@ -116,9 +116,8 @@ async function syncHistory(queryFn: SyncQueryFn): Promise<number> {
     total += batch.length;
 
     const { next, widenTo } = advanceCursor(
-      // `?? 0` only covers rows the backfill hasn't reached yet; the server
-      // pages on `createdAt`, so anything it returns normally has one.
-      batch.map((item) => item.createdAt ?? 0),
+      // The server pages on `createdAt`, required on every row since 2026-09-25.
+      batch.map((item) => item.createdAt),
       batch.length,
       requestedLimit,
     );

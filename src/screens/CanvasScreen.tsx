@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
-import { addDaysToDateKey, buildRecurringCompletionIndex, daysBetweenKeys, parseVirtualOccurrenceId, toDateKey } from "@omanote/shared";
+import { addDaysToDateKey, buildRecurringCompletionIndex, daysBetweenKeys, getOverdueOccurrence, parseVirtualOccurrenceId, toDateKey } from "@omanote/shared";
 import type { DateKey } from "@omanote/shared";
 import type { TodoItem } from "@omanote/shared";
 import { api } from "../../convex/_generated/api";
@@ -80,10 +80,19 @@ export function CanvasScreen() {
   );
 
   const overdueTodos = useMemo(() => {
-    return state.todos
-      .filter((todo) => !todo.deletedAt && !todo.recurrence && todo.status === "open" && todo.dueDateKey && todo.dueDateKey < todayKey)
-      .sort((left, right) => (left.dueDateKey! < right.dueDateKey! ? -1 : left.dueDateKey! > right.dueDateKey! ? 1 : 0));
-  }, [state.todos, todayKey]);
+    const overdue: TodoItem[] = [];
+    for (const todo of state.todos) {
+      if (todo.recurrence) {
+        // A series contributes at most its latest missed occurrence, until
+        // the next one is due (getOverdueOccurrence).
+        const occurrence = getOverdueOccurrence(todo, recurringCompletionIndex.get(todo.id), todayKey);
+        if (occurrence) overdue.push(occurrence);
+      } else if (!todo.deletedAt && todo.status === "open" && todo.dueDateKey && todo.dueDateKey < todayKey) {
+        overdue.push(todo);
+      }
+    }
+    return overdue.sort((left, right) => (left.dueDateKey! < right.dueDateKey! ? -1 : left.dueDateKey! > right.dueDateKey! ? 1 : 0));
+  }, [state.todos, todayKey, recurringCompletionIndex]);
 
   const daysAway = useMemo(() => {
     let lastActiveKey: DateKey | null = null;

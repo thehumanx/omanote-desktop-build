@@ -27,6 +27,8 @@ A monthly or yearly todo repeats on the day you name. Without one, it repeats on
 A recurring todo is stored once and shows up on **each day it's due**, rather than being copied into your list:
 
 - On the **canvas**, an occurrence appears on every day the rule lands on. A daily todo shows every day; a "last Saturday" todo shows on each of those Saturdays.
+- If the series **starts later**, it also shows on the day you created it, labelled with its first date and rule, for example *Starts Wed, Sep 30 · every day*. It doesn't appear on the days in between.
+- If you **miss** an occurrence, it waits in the **Overdues** section of today's canvas until the next one is due. A weekly Monday todo you missed stays there Tuesday to Sunday; the next Monday, the new one appears in today's list instead. A missed daily never lands in Overdues, since the next one is always today. Older misses stay faded on their own days.
 - On the **Event calendar**, occurrences appear on their days alongside your logged events.
 - In the **Todos list**, it appears as a single row for its current occurrence. A todo with no set time stays under **Today**. A timed one moves to **Overdue** once its time passes, then returns to Today on the next occurrence.
 
@@ -36,9 +38,9 @@ Open a recurring todo and you'll find a **Repeat** field showing its rule in pla
 
 ## Completing and skipping
 
-Check off an occurrence and omanote logs it for that day, then rolls the series forward to the next one. Completing yesterday's forgotten task counts for **today's** occurrence, and days you missed stay visible in your history.
+Check off an occurrence and omanote rolls the series forward to the next one. The occurrence stays on its own day, marked done with the date you finished it, and the completion is logged as an event on the day you ticked it. So finishing Monday's task on Wednesday shows it done on Monday and logged on Wednesday, the same as any other todo. Days you missed and never completed stay visible in your history.
 
-Completing a recurring todo moves that day's occurrence to your completed list and mirrors it into your Events timeline, the same as any other todo. The series continues until it reaches its end date or repeat count.
+The series continues until it reaches its end date or repeat count.
 
 ## Repeating reminders
 

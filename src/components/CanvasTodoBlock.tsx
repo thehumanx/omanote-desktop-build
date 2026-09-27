@@ -2,7 +2,7 @@ import { memo, useEffect, useRef } from "react";
 import type { TouchEvent } from "react";
 import { CalendarClock, CircleCheckBig, Pencil, Repeat, Trash2, WifiOff } from "lucide-react";
 import type { DateKey, TodoItem } from "@omanote/shared";
-import { daysBetweenKeys, describeRecurrenceRule, formatCompletedLabel, formatDueChip, formatFutureTodoCanvasLabel, isFutureDateKey } from "@omanote/shared";
+import { daysBetweenKeys, describeRecurrenceRule, formatCompletedLabel, formatDueChip, formatFutureTodoCanvasLabel, formatShortDate, isFutureDateKey } from "@omanote/shared";
 import { useIsMobileViewport } from "../lib/mobile";
 import { useUserSettings } from "../contexts/UserSettingsContext";
 import { cn, TodoCheckmark } from "./ui";
@@ -57,7 +57,12 @@ function CanvasTodoBlockComponent({
       ? daysBetweenKeys(todo.dueDateKey, overdueReferenceKey as DateKey)
       : 0;
   const isFutureTodo = isFutureDateKey(canvasDateKey, todo.dueDateKey);
-  const futureCanvasLabel = formatFutureTodoCanvasLabel(todo.dueDateKey, todo.dueTime);
+  // A series only reaches here as a future row on the day it was created,
+  // before it starts (getSeriesStartPreview): dueDateKey is its first date.
+  const futureCanvasLabel =
+    todo.recurrence && todo.dueDateKey
+      ? `Starts ${formatShortDate(todo.dueDateKey)} · ${describeRecurrenceRule(todo.recurrence)}`
+      : formatFutureTodoCanvasLabel(todo.dueDateKey, todo.dueTime);
   const completedLabel = todo.status === "done" ? formatCompletedLabel(todo.completedAt ?? todo.updatedAt) : "";
   const isMobile = useIsMobileViewport();
   const editTodoTitle = (nextTitle: string) => {

@@ -153,7 +153,11 @@ export function mapEvent(event: Doc<"eventEntries">) {
 export function mapActivity(item: Doc<"activityHistory">) {
   return {
     id: String(item._id),
-    module: item.module === "routine" ? "event" : item.module,
+    // The server has no "routine" rows since 2026-09-25 (a one-off migration
+    // rewrote them to "event" and the schema dropped the literal), but a
+    // device's cache can still hold them: the rewrite didn't move `createdAt`,
+    // which is what history syncs on.
+    module: (item.module as string) === "routine" ? "event" : item.module,
     action: item.action,
     itemId: item.itemId,
     itemTitle: item.itemTitle,

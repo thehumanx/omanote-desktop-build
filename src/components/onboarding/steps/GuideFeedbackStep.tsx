@@ -1,6 +1,6 @@
 import { ArrowLeft, ArrowRight, BookOpen, MessageSquare, Slash } from "lucide-react";
 import { Button } from "../../ui";
-import { OnboardingFooter } from "../OnboardingChrome";
+import { OnboardingFooter, OnboardingStepHeader } from "../OnboardingChrome";
 
 /**
  * Step 3 — purely informational, no interaction beyond Back/Continue. Not a
@@ -12,14 +12,9 @@ import { OnboardingFooter } from "../OnboardingChrome";
 export function GuideFeedbackStep({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
   return (
     <div>
-      <div className="flex flex-col items-center text-center">
-        <h1 className="text-2xl font-black text-app-ink">Need a hand later?</h1>
-        <p className="mt-2 text-sm leading-6 text-app-ink-muted">
-          A few things worth knowing before you dive in.
-        </p>
-      </div>
+      <OnboardingStepHeader title="Need a hand later?" subtitle="A few things worth knowing before you dive in." />
 
-      <div className="mt-6 space-y-3">
+      <div className="omanote-wizard-body mt-6 space-y-3">
         <div className="rounded-app-panel border border-app-line bg-app-surface p-4">
           <div className="flex items-start gap-3">
             <Slash className="mt-0.5 h-4 w-4 shrink-0 text-app-ink-faint" />
