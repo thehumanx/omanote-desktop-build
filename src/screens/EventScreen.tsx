@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { addDays, buildDateStripWindow, formatMonthDayRange, listVirtualOccurrencesForDates, parseEventDraftInputForDate, parseVirtualOccurrenceId, toDateKey } from "@omanote/shared";
+import { addDays, buildDateStripWindow, listVirtualOccurrencesForDates, parseEventDraftInputForDate, parseVirtualOccurrenceId, toDateKey } from "@omanote/shared";
 import type { DateKey, TodoItem } from "@omanote/shared";
 import { CalendarDays, CheckCheck, ChevronLeft, ChevronRight, List, Trash2 } from "lucide-react";
 import { useApp } from "../app/AppProvider";
 import { useIsMobileViewport } from "../lib/mobile";
+import { useScrollEdgeFade } from "../hooks/useScrollEdgeFade";
 import { EventEditorModal } from "../components/EventEditorModal";
 import { TodoEditorModal } from "../components/TodoEditorModal";
 import { useTopChrome } from "../components/layout/useTopChrome";
@@ -19,6 +20,13 @@ import { AgendaView, type AgendaDay } from "./events/AgendaView";
 import { TimelineView } from "./events/TimelineView";
 import { EventClusterModal } from "./events/EventClusterModal";
 import { EventCreateModal } from "./events/EventCreateModal";
+
+const NAV_FADE = "calc(var(--omanote-bottom-nav-height, 64px) + 3.5rem)";
+
+/** Room under a view's last row so it can scroll clear of the bottom nav. */
+function NavInset({ testId }: { testId: string }) {
+  return <div aria-hidden="true" data-testid={testId} style={{ height: "calc(var(--omanote-bottom-nav-height, 64px) + 1.5rem)", flexShrink: 0 }} />;
+}
 
 type EventView = "week" | "timeline";
 
@@ -161,10 +169,6 @@ export function EventScreen() {
     () => visibleEvents.filter((event) => calendarDateKeys.includes(event.createdDateKey)),
     [visibleEvents, calendarDateKeys],
   );
-  const weekTodoCount = useMemo(
-    () => activeScheduledTodos.filter((todo) => todo.dueDateKey && calendarDateKeys.includes(todo.dueDateKey)).length,
-    [activeScheduledTodos, calendarDateKeys],
-  );
   // Grid-only, and deliberately skipped on mobile: these lay out an hour
   // gutter per day, which over the agenda's 60-day range would be 60x the
   // work for something never rendered.
@@ -201,12 +205,6 @@ export function EventScreen() {
     : null;
   const editingTodo = state.todos.find((todo) => todo.id === editingTodoRealId) ?? null;
 
-  const weekRangeLabel = useMemo(() => {
-    const [firstDate] = weekDateKeys;
-    const lastDate = weekDateKeys[weekDateKeys.length - 1];
-    return formatMonthDayRange(firstDate, lastDate);
-  }, [today, weekDateKeys, weekDates]);
-
   const calendarGridTemplate = `72px repeat(${weekDates.length}, minmax(0, 1fr))`;
 
   const stepCalendar = (direction: "prev" | "next") => {
@@ -219,6 +217,12 @@ export function EventScreen() {
   // keep the 920px grid, where horizontal drags are needed to pan the week.
   const calendarScrollRef = useRef<HTMLDivElement | null>(null);
   const agendaScrollRef = useRef<HTMLDivElement>(null);
+  // Every view scrolls under the bottom nav like the other pages: the fade's
+  // bottom edge starts above the nav, and an inset lets the last row clear it.
+  // The calendar's top edge never fades — its date strip is pinned there.
+  const timelineFade = useScrollEdgeFade(timelineScrollRef, { bottomSize: NAV_FADE });
+  const agendaFade = useScrollEdgeFade(agendaScrollRef, { bottomSize: NAV_FADE });
+  const calendarFade = useScrollEdgeFade(calendarScrollRef, { size: "0px", bottomSize: NAV_FADE });
 
   // Slide the calendar in from whichever side it came from. The offset moves in
   // both directions, so its delta gives the direction regardless of the source
@@ -235,68 +239,58 @@ export function EventScreen() {
   // while the days slide in.
   const daySlideClass = slideDirection ? `omanote-week-slide-${slideDirection}` : "";
 
-  useTopChrome(<ExpandableSearch value={eventSearch} onChange={setEventSearch} placeholder="Search in Events" />);
+  // Search on the left; today / prev / next and the view toggle on the right.
+  useTopChrome(
+    <div className="flex min-w-0 items-center justify-between gap-2">
+      <ExpandableSearch value={eventSearch} onChange={setEventSearch} placeholder="Search in Events" />
+      <div className="flex shrink-0 items-center gap-2">
+        {eventView === "week" && !isMobileCalendar && (
+          <>
+            <Button
+              variant="soft"
+              onClick={() => {
+                dispatch({ type: "ui/set-date-window-offset", offset: 0 });
+                dispatch({ type: "ui/set-selected-date", dateKey: toDateKey(today) });
+              }}
+            >
+              Today
+            </Button>
+            <Button
+              variant="ghost"
+              className="h-8 w-8 rounded-full p-0"
+              aria-label="Previous week"
+              onClick={() => stepCalendar("prev")}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              className="h-8 w-8 rounded-full p-0"
+              aria-label="Next week"
+              onClick={() => stepCalendar("next")}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </>
+        )}
+        <SegmentedPill
+          activeKey={eventView}
+          ariaLabel="Event view"
+          highlightTestId="event-view-highlight"
+          items={[
+            { key: "week", icon: <CalendarDays className="h-3.5 w-3.5" />, ariaLabel: "Calendar view" },
+            { key: "timeline", icon: <List className="h-3.5 w-3.5" />, ariaLabel: "Timeline view" },
+          ]}
+          onChange={(key) => changeEventView(key as EventView)}
+        />
+      </div>
+    </div>,
+  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-bold uppercase text-app-ink-faint">
-            {eventView === "timeline" ? "Timeline" : isMobileCalendar ? "Schedule" : "Week view"}
-          </p>
-          <p className="mt-1 text-sm text-app-ink-muted">
-            {eventView === "timeline"
-              ? `${timelineEvents.length} total events`
-              : isMobileCalendar
-                ? `${weekEntries.length} logged · ${weekTodoCount} todos scheduled`
-                : `${weekRangeLabel} · ${weekEntries.length} logged · ${weekTodoCount} todos`}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {eventView === "week" && !isMobileCalendar && (
-            <>
-              <Button
-                variant="soft"
-                onClick={() => {
-                  dispatch({ type: "ui/set-date-window-offset", offset: 0 });
-                  dispatch({ type: "ui/set-selected-date", dateKey: toDateKey(today) });
-                }}
-              >
-                Today
-              </Button>
-              <Button
-                variant="ghost"
-                className="h-10 w-10 rounded-full p-0"
-                aria-label="Previous week"
-                onClick={() => stepCalendar("prev")}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                className="h-10 w-10 rounded-full p-0"
-                aria-label="Next week"
-                onClick={() => stepCalendar("next")}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </>
-          )}
-          <SegmentedPill
-            activeKey={eventView}
-            ariaLabel="Event view"
-            highlightTestId="event-view-highlight"
-            items={[
-              { key: "week", icon: <CalendarDays className="h-3.5 w-3.5" />, ariaLabel: "Calendar view" },
-              { key: "timeline", icon: <List className="h-3.5 w-3.5" />, ariaLabel: "Timeline view" },
-            ]}
-            onChange={(key) => changeEventView(key as EventView)}
-          />
-        </div>
-      </div>
-
       {eventView === "timeline" && (
-        <div ref={timelineScrollRef} className="scrollbar-hide min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+        <div ref={timelineScrollRef} data-testid="event-timeline-scroll" className="scrollbar-hide min-h-0 flex-1 overflow-y-auto overflow-x-hidden" style={timelineFade}>
           <TimelineView
             scrollRef={timelineScrollRef}
             events={timelineEvents}
@@ -312,11 +306,12 @@ export function EventScreen() {
                 : setCreateState({ dateKey: todayKey, startedAt: Date.now() })
             }
           />
+          <NavInset testId="event-timeline-scroll-inset" />
         </div>
       )}
 
       {isMobileCalendar && (
-        <div ref={agendaScrollRef} className="scrollbar-hide min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+        <div ref={agendaScrollRef} data-testid="event-agenda-scroll" className="scrollbar-hide min-h-0 flex-1 overflow-y-auto overflow-x-hidden" style={agendaFade}>
           <AgendaView
             days={agendaDays}
             todayKey={todayKey}
@@ -325,12 +320,16 @@ export function EventScreen() {
             onEditTodo={(todoId) => setEditingTodoId(todoId)}
             onToggleTodo={(todoId) => dispatch({ type: "todo/toggle", todoId })}
           />
+          <NavInset testId="event-agenda-scroll-inset" />
         </div>
       )}
 
       {eventView === "week" && !isMobileCalendar && (
       <div
-        className="min-h-0 flex-1 overflow-hidden rounded-app-dialog border border-app-line bg-app-surface shadow-none"
+        data-testid="week-calendar"
+        // No card around the grid: it sits straight on the page (or scene)
+        // and runs to the viewport bottom, under the nav.
+        className="min-h-0 flex-1 overflow-hidden"
         onAnimationEnd={(event) => {
           // animationend bubbles up from the day columns; ignore unrelated
           // animations from cards inside them.
@@ -339,10 +338,12 @@ export function EventScreen() {
       >
         {/* The swipe-to-page-the-week gesture lived here; it was mobile-only,
             and this grid renders only on desktop now. */}
-        <div ref={calendarScrollRef} className="scrollbar-hide h-full overflow-auto">
+        <div ref={calendarScrollRef} data-testid="week-calendar-scroll" className="scrollbar-hide h-full overflow-auto" style={calendarFade}>
           <div className="min-w-[920px]">
             <div className="sticky top-0 z-20">
-              <div className="grid border-b border-app-line bg-app-surface/95 backdrop-blur" style={{ gridTemplateColumns: calendarGridTemplate }}>
+              {/* Pinned while the hours scroll: the page fill without a scene,
+                  frosted glass over one. */}
+              <div data-testid="week-calendar-days" className="app-frost grid border-b border-app-line bg-app-backdrop" style={{ gridTemplateColumns: calendarGridTemplate }}>
                 <div className="border-r border-app-line px-3 py-3" />
                 {weekDates.map((date) => {
                   const dateKey = toDateKey(date);
@@ -597,6 +598,7 @@ export function EventScreen() {
                 );
               })}
             </div>
+            <NavInset testId="week-calendar-scroll-inset" />
           </div>
         </div>
       </div>

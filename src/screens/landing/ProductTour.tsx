@@ -12,8 +12,6 @@ import {
   introProgressAt,
   isTourHoldingScreen,
   nextSteppedIndex,
-  outroBlockProgress,
-  outroProgressAt,
   placeTooltip,
   placeTooltipBeside,
   placeTooltipBesideTop,
@@ -57,6 +55,16 @@ const REST_SCALE = 0.72;
 const HERO_GAP = 32;
 
 /**
+ * At rest the hero is a rounded, dotted panel inset from the viewport edges,
+ * with the preview peeking out of its bottom edge. Scrolling closes the inset
+ * and the radius on the same curve as the zoom, so the panel opens out into
+ * the full-bleed tour rather than being replaced by it.
+ */
+const PANEL_INSET = 16;
+const PANEL_INSET_COMPACT = 8;
+const PANEL_RADIUS = 28;
+
+/**
  * How much of the preview's travel the hero copy shares as it's overtaken.
  * Below 1 so the copy always loses the race — that gap is the parallax.
  */
@@ -79,10 +87,19 @@ const TOOLTIP_HEIGHT_ESTIMATE = 200;
  */
 const STEP_COOLDOWN_MS = 420;
 
-/** Blocks in the closing CTA: headline, body, footnote, buttons, scroll nudge. */
-const OUTRO_BLOCK_COUNT = 5;
+/** How long the wheel has to go quiet before the next event counts as a new gesture. */
+const WHEEL_GESTURE_GAP_MS = 160;
+/** Minimum time a wheel-driven step holds, roughly one smooth scroll. */
+const WHEEL_STEP_LOCK_MS = 650;
+
 /** How far each closing block rises as it fades in. */
-const OUTRO_BLOCK_RISE = 18;
+const OUTRO_BLOCK_RISE = 24;
+/** Each closing block's own fade-and-rise. */
+const OUTRO_BLOCK_MS = 900;
+/** Gap between one closing block starting and the next. */
+const OUTRO_STAGGER_MS = 160;
+/** The wash settles first; the words start once it's mostly in. */
+const OUTRO_WASH_MS = 500;
 
 type AnchorBox = { top: number; left: number; width: number; height: number };
 
@@ -319,20 +336,23 @@ function TourArrow({
  */
 function StackedTour({ cta }: { cta: ReactNode }) {
   return (
-    <section aria-label="Product tour" className="mx-auto max-w-[1136px] px-4 pb-16 pt-16 sm:px-6">
-      <div className="flex flex-col items-center text-center">
-        <LandingHeroCopy headingClassName="text-[44px] sm:text-[58px]" />
+    <section aria-label="Product tour" className="px-2 pb-16 pt-2 sm:px-4 sm:pt-4">
+      <div className="landing-hero-backdrop relative rounded-3xl px-4 pb-10 pt-28 sm:px-6 lg:pt-36">
+        <div className="relative flex flex-col items-center text-center">
+          <LandingHeroCopy headingClassName="text-[44px] sm:text-[58px]" />
+        </div>
+
+        <div className="relative mx-auto mt-10 max-w-4xl overflow-hidden rounded-app-card border border-app-line shadow-app-soft ring-8 ring-app-surface/50">
+          <Suspense fallback={<CanvasSkeleton />}>
+            <CanvasPreview />
+          </Suspense>
+        </div>
       </div>
 
-      <div className="mx-auto mt-10 max-w-4xl overflow-hidden rounded-app-card border border-app-line shadow-app-soft">
-        <Suspense fallback={<CanvasSkeleton />}>
-          <CanvasPreview />
-        </Suspense>
+      <div className="mx-auto max-w-[1136px] px-2">
+        <TourStepList />
+        <div className="mt-14 flex justify-center">{cta}</div>
       </div>
-
-      <TourStepList />
-
-      <div className="mt-14 flex justify-center">{cta}</div>
     </section>
   );
 }
@@ -416,16 +436,27 @@ export function ProductTour({
   const isOutro = stepIndex >= TOUR_STEPS.length;
 
   const introProgress = introProgressAt(progress, TOUR_STEPS.length);
-  // The CTA is worth a beat of its own, so it arrives over the first part of
-  // the closing unit rather than taking a full viewport of scroll to land.
-  const outroEnter = easeInOut(Math.min(1, outroProgressAt(progress, TOUR_STEPS.length) / 0.45));
-  // Rise-and-fade per block, the way the closing lines compose rather than
-  // arrive as one group. 18px is small on purpose: enough to read as movement,
-  // short enough that nothing appears to fly in.
-  const outroBlockStyle = (index: number): React.CSSProperties => {
-    const t = easeInOut(outroBlockProgress(index, OUTRO_BLOCK_COUNT, outroEnter));
-    return { opacity: t, transform: `translateY(${(1 - t) * OUTRO_BLOCK_RISE}px)` };
-  };
+  // The closing CTA plays on a clock rather than off the scroll position:
+  // scroll-linked, a fast scroll or "Skip tour" jumped straight to the end
+  // and the stagger never showed. Flipped a frame after the outro mounts so
+  // the transitions have a starting state to run from.
+  const [outroIn, setOutroIn] = useState(false);
+  useEffect(() => {
+    if (!isOutro) {
+      setOutroIn(false);
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => setOutroIn(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, [isOutro]);
+  // Rise-and-fade per block, so the closing lines compose one at a time
+  // rather than arriving as one group.
+  const outroBlockStyle = (index: number): React.CSSProperties => ({
+    opacity: outroIn ? 1 : 0,
+    transform: `translateY(${outroIn ? 0 : OUTRO_BLOCK_RISE}px)`,
+    transition: `opacity ${OUTRO_BLOCK_MS}ms ${motion.easing.out}, transform ${OUTRO_BLOCK_MS}ms ${motion.easing.out}`,
+    transitionDelay: `${OUTRO_WASH_MS * 0.6 + index * OUTRO_STAGGER_MS}ms`,
+  });
   const scale = scaleAt(introProgress, REST_SCALE);
   // The copy doesn't fade — it drifts up slower than the preview does, so the
   // preview overtakes it and it slides away *underneath* the mockup. Fading it
@@ -437,6 +468,9 @@ export function ProductTour({
   // layer for the hero every visitor sees first.
   const heroBlur = easeInOut(introProgress) * HERO_MAX_BLUR;
   const heroHidden = introProgress > 0.75;
+  const panelOpen = easeInOut(introProgress);
+  const panelInset = (1 - panelOpen) * (isCompact ? PANEL_INSET_COMPACT : PANEL_INSET);
+  const panelRadius = (1 - panelOpen) * PANEL_RADIUS;
 
   const step = isIntro || isOutro ? null : TOUR_STEPS[stepIndex]!;
 
@@ -503,6 +537,43 @@ export function ProductTour({
     const progress = scrollProgressForStep(index, TOUR_STEPS.length);
     window.scrollTo({ top: element.offsetTop + progress * scrollable, behavior: "smooth" });
   }, []);
+
+  // One wheel gesture = one step. Each step is a full viewport of free scroll,
+  // so a trackpad flick landed anywhere from one to three steps on, and a mouse
+  // needed several notches per step. While a step is showing, the wheel is
+  // taken over and each gesture scrolls to exactly the neighbouring step. A
+  // gesture ends once the wheel has gone quiet — trackpad momentum keeps
+  // firing events, so it keeps the lock held instead of starting a new step.
+  // Touch and keyboard still scroll natively; `useSteppedIndex` paces those.
+  const targetStepRef = useRef(targetStep);
+  targetStepRef.current = targetStep;
+  useEffect(() => {
+    if (!isPinned) return;
+    let lockedUntil = 0;
+    let lastWheel = 0;
+    const onWheel = (event: WheelEvent) => {
+      const now = performance.now();
+      // Tracked on every event, in or out of the tour, so momentum carrying
+      // over from the intro zoom into step 0 isn't mistaken for a new gesture.
+      const quiet = now - lastWheel > WHEEL_GESTURE_GAP_MS;
+      lastWheel = now;
+
+      const current = targetStepRef.current;
+      const direction = Math.sign(event.deltaY);
+      if (event.ctrlKey || direction === 0 || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+      // Scrolling up out of the first step or down out of the closing CTA
+      // leaves the tour, and that stays ordinary scrolling.
+      const inTour = current >= 0 && current < TOUR_STEPS.length;
+      if (!inTour || (current === 0 && direction < 0)) return;
+
+      event.preventDefault();
+      if (now < lockedUntil || !quiet) return;
+      lockedUntil = now + WHEEL_STEP_LOCK_MS;
+      scrollToStep(current + direction);
+    };
+    window.addEventListener("wheel", onWheel, { passive: false });
+    return () => window.removeEventListener("wheel", onWheel);
+  }, [isPinned, scrollToStep]);
 
   // The tour runs at every width. `CanvasPreview` is built from the app's real
   // components, so on a phone it lays itself out as the app does on a phone —
@@ -614,12 +685,20 @@ export function ProductTour({
       style={{ height: `${SCROLL_UNITS * 100}vh` }}
     >
       <div className="sticky top-0 h-screen overflow-hidden">
+        {/* The panel the hero sits in. Kept behind everything, and never
+            removed: once open it's hidden under the full-size canvas anyway. */}
+        <div
+          aria-hidden="true"
+          className="landing-hero-backdrop pointer-events-none absolute z-0"
+          style={{ inset: panelInset, borderRadius: panelRadius }}
+        />
+
         {/* Hero copy, on the layer *below* the preview so the rising mockup
             passes over it rather than showing through it. */}
         <div
           ref={heroRef}
           aria-hidden={heroHidden}
-          className="pointer-events-none absolute inset-x-0 top-0 z-0 flex flex-col items-center px-6 pt-16 text-center lg:pt-24"
+          className="pointer-events-none absolute inset-x-0 top-0 z-0 flex flex-col items-center px-6 pt-28 text-center lg:pt-36"
           style={{
             transform: `translateY(${heroShift}px)`,
             filter: heroBlur > 0 ? `blur(${heroBlur}px)` : undefined,
@@ -630,7 +709,16 @@ export function ProductTour({
 
         {/* The preview, pinned and clipped to the viewport. Scale and offset
             live on the same element so they compose into one transform. */}
-        <div ref={frameRef} className="absolute inset-0 z-10 overflow-hidden">
+        {/* Clipped to the panel with `clip-path` rather than by resizing the
+            frame: the tour measures anchors and tooltips against the frame's
+            box, and that box has to stay the whole viewport. */}
+        <div
+          ref={frameRef}
+          className="absolute inset-0 z-10 overflow-hidden"
+          style={{
+            clipPath: panelOpen < 1 ? `inset(${panelInset}px round ${panelRadius}px)` : undefined,
+          }}
+        >
           <div
             ref={previewRef}
             className="relative w-full"
@@ -664,7 +752,7 @@ export function ProductTour({
                 zoomed to full size it *is* the page, so the frame dissolves. */}
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 rounded-app-card border border-app-line shadow-app-soft"
+              className="pointer-events-none absolute inset-0 rounded-app-card border border-app-line shadow-app-soft ring-8 ring-app-surface/50"
               style={{ opacity: 1 - introProgress }}
             />
           </div>
@@ -807,22 +895,20 @@ export function ProductTour({
         {/* The main CTA, held back until the tour has actually explained itself.
             The wash fades in over the mockup and the words settle forward out of
             it, so the close reads as the tour resolving rather than a screen
-            being swapped in. Scroll-linked like everything else here, which also
-            means scrolling back up plays it in reverse. */}
+            being swapped in. Timed rather than scroll-linked, so it plays in
+            full however you arrive — a slow scroll, a flick or "Skip tour". */}
         {isOutro ? (
           <div
             className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-5 bg-app-surface/95 px-6 text-center backdrop-blur-sm"
             style={{
-              opacity: outroEnter,
+              opacity: outroIn ? 1 : 0,
+              transition: `opacity ${OUTRO_WASH_MS}ms ${motion.easing.out}`,
               // Nothing to click until it's actually readable.
-              pointerEvents: outroEnter > 0.6 ? "auto" : "none",
+              pointerEvents: outroIn ? "auto" : "none",
             }}
           >
-            {/* Each block arrives on its own, rather than the group scaling up
-                as one lump. Still scroll-linked — `outroBlock` slices the
-                outro's own progress into overlapping windows — so scrolling
-                back up plays the stagger in reverse, which a one-shot
-                entrance animation could not do. */}
+            {/* Each block arrives on its own, staggered, rather than the group
+                scaling up as one lump. */}
             <div className="flex flex-col items-center gap-5">
               <h2
                 className="font-serif-heading max-w-[760px] text-[40px] font-black leading-[1.05]"

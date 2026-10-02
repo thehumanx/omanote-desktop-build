@@ -23,6 +23,11 @@ import { getNavRouteIndex, getWrappedNavRoutePath } from "./navRoutes";
 import { useGlobalCaptureShortcut } from "./useGlobalCaptureShortcut";
 import { useGlobalNavShortcuts } from "./useGlobalNavShortcuts";
 import { ProfileMenuButton } from "./ProfileMenuButton";
+import { SceneBackdrop } from "../scene/SceneBackdrop";
+import { useWindowScrollEdgeFade } from "../../hooks/useWindowScrollEdgeFade";
+import { liteEffectsOn } from "../../lib/lite-effects";
+import { useSceneAttributes } from "../scene/useSceneAttributes";
+import { useSceneSettings } from "../scene/useSceneSettings";
 import { useContentZoom } from "../../app/useContentZoom";
 import { ZoomIndicator } from "../ZoomIndicator";
 import { useUserSettings } from "../../contexts/UserSettingsContext";
@@ -52,6 +57,10 @@ export function AppShell() {
     },
   } = useApp();
   const { settings, loading, updateSettings } = useUserSettings();
+  const sceneSettings = useSceneSettings();
+  const chromeless = isChromelessRoute(location.pathname);
+  const activeScene = sceneSettings.scene !== "none" ? sceneSettings.scene : null;
+  useSceneAttributes(activeScene, sceneSettings.drift, sceneSettings.grain);
   const isCanvasRoute = location.pathname === "/canvas";
   const isWorkspaceRoute =
     location.pathname.startsWith("/notes") ||
@@ -194,9 +203,20 @@ export function AppShell() {
   //
   // `/p/:pageId` is a single canvas, which is meant to read like a document
   // rather than a panel inside the app.
-  if (isChromelessRoute(location.pathname)) {
+  // Pages that scroll the window (Canvas, a page) get the same soft edges the
+  // panel-scrolling pages get from their own scrollers.
+  useWindowScrollEdgeFade(mainRef, {
+    // Not in lite-effects mode (Linux desktop): repositioning a mask on every
+    // scroll event is exactly the software-composited work it avoids.
+    enabled: !chromeless && !usesViewportShell && !liteEffectsOn(),
+    bottomSize: "calc(var(--omanote-bottom-nav-height, 64px) + 3.5rem)",
+  });
+
+  if (chromeless) {
     return (
       <Suspense fallback={null}>
+        {/* A full page keeps the scene too; PageScreen's sheet floats over it. */}
+        {activeScene ? <SceneBackdrop scene={activeScene} /> : null}
         <ErrorBoundary>
           <Outlet context={outletContext} />
         </ErrorBoundary>
@@ -207,18 +227,21 @@ export function AppShell() {
   const pageTitleLabel = getPageTitleLabel(location.pathname);
 
   return (
-    <div className={["flex min-h-screen flex-col bg-app-canvas text-app-ink", isCanvasRoute && settings.canvasDotGrid ? "omanote-canvas-grid" : ""].join(" ")}>
+    <div className="flex min-h-screen flex-col bg-app-backdrop text-app-ink">
+      {/* The chosen background scene, fixed behind everything — painted here
+          on the root, never inside <main>, whose width cap and transform
+          would clip it to the content column. */}
+      {activeScene ? <SceneBackdrop scene={activeScene} /> : null}
       <SeoHead title={pageTitleLabel ? `${pageTitleLabel} | omanote` : undefined} noIndex />
       <div>
         {/* The one header bar for every route — fixed, always visible (no
             more scroll-driven hide/show), with each page injecting its own
-            left content via useTopChrome and the profile menu always on
-            the right. Width matches whatever <main> uses for that route so
+            actions via useTopChrome (the profile menu lives in BottomNav). Width matches whatever <main> uses for that route so
             nothing here floats wider than the page content below it. */}
         <div
           ref={setTopChromeEl}
           data-tauri-drag-region
-          className="fixed inset-x-0 z-40 border-b border-app-line bg-app-surface"
+          className="app-frost fixed inset-x-0 z-40 border-b border-app-line bg-app-surface"
         >
           {desktopShellPlatform === "windows" ? (
             <div className="absolute right-0 top-0 z-10">
@@ -236,7 +259,6 @@ export function AppShell() {
               </div>
             ) : null}
             <div className="min-w-0 flex-1">{topChromeContent}</div>
-            <ProfileMenuButton onOpenAbout={openFounderNote} />
           </div>
         </div>
         <ReminderMonitor />
@@ -257,19 +279,25 @@ export function AppShell() {
             mobileKeyboard.isMobileViewport && mobileKeyboard.keyboardOpen
               ? "transition-none"
               : "transition-opacity duration-[180ms] ease-out",
-            usesViewportShell ? "overflow-hidden pb-0" : "overflow-x-hidden pb-28",
+            usesViewportShell ? "overflow-hidden pb-0" : "overflow-x-clip pb-28",
           ].join(" ")}
-          style={
-            isWorkspaceRoute
+          // will-change: opacity makes <main> its own backdrop root, so the
+          // blur band below samples only page content — never the scene,
+          // which is painted behind <main> on the shell root.
+          style={{
+            willChange: "opacity",
+            ...(isWorkspaceRoute
               ? {
                   height: workspaceHeight,
                   paddingTop: "0px",
                 }
               : isEventRoute
                 ? {
+                    // Full height: each Events view scrolls under the nav and
+                    // pads its own last row clear of it.
                     height: "100dvh",
                     paddingTop: "calc(var(--omanote-top-chrome-height, 0px) + 1rem)",
-                    paddingBottom: "calc(var(--omanote-bottom-nav-height, 64px) + 1rem)",
+                    paddingBottom: "0px",
                   }
               : isHistoryRoute
                 ? {
@@ -295,8 +323,8 @@ export function AppShell() {
                   }
               : {
                   paddingTop: "calc(var(--omanote-top-chrome-height, 0px) + 1.5rem)",
-                }
-          }>
+                }),
+          }}>
           <Suspense fallback={<div className="min-h-0 flex h-full flex-1 flex-col" aria-hidden="true" />}>
             <ErrorBoundary key={location.pathname}>
               <div
@@ -311,11 +339,27 @@ export function AppShell() {
               </div>
             </ErrorBoundary>
           </Suspense>
+          {/* Content passing under the bottom nav goes soft instead of
+              reading through the frosted pill. Viewport-shell routes end at
+              the viewport, so the band pins to <main>'s bottom; scrolling
+              routes keep it stuck to the viewport bottom (see .app-bottom-blur). */}
+          <div
+            aria-hidden="true"
+            data-testid="bottom-nav-blur"
+            className={[
+              "app-bottom-blur pointer-events-none z-app-top-bar",
+              usesViewportShell ? "absolute inset-x-0 bottom-0" : "app-bottom-blur-scrolling sticky bottom-0 h-0 shrink-0",
+            ].join(" ")}
+          />
         </main>
         <ToastHost />
         <RecurringDeleteModal />
       </div>
-      <BottomNav hidden={hideBottomNavForKeyboard || notesDrawerOpen} forceHidden={hideBottomNavForKeyboard} />
+      <BottomNav
+        hidden={hideBottomNavForKeyboard || notesDrawerOpen}
+        forceHidden={hideBottomNavForKeyboard}
+        trailing={<ProfileMenuButton onOpenAbout={openFounderNote} placement="above" />}
+      />
       <FounderNoteModal open={founderNoteOpen} onClose={closeFounderNote} />
       <ComposerSheet />
       <CookieNotice />

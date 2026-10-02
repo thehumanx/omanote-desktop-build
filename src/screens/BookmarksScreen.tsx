@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useEdgeSwipeBack } from "../lib/useEdgeSwipeBack";
 import { useHistoryBackClose } from "../lib/useHistoryBackClose";
-import { ArrowDown, ArrowUp, ArrowUpDown, LayoutGrid, LayoutList, Plus } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, ArrowUpDown, LayoutGrid, LayoutList, Plus } from "lucide-react";
 import type { BookmarkCategory, BookmarkItem } from "@omanote/shared";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
@@ -9,8 +9,15 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useApp } from "../app/AppProvider";
 import { EmptyState } from "../components/EmptyState";
-import { CategoryActionMenu, CategoryCard, CategoryGroups, CategoryRow } from "../components/BookmarkCategoryNav";
+import { CategoryActionMenu, CategoryGroups, CategoryRow } from "../components/BookmarkCategoryNav";
 import { groupByPinned } from "../lib/pinned-folders";
+import { makeBookmarkFolderKey } from "../lib/folder-keys";
+import { FolderGallery } from "../components/folder-gallery/FolderGallery";
+import { FolderGalleryCard } from "../components/folder-gallery/FolderGalleryCard";
+import { FolderSheet } from "../components/folder-gallery/FolderSheet";
+import { BookmarkFolderPreview } from "../components/folder-gallery/BookmarkFolderPreview";
+import { useGalleryFolderParam } from "../hooks/useGalleryFolderParam";
+import { bookmarkUpdatedAt, buildFolderStats, folderLastUpdated } from "../lib/folder-stats";
 import { BookmarkCategoryIconPicker } from "../components/BookmarkCategoryIconPicker";
 import { CategoryIconView } from "../lib/bookmark-category-icon";
 import { BookmarkCard } from "../components/cards";
@@ -93,7 +100,7 @@ function bookmarkCategoryName(bookmark: BookmarkItem, categoryNameById: Map<stri
 }
 
 export function BookmarksScreen() {
-  const { state, dispatch, googleImportedTodoIds } = useApp();
+  const { state, dispatch, googleImportedTodoIds, isCanvasContentLoading } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const [creating, setCreating] = useState(false);
@@ -135,8 +142,6 @@ export function BookmarksScreen() {
     DEFAULT_BOOKMARK_SORT_DIRECTION,
   );
   const [categoryViewMode, setCategoryViewMode] = usePersistedFolderViewMode(BOOKMARKS_CATEGORY_VIEW_MODE_KEY, DEFAULT_CATEGORY_VIEW_MODE);
-  const effectiveCategoryViewMode: CategoryViewMode =
-    typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches ? "list" : categoryViewMode;
   const newCategoryInputRef = useRef<HTMLInputElement | null>(null);
   const pendingCategorySelectRef = useRef<string | null>(null);
   const pendingCategoryRenameIdRef = useRef<string | null>(null);
@@ -347,6 +352,21 @@ export function BookmarksScreen() {
   const [bookmarkSearch, setBookmarkSearch] = useState("");
   const bookmarkSearchQuery = useMemo(() => normalizeSearchQuery(bookmarkSearch), [bookmarkSearch]);
 
+  const bookmarkFolderKeyOf = useMemo(
+    () =>
+      makeBookmarkFolderKey({
+        savedIds: savedCategoryIdSet,
+        gcalIds: gcalCategoryIdSet,
+        canonicalSavedId: canonicalSavedCategoryId,
+        canonicalGcalId: canonicalGcalCategoryId,
+      }),
+    [savedCategoryIdSet, gcalCategoryIdSet, canonicalSavedCategoryId, canonicalGcalCategoryId],
+  );
+  const bookmarkFolderStats = useMemo(
+    () => buildFolderStats(sourceBookmarks, bookmarkFolderKeyOf, bookmarkUpdatedAt),
+    [sourceBookmarks, bookmarkFolderKeyOf],
+  );
+
   const categoryRows = useMemo(() => {
     const rows = new Map<string, { id: string; name: string; icon?: string; color?: string; pinned?: boolean; count: number; matchCount: number; lastUpdated: number; hasMatch: boolean }>();
 
@@ -377,35 +397,36 @@ export function BookmarksScreen() {
       });
     }
 
-    for (const bookmark of sourceBookmarks) {
-      const rowId = savedCategoryIdSet.has(bookmark.categoryId)
-        ? canonicalSavedCategoryId
-        : gcalCategoryIdSet.has(bookmark.categoryId)
-          ? canonicalGcalCategoryId
-          : bookmark.categoryId;
-      const virtualName = virtualRowName(rowId);
-      const matches = bookmarkSearchQuery
-        ? matchesQuery(bookmarkSearchQuery, bookmark.title, bookmark.url, bookmark.siteName, bookmark.description)
-        : false;
+    // Counts and "last updated" come from the shared folder stats so the
+    // list, the gallery and the sort agree; this loop only adds rows for
+    // bookmarks whose category row doesn't exist and tallies search matches.
+    for (const [rowId, stat] of bookmarkFolderStats) {
       const existing = rows.get(rowId);
       if (existing) {
-        existing.count += 1;
-        existing.lastUpdated = Math.max(existing.lastUpdated, bookmark.createdAt);
-        if (matches) {
-          existing.hasMatch = true;
-          existing.matchCount += 1;
-        }
+        existing.count = stat.count;
+        existing.lastUpdated = folderLastUpdated(stat, existing.lastUpdated);
       } else {
         rows.set(rowId, {
           id: rowId,
-          name: virtualName ?? "Uncategorized",
+          name: virtualRowName(rowId) ?? "Uncategorized",
           icon: undefined,
           color: undefined,
-          count: 1,
-          matchCount: matches ? 1 : 0,
-          lastUpdated: bookmark.createdAt,
-          hasMatch: matches,
+          count: stat.count,
+          matchCount: 0,
+          lastUpdated: stat.lastUpdated,
+          hasMatch: false,
         });
+      }
+    }
+
+    if (bookmarkSearchQuery) {
+      for (const bookmark of sourceBookmarks) {
+        if (bookmark.deletedAt) continue;
+        if (!matchesQuery(bookmarkSearchQuery, bookmark.title, bookmark.url, bookmark.siteName, bookmark.description)) continue;
+        const row = rows.get(bookmarkFolderKeyOf(bookmark));
+        if (!row) continue;
+        row.hasMatch = true;
+        row.matchCount += 1;
       }
     }
 
@@ -435,6 +456,8 @@ export function BookmarksScreen() {
     sourceBookmarks,
     state.bookmarkCategories,
     bookmarkSearchQuery,
+    bookmarkFolderKeyOf,
+    bookmarkFolderStats,
   ]);
 
   const visibleCategoryRows = bookmarkSearchQuery ? categoryRows.filter((row) => row.hasMatch) : categoryRows;
@@ -442,6 +465,41 @@ export function BookmarksScreen() {
   // Grouped at render rather than folded into the comparator, so the chosen
   // sort still orders several pinned categories among themselves.
   const categoryGroups = useMemo(() => groupByPinned(visibleCategoryRows, (row) => !!row.pinned), [visibleCategoryRows]);
+
+  // Gallery mode: with no category open the screen is a full-width card
+  // grid. On desktop an open category lives in `?folder=` (row ids are
+  // already opaque, including the virtual "Saved"/GCal ones); mobile keeps
+  // its drawer.
+  const galleryMode = categoryViewMode === "gallery";
+  const galleryValidKeys = useMemo(() => new Set(categoryRows.map((row) => row.id)), [categoryRows]);
+  const galleryFolderParam = useGalleryFolderParam({
+    enabled: galleryMode && isDesktop,
+    validKeys: galleryValidKeys,
+    ready: !isCanvasContentLoading,
+  });
+  const galleryOpenCategoryId = galleryFolderParam.openFolderKey;
+  // In gallery mode the gallery is always the page; an open category is a
+  // sheet over it — a 640px side peek on desktop (URL-driven), the existing
+  // full-screen drawer on phones (local state).
+  const showGalleryOverview = galleryMode;
+  const showDesktopOverview = galleryMode && isDesktop;
+  const desktopFolderSheet = galleryMode && isDesktop;
+  const folderSheetOpen = desktopFolderSheet ? Boolean(galleryOpenCategoryId) : mobileBookmarksOpen;
+  const closeFolderSheet = desktopFolderSheet ? galleryFolderParam.closeFolder : () => setMobileBookmarksOpen(false);
+
+  useEffect(() => {
+    if (!galleryOpenCategoryId || galleryOpenCategoryId === selectedCategoryId) return;
+    setSelectedCategoryId(galleryOpenCategoryId);
+  }, [galleryOpenCategoryId, selectedCategoryId]);
+
+  const openGalleryCategory = useCallback(
+    (categoryId: string) => {
+      setSelectedCategoryId(categoryId);
+      if (isDesktop) galleryFolderParam.openFolder(categoryId);
+      else setMobileBookmarksOpen(true);
+    },
+    [galleryFolderParam, isDesktop],
+  );
 
   const selectedCategory = selectedCategoryId ? visibleCategoryRows.find((category) => category.id === selectedCategoryId) ?? null : null;
 
@@ -549,6 +607,17 @@ export function BookmarksScreen() {
     }
   };
 
+  // A rename starts from the folder's current look, from any entry point
+  // (card tab, list row, sheet header): the commit writes icon *and* colour,
+  // so leaving editingColor unset would clear the folder's colour.
+  const renamingFolderRecord = renamingCategoryId ? state.bookmarkCategories.find((folder) => folder.id === renamingCategoryId) : undefined;
+  useEffect(() => {
+    if (!renamingFolderRecord) return;
+    setEditingColor(renamingFolderRecord.color);
+    // Only on entering rename, not on every folder update mid-edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [renamingFolderRecord?.id]);
+
   const commitCategory = () => {
     const name = newCategoryName.trim();
     if (!name) {
@@ -557,6 +626,7 @@ export function BookmarksScreen() {
       setNewCategoryName("");
       setNewCategoryError(null);
       setEditingIcon(undefined);
+      setEditingColor(undefined);
       setIconPickerOpen(false);
       return;
     }
@@ -577,6 +647,7 @@ export function BookmarksScreen() {
     setNewCategoryName("");
     setNewCategoryError(null);
     setEditingIcon(undefined);
+      setEditingColor(undefined);
     setIconPickerOpen(false);
     setDrawerRenaming(false);
   };
@@ -587,6 +658,7 @@ export function BookmarksScreen() {
     setNewCategoryName("");
     setNewCategoryError(null);
     setEditingIcon(undefined);
+      setEditingColor(undefined);
     setIconPickerOpen(false);
     setDrawerRenaming(false);
   };
@@ -605,17 +677,17 @@ export function BookmarksScreen() {
     setCategorySortMenuOpen(false);
   };
 
-  useTopChrome(<ExpandableSearch value={bookmarkSearch} onChange={setBookmarkSearch} placeholder="Search in Bookmarks" />);
 
   const renderBookmarksPanel = (isMobileDrawer = false) => (
     <div className="relative flex h-full min-h-0 flex-col">
-      <div className="flex flex-col pt-[env(safe-area-inset-top)] lg:hidden">
+      <div className={cn("flex flex-col pt-[env(safe-area-inset-top)]", isMobileDrawer ? undefined : "lg:hidden")}>
         {/* Slim invisible hotzone: swiping right from here (not the whole
             panel) dismisses it, so the rest of the panel keeps native
             vertical scrolling. */}
-        <div aria-hidden="true" className="absolute inset-y-0 left-0 z-10 w-6" {...edgeSwipeProps} />
+        {desktopFolderSheet ? null : <div aria-hidden="true" data-edge-swipe-zone className="absolute inset-y-0 left-0 z-10 w-6" {...edgeSwipeProps} />}
         <FolderDrawerHeader
-          onBack={() => setMobileBookmarksOpen(false)}
+          onBack={closeFolderSheet}
+          backStyle={desktopFolderSheet ? "close" : "back"}
           rename={
             isMobileDrawer && drawerRenaming
               ? {
@@ -655,6 +727,11 @@ export function BookmarksScreen() {
             isMobileDrawer && selectedCategory && managedCategoryIds.has(selectedCategory.id)
               ? {
                   noun: "category",
+                  pinned: Boolean(selectedCategory.pinned),
+                  onTogglePin: () => {
+                    dispatch({ type: "folder/set-pinned", scope: "bookmark", folderId: selectedCategory.id, pinned: !selectedCategory.pinned });
+                    setDrawerCategoryMenuOpen(false);
+                  },
                   onShare: () =>
                     setShareFolderModal({
                       categoryId: selectedCategory.id,
@@ -681,7 +758,7 @@ export function BookmarksScreen() {
           }
         />
       </div>
-      <div className={cn("mb-3 flex items-center gap-3 lg:px-0", isMobileDrawer ? "justify-end px-4" : "justify-between")}>
+      <div className={cn("mb-3 flex items-center gap-3", isMobileDrawer ? "justify-end px-4" : "justify-between lg:px-0")}>
         {!isMobileDrawer ? (
           <button
             type="button"
@@ -713,7 +790,7 @@ export function BookmarksScreen() {
           minColumnWidth={240}
           gap={16}
           estimateSize={220}
-          className={cn("scrollbar-hide min-h-0 flex-1 pb-24 lg:px-0", isMobileDrawer && "px-4")}
+          className={cn("scrollbar-hide min-h-0 flex-1 pb-24", isMobileDrawer ? "px-4" : "lg:px-0")}
           renderItem={(bookmark) => {
             const isLinkedArtifactBookmark = isLinkedArtifactBookmarkId(bookmark.id);
             return (
@@ -770,18 +847,8 @@ export function BookmarksScreen() {
     </div>
   );
 
-  return (
-    <div
-      className="fixed left-0 right-0 z-0 flex min-h-0 flex-1 flex-col overflow-hidden"
-      style={{
-        top: "var(--omanote-top-chrome-height, 0px)",
-        bottom: "0px",
-      }}
-    >
-      <div className="relative grid h-full min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[227px_minmax(0,1fr)]">
-        <aside className="h-full min-h-0 overflow-hidden pt-4">
-          <div className="flex h-full min-h-0 flex-col">
-            <div className="mb-3 flex items-center justify-between gap-3">
+  const folderToolbar = (
+    <div className="flex shrink-0 items-center gap-2">
               <button
                 type="button"
                 aria-label="Add category"
@@ -795,7 +862,7 @@ export function BookmarksScreen() {
                 <Plus className="h-4 w-4" />
               </button>
               <div className="flex items-center gap-2">
-                <div className="flex items-center rounded-md border border-app-line bg-app-surface lg:hidden">
+                <div className="flex items-center rounded-md border border-app-line bg-app-surface">
                   <button
                     type="button"
                     aria-label="List view"
@@ -835,7 +902,7 @@ export function BookmarksScreen() {
                     {categorySort.direction === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
                   </button>
                   {categorySortMenuOpen ? (
-                    <div className="absolute right-0 top-full z-20 mt-2 w-48 rounded-xl border border-app-line bg-app-surface p-1 shadow-soft">
+                    <div className="app-overlay absolute right-0 top-full z-20 mt-2 w-48 rounded-xl border border-app-line bg-app-surface p-1 shadow-soft">
                       {(["alphabetical", "lastUpdated", "totalBookmarks"] as CategorySortKey[]).map((option) => (
                         <button
                           key={option}
@@ -857,135 +924,134 @@ export function BookmarksScreen() {
                   ) : null}
                 </div>
               </div>
-            </div>
+    </div>
+  );
+  // Search on the left, the page's actions on the right — in the top bar,
+  // so switching list/gallery never moves them.
+  useTopChrome(
+    <div className="flex min-w-0 items-center justify-between gap-2">
+      <ExpandableSearch value={bookmarkSearch} onChange={setBookmarkSearch} placeholder="Search in Bookmarks" />
+      {folderToolbar}
+    </div>,
+  );
 
-            <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto pb-16">
-              {effectiveCategoryViewMode === "gallery" ? (
-                <>
-                  {creatingCategory ? (
-                    <div className="pb-2">
-                      <CategoryRow
-                        categoryName=""
-                        icon={editingIcon}
-                        count={0}
-                        selected={false}
-                        onClick={() => undefined}
-                        isEditing
-                        inputValue={newCategoryName}
-                        onInputChange={(value) => {
+  return (
+    <div
+      className="fixed left-0 right-0 z-0 flex min-h-0 flex-1 flex-col overflow-hidden"
+      style={{
+        top: "var(--omanote-top-chrome-height, 0px)",
+        bottom: "0px",
+      }}
+    >
+      <div
+        className={cn(
+          "relative grid h-full min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden",
+          showDesktopOverview ? "lg:grid-cols-1" : "lg:grid-cols-[227px_minmax(0,1fr)]",
+        )}
+      >
+        <aside className={cn("h-full min-h-0 overflow-hidden", !showGalleryOverview && "pt-4", showDesktopOverview && "lg:mx-auto lg:w-full lg:max-w-[1024px]")}>
+          <div className="flex h-full min-h-0 flex-col">
+            {showGalleryOverview ? (
+              <FolderGallery
+                storageKey="bookmarks"
+                orderKey={`${categorySort.key}:${categorySort.direction}:${bookmarkSearchQuery}`}
+                loading={isCanvasContentLoading ?? false}
+                groups={categoryGroups}
+                getKey={(row) => row.id}
+                newFolderTile={
+                  creatingCategory ? (
+                    <FolderGalleryCard
+                      name=""
+                      icon={editingIcon}
+                      onOpen={() => undefined}
+                      onIconClick={(anchor) => {
+                        iconPickerAnchorRef.current = anchor;
+                        setIconPickerOpen(true);
+                      }}
+                      editing={{
+                        value: newCategoryName,
+                        placeholder: "New folder",
+                        error: newCategoryError,
+                        inputRef: newCategoryInputRef,
+                        onChange: (value) => {
                           setNewCategoryName(value);
                           setNewCategoryError(null);
-                        }}
-                        onInputKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                            commitCategory();
-                          } else if (event.key === "Escape") {
-                            event.preventDefault();
-                            cancelCategory();
+                        },
+                        onCommit: commitCategory,
+                        onCancel: cancelCategory,
+                        onBlur: iconPickerOpen ? undefined : commitCategoryOnBlur,
+                      }}
+                      rows={[]}
+                      totalCount={0}
+                      emptyLabel="No bookmarks yet"
+                      meta={[]}
+                    />
+                  ) : null
+                }
+                renderCard={(row) => (
+                  <BookmarkFolderPreview
+                    folder={{
+                      key: row.id,
+                      name: row.name,
+                      icon: row.icon,
+                      color: row.color,
+                      pinned: row.pinned,
+                      shared: sharedCategoryIdSet.has(row.id),
+                      lastUpdated: row.lastUpdated,
+                      ...(managedCategoryIds.has(row.id) && !virtualRowName(row.id)
+                        ? {
+                            onIconClick: (anchor: HTMLButtonElement) => {
+                              setDirectIconCategoryId(row.id);
+                              setEditingIcon(row.icon);
+                              iconPickerAnchorRef.current = anchor;
+                              setIconPickerOpen(true);
+                            },
+                            editing:
+                              renamingCategoryId === row.id && !drawerRenaming
+                                ? {
+                                    value: newCategoryName,
+                                    placeholder: row.name,
+                                    error: newCategoryError,
+                                    inputRef: newCategoryInputRef,
+                                    onChange: (value: string) => {
+                                      setNewCategoryName(value);
+                                      setNewCategoryError(null);
+                                    },
+                                    onCommit: commitCategory,
+                                    onCancel: cancelCategory,
+                                    onBlur: iconPickerOpen ? undefined : commitCategoryOnBlur,
+                                  }
+                                : undefined,
+                            actions: {
+                              pinned: Boolean(row.pinned),
+                              onEdit: () => {
+                                setRenamingCategoryId(row.id);
+                                setNewCategoryName(row.name);
+                                setEditingIcon(row.icon);
+                                setNewCategoryError(null);
+                              },
+                              onShare: () =>
+                                setShareFolderModal({ categoryId: row.id, categoryName: row.name, categoryIcon: row.icon }),
+                              onDelete: () => setDeleteTarget({ id: row.id, name: row.name, count: row.count }),
+                              onTogglePin: () =>
+                                dispatch({ type: "folder/set-pinned", scope: "bookmark", folderId: row.id, pinned: !row.pinned }),
+                            },
                           }
-                        }}
-                        inputRef={newCategoryInputRef}
-                        duplicateError={newCategoryError}
-                        onCancel={iconPickerOpen ? undefined : commitCategoryOnBlur}
-                        onIconClick={(ref) => { iconPickerAnchorRef.current = ref.current; setIconPickerOpen(true); }}
-                      />
-                    </div>
-                  ) : null}
-
-                  <CategoryGroups
-                    groups={categoryGroups}
-                    wrap={(children) => <div className="grid grid-cols-3 gap-2">{children}</div>}
-                    renderItem={(category) =>
-                    renamingCategoryId === category.id && !drawerRenaming ? (
-                      <div key={category.id} className="col-span-3">
-                        <CategoryRow
-                          categoryName={category.name}
-                          icon={editingIcon}
-                          count={category.count}
-                          selected={false}
-                          onClick={() => undefined}
-                          isEditing
-                          inputValue={newCategoryName}
-                          onInputChange={(value) => {
-                            setNewCategoryName(value);
-                            setNewCategoryError(null);
-                          }}
-                          onInputKeyDown={(event) => {
-                            if (event.key === "Enter") {
-                              event.preventDefault();
-                              commitCategory();
-                            } else if (event.key === "Escape") {
-                              event.preventDefault();
-                              cancelCategory();
-                            }
-                          }}
-                          inputRef={newCategoryInputRef}
-                          duplicateError={newCategoryError}
-                          onCancel={iconPickerOpen ? undefined : commitCategoryOnBlur}
-                          placeholder={category.name}
-                          onIconClick={(ref) => { iconPickerAnchorRef.current = ref.current; setIconPickerOpen(true); }}
-                        />
-                      </div>
-                    ) : (
-                      <CategoryCard
-                        key={category.id}
-                        categoryName={category.name}
-                        icon={category.icon}
-                        color={category.color}
-                        count={bookmarkSearchQuery ? category.matchCount : category.count}
-                        selected={selectedCategoryId === category.id}
-                        onClick={() => openCategoryBookmarks(category.id)}
-                        isShared={sharedCategoryIdSet.has(category.id)}
-                        onIconClick={managedCategoryIds.has(category.id) && isDesktop ? (ref) => {
-                          setDirectIconCategoryId(category.id);
-                          setEditingIcon(category.icon);
-                          iconPickerAnchorRef.current = ref.current;
-                          setIconPickerOpen(true);
-                        } : () => openCategoryBookmarks(category.id)}
-                        iconPickerActive={directIconCategoryId === category.id}
-                        actions={
-                          isDesktop && managedCategoryIds.has(category.id) ? (
-                            <div className="hidden lg:flex">
-                              <CategoryActionMenu
-                                categoryId={category.id}
-                                categoryName={category.name}
-                                isOpen={categoryMenuOpenId === category.id}
-                                menuRef={categoryMenuOpenId === category.id ? categoryMenuRef : undefined}
-                                size="sm"
-                                isShared={sharedCategoryIdSet.has(category.id)}
-                                isPinned={category.pinned}
-                                onToggle={() => setCategoryMenuOpenId((c) => (c === category.id ? null : category.id))}
-                                onTogglePin={() => {
-                                  dispatch({ type: "folder/set-pinned", scope: "bookmark", folderId: category.id, pinned: !category.pinned });
-                                  setCategoryMenuOpenId(null);
-                                }}
-                                onRename={() => {
-                                  setRenamingCategoryId(category.id);
-                                  setNewCategoryName(category.name);
-                                  setEditingIcon(category.icon);
-                                  setNewCategoryError(null);
-                                  setCategoryMenuOpenId(null);
-                                }}
-                                onShare={() => {
-                                  setShareFolderModal({ categoryId: category.id, categoryName: category.name, categoryIcon: category.icon });
-                                  setCategoryMenuOpenId(null);
-                                }}
-                                onDelete={() => {
-                                  setDeleteTarget({ id: category.id, name: category.name, count: category.count });
-                                  setCategoryMenuOpenId(null);
-                                }}
-                              />
-                            </div>
-                          ) : null
-                        }
-                      />
-                    )
-                  }
+                        : {}),
+                    }}
+                    items={bookmarkFolderStats.get(row.id)?.items ?? []}
+                    matches={
+                      bookmarkSearchQuery
+                        ? (bookmark) => matchesQuery(bookmarkSearchQuery, bookmark.title, bookmark.url, bookmark.siteName, bookmark.description)
+                        : undefined
+                    }
+                    onOpen={() => openGalleryCategory(row.id)}
                   />
-                </>
-              ) : (
-                <>
+                )}
+              />
+            ) : (
+            <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto pb-16">
+              {(                <>
                   {creatingCategory ? (
                     <CategoryRow
                       categoryName=""
@@ -1107,33 +1173,27 @@ export function BookmarksScreen() {
                 </>
               )}
             </div>
+            )}
           </div>
         </aside>
 
-        <section className="hidden min-h-0 flex-1 flex-col lg:flex lg:border-l lg:border-app-line lg:pl-4 lg:pt-4">
-          {renderBookmarksPanel(false)}
+        <section className={cn("hidden min-h-0 flex-1 flex-col lg:border-l lg:border-app-line lg:pl-4 lg:pt-4", showDesktopOverview ? "lg:hidden" : "lg:flex")}>
+          {/* Not rendered behind the gallery: the sheet holds the one live copy. */}
+          {showDesktopOverview ? null : renderBookmarksPanel(false)}
         </section>
       </div>
 
       <ModalPortal>
-        <div
-          aria-hidden="true"
-          className={cn(
-            "fixed inset-0 z-app-overlay bg-app-canvas/55 transform-gpu transition-opacity duration-app-drawer ease-app-drawer lg:hidden",
-            mobileBookmarksOpen ? "opacity-100" : "pointer-events-none opacity-0",
-          )}
-          onClick={() => setMobileBookmarksOpen(false)}
-        />
-        <section
-          className={cn(
-            "fixed inset-0 z-app-drawer flex min-h-0 flex-col bg-app-surface shadow-app-drawer transform-gpu lg:hidden",
-            isDragging ? "" : "transition-transform duration-app-drawer ease-app-drawer",
-            mobileBookmarksOpen ? "translate-x-0" : "pointer-events-none translate-x-full",
-          )}
-          style={isDragging || dragOffset > 0 ? { transform: `translateX(${dragOffset}px)` } : undefined}
+        <FolderSheet
+          open={folderSheetOpen}
+          onClose={closeFolderSheet}
+          desktop={desktopFolderSheet}
+          label={selectedCategoryLabel}
+          dragOffset={dragOffset}
+          isDragging={isDragging}
         >
           {renderBookmarksPanel(true)}
-        </section>
+        </FolderSheet>
       </ModalPortal>
 
       {creating ? (
@@ -1239,6 +1299,7 @@ export function BookmarksScreen() {
             if (directIconCategoryId) {
               const category = state.bookmarkCategories.find((c) => c.id === directIconCategoryId);
               if (category) dispatch({ type: "bookmark-category/update", categoryId: directIconCategoryId, name: category.name, icon: category.icon, color });
+              if (directIconCategoryId === renamingCategoryId) setEditingColor(color);
             } else {
               setEditingColor(color);
             }
@@ -1248,7 +1309,8 @@ export function BookmarksScreen() {
               const category = state.bookmarkCategories.find((c) => c.id === directIconCategoryId);
               if (category) dispatch({ type: "bookmark-category/update", categoryId: directIconCategoryId, name: category.name, icon, color: category.color });
               setDirectIconCategoryId(null);
-              setEditingIcon(undefined);
+              // Mid-rename, the pending commit writes editingIcon — keep the new one.
+              setEditingIcon(directIconCategoryId === renamingCategoryId ? icon : undefined);
             } else {
               setEditingIcon(icon);
             }
@@ -1258,7 +1320,7 @@ export function BookmarksScreen() {
             setIconPickerOpen(false);
             if (directIconCategoryId) {
               setDirectIconCategoryId(null);
-              setEditingIcon(undefined);
+              if (directIconCategoryId !== renamingCategoryId) setEditingIcon(undefined);
             }
           }}
         />

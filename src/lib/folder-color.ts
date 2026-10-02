@@ -49,7 +49,9 @@ type FolderColorStyle = {
 export function folderColorStyle(value: string | undefined | null): FolderColorStyle | null {
   if (!isFolderColor(value)) return null;
   return {
-    surface: `var(--folder-${value}-surface)`,
+    // Under a background scene --app-folder-opacity drops below 1, so the
+    // tint lets the scene through like every other fill.
+    surface: `color-mix(in srgb, var(--folder-${value}-surface) calc(var(--app-folder-opacity, 1) * 100%), transparent)`,
     ink: `var(--folder-${value}-ink)`,
   };
 }

@@ -94,50 +94,11 @@ export function introProgressAt(progress: number, stepCount: number): number {
 }
 
 /**
- * 0 → 1 across the closing scroll unit, before that pinned at 0.
- *
- * The mirror of `introProgressAt`: it turns the last viewport-height of the
- * pinned section into something the CTA can animate against, instead of the
- * CTA simply existing the moment the last step ends.
- */
-export function outroProgressAt(progress: number, stepCount: number): number {
-  const unit = 1 / scrollUnits(stepCount);
-  return Math.min(1, Math.max(0, (progress - (1 - unit)) / unit));
-}
-
-/**
  * Eased 0 → 1: gentle off the mark and gentle into the finish (smoothstep).
  * Both ends matter — a hard finish reads as the mockup snapping to full size.
  */
 export function easeInOut(t: number): number {
   return t * t * (3 - 2 * t);
-}
-
-/**
- * How much of the outro's progress each block gets. Wide enough that the
- * windows overlap heavily — with a gap between them the group stutters, and
- * the last block wouldn't land until the very end of the scroll.
- */
-const BLOCK_SPAN = 0.62;
-
-/**
- * One block's share of the outro's progress.
- *
- * The closing CTA used to scale up as a single group, which read as a slide
- * arriving rather than as a page composing itself. This slices the outro's
- * 0 → 1 into overlapping windows, so the headline, the paragraph, the
- * footnote and the buttons arrive one at a time.
- *
- * Returned as a plain 0 → 1 the caller turns into opacity and a small rise.
- * Deriving it from scroll position rather than firing it once on entry is
- * what lets scrolling back up play the whole stagger in reverse, like the
- * rest of this section.
- */
-export function outroBlockProgress(index: number, count: number, outro: number): number {
-  const clamped = Math.min(1, Math.max(0, outro));
-  if (count <= 1) return clamped;
-  const start = (index / (count - 1)) * (1 - BLOCK_SPAN);
-  return Math.min(1, Math.max(0, (clamped - start) / BLOCK_SPAN));
 }
 
 /**

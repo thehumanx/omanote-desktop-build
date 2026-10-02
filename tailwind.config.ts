@@ -1,6 +1,15 @@
 import type { Config } from "tailwindcss";
 
 const cssVar = (name: string) => `rgb(var(${name}) / <alpha-value>)`;
+/** A background colour scaled by an opacity variable — 1 normally, lower
+ *  while a background scene is on (see :root[data-scene] in index.css). */
+const sceneBg = (name: string, opacityVar: string) =>
+  `rgb(var(${name}) / calc(<alpha-value> * var(${opacityVar}, 1)))`;
+/** A card fill that, under a light scene, becomes a smoked-glass ink wash
+ *  (--app-wash-rgb at washVar) instead of translucent white. Without the
+ *  wash variables it is exactly sceneBg. */
+const washBg = (name: string, washVar: string) =>
+  `rgb(var(--app-wash-rgb, var(${name})) / calc(<alpha-value> * var(${washVar}, var(--app-surface-opacity, 1))))`;
 
 export default {
   darkMode: "selector",
@@ -11,6 +20,20 @@ export default {
         sans: ["Lato", "ui-sans-serif", "system-ui", "sans-serif"],
         serif: ["var(--app-font-family)"],
         "serif-heading": ["var(--app-font-family-serif)"],
+      },
+      // Background utilities only: text and borders keep the plain tokens, so
+      // nothing but surface fills goes translucent under a scene.
+      backgroundColor: {
+        app: {
+          surface: washBg("--color-surface", "--app-wash-surface"),
+          "surface-raised": washBg("--color-surface-raised", "--app-wash-surface"),
+          "surface-muted": washBg("--color-surface-muted", "--app-wash-muted"),
+          // Under a scene the hover is a faint ink wash (--app-hover-*), so a
+          // hovered row tints whatever is behind it instead of going solid.
+          "surface-hover": "rgb(var(--app-hover-rgb, var(--color-surface-hover)) / calc(<alpha-value> * var(--app-hover-opacity, var(--app-surface-opacity, 1))))",
+          // A page fill that clears under a scene so the scene shows through.
+          backdrop: sceneBg("--color-canvas", "--app-canvas-opacity"),
+        },
       },
       colors: {
         app: {
@@ -24,8 +47,10 @@ export default {
           "ink-muted": cssVar("--color-ink-muted"),
           "ink-faint": cssVar("--color-ink-faint"),
           "ink-inverted": cssVar("--color-ink-inverted"),
-          line: cssVar("--color-line"),
-          "line-strong": cssVar("--color-line-strong"),
+          // Under a scene, lines become a translucent ink (--app-line-*) so
+          // borders and dividers tint the sky instead of outlining it in grey.
+          line: "rgb(var(--app-line-rgb, var(--color-line)) / calc(<alpha-value> * var(--app-line-opacity, 1)))",
+          "line-strong": "rgb(var(--app-line-rgb, var(--color-line-strong)) / calc(<alpha-value> * var(--app-line-strong-opacity, 1)))",
           focus: cssVar("--color-focus"),
         },
         nav: {

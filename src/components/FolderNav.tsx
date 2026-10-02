@@ -95,7 +95,7 @@ export function FolderNavRow({
           />
         </div>
         {duplicateError ? (
-          <div className="absolute left-10 top-full z-20 mt-2 rounded-md border border-danger-line bg-app-surface px-2 py-1 text-xs text-danger-ink shadow-soft">
+          <div className="app-overlay absolute left-10 top-full z-20 mt-2 rounded-md border border-danger-line bg-app-surface px-2 py-1 text-xs text-danger-ink shadow-soft">
             {duplicateError}
           </div>
         ) : null}
@@ -167,99 +167,6 @@ export function FolderNavRow({
         </span>
       </button>
       {actions}
-    </div>
-  );
-}
-
-export function FolderNavCard({
-  name,
-  icon,
-  color,
-  count,
-  selected,
-  onClick,
-  isShared,
-  onIconClick,
-  iconPickerActive = false,
-  actions,
-}: {
-  name: string;
-  icon?: string;
-  /** Palette key — tints the row and its drawn glyph. See folder-color.ts. */
-  color?: string;
-  count: number;
-  selected: boolean;
-  onClick: () => void;
-  isShared?: boolean;
-  onIconClick?: (ref: React.RefObject<HTMLButtonElement | null>) => void;
-  iconPickerActive?: boolean;
-  actions?: ReactNode;
-}) {
-  const iconButtonRef = useRef<HTMLButtonElement>(null);
-
-  // See FolderNavRow: the icon chip carries the folder's colour.
-  const palette = folderColorStyle(color);
-
-  return (
-    <div
-      className={[
-        "group relative flex flex-col items-center gap-2 rounded-xl border p-3 transition-[background-color,border-color] duration-app-base ease-app-in-out",
-        selected
-          ? "border-app-line bg-app-surface-muted text-app-ink"
-          : "border-app-line bg-app-surface text-app-ink-muted hover:border-app-line hover:bg-app-surface-hover",
-      ].join(" ")}
-    >
-      {onIconClick ? (
-        <button
-          ref={iconButtonRef}
-          type="button"
-          aria-label="Change icon"
-          onMouseDown={(e) => { e.preventDefault(); onIconClick(iconButtonRef); }}
-          className={[
-            "flex h-10 w-10 items-center justify-center rounded-lg transition hover:ring-2 hover:ring-app-line-strong hover:ring-offset-1",
-            selected ? "bg-app-surface text-app-ink-faint" : "bg-app-surface-muted text-app-ink-faint",
-            iconPickerActive ? "ring-2 ring-app-line-strong ring-offset-1" : "",
-          ].join(" ")}
-          style={palette ? { backgroundColor: palette.surface } : undefined}
-        >
-          <CategoryIconView icon={icon} size="md" color={color} />
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={onClick}
-          className={[
-            "flex h-10 w-10 items-center justify-center rounded-lg",
-            selected ? "bg-app-surface text-app-ink-faint" : "bg-app-surface-muted text-app-ink-faint",
-          ].join(" ")}
-          style={palette ? { backgroundColor: palette.surface } : undefined}
-        >
-          <CategoryIconView icon={icon} size="md" color={color} />
-        </button>
-      )}
-      <button type="button" onClick={onClick} className="flex w-full items-center justify-center gap-1">
-        <span className="min-w-0 truncate text-[13px] font-bold leading-tight">{name}</span>
-        {isShared && (
-          <span
-            className={[
-              "flex-shrink-0 rounded-full p-1",
-              selected ? "bg-app-surface text-app-ink-faint" : "bg-app-surface-muted text-app-ink-faint",
-            ].join(" ")}
-            aria-label="Public"
-          >
-            <Globe className="h-3 w-3" />
-          </span>
-        )}
-        <span
-          className={[
-            "flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
-            selected ? "bg-app-surface text-app-ink" : "bg-app-surface-muted text-app-ink-faint",
-          ].join(" ")}
-        >
-          {count}
-        </span>
-      </button>
-      {actions ? <div className="absolute right-1.5 top-1.5">{actions}</div> : null}
     </div>
   );
 }

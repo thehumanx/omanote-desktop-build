@@ -4,6 +4,24 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.34.0 [October 2, 2026]
+
+> Calm backgrounds for the whole app, and folders you can see into.
+
+- [Add] Background scenes: Calm morning, Blue afternoon, Above the clouds, Evergreen meadow, Iridescent evening and Silent night. Each has a light and a dark look, an optional slow drift and adjustable grain. Off by default
+- [Add] A new Theme section in Settings holds light/dark mode and your background scene. Changes apply right away. You can also pick a scene during setup
+- [Add] Todos, Notes and Bookmarks show your folders as a gallery of cards that preview what's inside. Switch between gallery and list from the top bar
+- [Add] On desktop, a folder opens in a side sheet. Hover a card to edit, share, delete or pin it
+- [Add] Opening a page grows it out of its card, and closing shrinks it back
+- [Update] With a scene on, the top bar, nav, cards, menus and the page view turn translucent so the scene shows through
+- [Update] Lists, galleries, History, Events and Canvas fade softly at the edges and blur behind the bottom nav. The top edge fades only once you scroll
+- [Update] Search, new, view and sort controls moved into the top bar. On Events, the summary is gone and Today, the arrows and the view toggle sit in the top bar
+- [Update] The calendar and timeline run full height under the nav, and the calendar no longer sits in a box
+- [Update] The bottom nav reads +, your tabs, then your avatar
+- [Update] On phones, a folder's header puts its actions on one row and its name on the next
+- [Fix] Long folder names stop short of the folder actions instead of running under them
+- [Remove] The canvas dot grid and its setting. Background scenes replace it
+
 ### v0.33.9 [September 27, 2026]
 
 > Repeating todos behave the way you'd expect, and getting started feels smoother.

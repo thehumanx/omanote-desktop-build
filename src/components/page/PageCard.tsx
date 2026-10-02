@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { PageOpenLink } from "./PageOpenLink";
 import { useQuery } from "convex/react";
 import { Check, Copy, ExternalLink, EyeOff, FileText, Share2, Trash2 } from "lucide-react";
 import { formatRelativeEditedAt } from "@omanote/shared";
@@ -98,7 +98,7 @@ export function PageCard({
     // border read as two different card types. It briefly used
     // `border-app-surface-muted` to match the folder tab's fill, back when the
     // surrounding artifact blocks were bordered; they are not any more.
-    <div className="group flex min-w-0 flex-col gap-1.5 rounded-app-card border border-app-line bg-app-surface p-3 transition hover:bg-app-surface-hover">
+    <div data-page-card-id={page.id} className="group flex min-w-0 flex-col gap-1.5 rounded-app-card border border-app-line bg-app-surface p-3 transition hover:bg-app-surface-hover">
       {/* Row 1: page icon, then the action cluster — spaced apart. */}
       <div className="flex items-center justify-between gap-2">
         <span
@@ -191,10 +191,10 @@ export function PageCard({
       </div>
 
       {/* Rows 2 & 3: title and metadata — the actual "open this canvas" target. */}
-      <Link to={href} className="flex min-w-0 flex-col gap-1">
+      <PageOpenLink to={href} className="flex min-w-0 flex-col gap-1">
         <span className="app-title-font truncate text-sm font-semibold text-app-ink">{title}</span>
         <span className="truncate text-sm text-app-ink-muted">{metaItems.join(" · ")}</span>
-      </Link>
+      </PageOpenLink>
     </div>
   );
 }

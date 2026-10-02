@@ -267,7 +267,7 @@ export function ToastHost() {
   if (!renderedToasts.length) return null;
 
   return (
-    <div className="fixed left-1/2 top-4 z-50 w-[min(92vw,420px)] -translate-x-1/2">
+    <div className="app-overlay fixed left-1/2 top-4 z-50 w-[min(92vw,420px)] -translate-x-1/2">
       <ToastStack toasts={renderedToasts} dispatch={dispatch} settings={settings} noSnoozeTodoIds={noSnoozeTodoIds} />
     </div>
   );

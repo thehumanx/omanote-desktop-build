@@ -7,7 +7,7 @@ const pageLabelRules: Array<{ prefix: string; label: string }> = [
   { prefix: "/notes", label: "Notes" },
   { prefix: "/bookmarks", label: "Bookmarks" },
   { prefix: "/event", label: "Events" },
-  { prefix: "/explore", label: "Search" },
+  { prefix: "/explore", label: "Explore" },
   { prefix: "/reader/saved", label: "Saved" },
   { prefix: "/reader", label: "Feeds" },
   { prefix: "/settings", label: "Settings" },

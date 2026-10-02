@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef } from "react";
-import { User } from "lucide-react";
 import { CanvasDateRow, formatTodayLabel } from "../../components/CanvasDateRow";
 import { CanvasDayArtifacts } from "../../components/CanvasDayArtifacts";
 import { CanvasOverdueSection } from "../../components/CanvasOverdueSection";
@@ -13,6 +12,7 @@ import {
   PREVIEW_CANVAS_ITEMS,
   PREVIEW_CATEGORY_BY_ID,
   PREVIEW_NOTE_FOLDERS,
+  PREVIEW_TODO_FOLDERS,
   PREVIEW_OVERDUE_TODOS,
   PREVIEW_PAGES,
   PREVIEW_TODAY_KEY,
@@ -46,16 +46,7 @@ function useInert<T extends HTMLElement>() {
   return ref;
 }
 
-/** Stand-in for ProfileMenuButton, which needs Clerk and the settings drawer. */
-function PreviewAvatar() {
-  return (
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-app-line bg-app-surface-muted text-app-ink-faint">
-      <User className="h-4 w-4" />
-    </span>
-  );
-}
-
-/** The app's header row: date on the left, avatar on the right. */
+/** The app's header row: the canvas date control (the avatar lives in the bottom nav). */
 function PreviewTopBar() {
   return (
     <div className="border-b border-app-line bg-app-surface">
@@ -68,7 +59,6 @@ function PreviewTopBar() {
             <CanvasDateRow label={formatTodayLabel(new Date())} mode="enter" onToggle={noop} />
           </span>
         </div>
-        <PreviewAvatar />
       </div>
     </div>
   );
@@ -216,6 +206,7 @@ export function CanvasPreview({
               canvasDateKey={PREVIEW_TODAY_KEY}
               dispatch={noop}
               noteFolders={PREVIEW_NOTE_FOLDERS}
+              todoFolders={PREVIEW_TODO_FOLDERS}
               categoryById={PREVIEW_CATEGORY_BY_ID}
               onOpenTodoEditor={noop}
               onInlineTodoTitleEdit={noop}

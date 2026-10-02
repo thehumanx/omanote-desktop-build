@@ -25,6 +25,7 @@ import { useAuth } from "../../app/auth/AuthContext";
 import { removeStorage, storageKeys } from "../../app/storage";
 import { useUpdate } from "../../contexts/UpdateContext";
 import { useTheme } from "../../contexts/ThemeContext";
+import { color } from "../../design-system/tokens";
 import { maskEmail } from "../../lib/mask-email";
 import { useDrawerDrag } from "../../lib/useDrawerDrag";
 import { useMeasuredHighlight } from "../../hooks/useMeasuredHighlight";
@@ -196,14 +197,20 @@ function ProfileOptionsDrawer({
 /**
  * The one profile entry point for the whole app — an avatar trigger that
  * opens a dropdown on desktop or a bottom drawer on mobile, with the same
- * action list either way. Rendered once by AppShell inside the shared
- * header bar, so every route gets it "for free" instead of each screen (or
- * BottomNav) reimplementing its own copy.
+ * action list either way. Rendered once by AppShell, at the end of the
+ * bottom nav, so every route with a nav gets it "for free".
  */
-export function ProfileMenuButton({ onOpenAbout }: { onOpenAbout: () => void }) {
+export function ProfileMenuButton({
+  onOpenAbout,
+  placement = "below",
+}: {
+  onOpenAbout: () => void;
+  /** "above" when the trigger sits in the bottom nav, so the dropdown opens upward. */
+  placement?: "below" | "above";
+}) {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
-  const { hasUpdate, openModal } = useUpdate();
+  const { hasUpdate, openModal, latestVersion } = useUpdate();
   const { themeMode, setThemeMode } = useTheme();
   const runningInDesktopApp = isTauri();
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -379,6 +386,24 @@ export function ProfileMenuButton({ onOpenAbout }: { onOpenAbout: () => void }) 
           <LogOut className="h-4 w-4" />
           Log out
         </MenuItem>
+        {latestVersion ? (
+          <div
+            className="mt-2 flex items-center justify-between gap-3 rounded-app-panel px-app-field-x py-2.5"
+            style={{ backgroundColor: color.brandCtaTint }}
+          >
+            <img src="/logo.svg" alt="omanote" className="h-4 w-auto" />
+            <button
+              type="button"
+              onClick={() => {
+                closeProfileOptions();
+                openModal();
+              }}
+              className="text-xs font-medium text-app-ink-faint transition-colors duration-app-fast ease-app-out hover:text-app-ink hover:underline"
+            >
+              v{latestVersion.version}
+            </button>
+          </div>
+        ) : null}
       </>
     );
   };
@@ -388,7 +413,10 @@ export function ProfileMenuButton({ onOpenAbout }: { onOpenAbout: () => void }) 
       <div ref={menuRef} className="relative">
         <button
           data-testid="profile-trigger"
-          className="relative flex h-10 w-10 overflow-hidden rounded-full border border-app-line bg-app-surface p-0 transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-app-surface-hover active:translate-y-px active:scale-[0.98]"
+          className={[
+            "relative flex overflow-hidden rounded-full border border-app-line bg-app-surface p-0 transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-app-surface-hover active:translate-y-px active:scale-[0.98]",
+            placement === "above" ? "app-frost h-12 w-12 shadow-soft" : "h-10 w-10",
+          ].join(" ")}
           onClick={handleProfileClick}
           aria-label="Profile menu"
         >
@@ -402,7 +430,12 @@ export function ProfileMenuButton({ onOpenAbout }: { onOpenAbout: () => void }) 
           <span className="pointer-events-none absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-app-surface bg-app-ink" />
         )}
         {menuOpen ? (
-          <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-2xl border border-app-line bg-app-surface-raised p-3 shadow-menu">
+          <div
+            className={[
+              "app-overlay backdrop-blur-lg absolute right-0 z-50 w-64 rounded-2xl border border-app-line bg-app-surface p-3 shadow-menu",
+              placement === "above" ? "bottom-full mb-2" : "top-full mt-2",
+            ].join(" ")}
+          >
             <div className="px-1 py-1">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1 space-y-1">

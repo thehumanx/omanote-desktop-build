@@ -1,9 +1,9 @@
 import { useCallback } from "react";
-import { flushSync } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { prefixedRandomId } from "@omanote/shared";
 import { useApp } from "../app/AppProvider";
 import { emptyPageDoc, isPageDocEmpty } from "./page-doc";
+import { runPageTransition } from "./page-transition";
 
 /**
  * Creates an empty canvas and opens it.
@@ -28,11 +28,7 @@ export function useCreateCanvas() {
     );
     if (existingEmpty) {
       const target = existingEmpty.id;
-      if (typeof document !== "undefined" && "startViewTransition" in document) {
-        document.startViewTransition(() => flushSync(() => navigate(`/p/${target}`)));
-      } else {
-        navigate(`/p/${target}`);
-      }
+      runPageTransition(() => navigate(`/p/${target}`));
       return;
     }
 
@@ -53,10 +49,6 @@ export function useCreateCanvas() {
     // view-transition-name (see index.css). flushSync forces the navigation's
     // DOM mutation to land inside the transition callback; without it React
     // would batch the update past the point the browser snapshots "after".
-    if (typeof document !== "undefined" && "startViewTransition" in document) {
-      document.startViewTransition(() => flushSync(createAndNavigate));
-    } else {
-      createAndNavigate();
-    }
+    runPageTransition(createAndNavigate);
   }, [dispatch, navigate, state.pages, state.ui.selectedDateKey]);
 }

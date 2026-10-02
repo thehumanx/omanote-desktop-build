@@ -16,7 +16,7 @@ import { useTopChrome } from "../components/layout/useTopChrome";
 import { useAuth } from "../app/auth/AuthContext";
 import { removeStorage, storageKeys } from "../app/storage";
 import { useUserSettings } from "../contexts/UserSettingsContext";
-import { useTheme } from "../contexts/ThemeContext";
+import { ThemeSettingsPanel } from "../components/settings/ThemeSettingsPanel";
 import { useEncryption } from "../contexts/EncryptionContext";
 import { maskEmail } from "../lib/mask-email";
 import { friendlyErrorMessage } from "../lib/errors";
@@ -68,7 +68,8 @@ const StorageUsagePanel = lazy(() =>
 );
 
 const MOBILE_CATEGORY_SUMMARIES: Record<CategoryId, string> = {
-  appearance: "Theme, navigation labels, and canvas look",
+  theme: "Light or dark, and a calm background scene",
+  appearance: "Typography, corners, and navigation labels",
   features: "Enable or disable optional features",
   notifications: "In-app alerts, browser reminders, and snooze defaults",
   security: "Passphrase controls and app lock behavior",
@@ -92,7 +93,6 @@ export function SettingsScreen() {
     (CATEGORIES.some((c) => c.id === categoryParam) ? (categoryParam as CategoryId) : undefined);
   const { user, deleteAccount, signOut } = useAuth();
   const { settings, loading, updateSettings } = useUserSettings();
-  const { themeMode, setThemeMode } = useTheme();
   const { changePassphrase, exportRecoveryKeyText, lock, verifyPassphrase } = useEncryption();
   const deleteMyData = useMutation(api.account.deleteMyData);
   const removeDevice = useMutation(api.devices.removeDevice);
@@ -140,20 +140,18 @@ export function SettingsScreen() {
     }
   }
 
-  const [selectedCategory, setSelectedCategory] = useState<CategoryId>(initialCategory ?? "appearance");
+  const [selectedCategory, setSelectedCategory] = useState<CategoryId>(initialCategory ?? "theme");
   const [mobileOpen, setMobileOpen] = useState(false);
   const { dragOffset, isDragging, dragHandleProps } = useDrawerDrag(() => setMobileOpen(false));
 
   const appearanceSettingsDraft = useMemo<AppearanceDraft>(
     () => ({
-      themeMode,
       navLabelStyle: settings.navLabelStyle,
       fontFamily: settings.fontFamily,
       cornerStyle: settings.cornerStyle,
-      canvasDotGrid: settings.canvasDotGrid,
       showSaveShortcutHints: settings.showSaveShortcutHints,
     }),
-    [settings.navLabelStyle, settings.fontFamily, settings.cornerStyle, settings.canvasDotGrid, settings.showSaveShortcutHints, themeMode],
+    [settings.navLabelStyle, settings.fontFamily, settings.cornerStyle, settings.showSaveShortcutHints],
   );
   const notificationSettingsDraft = useMemo<NotificationDraft>(
     () => ({
@@ -367,14 +365,10 @@ export function SettingsScreen() {
     const nextDraft = appearanceDraft;
     const currentContextDraft = appearanceSettingsDraft;
     try {
-      if (nextDraft.themeMode !== themeMode) {
-        await setThemeMode(nextDraft.themeMode);
-      }
       const appearancePatch: {
         navLabelStyle?: NavLabelStyle;
         fontFamily?: FontFamily;
         cornerStyle?: CornerStyle;
-        canvasDotGrid?: boolean;
         showSaveShortcutHints?: boolean;
       } = {};
       if (nextDraft.navLabelStyle !== settings.navLabelStyle) {
@@ -388,9 +382,6 @@ export function SettingsScreen() {
       }
       if (nextDraft.showSaveShortcutHints !== settings.showSaveShortcutHints) {
         appearancePatch.showSaveShortcutHints = nextDraft.showSaveShortcutHints;
-      }
-      if (nextDraft.canvasDotGrid !== settings.canvasDotGrid) {
-        appearancePatch.canvasDotGrid = nextDraft.canvasDotGrid;
       }
       if (Object.keys(appearancePatch).length > 0) {
         await updateSettings(appearancePatch);
@@ -585,6 +576,8 @@ export function SettingsScreen() {
   // its own, so it still needs the <h2> as its only title.
   function renderContent(isMobileDrawer = false) {
     switch (selectedCategory) {
+      case "theme":
+        return <ThemeSettingsPanel showHeading={!isMobileDrawer} />;
       case "features":
         return (
           <section className="space-y-6">
@@ -728,33 +721,6 @@ export function SettingsScreen() {
               </p>
             </div>
 
-            <div className="space-y-2">
-              <p className="text-sm font-bold text-app-ink">Theme</p>
-              <div className="grid gap-2 sm:grid-cols-3">
-                {[
-                  { mode: "system" as const, label: "System" },
-                  { mode: "light" as const, label: "Light" },
-                  { mode: "dark" as const, label: "Dark" },
-                ].map((option) => {
-                  const selected = appearanceDraft.themeMode === option.mode;
-                  return (
-                    <OptionCard
-                      key={option.mode}
-                      current={appearanceSettingsDraft.themeMode === option.mode}
-                      selected={selected}
-                      onClick={() => {
-                        cancelWaitingAppearanceContextSync();
-                        setAppearanceSaveError(null);
-                        setAppearanceDraft((cur) => ({ ...cur, themeMode: option.mode }));
-                      }}
-                    >
-                      {option.label}
-                    </OptionCard>
-                  );
-                })}
-              </div>
-            </div>
-
             <div className="space-y-3">
               <div>
                 <p className="text-sm font-bold text-app-ink">Typography</p>
@@ -817,20 +783,6 @@ export function SettingsScreen() {
                 })}
               </div>
               <NavLabelPreview style={appearanceDraft.navLabelStyle} />
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-sm font-bold text-app-ink">Canvas</p>
-              <CheckboxField
-                checked={appearanceDraft.canvasDotGrid}
-                onCheckedChange={(checked) => {
-                  cancelWaitingAppearanceContextSync();
-                  setAppearanceSaveError(null);
-                  setAppearanceDraft((cur) => ({ ...cur, canvasDotGrid: checked }));
-                }}
-              >
-                Show dot grid background on canvas
-              </CheckboxField>
             </div>
 
             <div className="space-y-2">

@@ -1,5 +1,8 @@
 import { createContext, useContext, useState } from "react";
 import { createPortal } from "react-dom";
+import { SceneBackdrop } from "../scene/SceneBackdrop";
+import { useSceneAttributes } from "../scene/useSceneAttributes";
+import { useSceneSettings } from "../scene/useSceneSettings";
 import { cn } from "../ui";
 
 const FooterNodeContext = createContext<HTMLDivElement | null>(null);
@@ -21,21 +24,27 @@ export const OnboardingStepExitingContext = createContext(false);
  */
 export function OnboardingShell({ children }: { children: React.ReactNode }) {
   const [footerNode, setFooterNode] = useState<HTMLDivElement | null>(null);
+  // The scene picked on the first step paints straight away, so it can be
+  // judged live; until one is picked the wizard keeps its dot grid.
+  const { scene, drift, grain } = useSceneSettings();
+  const activeScene = scene === "none" ? null : scene;
+  useSceneAttributes(activeScene, drift, grain);
 
   return (
-    <div className={cn("omanote-canvas-grid flex min-h-screen flex-col bg-app-canvas")}>
-      <div className="flex justify-center px-4 pt-10 pb-2">
+    <div className={cn("relative flex min-h-screen flex-col", activeScene ? "bg-app-backdrop" : "omanote-canvas-grid bg-app-canvas")}>
+      {activeScene ? <SceneBackdrop scene={activeScene} /> : null}
+      <div className="relative flex justify-center px-4 pt-10 pb-2">
         <img src="/logo.svg" alt="omanote" className="omanote-stagger-in h-7 w-auto" />
       </div>
       {/* Top-anchored, not centred: every step's header lands on the same
           line whatever the step's height, so moving between steps doesn't
           make the title jump (see OnboardingStepHeader). */}
-      <div className="flex flex-1 justify-center px-4 pb-4 pt-[max(2rem,10vh)]">
+      <div className="relative flex flex-1 justify-center px-4 pb-4 pt-[max(2rem,10vh)]">
         <div className="w-full max-w-xl">
           <FooterNodeContext.Provider value={footerNode}>{children}</FooterNodeContext.Provider>
         </div>
       </div>
-      <div className="flex justify-center px-4 pb-10">
+      <div className="relative flex justify-center px-4 pb-10">
         <div ref={setFooterNode} className="w-full max-w-xl" />
       </div>
     </div>

@@ -23,6 +23,95 @@ Each entry is one of:
 - **Renamed** `Component.propName` → `Component.newPropName`. <why>. <migration note>.
 ```
 
+## 2026-10-01
+
+- **Added** `.app-scene-page` — marks a full-screen view that sits on a
+  `z-app-*` layer only for stacking (PageScreen): it is excluded from the
+  overlay fill and the frost, so the scene stays visible behind it.
+- **Added** `runPageTransition()` (`src/lib/page-transition.ts`) and
+  `PageOpenLink` — open/close a page with the `canvas-expand` view
+  transition; cards mark themselves with `data-page-card-id`.
+- **Changed** `folderColorStyle().surface` is now a `color-mix()` of
+  `--folder-<key>-surface` scaled by `--app-folder-opacity` (1 normally, ~0.6
+  light / ~0.55 dark under a scene). Use it only as a CSS colour value.
+- **Changed** under a scene, an open `TodoCheckmark` box is a translucent
+  surface (35%) with an ink border instead of a white gradient tile.
+- **Changed** `app-line` / `app-line-strong` (border, divide, bg, text) take a
+  scene override: with `<html data-scene>` they are ink at
+  `--app-line-opacity` (~8% light, ~10% dark) / `--app-line-strong-opacity`
+  (~16% / ~20%) instead of solid grey. Inline styles reading
+  `--color-line` directly should use `--app-line-rgb` with the same fallback.
+- **Changed** with a light-theme scene on, `bg-app-surface` / `-raised` /
+  `-muted` are a smoked-glass ink wash (`--app-wash-rgb`, `--app-wash-surface`
+  ~3%, `--app-wash-muted` ~5%) instead of translucent white; hover is ~9%.
+  Overlays (`role` dialog/menu/listbox, `z-app-*`, `.app-overlay`) and
+  `.app-frost` chrome reset the wash and stay light. Dark theme unchanged.
+- **Changed** under a scene, `bg-app-surface-hover` is a faint ink wash
+  (`--app-hover-rgb` / `--app-hover-opacity`, ~6% light, ~8% dark) rather than
+  a solid surface, and `.app-frost` chrome (top bar, nav buttons) drops to the
+  lower `--app-chrome-opacity`. Card fills went to ~0.58 light / ~0.55 dark.
+- **Added** `useScrollEdgeFade(ref)` (`src/hooks/`) — the top/bottom edge
+  fade for scroll containers; each edge fades only while content lies past
+  it. Used by History and the folder galleries.
+- **Added** `SceneBackdrop` + `SCENES` (`src/components/scene/`) — the six
+  background scenes (morning, afternoon, clouds, meadow, evening, night);
+  `variant="page"` is AppShell's fixed backdrop, `"thumb"` a static preview.
+  Palettes are `[data-scene-palette]` CSS variables in `index.css`.
+- **Added** `bg-app-backdrop` — a page fill that clears while a scene is on.
+  Use it (not `bg-app-canvas`) for full-page fills inside the app.
+- **Changed** `bg-app-surface`, `-raised`, `-muted`, `-hover` (background
+  utilities only) multiply by `--app-surface-opacity`: `1` normally, ~0.7 while
+  `<html data-scene>` is set; anything floating — `role` dialog/menu/listbox,
+  every `z-app-*` overlay token (drawer, menu, dialog, modal, popover,
+  tooltip, toast, floating, linked-artifact sheet) — uses the higher
+  `--app-overlay-opacity`. A floating surface without one of those tokens
+  must add `.app-overlay`. Text/border utilities are unchanged.
+- **Added** `.app-frost` — backdrop blur, active only under a scene. Reserved
+  for fixed chrome (top bar, bottom nav); `z-app-drawer` panels get it too.
+- **Removed** `usePageBackdrop`, `.omanote-gallery-backdrop/-dots` and the
+  `canvasDotGrid` setting. `.omanote-canvas-grid` stays for onboarding, the
+  survey and the landing preview only.
+
+## 2026-09-30
+
+- **Renamed** `FolderGalleryCard.menu` / `GalleryFolder.menu` (a ⋯ menu node)
+  → `actions: FolderCardActions` (`{ pinned, onEdit, onShare, onDelete,
+  onTogglePin }`), rendered as a hover icon strip (edit, share, delete, pin)
+  overlaid on the tab row, desktop only; a pinned folder's pin stays visible.
+  **Added** `FolderGalleryCard.count` / `FolderTab.count` (pill beside the
+  name). `FOLDER_CARD_ROW_LIMIT` 5 → 3; the card body is a fixed `h-40`,
+  bordered in the tab's folder colour. `folderStatusMeta` no longer emits Pinned.
+- **Renamed** `FolderDrawerHeader.actions`: `onShare`/`onRename`/`onDelete`
+  plus required `pinned` and optional `onTogglePin`; the header is two rows
+  (back + icon actions, overflowing into ⋯ by measured width; then icon + name).
+- **Added** `BottomNav.trailing` (AppShell passes the profile avatar) and
+  `ProfileMenuButton.placement` (`"below"` | `"above"`). The top bar no longer
+  renders the avatar; screens put their actions there via `useTopChrome`.
+
+- **Added** `FolderTab` (`src/components/folder-gallery/`) — a gallery card's
+  folder tab: icon button (opens the icon picker; mousedown + preventDefault
+  so a rename input keeps focus), name button, or the inline rename/new-folder
+  input via `editing`.
+- **Added** `FolderSheet` — the folder view as a sheet over its gallery:
+  full-screen drawer on phones, a 640px right side peek (`desktop`) in the
+  desktop gallery. Esc (except from text entry), backdrop, focus in/contain/restore.
+- **Added** `FolderDrawerHeader.backStyle` (`"back"` | `"close"`).
+- **Renamed** `FolderGalleryCard` props: `stats: string[]` → `meta: FolderMeta[]`
+  (`emphasis` for Public/Pinned), `visual` → `footerAside`; `pinned`/`shared`
+  badges removed (now `folderStatusMeta` entries); tab controls `onIconClick`,
+  `editing`, `menu` added.
+- **Added** `FolderGalleryCard` + `FolderGallery`
+  (`src/components/folder-gallery/`) — the content gallery for Todos, Notes
+  and Bookmarks: one card per folder with a type-supplied body
+  (`TodoFolderPreview`, `NoteFolderPreview`, `BookmarkFolderPreview`) and a
+  `·`-separated stats footer. The card is deliberately not a `<button>` (rows
+  hold checkboxes and links); the folder name is the button. Per-folder
+  numbers come from `src/lib/folder-stats.ts`, never from ad-hoc loops.
+- **Removed** `TodoFolderCard` (`TodoFolderRow.tsx`), `FolderCard`
+  (`NoteFolderNav.tsx`), `CategoryCard` (`BookmarkCategoryNav.tsx`) and
+  `FolderNavCard` (`FolderNav.tsx`) — the icon-tile folder "gallery" they
+  rendered is replaced by `FolderGalleryCard`.
+
 ## 2026-09-25
 
 - **Added** `AppLoadingScreen` (`src/components/ui.tsx`) — the one

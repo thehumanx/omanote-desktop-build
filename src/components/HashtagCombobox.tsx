@@ -95,7 +95,7 @@ export function HashtagCombobox({ hashtags, selected, onChange, align = "right" 
       {open && (
         <div
           className={[
-            "absolute top-full z-30 mt-2 w-56 overflow-hidden rounded-2xl border border-app-line bg-app-surface shadow-app-menu",
+            "app-overlay absolute top-full z-30 mt-2 w-56 overflow-hidden rounded-2xl border border-app-line bg-app-surface shadow-app-menu",
             align === "left" ? "left-0" : "right-0",
           ].join(" ")}
         >

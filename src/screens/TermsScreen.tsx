@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { SiteFooter } from "../components/SiteFooter";
 import { SeoHead } from "../seo/SeoHead";
 
 const LAST_UPDATED = "July 21, 2026";
@@ -45,7 +46,7 @@ export function TermsScreen() {
                   href="https://iambishistha.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-app-ink underline underline-offset-2 hover:no-underline"
+                  className="text-app-ink omanote-link"
                 >
                   iambishistha.com
                 </a>
@@ -103,7 +104,7 @@ export function TermsScreen() {
                 own terms (for Google, its standard account terms) — omanote isn't responsible for
                 the availability or behavior of third-party services themselves. You can disconnect
                 any integration at any time from Settings. See our{" "}
-                <Link to="/privacy" className="text-app-ink underline underline-offset-2 hover:no-underline">
+                <Link to="/privacy" className="text-app-ink omanote-link">
                   Privacy Policy
                 </Link>{" "}
                 for what data an integration involves.
@@ -135,7 +136,7 @@ export function TermsScreen() {
                 Questions about these terms?{" "}
                 <a
                   href={`mailto:${CONTACT_EMAIL}`}
-                  className="text-app-ink underline underline-offset-2 hover:no-underline"
+                  className="text-app-ink omanote-link"
                 >
                   {CONTACT_EMAIL}
                 </a>
@@ -146,78 +147,7 @@ export function TermsScreen() {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-app-line">
-        <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-8 sm:py-10">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-            <div>
-              <div className="flex items-center gap-2">
-                <Link to="/">
-                  <img src="/logo.svg" alt="omanote home" className="h-5 w-auto" />
-                </Link>
-              </div>
-              <p className="mt-2.5 text-xs text-app-ink-faint leading-relaxed max-w-[280px]">
-                Personal notetaking app of{" "}
-                <a
-                  href="https://iambishistha.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
-                >
-                  iambishistha.com
-                </a>
-                .
-                <span className="block">Built for personal use, shared publicly.</span>
-              </p>
-              <div className="mt-3 flex gap-4 text-xs text-app-ink-faint">
-                <a
-                  href="https://omanote.com/s/FeUM44Rd"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
-                >
-                  Roadmap
-                </a>
-                <Link
-                  to="/updates"
-                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
-                >
-                  Changelog
-                </Link>
-                <a
-                  href="https://github.com/thehumanx/omanote-releases/releases/latest"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
-                >
-                  Desktop app
-                </a>
-              </div>
-            </div>
-            <div className="flex flex-col gap-1.5 text-xs text-app-ink-faint sm:text-right">
-              <span>© {new Date().getFullYear()} omanote. All rights reserved.</span>
-              <span className="max-w-[300px] sm:max-w-none leading-snug">
-                Your data is encrypted client-side and stored securely.
-                <br className="hidden sm:block" /> We don't sell, share, or read your data. Ever.
-              </span>
-              <div className="flex gap-4 w-fit sm:ml-auto">
-                <Link
-                  to="/privacy"
-                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
-                >
-                  Privacy
-                </Link>
-                <Link
-                  to="/terms"
-                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
-                >
-                  Terms
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
     </>
   );

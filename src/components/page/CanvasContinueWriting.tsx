@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
+import { PageOpenLink } from "./PageOpenLink";
 import { ExternalLink, EyeOff, FilePlus2, FileText } from "lucide-react";
 import { formatRelativeEditedAt } from "@omanote/shared";
 import type { AppAction } from "../../app/types";
@@ -107,7 +108,7 @@ function ContinueWritingCard({
   const palette = folderColorStyle(page.color);
 
   return (
-    <div className="group flex min-w-0 flex-col gap-1.5 rounded-app-card border border-app-line bg-app-surface px-4 py-3 transition-colors duration-150 hover:bg-app-surface-hover">
+    <div data-page-card-id={page.id} className="group flex min-w-0 flex-col gap-1.5 rounded-app-card border border-app-line bg-app-surface px-4 py-3 transition-colors duration-150 hover:bg-app-surface-hover">
       <div className="flex items-center justify-between gap-2">
         <span
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-app-surface-muted text-app-ink-faint"
@@ -153,10 +154,10 @@ function ContinueWritingCard({
           ) : null}
         </div>
       </div>
-      <Link to={href} className="flex min-w-0 flex-col gap-1">
+      <PageOpenLink to={href} className="flex min-w-0 flex-col gap-1">
         <span className="app-title-font truncate text-sm font-semibold text-app-ink">{page.title?.trim() || "Untitled page"}</span>
         <PageCardMeta page={page} />
-      </Link>
+      </PageOpenLink>
     </div>
   );
 }

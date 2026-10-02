@@ -7,7 +7,7 @@
  * mobile grid's cards.
  */
 
-type PinnedFolderGroups<T> = {
+export type PinnedFolderGroups<T> = {
   pinned: T[];
   unpinned: T[];
   /** False when nothing is pinned — the caller then renders one flat, unlabelled list. */

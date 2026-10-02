@@ -1,7 +1,7 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useEdgeSwipeBack } from "../lib/useEdgeSwipeBack";
 import { useHistoryBackClose } from "../lib/useHistoryBackClose";
-import { ArrowDown, ArrowUp, ArrowUpDown, LayoutGrid, LayoutList, Plus } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, ArrowUpDown, LayoutGrid, LayoutList, Plus } from "lucide-react";
 import type { NoteItem } from "@omanote/shared";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
@@ -9,7 +9,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useApp } from "../app/AppProvider";
 import { EmptyState } from "../components/EmptyState";
-import { FolderActionMenu, FolderCard, FolderGroups, FolderRow } from "../components/NoteFolderNav";
+import { FolderActionMenu, FolderGroups, FolderRow } from "../components/NoteFolderNav";
 import { groupByPinned } from "../lib/pinned-folders";
 import { BookmarkCategoryIconPicker } from "../components/BookmarkCategoryIconPicker";
 import { CategoryIconView } from "../lib/bookmark-category-icon";
@@ -27,6 +27,13 @@ import { NoteInlineEditor } from "../components/NoteInlineEditor";
 import { NoteEditorModal } from "../components/NoteEditorModal";
 import { ShareNoteFolderModal } from "../components/ShareNoteFolderModal";
 import { UNCATEGORIZED_FOLDER_LABEL, isUncategorizedFolderName, normalizeNoteFolderName } from "../lib/note-folder-utils";
+import { makeNoteFolderKey, noteFolderDisplayName, opaqueFolderKey } from "../lib/folder-keys";
+import { FolderGallery } from "../components/folder-gallery/FolderGallery";
+import { FolderGalleryCard } from "../components/folder-gallery/FolderGalleryCard";
+import { FolderSheet } from "../components/folder-gallery/FolderSheet";
+import { NoteFolderPreview } from "../components/folder-gallery/NoteFolderPreview";
+import { useGalleryFolderParam } from "../hooks/useGalleryFolderParam";
+import { buildFolderStats, folderLastUpdated } from "../lib/folder-stats";
 import { extractAllPreviewableUrls } from "../lib/attachment-link-preview";
 import { captureScrollSnapshot, restoreScrollForNextFrames } from "../lib/preserve-focus-scroll";
 import { resolveRichTextSourceOffsetFromPoint } from "../lib/rich-text-caret";
@@ -64,12 +71,6 @@ function writeLastSelectedNotesFolder(value: string) {
 
 const NOTES_FOLDER_SORT_KEYS = ["alphabetical", "lastUpdated", "totalNotes"] as const;
 
-function noteFolderName(note: NoteItem, folderNameById: Map<string, string>) {
-  if (note.folderId && folderNameById.has(note.folderId)) {
-    return folderNameById.get(note.folderId)!;
-  }
-  return note.folderName?.trim() || UNCATEGORIZED_FOLDER_LABEL;
-}
 
 function sortLabel(sortKey: FolderSortKey) {
   if (sortKey === "alphabetical") return "Alphabetically";
@@ -86,7 +87,7 @@ function formatFolderDate(timestamp: number) {
 }
 
 export function NotesScreen() {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, isCanvasContentLoading } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -116,8 +117,6 @@ export function NotesScreen() {
   const [shareTarget, setShareTarget] = useState<{ id: string; name: string; icon?: string } | null>(null);
   const [folderSort, setFolderSort] = usePersistedFolderSort(NOTES_FOLDER_SORT_KEY, NOTES_FOLDER_SORT_KEYS, DEFAULT_FOLDER_SORT);
   const [folderViewMode, setFolderViewMode] = usePersistedFolderViewMode(NOTES_FOLDER_VIEW_MODE_KEY, DEFAULT_FOLDER_VIEW_MODE);
-  const effectiveFolderViewMode: FolderViewMode =
-    typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches ? "list" : folderViewMode;
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const sortMenuRef = useRef<HTMLDivElement | null>(null);
   const folderMenuRef = useRef<HTMLDivElement | null>(null);
@@ -226,7 +225,7 @@ export function NotesScreen() {
       names.set(normalizeNoteFolderName(folder.name), folder.name);
     }
     for (const note of sourceNotes) {
-      const folder = noteFolderName(note, folderNameById);
+      const folder = noteFolderDisplayName(note, folderNameById);
       names.set(normalizeNoteFolderName(folder), folder);
     }
     return [...names.values()];
@@ -245,6 +244,12 @@ export function NotesScreen() {
     });
   }, [allFolderNames, newFolderName, renamingFolderId, state.noteFolders]);
 
+  const noteFolderKeyOf = useMemo(() => makeNoteFolderKey(folderNameById), [folderNameById]);
+  const noteFolderStats = useMemo(
+    () => buildFolderStats(sourceNotes, noteFolderKeyOf, (note) => note.updatedAt),
+    [sourceNotes, noteFolderKeyOf],
+  );
+
   const folderRows = useMemo(() => {
     const rows = new Map<string, { id?: string; name: string; icon?: string; color?: string; pinned?: boolean; count: number; lastUpdated: number }>();
     for (const folder of state.noteFolders) {
@@ -258,19 +263,20 @@ export function NotesScreen() {
         lastUpdated: folder.createdAt,
       });
     }
-    for (const note of sourceNotes) {
-      const name = noteFolderName(note, folderNameById);
-      const key = normalizeNoteFolderName(name);
+    // Counts and "last updated" come from the shared folder stats so the
+    // list, the gallery and the sort agree.
+    for (const [key, stat] of noteFolderStats) {
+      const name = noteFolderDisplayName(stat.items[0]!, folderNameById);
       const existing = rows.get(key);
       if (existing) {
         existing.name = name;
-        existing.count += 1;
-        existing.lastUpdated = Math.max(existing.lastUpdated, note.updatedAt);
+        existing.count = stat.count;
+        existing.lastUpdated = folderLastUpdated(stat, existing.lastUpdated);
       } else {
         rows.set(key, {
           name,
-          count: 1,
-          lastUpdated: note.updatedAt,
+          count: stat.count,
+          lastUpdated: stat.lastUpdated,
         });
       }
     }
@@ -291,7 +297,7 @@ export function NotesScreen() {
 
       return folderSort.direction === "asc" ? comparison : -comparison;
     });
-  }, [folderNameById, folderSort.direction, folderSort.key, sourceNotes, state.noteFolders]);
+  }, [folderNameById, folderSort.direction, folderSort.key, noteFolderStats, state.noteFolders]);
 
   const [noteSearch, setNoteSearch] = useState("");
   const noteSearchQuery = useMemo(() => normalizeSearchQuery(noteSearch), [noteSearch]);
@@ -301,7 +307,7 @@ export function NotesScreen() {
     const counts = new Map<string, number>();
     for (const note of sourceNotes) {
       if (!matchesQuery(noteSearchQuery, note.title, note.body)) continue;
-      const key = normalizeNoteFolderName(noteFolderName(note, folderNameById));
+      const key = normalizeNoteFolderName(noteFolderDisplayName(note, folderNameById));
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
     return counts;
@@ -316,6 +322,40 @@ export function NotesScreen() {
   // the comparator is what lets the user's chosen sort still order several
   // pinned folders among themselves.
   const folderGroups = useMemo(() => groupByPinned(visibleFolderRows, (row) => !!row.pinned), [visibleFolderRows]);
+
+  // Gallery mode: with no folder open the screen is a full-width card grid.
+  // On desktop an open folder lives in `?folder=`; mobile keeps its drawer.
+  // Notes folders are keyed by name, so a row without an id (Uncategorized,
+  // or a legacy folderName with no folder record) gets an opaque hash — the
+  // URL must never carry a folder name.
+  type NoteFolderRow = (typeof folderRows)[number];
+  const galleryKeyOf = useCallback(
+    (row: NoteFolderRow) => row.id ?? opaqueFolderKey(normalizeNoteFolderName(row.name)),
+    [],
+  );
+  const galleryMode = folderViewMode === "gallery";
+  const galleryRowByKey = useMemo(() => new Map(folderRows.map((row) => [galleryKeyOf(row), row] as const)), [folderRows, galleryKeyOf]);
+  const galleryValidKeys = useMemo(() => new Set(galleryRowByKey.keys()), [galleryRowByKey]);
+  const galleryFolderParam = useGalleryFolderParam({
+    enabled: galleryMode && isDesktop,
+    validKeys: galleryValidKeys,
+    ready: !isCanvasContentLoading,
+  });
+  const galleryOpenRow = galleryFolderParam.openFolderKey ? galleryRowByKey.get(galleryFolderParam.openFolderKey) ?? null : null;
+  // In gallery mode the gallery is always the page; an open folder is a
+  // sheet over it — a 640px side peek on desktop (URL-driven), the existing
+  // full-screen drawer on phones (local state).
+  const showGalleryOverview = galleryMode;
+  const showDesktopOverview = galleryMode && isDesktop;
+  const desktopFolderSheet = galleryMode && isDesktop;
+  const folderSheetOpen = desktopFolderSheet ? Boolean(galleryOpenRow) : mobileNotesOpen;
+  const closeFolderSheet = desktopFolderSheet ? galleryFolderParam.closeFolder : () => setMobileNotesOpen(false);
+
+  useEffect(() => {
+    if (!galleryOpenRow) return;
+    if (selectedFolder && normalizeNoteFolderName(selectedFolder) === normalizeNoteFolderName(galleryOpenRow.name)) return;
+    setSelectedFolder(galleryOpenRow.name);
+  }, [galleryOpenRow, selectedFolder]);
 
   useEffect(() => {
     if (!creatingFolder && !renamingFolderId) return;
@@ -363,7 +403,7 @@ export function NotesScreen() {
   const visibleNotes = useMemo(() => {
     if (!selectedFolder) return [];
     const filtered = sourceNotes.filter(
-      (note) => normalizeNoteFolderName(noteFolderName(note, folderNameById)) === normalizeNoteFolderName(selectedFolder),
+      (note) => normalizeNoteFolderName(noteFolderDisplayName(note, folderNameById)) === normalizeNoteFolderName(selectedFolder),
     );
     return [...filtered].sort((left, right) => {
       const comparison = left.createdAt - right.createdAt;
@@ -471,6 +511,17 @@ export function NotesScreen() {
     </div>
   );
 
+  // A rename starts from the folder's current look, from any entry point
+  // (card tab, list row, sheet header): the commit writes icon *and* colour,
+  // so leaving editingColor unset would clear the folder's colour.
+  const renamingFolderRecord = renamingFolderId ? state.noteFolders.find((folder) => folder.id === renamingFolderId) : undefined;
+  useEffect(() => {
+    if (!renamingFolderRecord) return;
+    setEditingColor(renamingFolderRecord.color);
+    // Only on entering rename, not on every folder update mid-edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [renamingFolderRecord?.id]);
+
   const commitNewFolder = () => {
     const trimmed = newFolderName.trim();
     if (!trimmed) {
@@ -479,6 +530,7 @@ export function NotesScreen() {
       setNewFolderName("");
       setNewFolderError(null);
       setEditingIcon(undefined);
+      setEditingColor(undefined);
       setIconPickerOpen(false);
       return;
     }
@@ -502,6 +554,7 @@ export function NotesScreen() {
     setNewFolderName("");
     setNewFolderError(null);
     setEditingIcon(undefined);
+      setEditingColor(undefined);
     setIconPickerOpen(false);
     setDrawerRenaming(false);
   };
@@ -512,6 +565,7 @@ export function NotesScreen() {
     setNewFolderName("");
     setNewFolderError(null);
     setEditingIcon(undefined);
+      setEditingColor(undefined);
     setIconPickerOpen(false);
     setDrawerRenaming(false);
   };
@@ -530,17 +584,19 @@ export function NotesScreen() {
     setSortMenuOpen(false);
   };
 
-  useTopChrome(<ExpandableSearch value={noteSearch} onChange={setNoteSearch} placeholder="Search in Notes" />);
 
   useEffect(() => {
     if (!focusNoteId) return;
     const targetNote = state.notes.find((note) => note.id === focusNoteId);
     if (!targetNote) return;
-    setSelectedFolder(noteFolderName(targetNote, folderNameById));
+    setSelectedFolder(noteFolderDisplayName(targetNote, folderNameById));
     setEditingNoteId(null);
     setFocusedNoteId(focusNoteId);
-    navigate(location.pathname, { replace: true, state: null });
-  }, [focusNoteId, folderNameById, location.pathname, navigate, state.notes]);
+    // Keep `?folder=` (and whether the gallery pushed it) so opening a note
+    // from a gallery card lands in its folder and Back still returns there.
+    const fromGallery = Boolean((location.state as { fromGallery?: boolean } | null)?.fromGallery);
+    navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: fromGallery ? { fromGallery: true } : null });
+  }, [focusNoteId, folderNameById, location.pathname, location.search, location.state, navigate, state.notes]);
 
   useEffect(() => {
     if (!focusedNoteId) return;
@@ -562,12 +618,12 @@ export function NotesScreen() {
 
   const renderNotesPanel = (isMobileDrawer = false) => {
     return (
-      <div className="relative flex h-full min-h-0 flex-col lg:pl-4 lg:pt-4">
-      <div className="flex flex-col pt-[env(safe-area-inset-top)] lg:hidden">
+      <div className={cn("relative flex h-full min-h-0 flex-col", isMobileDrawer ? undefined : "lg:pl-4 lg:pt-4")}>
+      <div className={cn("flex flex-col pt-[env(safe-area-inset-top)]", isMobileDrawer ? undefined : "lg:hidden")}>
         {/* Slim invisible hotzone: swiping right from here (not the whole
             panel) dismisses it, so the rest of the panel keeps native
             vertical scrolling. */}
-        <div aria-hidden="true" className="absolute inset-y-0 left-0 z-10 w-6" {...edgeSwipeProps} />
+        {desktopFolderSheet ? null : <div aria-hidden="true" data-edge-swipe-zone className="absolute inset-y-0 left-0 z-10 w-6" {...edgeSwipeProps} />}
         {(() => {
           const row = visibleFolderRows.find(
             (f) => selectedFolder && normalizeNoteFolderName(f.name) === normalizeNoteFolderName(selectedFolder),
@@ -575,7 +631,8 @@ export function NotesScreen() {
           const rowId = row?.id;
           return (
             <FolderDrawerHeader
-              onBack={() => setMobileNotesOpen(false)}
+              onBack={closeFolderSheet}
+              backStyle={desktopFolderSheet ? "close" : "back"}
               rename={
                 isMobileDrawer && drawerRenaming
                   ? {
@@ -614,6 +671,11 @@ export function NotesScreen() {
                 isMobileDrawer && rowId
                   ? {
                       noun: "folder",
+                      pinned: Boolean(row.pinned),
+                      onTogglePin: () => {
+                        dispatch({ type: "folder/set-pinned", scope: "note", folderId: rowId, pinned: !row.pinned });
+                        setDrawerFolderMenuOpen(false);
+                      },
                       onShare: () => setShareTarget({ id: rowId, name: row.name, icon: row.icon }),
                       menuOpen: drawerFolderMenuOpen,
                       onToggleMenu: () => setDrawerFolderMenuOpen((current) => !current),
@@ -719,7 +781,9 @@ export function NotesScreen() {
                     // gate the hidden copy's own outside-click listener
                     // would close/save the note out from under the visible
                     // copy on every single click, anywhere on the page.
-                    saveOnOutsideClick={isMobileDrawer ? !isDesktop : isDesktop}
+                    // In the desktop gallery the sheet (a drawer-mode copy) is
+                    // the only one mounted, so it owns outside-click saving.
+                    saveOnOutsideClick={isMobileDrawer ? !isDesktop || desktopFolderSheet : isDesktop}
                     outsideClickContainerRef={isMobileDrawer ? editingNoteRowRefMobile : editingNoteRowRefDesktop}
                     onCancel={() => {
                       setEditingNoteId(null);
@@ -751,7 +815,7 @@ export function NotesScreen() {
               ) : (
                 <NoteCard
                   note={note}
-                  folderLabel={noteFolderName(note, folderNameById)}
+                  folderLabel={noteFolderDisplayName(note, folderNameById)}
                   surface="list"
                   expanded={false}
                   onToggleExpanded={() => undefined}
@@ -798,18 +862,8 @@ export function NotesScreen() {
     );
   };
 
-  return (
-    <div
-      className="fixed left-0 right-0 z-0 flex min-h-0 flex-1 flex-col overflow-hidden"
-      style={{
-        top: "var(--omanote-top-chrome-height, 0px)",
-        bottom: "0px",
-      }}
-    >
-      <div className="relative grid h-full min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[227px_minmax(0,1fr)]">
-        <aside className="h-full min-h-0 overflow-hidden pt-4">
-          <div className="flex h-full min-h-0 flex-col">
-            <div className="mb-3 flex items-center justify-between">
+  const folderToolbar = (
+    <div className="flex shrink-0 items-center gap-2">
               <button
                 type="button"
                 aria-label="Add folder"
@@ -823,7 +877,7 @@ export function NotesScreen() {
                 <Plus className="h-4 w-4" />
               </button>
               <div className="flex items-center gap-2">
-                <div className="flex items-center rounded-md border border-app-line bg-app-surface lg:hidden">
+                <div className="flex items-center rounded-md border border-app-line bg-app-surface">
                   <button
                     type="button"
                     aria-label="List view"
@@ -862,7 +916,7 @@ export function NotesScreen() {
                   {folderSort.direction === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
                 </button>
                 {sortMenuOpen ? (
-                  <div className="absolute right-0 top-full z-20 mt-2 w-44 rounded-xl border border-app-line bg-app-surface p-1 shadow-soft">
+                  <div className="app-overlay absolute right-0 top-full z-20 mt-2 w-44 rounded-xl border border-app-line bg-app-surface p-1 shadow-soft">
                     {(["alphabetical", "lastUpdated", "totalNotes"] as FolderSortKey[]).map((option) => (
                       <button
                         key={option}
@@ -880,133 +934,146 @@ export function NotesScreen() {
                 ) : null}
               </div>
               </div>
-            </div>
+    </div>
+  );
+  // Search on the left, the page's actions on the right — in the top bar,
+  // so switching list/gallery never moves them.
+  useTopChrome(
+    <div className="flex min-w-0 items-center justify-between gap-2">
+      <ExpandableSearch value={noteSearch} onChange={setNoteSearch} placeholder="Search in Notes" />
+      {folderToolbar}
+    </div>,
+  );
 
-            <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto">
-              {effectiveFolderViewMode === "gallery" ? (
-                <>
-                  {creatingFolder ? (
-                    <div className="pb-2">
-                      <FolderRow
-                        folderName=""
-                        icon={editingIcon}
-                        count={0}
-                        selected={false}
-                        onClick={() => undefined}
-                        isEditing
-                        inputValue={newFolderName}
-                        onInputChange={(value) => {
+  return (
+    <div
+      className="fixed left-0 right-0 z-0 flex min-h-0 flex-1 flex-col overflow-hidden"
+      style={{
+        top: "var(--omanote-top-chrome-height, 0px)",
+        bottom: "0px",
+      }}
+    >
+      <div
+        className={cn(
+          "relative grid h-full min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden",
+          showDesktopOverview ? "lg:grid-cols-1" : "lg:grid-cols-[227px_minmax(0,1fr)]",
+        )}
+      >
+        <aside className={cn("h-full min-h-0 overflow-hidden", !showGalleryOverview && "pt-4", showDesktopOverview && "lg:mx-auto lg:w-full lg:max-w-[1024px]")}>
+          <div className="flex h-full min-h-0 flex-col">
+            {showGalleryOverview ? (
+              <FolderGallery
+                storageKey="notes"
+                orderKey={`${folderSort.key}:${folderSort.direction}:${noteSearchQuery}`}
+                loading={isCanvasContentLoading ?? false}
+                groups={folderGroups}
+                getKey={galleryKeyOf}
+                newFolderTile={
+                  creatingFolder ? (
+                    <FolderGalleryCard
+                      name=""
+                      icon={editingIcon}
+                      onOpen={() => undefined}
+                      onIconClick={(anchor) => {
+                        iconPickerAnchorRef.current = anchor;
+                        setIconPickerOpen(true);
+                      }}
+                      editing={{
+                        value: newFolderName,
+                        placeholder: "New folder",
+                        error: newFolderError,
+                        inputRef: newFolderInputRef,
+                        onChange: (value) => {
                           setNewFolderName(value);
                           setNewFolderError(null);
-                        }}
-                        onInputKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                            commitNewFolder();
-                          } else if (event.key === "Escape") {
-                            event.preventDefault();
-                            cancelNewFolder();
+                        },
+                        onCommit: commitNewFolder,
+                        onCancel: cancelNewFolder,
+                        onBlur: iconPickerOpen ? undefined : commitNewFolderOnBlur,
+                      }}
+                      rows={[]}
+                      totalCount={0}
+                      emptyLabel="No notes yet"
+                      meta={[]}
+                    />
+                  ) : null
+                }
+                renderCard={(row) => (
+                  <NoteFolderPreview
+                    folder={{
+                      key: galleryKeyOf(row),
+                      name: row.name,
+                      icon: row.icon,
+                      color: row.color,
+                      pinned: row.pinned,
+                      shared: row.id ? sharedFolderIdSet.has(row.id) : false,
+                      lastUpdated: row.lastUpdated,
+                      onIconClick: row.id
+                        ? (anchor) => {
+                            setDirectIconFolderId(row.id!);
+                            setEditingIcon(row.icon);
+                            iconPickerAnchorRef.current = anchor;
+                            setIconPickerOpen(true);
                           }
-                        }}
-                        inputRef={newFolderInputRef}
-                        duplicateError={newFolderError}
-                        onCancel={iconPickerOpen ? undefined : commitNewFolderOnBlur}
-                        onIconClick={(ref) => { iconPickerAnchorRef.current = ref.current; setIconPickerOpen(true); }}
-                      />
-                    </div>
-                  ) : null}
-
-                  <FolderGroups
-                    groups={folderGroups}
-                    wrap={(children) => <div className="grid grid-cols-3 gap-2">{children}</div>}
-                    renderItem={(folder) => (
-                    renamingFolderId === folder.id && !drawerRenaming ? (
-                      <div key={folder.id ?? folder.name} className="col-span-3">
-                        <FolderRow
-                          folderName={folder.name}
-                          icon={editingIcon}
-                          count={folder.count}
-                          selected={false}
-                          onClick={() => undefined}
-                          isEditing
-                          inputValue={newFolderName}
-                          onInputChange={(value) => {
-                            setNewFolderName(value);
-                            setNewFolderError(null);
-                          }}
-                          onInputKeyDown={(event) => {
-                            if (event.key === "Enter") {
-                              event.preventDefault();
-                              commitNewFolder();
-                            } else if (event.key === "Escape") {
-                              event.preventDefault();
-                              cancelNewFolder();
-                            }
-                          }}
-                          inputRef={newFolderInputRef}
-                          duplicateError={newFolderError}
-                          onCancel={iconPickerOpen ? undefined : commitNewFolderOnBlur}
-                          placeholder={folder.name}
-                          onIconClick={(ref) => { iconPickerAnchorRef.current = ref.current; setIconPickerOpen(true); }}
-                        />
-                      </div>
-                    ) : (
-                      <FolderCard
-                        key={folder.id ?? folder.name}
-                        folderName={folder.name}
-                        icon={folder.icon}
-                        color={folder.color}
-                        count={noteFolderMatchCounts?.get(normalizeNoteFolderName(folder.name)) ?? folder.count}
-                        selected={selectedFolder ? normalizeNoteFolderName(selectedFolder) === normalizeNoteFolderName(folder.name) : false}
-                        onClick={() => openFolderNotes(folder.name)}
-                        isShared={folder.id ? sharedFolderIdSet.has(folder.id) : false}
-                        onIconClick={isDesktop && folder.id ? (ref) => {
-                          setDirectIconFolderId(folder.id!);
-                          setEditingIcon(folder.icon);
-                          iconPickerAnchorRef.current = ref.current;
-                          setIconPickerOpen(true);
-                        } : () => openFolderNotes(folder.name)}
-                        iconPickerActive={directIconFolderId === folder.id}
-                        actions={
-                          isDesktop && folder.id ? (
-                            <FolderActionMenu
-                              folderId={folder.id}
-                              folderName={folder.name}
-                              isOpen={folderMenuOpenId === folder.id}
-                              menuRef={folderMenuOpenId === folder.id ? folderMenuRef : undefined}
-                              size="sm"
-                              isShared={sharedFolderIdSet.has(folder.id)}
-                              isPinned={folder.pinned}
-                              onToggle={() => setFolderMenuOpenId((current) => (current === folder.id ? null : folder.id ?? null))}
-                              onTogglePin={() => {
-                                dispatch({ type: "folder/set-pinned", scope: "note", folderId: folder.id!, pinned: !folder.pinned });
-                                setFolderMenuOpenId(null);
-                              }}
-                              onRename={() => {
-                                setRenamingFolderId(folder.id ?? null);
-                                setNewFolderName(folder.name);
-                                setEditingIcon(folder.icon);
+                        : undefined,
+                      editing:
+                        row.id && renamingFolderId === row.id && !drawerRenaming
+                          ? {
+                              value: newFolderName,
+                              placeholder: row.name,
+                              error: newFolderError,
+                              inputRef: newFolderInputRef,
+                              onChange: (value) => {
+                                setNewFolderName(value);
                                 setNewFolderError(null);
-                                setFolderMenuOpenId(null);
-                              }}
-                              onShare={() => {
-                                setShareTarget({ id: folder.id ?? "", name: folder.name, icon: folder.icon });
-                                setFolderMenuOpenId(null);
-                              }}
-                              onDelete={() => {
-                                setDeleteTarget({ id: folder.id ?? "", name: folder.name, count: folder.count });
-                                setFolderMenuOpenId(null);
-                              }}
-                            />
-                          ) : null
-                        }
-                      />
-                    )
-                  )}
+                              },
+                              onCommit: commitNewFolder,
+                              onCancel: cancelNewFolder,
+                              onBlur: iconPickerOpen ? undefined : commitNewFolderOnBlur,
+                            }
+                          : undefined,
+                      actions: row.id
+                        ? {
+                            pinned: Boolean(row.pinned),
+                            onEdit: () => {
+                              setRenamingFolderId(row.id ?? null);
+                              setNewFolderName(row.name);
+                              setEditingIcon(row.icon);
+                              setNewFolderError(null);
+                            },
+                            onShare: () => setShareTarget({ id: row.id ?? "", name: row.name, icon: row.icon }),
+                            onDelete: () => setDeleteTarget({ id: row.id ?? "", name: row.name, count: row.count }),
+                            onTogglePin: () =>
+                              dispatch({ type: "folder/set-pinned", scope: "note", folderId: row.id!, pinned: !row.pinned }),
+                          }
+                        : undefined,
+                    }}
+                    items={noteFolderStats.get(normalizeNoteFolderName(row.name))?.items ?? []}
+                    matches={noteSearchQuery ? (note) => matchesQuery(noteSearchQuery, note.title, note.body) : undefined}
+                    onOpen={() => {
+                      if (isDesktop) galleryFolderParam.openFolder(galleryKeyOf(row));
+                      else openFolderNotes(row.name);
+                    }}
+                    onOpenNote={(noteId) => {
+                      // Desktop: open the folder through the URL and let the
+                      // focusNoteId effect select and scroll to the note.
+                      if (isDesktop) {
+                        galleryFolderParam.openFolder(galleryKeyOf(row), { focusNoteId: noteId });
+                        return;
+                      }
+                      // Mobile: the drawer owns Back (useHistoryBackClose), so
+                      // a router entry here would make Back take two presses.
+                      setSelectedFolder(row.name);
+                      setEditingNoteId(null);
+                      setFocusedNoteId(noteId);
+                      setMobileNotesOpen(true);
+                    }}
                   />
-                </>
-              ) : (
-                <>
+                )}
+              />
+            ) : (
+            <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto">
+              {(                <>
                   {creatingFolder ? (
                     <FolderRow
                       folderName=""
@@ -1127,33 +1194,28 @@ export function NotesScreen() {
               )}
               <div aria-hidden="true" style={{ height: "calc(var(--omanote-bottom-nav-height, 64px) + 1.5rem)", flexShrink: 0 }} />
             </div>
+            )}
           </div>
         </aside>
 
-        <section className="hidden min-h-0 flex-1 flex-col lg:flex lg:border-l lg:border-app-line">
-          {renderNotesPanel(false)}
+        <section className={cn("hidden min-h-0 flex-1 flex-col lg:border-l lg:border-app-line", showDesktopOverview ? "lg:hidden" : "lg:flex")}>
+          {/* Not rendered behind the gallery: the sheet holds the one live
+              copy of the folder view, so two editors never mount at once. */}
+          {showDesktopOverview ? null : renderNotesPanel(false)}
         </section>
       </div>
 
       <ModalPortal>
-        <div
-          aria-hidden="true"
-          className={cn(
-            "fixed inset-0 z-app-overlay bg-app-canvas/55 transform-gpu transition-opacity duration-app-drawer ease-app-drawer lg:hidden",
-            mobileNotesOpen ? "opacity-100" : "pointer-events-none opacity-0",
-          )}
-          onClick={() => setMobileNotesOpen(false)}
-        />
-        <section
-          className={cn(
-            "fixed inset-0 z-app-drawer flex min-h-0 flex-col bg-app-surface shadow-app-drawer transform-gpu lg:hidden",
-            isDragging ? "" : "transition-transform duration-app-drawer ease-app-drawer",
-            mobileNotesOpen ? "translate-x-0" : "pointer-events-none translate-x-full",
-          )}
-          style={isDragging || dragOffset > 0 ? { transform: `translateX(${dragOffset}px)` } : undefined}
+        <FolderSheet
+          open={folderSheetOpen}
+          onClose={closeFolderSheet}
+          desktop={desktopFolderSheet}
+          label={selectedFolderLabel}
+          dragOffset={dragOffset}
+          isDragging={isDragging}
         >
           {renderNotesPanel(true)}
-        </section>
+        </FolderSheet>
       </ModalPortal>
 
       {creating ? (
@@ -1243,6 +1305,7 @@ export function NotesScreen() {
             if (directIconFolderId) {
               const folder = state.noteFolders.find((f) => f.id === directIconFolderId);
               if (folder) dispatch({ type: "note-folder/update", folderId: directIconFolderId, name: folder.name, icon: folder.icon, color });
+              if (directIconFolderId === renamingFolderId) setEditingColor(color);
             } else {
               setEditingColor(color);
             }
@@ -1252,7 +1315,8 @@ export function NotesScreen() {
               const folder = state.noteFolders.find((f) => f.id === directIconFolderId);
               if (folder) dispatch({ type: "note-folder/update", folderId: directIconFolderId, name: folder.name, icon, color: folder.color });
               setDirectIconFolderId(null);
-              setEditingIcon(undefined);
+              // Mid-rename, the pending commit writes editingIcon — keep the new one.
+              setEditingIcon(directIconFolderId === renamingFolderId ? icon : undefined);
             } else {
               setEditingIcon(icon);
             }
@@ -1262,7 +1326,7 @@ export function NotesScreen() {
             setIconPickerOpen(false);
             if (directIconFolderId) {
               setDirectIconFolderId(null);
-              setEditingIcon(undefined);
+              if (directIconFolderId !== renamingFolderId) setEditingIcon(undefined);
             }
           }}
         />

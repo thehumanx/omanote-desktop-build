@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toDateKey, type DateKey, type TodoFilter, type TodoFolder, type TodoItem } from "@omanote/shared";
-import { ArrowDown, ArrowUp, Calendar, CalendarClock, CircleCheck, ClockAlert, LayoutGrid, LayoutList, ListChecks, Plus, PartyPopper } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Calendar, CalendarClock, CircleCheck, ClockAlert, LayoutGrid, LayoutList, ListChecks, Plus, PartyPopper } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -15,9 +15,18 @@ import { ExpandableSearch } from "../components/ExpandableSearch";
 import { matchesQuery, normalizeSearchQuery } from "../lib/search-match";
 import { ModalPortal } from "../components/ModalPortal";
 import { TodoEditorModal } from "../components/TodoEditorModal";
-import { TodoFolderCard, TodoFolderCountBadge, TodoFolderRow } from "../components/TodoFolderRow";
+import { TodoFolderCountBadge, TodoFolderRow } from "../components/TodoFolderRow";
 import { FolderNavGroups } from "../components/FolderNav";
-import { groupByPinned } from "../lib/pinned-folders";
+import { groupByPinned, type PinnedFolderGroups } from "../lib/pinned-folders";
+import { makeTodoFolderKey } from "../lib/folder-keys";
+import { buildFolderStats, folderLastUpdated, todoFolderProgress, type FolderStat } from "../lib/folder-stats";
+import { FolderGallery } from "../components/folder-gallery/FolderGallery";
+import { FolderGalleryCard } from "../components/folder-gallery/FolderGalleryCard";
+import { FolderSheet } from "../components/folder-gallery/FolderSheet";
+import type { GalleryFolder } from "../components/folder-gallery/types";
+import { FolderNavActionMenu } from "../components/FolderNav";
+import { TodoFolderPreview, useFrozenTodos } from "../components/folder-gallery/TodoFolderPreview";
+import { useGalleryFolderParam } from "../hooks/useGalleryFolderParam";
 import { TodoListRow } from "../components/TodoListRow";
 import { Button, cn, SegmentedPill } from "../components/ui";
 import { FolderDrawerHeader } from "../components/FolderDrawerHeader";
@@ -365,8 +374,75 @@ function TodoSectionStack({
 /** Module scope for referential stability — VirtualList memoises its key map on it. */
 const todoStackEntryKey = (entry: TodoStackEntry) => entry.key;
 
+/**
+ * The Todos folder gallery. Its own component so `useFrozenTodos` lives
+ * exactly as long as the gallery is on screen: rows checked during a visit
+ * hold their slot, and the freeze ends when the user leaves.
+ */
+function TodosGallery({
+  groups,
+  loading,
+  stats,
+  todayKey,
+  sharedIds,
+  newFolderTile,
+  orderKey,
+  matches,
+  decorate,
+  onOpenFolder,
+  onToggle,
+}: {
+  groups: PinnedFolderGroups<TodoFolder>;
+  loading: boolean;
+  stats: Map<string, FolderStat<TodoItem>>;
+  todayKey: DateKey;
+  sharedIds: ReadonlySet<string>;
+  newFolderTile: ReactNode;
+  orderKey: string;
+  matches?: (todo: TodoItem) => boolean;
+  /** The card's tab controls (icon picker, rename input, action strip) for this folder. */
+  decorate: (folder: TodoFolder) => Pick<GalleryFolder, "onIconClick" | "editing" | "actions">;
+  onOpenFolder: (folderId: string) => void;
+  onToggle: (toggleId: string) => void;
+}) {
+  const { frozen, freeze } = useFrozenTodos();
+  return (
+    <FolderGallery
+      storageKey="todos"
+      loading={loading}
+      groups={groups}
+      getKey={(folder) => folder.id}
+      newFolderTile={newFolderTile}
+      orderKey={orderKey}
+      renderCard={(folder) => (
+        <TodoFolderPreview
+          folder={{
+            key: folder.id,
+            name: folder.name,
+            icon: folder.icon,
+            color: folder.color,
+            pinned: folder.pinned,
+            shared: sharedIds.has(folder.id),
+            lastUpdated: folderLastUpdated(stats.get(folder.id), folder.createdAt),
+            ...decorate(folder),
+          }}
+          items={stats.get(folder.id)?.items ?? []}
+          todayKey={todayKey}
+          frozen={frozen}
+          matches={matches}
+          onToggle={(toggleId, snapshot) => {
+            freeze(snapshot);
+            onToggle(toggleId);
+          }}
+          onOpen={() => onOpenFolder(folder.id)}
+        />
+      )}
+    />
+  );
+}
+
 export function TodosScreen() {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, isCanvasContentLoading } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
   const [focusedTodoId, setFocusedTodoId] = useState<string | null>(null);
@@ -519,32 +595,20 @@ export function TodosScreen() {
     () => activeTodos.filter(todoBelongsToSelectedFolder),
     [activeTodos, todoBelongsToSelectedFolder],
   );
-  const folderCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const folder of effectiveTodoFolders) counts.set(folder.id, 0);
-    for (const todo of activeTodos) {
-      const folderId =
-        todo.folderId && counts.has(todo.folderId)
-          ? todo.folderId
-          : effectiveTodoFolders.find((folder) => folder.name.toLowerCase() === "others")?.id ?? effectiveTodoFolders[0]?.id;
-      if (folderId) counts.set(folderId, (counts.get(folderId) ?? 0) + 1);
+  const todoFolderKeyOf = useMemo(() => makeTodoFolderKey(effectiveTodoFolders), [effectiveTodoFolders]);
+  const todoFolderStats = useMemo(
+    () => buildFolderStats(activeTodos, todoFolderKeyOf, (todo) => todo.updatedAt),
+    [activeTodos, todoFolderKeyOf],
+  );
+  // Series-aware: a recurring todo counts once, by today's occurrence, so the
+  // badge (and the gallery's progress bar) can't read 30/31 for a daily habit.
+  const todoFolderProgressById = useMemo(() => {
+    const progress = new Map<string, { done: number; total: number }>();
+    for (const folder of effectiveTodoFolders) {
+      progress.set(folder.id, todoFolderProgress(todoFolderStats.get(folder.id)?.items ?? [], todayKey));
     }
-    return counts;
-  }, [activeTodos, effectiveTodoFolders]);
-
-  const folderCompletedCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const folder of effectiveTodoFolders) counts.set(folder.id, 0);
-    for (const todo of activeTodos) {
-      if (todo.status !== "done") continue;
-      const folderId =
-        todo.folderId && counts.has(todo.folderId)
-          ? todo.folderId
-          : effectiveTodoFolders.find((folder) => folder.name.toLowerCase() === "others")?.id ?? effectiveTodoFolders[0]?.id;
-      if (folderId) counts.set(folderId, (counts.get(folderId) ?? 0) + 1);
-    }
-    return counts;
-  }, [activeTodos, effectiveTodoFolders]);
+    return progress;
+  }, [effectiveTodoFolders, todoFolderStats, todayKey]);
 
   const allFolderNames = useMemo(
     () => effectiveTodoFolders.map((folder) => folder.name),
@@ -579,10 +643,25 @@ export function TodosScreen() {
     return counts;
   }, [todoSearchQuery, activeTodos, effectiveTodoFolders]);
 
+  const sortedTodoFolders = useMemo(() => {
+    const lastUpdated = (folder: TodoFolder) => folderLastUpdated(todoFolderStats.get(folder.id), folder.createdAt);
+    const total = (folder: TodoFolder) => todoFolderProgressById.get(folder.id)?.total ?? 0;
+    return [...effectiveTodoFolders].sort((left, right) => {
+      let comparison =
+        folderSort.key === "alphabetical"
+          ? left.name.localeCompare(right.name)
+          : folderSort.key === "lastUpdated"
+            ? lastUpdated(left) - lastUpdated(right)
+            : total(left) - total(right);
+      if (comparison === 0) comparison = left.name.localeCompare(right.name);
+      return folderSort.direction === "asc" ? comparison : -comparison;
+    });
+  }, [effectiveTodoFolders, folderSort.direction, folderSort.key, todoFolderProgressById, todoFolderStats]);
+
   const visibleTodoFolders = useMemo(() => {
-    if (!todoFolderMatchCounts) return effectiveTodoFolders;
-    return effectiveTodoFolders.filter((folder) => todoFolderMatchCounts.has(folder.id));
-  }, [effectiveTodoFolders, todoFolderMatchCounts]);
+    if (!todoFolderMatchCounts) return sortedTodoFolders;
+    return sortedTodoFolders.filter((folder) => todoFolderMatchCounts.has(folder.id));
+  }, [sortedTodoFolders, todoFolderMatchCounts]);
 
   // Grouped at render rather than folded into the sort comparator, so the
   // chosen sort still orders several pinned folders among themselves.
@@ -697,9 +776,21 @@ export function TodosScreen() {
     setNewFolderName("");
     setNewFolderError(null);
     setEditingIcon(undefined);
+    setEditingColor(undefined);
     setCreatingFolder(false);
     setDrawerRenaming(false);
   }, [newFolderName, renamingFolderId, editingIcon, editingColor, dispatch, duplicateFolderExists]);
+
+  // A rename starts from the folder's current look, from any entry point
+  // (card tab, list row, sheet header): commitFolder writes icon *and* colour,
+  // so leaving editingColor unset here would clear the folder's colour.
+  const renamingFolder = renamingFolderId ? state.todoFolders.find((folder) => folder.id === renamingFolderId) : undefined;
+  useEffect(() => {
+    if (!renamingFolder) return;
+    setEditingColor(renamingFolder.color);
+    // Only on entering rename, not on every folder update mid-edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [renamingFolder?.id]);
 
   const commitFolderOnBlur = () => {
     if (duplicateFolderExists) { cancelRenameFolder(); return; }
@@ -711,6 +802,7 @@ export function TodosScreen() {
     setNewFolderName("");
     setNewFolderError(null);
     setEditingIcon(undefined);
+    setEditingColor(undefined);
     setCreatingFolder(false);
     setDrawerRenaming(false);
   }, []);
@@ -720,22 +812,24 @@ export function TodosScreen() {
       const folder = state.todoFolders.find((f) => f.id === directIconFolderId);
       if (folder) dispatch({ type: "todo-folder/update", folderId: directIconFolderId, name: folder.name, icon, color: folder.color });
       setDirectIconFolderId(null);
-      setEditingIcon(undefined);
+      // Mid-rename, the pending commit writes editingIcon — keep the new one.
+      setEditingIcon(directIconFolderId === renamingFolderId ? icon : undefined);
     } else {
       setEditingIcon(icon);
     }
     setIconPickerOpen(false);
-  }, [directIconFolderId, state.todoFolders, dispatch]);
+  }, [directIconFolderId, renamingFolderId, state.todoFolders, dispatch]);
 
   // Colour never closes the picker — see NotesScreen for why.
   const handleColorSelect = useCallback((color: string | undefined) => {
     if (directIconFolderId) {
       const folder = state.todoFolders.find((f) => f.id === directIconFolderId);
       if (folder) dispatch({ type: "todo-folder/update", folderId: directIconFolderId, name: folder.name, icon: folder.icon, color });
+      if (directIconFolderId === renamingFolderId) setEditingColor(color);
     } else {
       setEditingColor(color);
     }
-  }, [directIconFolderId, state.todoFolders, dispatch]);
+  }, [directIconFolderId, renamingFolderId, state.todoFolders, dispatch]);
 
   const handleToggleTodo = (todo: TodoItem) => {
     if (todo.status !== "done" && state.ui.todoFilter !== "all") {
@@ -994,6 +1088,43 @@ export function TodosScreen() {
   const noop = useCallback(() => {}, []);
 
   const activeSharedFolderIds = useQuery(api.sharedTodoFolders.listMyActiveSharedFolderIds);
+  const sharedTodoFolderIdSet = useMemo(() => new Set(activeSharedFolderIds ?? []), [activeSharedFolderIds]);
+
+  // Gallery mode: with no folder open the screen is a full-width card grid.
+  // On desktop an open folder lives in `?folder=` and shows the usual rail +
+  // pane; mobile keeps its drill-in drawer over the gallery.
+  const galleryMode = folderViewMode === "gallery";
+  const todoFolderIdSet = useMemo(() => new Set(effectiveTodoFolders.map((folder) => folder.id)), [effectiveTodoFolders]);
+  const galleryFolderParam = useGalleryFolderParam({
+    enabled: galleryMode && isDesktop,
+    validKeys: todoFolderIdSet,
+    ready: !isCanvasContentLoading,
+  });
+  const galleryOpenFolderId = galleryFolderParam.openFolderKey;
+  // In gallery mode the gallery is always the page; an open folder is a
+  // sheet over it — a 640px side peek on desktop (URL-driven), the existing
+  // full-screen drawer on phones (local state).
+  const showGalleryOverview = galleryMode;
+  const showDesktopOverview = galleryMode && isDesktop;
+  const desktopFolderSheet = galleryMode && isDesktop;
+  const folderSheetOpen = desktopFolderSheet ? Boolean(galleryOpenFolderId) : mobileTodosOpen;
+  const closeFolderSheet = desktopFolderSheet ? galleryFolderParam.closeFolder : () => setMobileTodosOpen(false);
+
+  useEffect(() => {
+    if (!galleryOpenFolderId || galleryOpenFolderId === selectedFolderId) return;
+    setSelectedFolderId(galleryOpenFolderId);
+    writeLastSelectedTodoFolder(galleryOpenFolderId);
+  }, [galleryOpenFolderId, selectedFolderId]);
+
+  const openGalleryFolder = useCallback(
+    (folderId: string) => {
+      setSelectedFolderId(folderId);
+      writeLastSelectedTodoFolder(folderId);
+      if (isDesktop) galleryFolderParam.openFolder(folderId);
+      else setMobileTodosOpen(true);
+    },
+    [galleryFolderParam, isDesktop],
+  );
   const updateShareSnapshot = useMutation(api.sharedTodoFolders.updateShareSnapshot);
   const todoSnapshotDebounceRef = useRef<number | null>(null);
 
@@ -1033,20 +1164,8 @@ export function TodosScreen() {
     };
   }, [state.todos, state.todoFolders, activeSharedFolderIds, updateShareSnapshot]);
 
-  useTopChrome(<ExpandableSearch value={todoSearch} onChange={setTodoSearch} placeholder="Search in Todos" />);
-
-  return (
-    <div
-      className="fixed left-0 right-0 z-0 flex min-h-0 flex-1 flex-col overflow-hidden"
-      style={{
-        top: "var(--omanote-top-chrome-height, 0px)",
-        bottom: "0px",
-      }}
-    >
-        <div className="grid h-full min-h-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-4 overflow-hidden lg:grid-cols-[227px_minmax(0,1fr)] lg:grid-rows-1">
-        <aside className="min-h-0 overflow-hidden pt-4 lg:block lg:h-full">
-          <div className="flex h-full min-h-0 flex-col">
-            <div className="flex items-center justify-between px-2 pb-2 lg:px-0">
+  const folderToolbar = (
+    <div className="flex shrink-0 items-center gap-2">
               <button
                 type="button"
                 aria-label="Add folder"
@@ -1056,7 +1175,7 @@ export function TodosScreen() {
                 <Plus className="h-4 w-4" />
               </button>
               <div className="flex items-center gap-2">
-                <div className="flex items-center rounded-md border border-app-line bg-app-surface lg:hidden">
+                <div className="flex items-center rounded-md border border-app-line bg-app-surface">
                   <button
                     type="button"
                     aria-label="List view"
@@ -1097,7 +1216,7 @@ export function TodosScreen() {
                   {folderSort.direction === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
                 </button>
                 {folderSortMenuOpen ? (
-                  <div className="absolute right-0 top-full z-20 mt-2 w-44 rounded-xl border border-app-line bg-app-surface p-1 shadow-soft">
+                  <div className="app-overlay absolute right-0 top-full z-20 mt-2 w-44 rounded-xl border border-app-line bg-app-surface p-1 shadow-soft">
                     {(["alphabetical", "lastUpdated", "totalTodos"] as FolderSortKey[]).map((option) => (
                       <button
                         key={option}
@@ -1124,99 +1243,118 @@ export function TodosScreen() {
                 ) : null}
               </div>
               </div>
-            </div>
-            <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto pb-8">
-              {folderViewMode === "gallery" ? (
-                <>
-                  {creatingFolder ? (
-                    <div className="pb-2 pr-1">
-                      <TodoFolderRow
-                        folder={{ id: "__new__", name: newFolderName || "", createdAt: 0, updatedAt: 0 }}
-                        completedCount={0}
-                        totalCount={0}
-                        selected={false}
-                        isDefault={false}
-                        menuOpen={false}
-                        isEditing
-                        editingName={newFolderName}
-                        editingIcon={editingIcon}
-                        iconPickerActive={false}
-                        isShared={false}
-                        isDesktop={isDesktop}
-                        duplicateError={newFolderError}
-                        inputRef={newFolderInputRef}
-                        onCancel={iconPickerOpen ? undefined : commitFolderOnBlur}
-                        placeholder="New folder"
-                        onToggleMenu={noop}
-                        onStartEdit={noop}
-                        onCommitEdit={commitFolder}
-                        onCancelEdit={() => { setCreatingFolder(false); setNewFolderName(""); setNewFolderError(null); setEditingIcon(undefined); }}
-                        onEditNameChange={(name) => { setNewFolderName(name); setNewFolderError(null); }}
-                        onIconClick={(anchorRef) => {
-                          iconPickerAnchorRef.current = anchorRef.current;
-                          setIconPickerOpen(true);
-                        }}
-                        onShare={noop}
-                        onDelete={noop}
-                        onClick={noop}
-                      />
-                    </div>
-                  ) : null}
-                  <FolderNavGroups
-                    groups={folderGroups}
-                    wrap={(children) => <div className="grid grid-cols-3 gap-2 pr-1">{children}</div>}
-                    renderItem={(folder) => (
-                    renamingFolderId === folder.id ? (
-                      <div key={folder.id} className="col-span-3">
-                        <TodoFolderRow
-                          folder={folder}
-                          completedCount={folderCompletedCounts.get(folder.id) ?? 0}
-                          totalCount={folderCounts.get(folder.id) ?? 0}
-                          selected={selectedFolder?.id === folder.id}
-                          isDefault={folder.name === "Others"}
-                          menuOpen={folderMenuOpenId === folder.id}
-                          isDesktop={isDesktop}
-                          menuRef={folderMenuRef}
-                          isEditing
-                          editingName={newFolderName}
-                          editingIcon={editingIcon}
-                          iconPickerActive={directIconFolderId === folder.id}
-                          isShared={activeSharedFolderIds?.includes(folder.id) ?? false}
-                          onToggleMenu={() => setFolderMenuOpenId((c) => (c === folder.id ? null : folder.id))}
-                          onStartEdit={() => {}}
-                          onCommitEdit={commitFolder}
-                          onCancelEdit={() => { setRenamingFolderId(null); setNewFolderName(""); setNewFolderError(null); }}
-                          onEditNameChange={(name) => { setNewFolderName(name); setNewFolderError(null); }}
-                          onIconClick={(anchorRef) => {
+    </div>
+  );
+  // Search on the left, the page's actions on the right — in the top bar,
+  // so switching list/gallery never moves them.
+  useTopChrome(
+    <div className="flex min-w-0 items-center justify-between gap-2">
+      <ExpandableSearch value={todoSearch} onChange={setTodoSearch} placeholder="Search in Todos" />
+      {folderToolbar}
+    </div>,
+  );
+
+  return (
+    <div
+      className="fixed left-0 right-0 z-0 flex min-h-0 flex-1 flex-col overflow-hidden"
+      style={{
+        top: "var(--omanote-top-chrome-height, 0px)",
+        bottom: "0px",
+      }}
+    >
+        <div
+          className={cn(
+            "grid h-full min-h-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-4 overflow-hidden lg:grid-rows-1",
+            showDesktopOverview ? "lg:grid-cols-1" : "lg:grid-cols-[227px_minmax(0,1fr)]",
+          )}
+        >
+        <aside className={cn("min-h-0 overflow-hidden lg:block lg:h-full", !showGalleryOverview && "pt-4", showDesktopOverview && "lg:mx-auto lg:w-full lg:max-w-[1024px]")}>
+          <div className="flex h-full min-h-0 flex-col">
+            {showGalleryOverview ? (
+                <TodosGallery
+                  groups={folderGroups}
+                  loading={isCanvasContentLoading ?? false}
+                  stats={todoFolderStats}
+                  todayKey={todayKey}
+                  sharedIds={sharedTodoFolderIdSet}
+                  orderKey={`${folderSort.key}:${folderSort.direction}:${todoSearchQuery}`}
+                  matches={todoSearchQuery ? (todo) => matchesQuery(todoSearchQuery, todo.title, todo.notes) : undefined}
+                  onOpenFolder={openGalleryFolder}
+                  onToggle={(toggleId) => dispatch({ type: "todo/toggle", todoId: toggleId })}
+                  decorate={(folder) => {
+                    const isDefault = folder.id === "__others__" || folder.name === "Others";
+                    return {
+                      onIconClick: isDefault
+                        ? undefined
+                        : (anchor) => {
                             setDirectIconFolderId(folder.id);
                             setEditingIcon(folder.icon);
+                            iconPickerAnchorRef.current = anchor;
                             setIconPickerOpen(true);
-                            iconPickerAnchorRef.current = anchorRef.current;
-                          }}
-                          onShare={() => {}}
-                          onDelete={() => {}}
-                          onClick={() => {}}
-                        />
-                      </div>
-                    ) : (
-                      <TodoFolderCard
-                        key={folder.id}
-                        folder={folder}
-                        completedCount={folderCompletedCounts.get(folder.id) ?? 0}
-                        totalCount={folderCounts.get(folder.id) ?? 0}
-                        searchMatchCount={todoFolderMatchCounts?.get(folder.id)}
-                        selected={selectedFolder?.id === folder.id}
-                        onClick={() => {
-                          setSelectedFolderId(folder.id);
-                          writeLastSelectedTodoFolder(folder.id);
-                          if (!isDesktop) setMobileTodosOpen(true);
+                          },
+                      // Not while the sheet header is the rename editor: the card
+                      // behind would take focus and blur-commit the header input.
+                      editing:
+                        renamingFolderId === folder.id && !drawerRenaming
+                          ? {
+                              value: newFolderName,
+                              placeholder: folder.name,
+                              error: newFolderError,
+                              inputRef: newFolderInputRef,
+                              onChange: (name) => { setNewFolderName(name); setNewFolderError(null); },
+                              onCommit: commitFolder,
+                              onCancel: cancelRenameFolder,
+                              onBlur: iconPickerOpen ? undefined : commitFolderOnBlur,
+                            }
+                          : undefined,
+                      actions: isDefault
+                        ? undefined
+                        : {
+                            pinned: Boolean(folder.pinned),
+                            onEdit: () => {
+                              setRenamingFolderId(folder.id);
+                              setNewFolderName(folder.name);
+                              setEditingIcon(folder.icon);
+                              setNewFolderError(null);
+                            },
+                            onShare: () => setShareFolderModal({ folderId: folder.id, folderName: folder.name, folderIcon: folder.icon }),
+                            onDelete: () =>
+                              setDeleteTarget({ id: folder.id, name: folder.name, count: todoFolderStats.get(folder.id)?.count ?? 0 }),
+                            onTogglePin: () =>
+                              dispatch({ type: "folder/set-pinned", scope: "todo", folderId: folder.id, pinned: !folder.pinned }),
+                          },
+                    };
+                  }}
+                  newFolderTile={
+                    creatingFolder ? (
+                      <FolderGalleryCard
+                        name=""
+                        icon={editingIcon}
+                        onOpen={noop}
+                        onIconClick={(anchor) => {
+                          iconPickerAnchorRef.current = anchor;
+                          setIconPickerOpen(true);
                         }}
+                        editing={{
+                          value: newFolderName,
+                          placeholder: "New folder",
+                          error: newFolderError,
+                          inputRef: newFolderInputRef,
+                          onChange: (name) => { setNewFolderName(name); setNewFolderError(null); },
+                          onCommit: commitFolder,
+                          onCancel: cancelRenameFolder,
+                          onBlur: iconPickerOpen ? undefined : commitFolderOnBlur,
+                        }}
+                        rows={[]}
+                        totalCount={0}
+                        emptyLabel="No todos yet"
+                        meta={[]}
                       />
-                    )
-                  )}
-                  />
-                </>
-              ) : (
+                    ) : null
+                  }
+                />
+            ) : (
+            <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto pb-8">
                   <>
                   {creatingFolder ? (
                     <TodoFolderRow
@@ -1257,8 +1395,8 @@ export function TodosScreen() {
                     <TodoFolderRow
                       key={folder.id}
                       folder={folder}
-                      completedCount={folderCompletedCounts.get(folder.id) ?? 0}
-                      totalCount={folderCounts.get(folder.id) ?? 0}
+                      completedCount={todoFolderProgressById.get(folder.id)?.done ?? 0}
+                      totalCount={todoFolderProgressById.get(folder.id)?.total ?? 0}
                       searchMatchCount={renamingFolderId === folder.id ? undefined : todoFolderMatchCounts?.get(folder.id)}
                       selected={selectedFolder?.id === folder.id}
                       isDefault={folder.name === "Others"}
@@ -1292,7 +1430,7 @@ export function TodosScreen() {
                         setFolderMenuOpenId(null);
                       }}
                       onDelete={() => {
-                        setDeleteTarget({ id: folder.id, name: folder.name, count: folderCounts.get(folder.id) ?? 0 });
+                        setDeleteTarget({ id: folder.id, name: folder.name, count: todoFolderStats.get(folder.id)?.count ?? 0 });
                         setFolderMenuOpenId(null);
                       }}
                       onTogglePin={() => {
@@ -1310,12 +1448,12 @@ export function TodosScreen() {
                   )}
                   />
                 </>
-              )}
             </div>
+            )}
           </div>
         </aside>
 
-        <section className="hidden min-h-0 border-t border-app-line pt-4 lg:block lg:h-full lg:border-l lg:border-t-0 lg:pl-4">
+        <section className={cn("hidden min-h-0 border-t border-app-line pt-4 lg:h-full lg:border-l lg:border-t-0 lg:pl-4", showDesktopOverview ? "lg:hidden" : "lg:block")}>
           <div className="flex h-full min-h-0 flex-col">
             <div className="mb-3 flex items-start justify-between gap-2">
               <button
@@ -1384,35 +1522,28 @@ export function TodosScreen() {
       </div>
 
       <ModalPortal>
-        <div
-          aria-hidden="true"
-          className={cn(
-            "fixed inset-0 z-app-overlay bg-app-canvas/55 transform-gpu transition-opacity duration-app-drawer ease-app-drawer lg:hidden",
-            mobileTodosOpen ? "opacity-100" : "pointer-events-none opacity-0",
-          )}
-          onClick={() => setMobileTodosOpen(false)}
-        />
-        <section
-          className={cn(
-            "fixed inset-0 z-app-drawer flex min-h-0 flex-col bg-app-surface shadow-app-drawer transform-gpu lg:hidden",
-            isDragging ? "" : "transition-transform duration-app-drawer ease-app-drawer",
-            mobileTodosOpen ? "translate-x-0" : "pointer-events-none translate-x-full",
-          )}
-          style={isDragging || dragOffset > 0 ? { transform: `translateX(${dragOffset}px)` } : undefined}
+        <FolderSheet
+          open={folderSheetOpen}
+          onClose={closeFolderSheet}
+          desktop={desktopFolderSheet}
+          label={selectedFolder?.name ?? "Folder"}
+          dragOffset={dragOffset}
+          isDragging={isDragging}
         >
-          {mobileTodosOpen ? (
+          {folderSheetOpen ? (
             <div className="relative flex h-full min-h-0 flex-col">
               {/* Slim invisible hotzone: swiping right from here (not the whole
                   panel) dismisses it, so the rest of the panel keeps native
                   vertical scrolling. */}
-              <div aria-hidden="true" className="absolute inset-y-0 left-0 z-10 w-6" {...edgeSwipeProps} />
+              {desktopFolderSheet ? null : <div aria-hidden="true" data-edge-swipe-zone className="absolute inset-y-0 left-0 z-10 w-6" {...edgeSwipeProps} />}
               <div className="flex flex-col pt-[env(safe-area-inset-top)]">
                 {(() => {
                   const folder = effectiveTodoFolders.find((f) => f.id === selectedFolderId);
                   const managedFolder = folder && folder.id !== "__others__" ? folder : null;
                   return (
                     <FolderDrawerHeader
-                      onBack={() => setMobileTodosOpen(false)}
+                      onBack={closeFolderSheet}
+                      backStyle={desktopFolderSheet ? "close" : "back"}
                       rename={
                         drawerRenaming
                           ? {
@@ -1463,6 +1594,11 @@ export function TodosScreen() {
                         managedFolder
                           ? {
                               noun: "folder",
+                              pinned: Boolean(managedFolder.pinned),
+                              onTogglePin: () => {
+                                dispatch({ type: "folder/set-pinned", scope: "todo", folderId: managedFolder.id, pinned: !managedFolder.pinned });
+                                setDrawerFolderMenuOpen(false);
+                              },
                               onShare: () =>
                                 setShareFolderModal({
                                   folderId: managedFolder.id,
@@ -1484,7 +1620,7 @@ export function TodosScreen() {
                                 setDeleteTarget({
                                   id: managedFolder.id,
                                   name: managedFolder.name,
-                                  count: folderCounts.get(managedFolder.id) ?? 0,
+                                  count: todoFolderStats.get(managedFolder.id)?.count ?? 0,
                                 });
                                 setDrawerMenuOpen(false);
                               },
@@ -1553,7 +1689,7 @@ export function TodosScreen() {
               </div>
             </div>
           ) : null}
-        </section>
+        </FolderSheet>
       </ModalPortal>
 
       {creating ? (

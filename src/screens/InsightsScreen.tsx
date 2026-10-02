@@ -452,7 +452,7 @@ function HeatmapTooltip({ dateKey, clientX, clientY, count, breakdown }: Heatmap
           pointerEvents: "none",
           zIndex: 9999,
         }}
-        className="w-44 rounded-xl border border-app-line bg-app-surface-raised shadow-menu"
+        className="app-overlay w-44 rounded-xl border border-app-line bg-app-surface-raised shadow-menu"
       >
         <div className="p-3">
           <p className="text-[11px] font-bold text-app-ink">{formattedDate}</p>
@@ -499,7 +499,7 @@ function ActivityRhythmInfoTooltip({ clientX, clientY }: InfoTooltipState) {
           pointerEvents: "none",
           zIndex: 9999,
         }}
-        className="omanote-tooltip-pop w-56 rounded-xl border border-app-line bg-app-surface-raised p-3 shadow-menu"
+        className="app-overlay omanote-tooltip-pop w-56 rounded-xl border border-app-line bg-app-surface-raised p-3 shadow-menu"
       >
         <p className="text-[11px] font-bold text-app-ink">How to read this</p>
         <p className="mt-1 text-[11px] leading-snug text-app-ink-faint">
@@ -529,7 +529,7 @@ function ActivityRhythmHourTooltip({ hour, clientX, clientY, count, breakdown }:
           pointerEvents: "none",
           zIndex: 9999,
         }}
-        className="omanote-tooltip-pop w-44 rounded-xl border border-app-line bg-app-surface-raised shadow-menu"
+        className="app-overlay omanote-tooltip-pop w-44 rounded-xl border border-app-line bg-app-surface-raised shadow-menu"
       >
         <div className="p-3">
           <p className="text-[11px] font-bold text-app-ink">{formatHour(hour)}</p>
@@ -573,7 +573,7 @@ function DayDistributionTooltip({ dayLabel, clientX, clientY, total, breakdown }
           pointerEvents: "none",
           zIndex: 9999,
         }}
-        className="w-44 rounded-xl border border-app-line bg-app-surface-raised shadow-menu"
+        className="app-overlay w-44 rounded-xl border border-app-line bg-app-surface-raised shadow-menu"
       >
         <div className="p-3">
           <p className="text-[11px] font-bold text-app-ink">{dayLabel}</p>
@@ -620,7 +620,7 @@ function ContentCompositionTooltip({
           pointerEvents: "none",
           zIndex: 9999,
         }}
-        className="omanote-tooltip-pop w-44 rounded-xl border border-app-line bg-app-surface-raised shadow-menu"
+        className="app-overlay omanote-tooltip-pop w-44 rounded-xl border border-app-line bg-app-surface-raised shadow-menu"
       >
         <div className="p-3">
           <p className="text-[11px] font-bold text-app-ink">{label}</p>

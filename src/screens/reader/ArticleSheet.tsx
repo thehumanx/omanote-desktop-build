@@ -296,7 +296,7 @@ export function ArticleSheet({
                   />
                   {bookmarkCategoryMenuOpen && bmMenuItems.length > 0 ? (
                     <div
-                      className="absolute bottom-full left-0 mb-1 w-full min-w-[180px] rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
+                      className="app-overlay absolute bottom-full left-0 mb-1 w-full min-w-[180px] rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
                       onMouseDown={(e) => e.preventDefault()}
                     >
                       {bmMenuItems.map((menuItem, index) => (

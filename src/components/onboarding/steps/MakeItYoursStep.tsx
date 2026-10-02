@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useUserSettings } from "../../../contexts/UserSettingsContext";
 import type { NavLabelStyle, ThemeMode } from "../../../lib/user-settings";
 import { CornerStylePicker, FontFamilyPicker, NavLabelPreview } from "../../../screens/settings-screen-helpers";
+import { ScenePicker } from "../../scene/ScenePicker";
 import { Button, OptionCard, cn } from "../../ui";
 import { OnboardingFooter, OnboardingStepHeader } from "../OnboardingChrome";
 
@@ -21,7 +22,7 @@ const NAV_LABEL_OPTIONS: readonly { value: NavLabelStyle; label: string }[] = [
 const CONFIG_COUNT = 3;
 
 /**
- * Step 1 — theme, font, and nav label style. Every choice commits immediately
+ * Step 1 — theme and background scene, font, and nav label style. Every choice commits immediately
  * via `updateSettings`; there's no draft/Save button here like the persistent
  * Settings screen has, because in a one-time wizard every click already is
  * the save action, and instant feedback is the point of this step.
@@ -80,6 +81,13 @@ export function MakeItYoursStep({ onNext }: { onNext: () => void }) {
                     {option.label}
                   </OptionCard>
                 ))}
+              </div>
+              <div className="space-y-2 pt-4">
+                <p className="text-sm font-bold text-app-ink">Background</p>
+                <ScenePicker
+                  value={settings.backgroundScene}
+                  onSelect={(scene) => void updateSettings({ backgroundScene: scene })}
+                />
               </div>
             </div>
           )}

@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type TouchEvent as ReactTouchEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode, type TouchEvent as ReactTouchEvent } from "react";
 import { Bookmark, BookmarkCheck, CalendarDays, CheckSquare, FileText, Plus, Rss, SquarePen, X } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useApp } from "../../app/AppProvider";
-import { Button, Input, SegmentedHighlight, SegmentedItemLabel, SegmentedShell, segmentedItemClass } from "../ui";
+import { SegmentedHighlight, SegmentedItemLabel, SegmentedShell, segmentedItemClass } from "../ui";
 import { useMeasuredHighlight } from "../../hooks/useMeasuredHighlight";
 import { getComposerModeForPathname, getNavRouteIndex, getWrappedNavRoutePath } from "./navRoutes";
 import { useUserSettings } from "../../contexts/UserSettingsContext";
@@ -23,20 +23,33 @@ const readerTabs = [
   { to: "/reader/saved", label: "Saved", icon: BookmarkCheck },
 ];
 
-export function BottomNav({ hidden = false, forceHidden = false }: { hidden?: boolean; forceHidden?: boolean }) {
+export function BottomNav({
+  hidden = false,
+  forceHidden = false,
+  trailing,
+}: {
+  hidden?: boolean;
+  forceHidden?: boolean;
+  /** After the tabs — the profile avatar, which AppShell owns. */
+  trailing?: ReactNode;
+}) {
   const location = useLocation();
   const isUpdatesRoute = location.pathname.startsWith("/updates");
   const isSettingsRoute = location.pathname.startsWith("/settings");
   const isInsightsRoute = location.pathname.startsWith("/insights");
   const isGuideRoute = location.pathname.startsWith("/guide");
+  const isExploreRoute = location.pathname.startsWith("/explore");
 
   // History has no nav at all — it's a focused drill-down with its own X in
   // the top bar and its own floating date-jump button, and the tab pill would
   // just sit on top of the day content for no reason.
   if (location.pathname === "/history") return <NoBottomNav />;
 
-  if (isUpdatesRoute || isSettingsRoute || isInsightsRoute || isGuideRoute) {
-    const label = isSettingsRoute
+  // Explore is the hashtag mind map alone: like Settings, its nav is just a way out.
+  if (isUpdatesRoute || isSettingsRoute || isInsightsRoute || isGuideRoute || isExploreRoute) {
+    const label = isExploreRoute
+      ? "Close explore"
+      : isSettingsRoute
       ? "Close settings"
       : isInsightsRoute
         ? "Close insights"
@@ -46,7 +59,7 @@ export function BottomNav({ hidden = false, forceHidden = false }: { hidden?: bo
     return <SimpleRouteCloseNav forceHidden={forceHidden} hidden={hidden} label={label} />;
   }
 
-  return <FullBottomNav hidden={hidden} forceHidden={forceHidden} />;
+  return <FullBottomNav hidden={hidden} forceHidden={forceHidden} trailing={trailing} />;
 }
 
 /**
@@ -114,7 +127,7 @@ function SimpleRouteCloseNav({ hidden, forceHidden, label }: { hidden: boolean; 
       <div className="relative h-12">
         <div className="flex h-full items-center justify-end">
           <button
-            className="pointer-events-auto relative flex h-12 w-12 items-center justify-center rounded-full border border-app-line bg-app-surface p-0 text-app-ink-muted shadow-soft transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-app-surface-hover active:translate-y-px active:scale-[0.98]"
+            className="app-frost pointer-events-auto relative flex h-12 w-12 items-center justify-center rounded-full border border-app-line bg-app-surface p-0 text-app-ink-muted shadow-soft transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-app-surface-hover active:translate-y-px active:scale-[0.98]"
             onClick={handleClose}
             aria-label={label}
           >
@@ -126,20 +139,19 @@ function SimpleRouteCloseNav({ hidden, forceHidden, label }: { hidden: boolean; 
   );
 }
 
-function FullBottomNav({ hidden = false, forceHidden = false }: { hidden?: boolean; forceHidden?: boolean }) {
+function FullBottomNav({ hidden = false, forceHidden = false, trailing }: { hidden?: boolean; forceHidden?: boolean; trailing?: ReactNode }) {
   const navRef = useRef<HTMLElement | null>(null);
   const mobileTabRowRef = useRef<HTMLDivElement | null>(null);
   const mobileTabRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
   const pillRef = useRef<HTMLDivElement | null>(null);
   const tabRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
-  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const pageSwipeStartRef = useRef<{ x: number; y: number } | null>(null);
   const pageSwipeAxisRef = useRef<"horizontal" | "vertical" | null>(null);
   const pageSwipeBlockUntilRef = useRef(0);
   const currentNavRouteIndexRef = useRef(-1);
   const location = useLocation();
   const navigate = useNavigate();
-  const { state, dispatch } = useApp();
+  const { dispatch } = useApp();
   const { settings } = useUserSettings();
   const navLabelStyle = settings.navLabelStyle;
   const [keyboardOpen, setKeyboardOpen] = useState(false);
@@ -179,20 +191,9 @@ function FullBottomNav({ hidden = false, forceHidden = false }: { hidden?: boole
     observeResize: false,
   });
 
-  const isExploreRoute = location.pathname.startsWith("/explore");
-  const searchQuery = state.ui.searchQuery;
-  const shouldHide = isExploreRoute ? forceHidden : forceHidden || hidden;
+  const shouldHide = forceHidden || hidden;
 
   currentNavRouteIndexRef.current = activeTabIndex;
-
-  const closeExplore = () => {
-    dispatch({ type: "ui/set-search-query", query: "" });
-    if (window.history.length > 1) {
-      navigate(-1);
-    } else {
-      navigate("/canvas");
-    }
-  };
 
   // Publish nav height as a CSS variable
   useEffect(() => {
@@ -214,19 +215,9 @@ function FullBottomNav({ hidden = false, forceHidden = false }: { hidden?: boole
     };
   }, []);
 
-  // Focus search input when explore mode opens
-  useEffect(() => {
-    if (!isExploreRoute) return;
-
-    const focusTimer = window.setTimeout(() => searchInputRef.current?.focus(), 320);
-    return () => {
-      window.clearTimeout(focusTimer);
-    };
-  }, [isExploreRoute]);
-
   const handlePageSwipeTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
     event.stopPropagation();
-    if (isExploreRoute || currentNavRouteIndexRef.current === -1) return;
+    if (currentNavRouteIndexRef.current === -1) return;
     if (event.touches.length !== 1) return;
     const touch = event.touches[0];
     if (!touch) return;
@@ -311,14 +302,20 @@ function FullBottomNav({ hidden = false, forceHidden = false }: { hidden?: boole
     >
       {/* Single-height pill bar */}
       <div className="relative h-12">
-        {/* ── Layer 1: Normal nav (tabs + compose) ─────────────────────── */}
-        <div
-          className={[
-            "absolute inset-0 transition-[transform,opacity] duration-app-slow ease-app-in-out",
-            isExploreRoute ? "pointer-events-none translate-y-2 opacity-0" : "translate-y-0 opacity-100",
-          ].join(" ")}
-        >
-          <div data-testid="desktop-tab-row" className="hidden h-full items-center justify-center gap-2 md:flex">
+        <div className="absolute inset-0">
+          {/* One row: "+" compose, the tab pill (desktop or mobile variant), the avatar. */}
+          <div data-testid="nav-row" className="flex h-full w-full items-center justify-center gap-2">
+          {!isReaderRoute ? (
+            <button
+              type="button"
+              aria-label="New artifact"
+              onClick={() => dispatch({ type: "ui/open-composer", mode: composerModeForActiveTab })}
+              className="app-frost flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-app-line bg-app-surface p-0 text-app-ink-muted shadow-soft transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-app-surface-hover active:translate-y-px active:scale-[0.98]"
+            >
+              <Plus className="h-5 w-5" />
+            </button>
+          ) : null}
+          <div data-testid="desktop-tab-row" className="hidden h-full min-w-0 items-center justify-center md:flex">
             {/* Tab pills */}
             <div className="relative flex min-w-0 items-center justify-center">
               <SegmentedShell
@@ -330,7 +327,7 @@ function FullBottomNav({ hidden = false, forceHidden = false }: { hidden?: boole
                 onTouchCancel={handlePageSwipeTouchCancel}
                 onClickCapture={handlePageSwipeClickCapture}
                 style={{ touchAction: "none" }}
-                className="min-w-0 gap-1 p-2 shadow-nav"
+                className="app-frost min-w-0 gap-1 p-2 shadow-nav"
               >
                 {highlightStyle ? <SegmentedHighlight style={highlightStyle} /> : null}
                 {tabs.map(({ to, label, icon: Icon }) => {
@@ -369,21 +366,10 @@ function FullBottomNav({ hidden = false, forceHidden = false }: { hidden?: boole
               </SegmentedShell>
             </div>
 
-            {/* "+" compose — sits beside the tab pill, mirroring the mobile layout */}
-            {!isReaderRoute ? (
-              <button
-                type="button"
-                aria-label="New artifact"
-                onClick={() => dispatch({ type: "ui/open-composer", mode: composerModeForActiveTab })}
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-app-line bg-app-surface p-0 text-app-ink-muted shadow-soft transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-app-surface-hover active:translate-y-px active:scale-[0.98]"
-              >
-                <Plus className="h-5 w-5" />
-              </button>
-            ) : null}
           </div>
 
-          {/* Mobile: icon-only tabs hugging their content, centered with a persistent "+" compose button */}
-          <div data-testid="mobile-tab-row" className="flex h-full w-full items-center justify-center gap-2 md:hidden">
+          {/* Mobile: icon-only tabs hugging their content */}
+          <div data-testid="mobile-tab-row" className="flex h-full min-w-0 items-center justify-center md:hidden">
             <div className="relative">
               <SegmentedShell
                 ref={mobileTabRowRef}
@@ -394,7 +380,7 @@ function FullBottomNav({ hidden = false, forceHidden = false }: { hidden?: boole
                 onTouchCancel={handlePageSwipeTouchCancel}
                 onClickCapture={handlePageSwipeClickCapture}
                 style={{ touchAction: "none" }}
-                className="gap-1 p-2 shadow-nav"
+                className="app-frost gap-1 p-2 shadow-nav"
               >
                 {mobileHighlightStyle ? <SegmentedHighlight style={mobileHighlightStyle} /> : null}
                 {tabs.map(({ to, label, icon: Icon }) => (
@@ -417,67 +403,11 @@ function FullBottomNav({ hidden = false, forceHidden = false }: { hidden?: boole
                 ))}
               </SegmentedShell>
             </div>
-            {!isReaderRoute ? (
-              <button
-                type="button"
-                aria-label="New artifact"
-                onClick={() => dispatch({ type: "ui/open-composer", mode: composerModeForActiveTab })}
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-app-line bg-app-surface p-0 text-app-ink-muted shadow-soft transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-app-surface-hover active:translate-y-px active:scale-[0.98]"
-              >
-                <Plus className="h-5 w-5" />
-              </button>
-            ) : null}
+          </div>
+          {trailing ? <div className="flex shrink-0 items-center">{trailing}</div> : null}
           </div>
         </div>
 
-        {/* ── Layer 2: Explore mode (X + search bar) ───────────────────── */}
-        <div
-          className={[
-            "absolute inset-0 transition-[transform,opacity] duration-app-slow ease-app-in-out",
-            isExploreRoute ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-2 opacity-0",
-          ].join(" ")}
-        >
-          <div className="flex h-full items-center gap-2">
-            {/* X / close button */}
-            <Button
-              variant="ghost"
-              className="h-12 w-12 shrink-0 rounded-full border border-app-line bg-app-surface/80 p-0 text-app-ink shadow-none hover:bg-app-surface"
-              aria-label="Close explore"
-              onClick={closeExplore}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-
-            {/* Search input with inline clear */}
-            <div className="relative flex-1">
-              <Input
-                ref={searchInputRef}
-                data-omanote-nav-search-input="true"
-                aria-label="Search your omanote"
-                placeholder="Search notes, todos, bookmarks…"
-                value={searchQuery}
-                onChange={(event) => dispatch({ type: "ui/set-search-query", query: event.target.value })}
-                onKeyDown={(event) => {
-                  if (event.key === "Escape") closeExplore();
-                }}
-                className="h-12 w-full rounded-app-chip border border-app-line bg-app-surface/70 px-4 pr-10 text-sm shadow-app-nav-active-inset dark:shadow-none backdrop-blur-md placeholder:text-app-ink-faint focus:border-app-line-strong"
-              />
-              {searchQuery.length > 0 && (
-                <button
-                  type="button"
-                  aria-label="Clear search"
-                  onClick={() => {
-                    dispatch({ type: "ui/set-search-query", query: "" });
-                    searchInputRef.current?.focus();
-                  }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-app-ink-faint hover:bg-app-surface-hover hover:text-app-ink"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
       </div>
     </nav>
   );

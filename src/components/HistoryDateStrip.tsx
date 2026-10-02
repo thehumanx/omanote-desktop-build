@@ -2,11 +2,9 @@ import { useCallback, useEffect, useRef, type KeyboardEvent } from "react";
 import { ChevronRight } from "lucide-react";
 import type { DateKey } from "@omanote/shared";
 import { cn } from "./ui";
+import { useScrollEdgeFade } from "../hooks/useScrollEdgeFade";
 
 const ROW_HEIGHT = 36;
-const FADE_SIZE = 56;
-// Fades rows out near the top/bottom edge instead of hard-clipping them.
-const FADE_MASK = `linear-gradient(to bottom, transparent, black ${FADE_SIZE}px, black calc(100% - ${FADE_SIZE}px), transparent)`;
 
 function formatRowLabel(dateKey: DateKey, todayKey: DateKey): string {
   if (dateKey === todayKey) return "Today";
@@ -46,6 +44,7 @@ export function HistoryDateStrip({
 }: HistoryDateStripProps) {
   const isList = variant === "list";
   const listRef = useRef<HTMLDivElement>(null);
+  const edgeFade = useScrollEdgeFade(listRef);
   const rowRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   // Bring the initially selected day into view once, without animating — a
@@ -85,7 +84,7 @@ export function HistoryDateStrip({
         "h-full shrink-0 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
         isList ? "w-full" : "w-28 md:w-44",
       )}
-      style={{ maskImage: FADE_MASK, WebkitMaskImage: FADE_MASK }}
+      style={edgeFade}
     >
       <div className="py-6">
         {dateKeys.map((dateKey) => {

@@ -1,5 +1,5 @@
 import type { KeyboardEvent, ReactNode, Ref } from "react";
-import { FolderNavActionMenu, FolderNavCard, FolderNavGroups, FolderNavRow } from "./FolderNav";
+import { FolderNavActionMenu, FolderNavGroups, FolderNavRow } from "./FolderNav";
 
 /**
  * Note-folder-flavoured names over the shared `FolderNav` primitives — see
@@ -32,24 +32,6 @@ export function FolderRow({
   actions?: ReactNode;
 }) {
   return <FolderNavRow name={folderName} placeholder={placeholder} {...rest} />;
-}
-
-export function FolderCard({
-  folderName,
-  ...rest
-}: {
-  folderName: string;
-  icon?: string;
-  color?: string;
-  count: number;
-  selected: boolean;
-  onClick: () => void;
-  isShared?: boolean;
-  onIconClick?: (ref: React.RefObject<HTMLButtonElement | null>) => void;
-  iconPickerActive?: boolean;
-  actions?: ReactNode;
-}) {
-  return <FolderNavCard name={folderName} {...rest} />;
 }
 
 /** Re-exported under this file's naming so NotesScreen imports one module. */

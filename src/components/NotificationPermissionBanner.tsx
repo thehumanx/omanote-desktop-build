@@ -69,7 +69,7 @@ export function NotificationPermissionBanner() {
   };
 
   return (
-    <div className="fixed bottom-[88px] left-1/2 z-40 w-[min(92vw,420px)] -translate-x-1/2">
+    <div className="app-overlay fixed bottom-[88px] left-1/2 z-40 w-[min(92vw,420px)] -translate-x-1/2">
       <div className="flex items-center gap-3 rounded-xl border border-app-line bg-app-surface px-4 py-3 shadow-soft">
         <div className="flex-shrink-0">
           <div className="rounded-full bg-app-surface-muted p-2">

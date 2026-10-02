@@ -18,11 +18,7 @@ import { useTopChrome } from "../components/layout/useTopChrome";
 import { useIsMobileViewport } from "../lib/mobile";
 import { useHistoryBackClose } from "../lib/useHistoryBackClose";
 import { useEdgeSwipeBack } from "../lib/useEdgeSwipeBack";
-
-const DAY_PANE_FADE_SIZE = 56;
-// Same edge-fade treatment as HistoryDateStrip's day list, so the selected
-// day's content scrolls under a soft edge instead of hard-clipping mid-line.
-const DAY_PANE_FADE_MASK = `linear-gradient(to bottom, transparent, black ${DAY_PANE_FADE_SIZE}px, black calc(100% - ${DAY_PANE_FADE_SIZE}px), transparent)`;
+import { useScrollEdgeFade } from "../hooks/useScrollEdgeFade";
 
 function formatDayHeading(dateKey: DateKey): string {
   const date = new Date(`${dateKey}T12:00:00`);
@@ -72,6 +68,7 @@ export function HistoryScreen() {
   const { dragOffset, isDragging, edgeSwipeProps } = useEdgeSwipeBack(closeMobileDay);
 
   const contentPaneRef = useRef<HTMLDivElement | null>(null);
+  const dayPaneFade = useScrollEdgeFade(contentPaneRef);
   // One persistent scroller across every day you browse — switching days only
   // swaps its children, so without this a short day inherits the previous
   // (longer) day's scrollTop and looks like it starts mid-content.
@@ -228,8 +225,7 @@ export function HistoryScreen() {
       className="scrollbar-hide flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto pt-6"
       style={{
         paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 6rem)",
-        maskImage: DAY_PANE_FADE_MASK,
-        WebkitMaskImage: DAY_PANE_FADE_MASK,
+        ...dayPaneFade,
       }}
     >
       {withHeading ? <h1 className="text-lg font-bold text-app-ink md:text-2xl">{formatDayHeading(selectedDateKey)}</h1> : null}
@@ -293,8 +289,7 @@ export function HistoryScreen() {
             {dayList}
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 right-0 w-px"
-              style={{ background: "linear-gradient(to bottom, transparent, rgb(var(--color-line)), transparent)" }}
+              className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-app-line to-transparent"
             />
           </div>
           {renderDayPane(true)}

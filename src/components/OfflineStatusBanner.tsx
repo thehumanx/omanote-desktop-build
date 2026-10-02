@@ -86,7 +86,7 @@ export function OfflineStatusBanner() {
     <div
       style={{ width: containerWidth }}
       className={[
-        "pointer-events-none fixed bottom-[72px] left-1/2 z-40 -translate-x-1/2",
+        "app-overlay pointer-events-none fixed bottom-[72px] left-1/2 z-40 -translate-x-1/2",
         "transition-[opacity,transform,width] duration-500 ease-out",
         visible ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0",
       ].join(" ")}

@@ -765,8 +765,25 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
   animation-timing-function: var(--motion-easing-drawer);
 }
 
+/* Opening a page with no card to grow from (search, a link), or closing one
+   whose card is not on screen: the sheet rises in / sinks out on its own. */
+::view-transition-new(canvas-expand):only-child {
+  animation: omanote-page-in var(--motion-duration-drawer) var(--motion-easing-drawer) both;
+}
+::view-transition-old(canvas-expand):only-child {
+  animation: omanote-page-out var(--motion-duration-drawer) var(--motion-easing-drawer) both;
+}
+@keyframes omanote-page-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+}
+@keyframes omanote-page-out {
+  to { opacity: 0; transform: translateY(16px) scale(0.97); }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  ::view-transition-group(canvas-expand) {
+  ::view-transition-group(canvas-expand),
+  ::view-transition-new(canvas-expand),
+  ::view-transition-old(canvas-expand) {
     animation: none;
   }
 }
@@ -787,10 +804,230 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
   }
 }
 
+/* Dot grid for the pre-app surfaces (onboarding, survey, landing preview).
+   The in-app canvas no longer uses it — background scenes replaced that. */
 .omanote-canvas-grid {
   background-image: radial-gradient(circle, rgb(var(--color-canvas-dot) / 0.625) 1px, transparent 1px);
   background-size: 16px 16px;
 }
+
+/* The landing hero's panel: a pale wash of brand green with mint and lime
+   blooms pooled low, where the resting preview sits. The polka dots live on
+   their own layer so they can be masked — faint behind the headline, fuller
+   toward the bottom — without the mask also fading the colour. Raw values on
+   purpose: public pages are always light, and none of these are reused. */
+.landing-hero-backdrop {
+  background-color: #f7f9f4;
+  background-image:
+    radial-gradient(55% 50% at 8% 92%, rgb(87 137 16 / 0.26), transparent 70%),
+    radial-gradient(50% 55% at 94% 78%, rgb(72 184 150 / 0.24), transparent 72%),
+    radial-gradient(60% 45% at 52% 104%, rgb(196 226 96 / 0.4), transparent 70%),
+    radial-gradient(40% 30% at 50% 0%, rgb(255 255 255 / 0.9), transparent 80%),
+    linear-gradient(180deg, #f8f9f6 0%, #eef5e3 100%);
+}
+.landing-hero-backdrop::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: radial-gradient(circle, rgb(59 95 10 / 0.2) 1.1px, transparent 1.5px);
+  background-size: 18px 18px;
+  background-position: center top;
+  -webkit-mask-image: linear-gradient(180deg, rgb(0 0 0 / 0.35) 0%, rgb(0 0 0 / 1) 70%);
+  mask-image: linear-gradient(180deg, rgb(0 0 0 / 0.35) 0%, rgb(0 0 0 / 1) 70%);
+}
+
+/* ── Background scenes ──────────────────────────────────────────────────
+   Ported from the Horizon Scene Lab (docs/superpowers/specs/assets/
+   2026-10-01-horizon-scene-lab.html); the lab is the visual source of truth.
+   SceneBackdrop renders the markup; AppShell stamps data-scene* on <html>.
+   Light palettes sit on [data-scene-palette], dark ones under .dark. Only
+   transform/opacity animate; no blend modes; nothing runs per frame in JS. */
+.omanote-scene { position: absolute; inset: 0; overflow: hidden; pointer-events: none; --horizon-h: 120px; --grain-strength: 0.16; }
+.omanote-scene[data-variant="page"] { position: fixed; z-index: 0; }
+.omanote-scene[data-variant="thumb"] { --horizon-h: 30px; }
+@media (max-width: 767px) { .omanote-scene[data-variant="page"] { --horizon-h: 104px; } }
+.omanote-scene-sky {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(var(--glow-size, 55% 38%) at var(--glow-x, 70%) var(--glow-y, 92%), var(--glow, transparent), transparent 72%),
+    linear-gradient(180deg, var(--sky-top) 0%, var(--sky-upper, var(--sky-top)) 30%, var(--sky-mid) 62%, var(--sky-horizon) 100%);
+}
+.omanote-scene-land { position: absolute; left: 0; right: 0; bottom: 0; height: var(--horizon-h); width: 100%; display: block; }
+.omanote-scene-drift { position: absolute; left: -50%; width: 200%; will-change: transform;
+  animation: omanote-scene-drift var(--drift-dur, 110s) ease-in-out infinite alternate; }
+@keyframes omanote-scene-drift { from { transform: translateX(0); } to { transform: translateX(22%); } }
+.omanote-scene-mist { bottom: calc(var(--horizon-h) * 0.5); height: calc(var(--horizon-h) * 0.32);
+  background:
+    radial-gradient(ellipse 18% 50% at 20% 55%, var(--mist), transparent 72%),
+    radial-gradient(ellipse 22% 45% at 52% 50%, var(--mist), transparent 72%),
+    radial-gradient(ellipse 16% 50% at 82% 55%, var(--mist), transparent 72%); }
+.omanote-scene-cloud { bottom: calc(var(--horizon-h) + 70px); height: 26px; --drift-dur: 130s;
+  background:
+    radial-gradient(ellipse 14% 45% at 18% 50%, var(--cloud), transparent 72%),
+    radial-gradient(ellipse 10% 35% at 30% 60%, var(--cloud), transparent 72%),
+    radial-gradient(ellipse 13% 40% at 68% 45%, var(--cloud), transparent 72%); }
+.omanote-scene[data-variant="thumb"] .omanote-scene-cloud { bottom: calc(var(--horizon-h) + 18px); height: 8px; }
+.omanote-scene-sheen { bottom: 0; height: 58%; --drift-dur: 90s; opacity: var(--sheen-opacity, 0.6);
+  background: linear-gradient(90deg, var(--sheen-1), var(--sheen-2), var(--sheen-3), var(--sheen-4), var(--sheen-1), var(--sheen-2), var(--sheen-3), var(--sheen-4));
+  -webkit-mask-image: linear-gradient(to top, #000 18%, transparent);
+  mask-image: linear-gradient(to top, #000 18%, transparent); }
+.omanote-scene-moon { position: absolute; width: 22px; height: 22px; border-radius: 50%;
+  right: 24%; bottom: calc(var(--horizon-h) + 46px);
+  background: radial-gradient(circle at 38% 38%, #ffffff, var(--moon));
+  box-shadow: 0 0 36px 12px var(--moon-halo); }
+.omanote-scene[data-variant="thumb"] .omanote-scene-moon { width: 8px; height: 8px; bottom: calc(var(--horizon-h) + 12px); box-shadow: 0 0 10px 3px var(--moon-halo); }
+@media (max-width: 767px) { .omanote-scene[data-variant="page"] .omanote-scene-moon { right: 18%; } }
+.omanote-scene-stars { position: absolute; left: 0; right: 0; bottom: var(--horizon-h); height: 46%; }
+.omanote-scene-stars i { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: var(--star);
+  animation: omanote-scene-twinkle var(--t, 7s) ease-in-out infinite alternate; animation-delay: var(--d, 0s); }
+.omanote-scene-stars i.omanote-scene-star-bright { width: 2.6px; height: 2.6px; }
+@keyframes omanote-scene-twinkle { from { opacity: var(--star-low, 0.25); } to { opacity: 1; } }
+/* Cloud tops: rows of overlapping circles sized off --horizon-h, so the bumps
+   stay round at any width (a stretched SVG would squash them). */
+.omanote-scene-puffs { position: absolute; left: 0; right: 0; }
+.omanote-scene-puffs.omanote-scene-drift { left: -50%; right: auto; }
+.omanote-scene-puff-back { bottom: calc(var(--horizon-h) * 0.3); height: calc(var(--horizon-h) * 0.72);
+  background:
+    radial-gradient(circle calc(var(--horizon-h) * 0.62) at 50% 100%, var(--p1) 86%, transparent 100%) calc(var(--horizon-h) * 0.3) 100% / calc(var(--horizon-h) * 1.15) 100% repeat-x,
+    radial-gradient(circle calc(var(--horizon-h) * 0.45) at 50% 100%, var(--p1) 86%, transparent 100%) 0 100% / calc(var(--horizon-h) * 0.83) 100% repeat-x; }
+.omanote-scene-puff-mid { bottom: calc(var(--horizon-h) * 0.12); height: calc(var(--horizon-h) * 0.6);
+  background:
+    radial-gradient(circle calc(var(--horizon-h) * 0.5) at 50% 100%, var(--p2) 86%, transparent 100%) calc(var(--horizon-h) * 0.55) 100% / calc(var(--horizon-h) * 0.93) 100% repeat-x,
+    radial-gradient(circle calc(var(--horizon-h) * 0.36) at 50% 100%, var(--p2) 86%, transparent 100%) calc(var(--horizon-h) * 0.1) 100% / calc(var(--horizon-h) * 0.67) 100% repeat-x; }
+.omanote-scene-puff-front { bottom: 0; height: calc(var(--horizon-h) * 0.5); --drift-dur: 150s;
+  background:
+    radial-gradient(circle calc(var(--horizon-h) * 0.42) at 50% 100%, var(--p3) 86%, transparent 100%) 0 100% / calc(var(--horizon-h) * 0.79) 100% repeat-x,
+    radial-gradient(circle calc(var(--horizon-h) * 0.3) at 50% 100%, var(--p3) 86%, transparent 100%) calc(var(--horizon-h) * 0.4) 100% / calc(var(--horizon-h) * 0.56) 100% repeat-x; }
+/* Grain: one static alpha-noise tile, rasterised once; dark specks in light
+   mode, light specks in dark. Behind all app content, so text never gets it. */
+.omanote-scene-grain { position: absolute; inset: 0; opacity: var(--grain-strength); background-size: 160px 160px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.2 0 0 0 0 0.2 0 0 0 0 0.25 1.8 0 0 0 -0.6'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+.dark .omanote-scene-grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 1.8 0 0 0 -0.65'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+:root[data-scene-grain="off"] .omanote-scene[data-variant="page"] .omanote-scene-grain { display: none; }
+:root[data-scene-grain="faint"] .omanote-scene[data-variant="page"] { --grain-strength: 0.08; }
+:root[data-scene-grain="medium"] .omanote-scene[data-variant="page"] { --grain-strength: 0.32; }
+/* Motion: the user's drift switch, static thumbnails, and reduced motion. */
+:root[data-scene-drift="off"] .omanote-scene :is(.omanote-scene-drift, .omanote-scene-stars i),
+.omanote-scene[data-static] :is(.omanote-scene-drift, .omanote-scene-stars i) { animation: none; }
+@media (prefers-reduced-motion: reduce) { .omanote-scene :is(.omanote-scene-drift, .omanote-scene-stars i) { animation: none; } }
+
+/* Immersive chrome while a scene is on. Surface fills turn translucent
+   (bg-app-surface* multiply by --app-surface-opacity); page fills using
+   bg-app-backdrop clear; overlays stay more solid so menus never read over a
+   busy horizon. The values are guarded by scene-contrast.test.ts.
+   Chrome (top bar, nav buttons) is the most see-through and leans on its
+   blur; hovers tint with a wash of ink instead of painting a solid fill. */
+:root[data-scene] { --app-surface-opacity: 0.58; --app-chrome-opacity: 0.54; --app-overlay-opacity: 0.92; --app-canvas-opacity: 0;
+  --app-hover-rgb: var(--color-ink); --app-hover-opacity: 0.06;
+  --app-line-rgb: var(--color-ink); --app-line-opacity: 0.08; --app-line-strong-opacity: 0.16; --app-folder-opacity: 0.6; }
+/* Light scenes: cards and selected states are smoked glass — a wash of ink
+   over the sky — rather than translucent white. Dark keeps its dark fills. */
+:root[data-scene]:not(.dark) { --app-wash-rgb: var(--color-ink); --app-wash-surface: 0.03; --app-wash-muted: 0.05; --app-hover-opacity: 0.09; }
+.dark[data-scene] { --app-surface-opacity: 0.55; --app-chrome-opacity: 0.42; --app-overlay-opacity: 0.9; --app-hover-opacity: 0.08;
+  --app-line-opacity: 0.1; --app-line-strong-opacity: 0.2; --app-folder-opacity: 0.55; }
+:root[data-scene] :is([role="dialog"], [role="menu"], [role="listbox"], .app-overlay, .z-app-drawer, .z-app-menu, .z-app-dialog, .z-app-modal, .z-app-popover, .z-app-tooltip, .z-app-toast, .z-app-floating, .z-app-linked-artifact-sheet, .z-app-extension-root):not(.app-scene-page) {
+  --app-surface-opacity: var(--app-overlay-opacity);
+  --app-wash-rgb: initial; --app-wash-surface: initial; --app-wash-muted: initial;
+}
+/* An unchecked todo box is a pane of glass rather than a white tile. */
+:root[data-scene] .omanote-todo-checkmark-open .omanote-todo-checkmark-chrome {
+  background: rgb(var(--color-surface) / 0.35);
+  border-color: rgb(var(--app-line-rgb) / 0.28);
+}
+:root[data-scene] .app-frost { --app-surface-opacity: var(--app-chrome-opacity);
+  --app-wash-rgb: initial; --app-wash-surface: initial; --app-wash-muted: initial; }
+/* Blur only on fixed chrome (top bar, bottom nav) and on whatever is open on
+   top (a sheet/drawer, or a modal's backdrop): never on scrolling cards,
+   where it makes phones stutter. */
+/* .app-scene-page: PageScreen is z-app-drawer for stacking but is the whole
+   screen, not something floating over it — it keeps the scene in view. */
+:root[data-scene] :is(.app-frost, .z-app-drawer, .z-app-dialog, .z-app-modal):not(.app-scene-page) {
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  backdrop-filter: blur(16px) saturate(1.2);
+}
+
+/* Bottom-nav blur band (AppShell). Lives inside <main>, its own backdrop
+   root, so it softens page content only and never the scene's horizon. On
+   scrolling routes it is a 0-height sticky marker; the overhang reaches down
+   through <main>'s pb-28 so the band still meets the viewport bottom once the
+   page is scrolled to its end. */
+.app-bottom-blur { --blur-h: calc(var(--omanote-bottom-nav-height, 64px) + 2.5rem); --blur-overhang: 0px; --blur-bleed: 0px; }
+.app-bottom-blur-scrolling { --blur-overhang: 7rem; --blur-bleed: 1rem; }
+.app-bottom-blur::before {
+  content: ""; position: absolute; left: calc(-1 * var(--blur-bleed)); right: calc(-1 * var(--blur-bleed));
+  bottom: calc(-1 * var(--blur-overhang)); height: calc(var(--blur-h) + var(--blur-overhang));
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black calc(var(--blur-h) * 0.7));
+  mask-image: linear-gradient(to bottom, transparent, black calc(var(--blur-h) * 0.7));
+}
+
+/* Lite effects — the Linux desktop app (src/lib/lite-effects.ts). WebKitGTK
+   composites blur, masks and running animations in software there, and
+   repaints them on every scroll frame. Drop them; unblurred chrome goes near
+   solid so it still reads over the page. */
+:root[data-lite-effects] *,
+:root[data-lite-effects] *::before,
+:root[data-lite-effects] *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+:root[data-lite-effects] [style*="mask-image"] { -webkit-mask-image: none !important; mask-image: none !important; }
+:root[data-lite-effects] .app-bottom-blur { display: none; }
+:root[data-lite-effects] .omanote-scene :is(.omanote-scene-drift, .omanote-scene-stars i) { animation: none; }
+:root[data-lite-effects][data-scene] { --app-chrome-opacity: 0.92; }
+.dark[data-lite-effects][data-scene] { --app-chrome-opacity: 0.9; }
+
+/* Calm morning — pale blue sky warming to peach, bowl hills, mist */
+[data-scene-palette="morning"] { --sky-top: #f4f8fd; --sky-upper: #e6eff9; --sky-mid: #f6ebe4; --sky-horizon: #f1d2bf;
+  --glow: rgb(255 238 214 / 0.95); --glow-x: 68%; --glow-y: 96%;
+  --r1a: #e7dbe0; --r1b: #ddd0d8; --r2a: #d6c7d2; --r2b: #c9b9c7; --r3a: #c3b2c3; --r3b: #b3a1b6; --mist: rgb(255 255 255 / 0.7); }
+.dark [data-scene-palette="morning"] { --sky-top: #060912; --sky-upper: #0d1424; --sky-mid: #191826; --sky-horizon: #3a2731;
+  --glow: rgb(150 84 72 / 0.5); --glow-x: 68%; --glow-y: 100%;
+  --r1a: #2c2330; --r1b: #251e2a; --r2a: #1f1925; --r2b: #1a1520; --r3a: #151118; --r3b: #100d13; --mist: rgb(120 90 110 / 0.22); }
+
+/* Blue afternoon — level sea, cloud band */
+[data-scene-palette="afternoon"] { --sky-top: #f8fbfe; --sky-upper: #f8fbfe; --sky-mid: #dfecf7; --sky-horizon: #a9cbe7;
+  --glow: rgb(255 255 255 / 0.55); --glow-x: 74%; --glow-y: 40%; --glow-size: 40% 34%;
+  --sea-a: #8db6d6; --sea-b: #c6dceb; --land-far: #9ab6cd; --glint: rgb(255 255 255 / 0.75); --cloud: rgb(255 255 255 / 0.7); }
+.dark [data-scene-palette="afternoon"] { --sky-top: #060a12; --sky-upper: #060a12; --sky-mid: #0e1a2d; --sky-horizon: #213b5c;
+  --glow: rgb(70 100 140 / 0.25);
+  --sea-a: #18304a; --sea-b: #0a1521; --land-far: #172a3f; --glint: rgb(120 155 195 / 0.55); --cloud: rgb(80 105 135 / 0.3); }
+
+/* Above the clouds — fluffy cloud tops, front bank drifts */
+[data-scene-palette="clouds"] { --sky-top: #f1f6fd; --sky-upper: #d9e9f8; --sky-mid: #b6d4f1; --sky-horizon: #d6e8f8;
+  --glow: rgb(255 255 255 / 0.7); --glow-x: 78%; --glow-y: 26%; --glow-size: 36% 30%;
+  --p1: #dfe9f4; --p2: #eef4fa; --p3: #ffffff; }
+.dark [data-scene-palette="clouds"] { --sky-top: #04070f; --sky-upper: #0a1426; --sky-mid: #13223f; --sky-horizon: #24365a;
+  --glow: rgb(120 140 190 / 0.18);
+  --p1: #283652; --p2: #334263; --p3: #3e4f74; }
+
+/* Evergreen meadow — blue sky to mint, green bowl hills, warm light band */
+[data-scene-palette="meadow"] { --sky-top: #f3f8fd; --sky-upper: #e3eef8; --sky-mid: #ecf5ea; --sky-horizon: #d2e9c6;
+  --glow: rgb(255 250 222 / 0.9); --glow-x: 34%; --glow-y: 94%;
+  --r1a: #c6e0b4; --r1b: #b5d6a1; --r2a: #9ccb85; --r2b: #88bd70; --r3a: #74ad5d; --r3b: #5f9a4b; --mist: rgb(255 253 235 / 0.6); }
+.dark [data-scene-palette="meadow"] { --sky-top: #050912; --sky-upper: #0b1424; --sky-mid: #0f1c16; --sky-horizon: #1e3a27;
+  --glow: rgb(90 120 70 / 0.35); --glow-y: 100%;
+  --r1a: #1d3626; --r1b: #193020; --r2a: #15291b; --r2b: #112317; --r3a: #0e1d13; --r3b: #0a160e; --mist: rgb(110 150 110 / 0.18); }
+
+/* Iridescent evening — open sky, shifting sheen, low haze */
+[data-scene-palette="evening"] { --sky-top: #fcfafd; --sky-upper: #fcfafd; --sky-mid: #f1e8f6; --sky-horizon: #f1d3df;
+  --glow: rgb(255 226 200 / 0.85); --glow-x: 46%; --glow-y: 100%;
+  --sheen-1: #d8d0f4; --sheen-2: #f4cfe0; --sheen-3: #fcdcc6; --sheen-4: #cfeae4; --sheen-opacity: 0.7;
+  --haze-a: #f2d7d6; --haze-b: #ead9e8; --horizon-line: #e6c3cc; }
+.dark [data-scene-palette="evening"] { --sky-top: #0a0812; --sky-upper: #0a0812; --sky-mid: #1b1329; --sky-horizon: #44223a;
+  --glow: rgb(140 70 60 / 0.45);
+  --sheen-1: #2a2150; --sheen-2: #4a2140; --sheen-3: #5c302c; --sheen-4: #1b3c3a; --sheen-opacity: 0.55;
+  --haze-a: #2e1a29; --haze-b: #1e1424; --horizon-line: #4d2a3f; }
+
+/* Silent night — open sky, low moon, twinkling stars */
+[data-scene-palette="night"] { --sky-top: #f7f8fb; --sky-upper: #f7f8fb; --sky-mid: #e3e7f1; --sky-horizon: #bcc6de;
+  --moon: #f4f6fb; --moon-halo: rgb(255 255 255 / 0.65); --star: #ffffff; --star-low: 0.35;
+  --haze-a: #c6cee0; --haze-b: #d6dbe7; --horizon-line: #b2bdd6; }
+.dark [data-scene-palette="night"] { --sky-top: #030509; --sky-upper: #030509; --sky-mid: #090e1d; --sky-horizon: #18213d;
+  --moon: #dfe4f0; --moon-halo: rgb(150 170 220 / 0.22); --star-low: 0.2;
+  --haze-a: #0e1428; --haze-b: #080c18; --horizon-line: #1f2a4a; }
 
 /* FolderIcon's two stacked Lucide glyphs — whichever matches the current
    open/closed state fades in over the other. Driven only by the explicit
@@ -1580,203 +1817,11 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
 
 /* ─── Landing: core & ecosystem ──────────────────────────────────────────────
  *
- * The one section on the page allowed to show off. Everything animates a
- * transform, an opacity or a registered custom property, so it composites off
- * the main thread; the whole block is switched off under
- * `prefers-reduced-motion` at the end.
+ * The orbit section (EcosystemOrbit.tsx): the lit mark first, then the panel,
+ * rings and folders around it. Everything animates a transform, an opacity or
+ * a clip-path, so it composites off the main thread; motion is switched off
+ * under `prefers-reduced-motion`.
  */
-
-/*
- * Registered so it can be *animated*. A plain `--angle` is an unparsed token
- * and interpolates as a step function — the conic border would jump rather
- * than sweep. Browsers without `@property` (Firefox < 128) simply don't
- * animate it, leaving a static border, which is the intended fallback.
- */
-@property --eco-angle {
-  syntax: "<angle>";
-  initial-value: 0deg;
-  inherits: false;
-}
-
-.omanote-eco {
-  background:
-    radial-gradient(120% 80% at 50% 45%, #fbfdf7 0%, rgba(251, 253, 247, 0) 62%),
-    var(--color-app-surface, #ffffff);
-  isolation: isolate;
-}
-
-.omanote-eco-grid {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background-image:
-    linear-gradient(to right, rgba(0, 0, 0, 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
-  background-size: 56px 56px;
-  -webkit-mask-image: radial-gradient(70% 58% at 50% 55%, #000 10%, transparent 76%);
-  mask-image: radial-gradient(70% 58% at 50% 55%, #000 10%, transparent 76%);
-}
-
-.omanote-eco-bloom {
-  position: absolute;
-  left: 50%;
-  top: 58%;
-  width: min(900px, 88vw);
-  aspect-ratio: 1.5;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  z-index: 0;
-  background: radial-gradient(
-    closest-side,
-    color-mix(in srgb, var(--eco-brand) 10%, transparent),
-    transparent 70%
-  );
-}
-
-/* ── Bento ─────────────────────────────────────────────────────────────── */
-
-.omanote-eco-bento {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  gap: 14px;
-  grid-template-columns: 1fr;
-  grid-template-areas:
-    "core" "a" "b" "c" "d" "e" "f" "g" "h" "i";
-}
-
-@media (min-width: 640px) {
-  .omanote-eco-bento {
-    grid-template-columns: repeat(2, 1fr);
-    grid-template-areas:
-      "core core"
-      "a a"
-      "b c"
-      "d e"
-      "f f"
-      "g g"
-      "h i";
-  }
-}
-
-@media (min-width: 1024px) {
-  .omanote-eco-bento {
-    /* Four columns, three rows, the mark holding the middle two cells of the
-       centre row. Exactly one tile is double-width: at 4x3 the core takes two
-       of twelve cells, leaving ten for nine tiles. Spanning any more forces
-       tall rows that leave the short tiles mostly empty. */
-    grid-template-columns: repeat(4, 1fr);
-    grid-template-areas:
-      "a a b c"
-      "d core core e"
-      "f g h i";
-    gap: 16px;
-  }
-}
-
-.omanote-eco-centre {
-  grid-area: core;
-  display: grid;
-  place-items: center;
-  padding: 24px 0;
-}
-
-/* ── Tiles ─────────────────────────────────────────────────────────────── */
-
-.omanote-eco-card {
-  position: relative;
-  display: block;
-  padding: 1px; /* the border layer lives in this ring */
-  border-radius: 18px;
-  background: rgba(17, 24, 12, 0.07);
-  opacity: 0;
-  transform: translateY(16px);
-  transition:
-    opacity 620ms ease,
-    transform 620ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.omanote-eco-bento.is-revealed .omanote-eco-card {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-/*
- * The charge running around the edge.
- *
- * A conic gradient with two bright arcs, rotated by the registered `--eco-angle`
- * above and confined to the 1px ring by the parent's padding. Cheaper and far
- * crisper than an SVG stroke: one painted layer per tile, rotated by the
- * compositor.
- */
-.omanote-eco-card-edge {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  background: conic-gradient(
-    from var(--eco-angle),
-    transparent 0deg,
-    color-mix(in srgb, var(--eco-brand) 85%, white) 14deg,
-    transparent 40deg,
-    transparent 180deg,
-    color-mix(in srgb, var(--eco-brand) 55%, white) 194deg,
-    transparent 220deg,
-    transparent 360deg
-  );
-  animation: omanote-eco-charge 5.6s linear infinite;
-  animation-delay: var(--eco-delay, 0s);
-  opacity: 0.85;
-}
-
-@keyframes omanote-eco-charge {
-  to {
-    --eco-angle: 360deg;
-  }
-}
-
-.omanote-eco-card-inner {
-  position: relative;
-  z-index: 1;
-  /* Centred rather than top-aligned: the core's row is taller than its text
-     needs, and a two-line tile pinned to the top of it reads as a mistake
-     rather than as a bento. */
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
-  height: 100%;
-  padding: 16px;
-  border-radius: 17px;
-  background: #fff;
-  box-shadow: 0 10px 30px -22px rgba(16, 24, 12, 0.5);
-}
-
-
-.omanote-eco-card:hover {
-  transform: translateY(-3px);
-}
-
-.omanote-eco-card:hover .omanote-eco-card-edge {
-  opacity: 1;
-  animation-duration: 2.4s;
-}
-
-.omanote-eco-card:hover .omanote-eco-card-inner {
-  box-shadow: 0 18px 40px -24px color-mix(in srgb, var(--eco-brand) 70%, transparent);
-}
-
-.omanote-eco-card-icon {
-  display: inline-grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  color: var(--eco-brand);
-  background: color-mix(in srgb, var(--eco-brand) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--eco-brand) 16%, transparent);
-}
 
 /* ── The core ──────────────────────────────────────────────────────────── */
 
@@ -1791,7 +1836,7 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
 .omanote-eco-core-mark {
   position: relative;
   display: block;
-  border-radius: 30px;
+  border-radius: 50%;
   overflow: hidden;
   /* Two shadows: a tight contact one, and a wide coloured bounce. Together
      they read as an object resting in front of the page rather than a sticker
@@ -1814,7 +1859,7 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
   pointer-events: none;
   background: radial-gradient(
     46% 38% at 32% 20%,
-    rgba(255, 255, 255, 0.72),
+    rgba(255, 255, 255, 0.38),
     rgba(255, 255, 255, 0) 62%
   );
   animation: omanote-eco-gloss 9s ease-in-out infinite;
@@ -1829,7 +1874,7 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
   background: linear-gradient(
     118deg,
     transparent 42%,
-    rgba(255, 255, 255, 0.5) 50%,
+    rgba(255, 255, 255, 0.22) 50%,
     transparent 58%
   );
   animation: omanote-eco-spec 11s ease-in-out infinite;
@@ -1894,16 +1939,314 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .omanote-eco-card-edge,
   .omanote-eco-core-gloss,
   .omanote-eco-core-spec,
   .omanote-eco-core-cast {
     animation: none;
   }
+}
 
-  .omanote-eco-card {
+/* ─── Landing: core & ecosystem, orbit layout ────────────────────────────────
+ *
+ * Stacked below `lg` (mark, then a grid of folders); from `lg` the panel takes
+ * the Figma frame's fixed 714px height and the folders are placed on it by
+ * hand.
+ *
+ * The entrance plays once, when the section scrolls in after the tour: the
+ * panel opens out the way the hero's panel does (same dotted backdrop, inset
+ * and radius closing), the rings swell from the mark, and the folders drift
+ * out from the centre into place — the heading's "grows out of it", played
+ * rather than said. Everything waits on `.is-revealed` on the section.
+ */
+
+.omanote-orbit {
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  padding: 40px 16px 24px;
+  /* Opens from an inset, rounder panel, like the hero's panel does on scroll. */
+  clip-path: inset(5% 7% round 44px);
+  opacity: 0;
+  transition:
+    clip-path 1100ms cubic-bezier(0.23, 1, 0.32, 1),
+    opacity 500ms ease;
+}
+
+.omanote-orbit-rings {
+  position: absolute;
+  left: 50%;
+  /* Centred on the mark: 40px padding + half the 128px mark. */
+  top: 104px;
+  transform: translate(-50%, -50%) scale(0.6);
+  opacity: 0;
+  pointer-events: none;
+  /* Fades every ring out toward its top and bottom, so the arcs dissolve into
+     the panel rather than being cut off by its edges. The svg overhangs the
+     714px panel by ~345px each way; 22%–78% is roughly the panel's span. */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 22%, #000 46%, #000 54%, transparent 78%);
+  mask-image: linear-gradient(to bottom, transparent 22%, #000 46%, #000 54%, transparent 78%);
+  transition:
+    transform 1400ms cubic-bezier(0.23, 1, 0.32, 1) 150ms,
+    opacity 900ms ease 150ms;
+}
+
+.omanote-orbit-ring {
+  fill: none;
+  stroke: var(--eco-brand);
+  /* Short, thick dashes on a wide stroke read as radial tick marks. */
+  stroke-width: 16;
+  stroke-dasharray: 2.5 4.5;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: omanote-orbit-spin 240s linear infinite;
+  animation-direction: var(--orbit-spin, normal);
+}
+
+@keyframes omanote-orbit-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.omanote-orbit-core {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.omanote-orbit-core-inner {
+  transform: scale(0.8);
+  opacity: 0;
+  transition:
+    transform 900ms cubic-bezier(0.34, 1.4, 0.64, 1) 250ms,
+    opacity 500ms ease 250ms;
+}
+
+.omanote-orbit-cards {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  gap: 16px;
+  margin-top: 40px;
+}
+
+@media (min-width: 640px) {
+  .omanote-orbit-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Starts nudged toward the mark (`--orbit-from-*`, set per card) and drifts
+   out into place. */
+.omanote-orbit-card {
+  opacity: 0;
+  transform: translate(var(--orbit-from-x, 0), var(--orbit-from-y, 12px)) scale(0.94);
+  transition:
+    opacity 700ms ease,
+    transform 1000ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* Hover depth: a small lift and a soft shadow under the whole folder shape.
+   `drop-shadow` rather than `box-shadow` so the shadow follows the tab and
+   body together, not two separate boxes. Starts from a transparent shadow so
+   the filter has something to interpolate from. */
+.omanote-orbit-folder {
+  filter: drop-shadow(0 0 0 rgba(16, 24, 12, 0));
+  transition:
+    transform 260ms cubic-bezier(0.23, 1, 0.32, 1),
+    filter 260ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.omanote-orbit-card:hover .omanote-orbit-folder {
+  transform: translateY(-1.5px);
+  filter: drop-shadow(0 6px 10px rgba(16, 24, 12, 0.05)) drop-shadow(0 1px 2px rgba(16, 24, 12, 0.04));
+}
+
+/* The heading block: rises in ahead of the panel. */
+.omanote-orbit-intro > * {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 700ms ease,
+    transform 800ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.omanote-orbit-intro > :nth-child(2) {
+  transition-delay: 80ms;
+}
+
+.omanote-orbit-intro > :nth-child(3) {
+  transition-delay: 160ms;
+}
+
+.is-revealed .omanote-orbit {
+  clip-path: inset(0 round 20px);
+  opacity: 1;
+}
+
+.is-revealed .omanote-orbit-rings {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+}
+
+.is-revealed .omanote-orbit-core-inner,
+.is-revealed .omanote-orbit-card,
+.omanote-orbit-intro.is-revealed > * {
+  transform: none;
+  opacity: 1;
+}
+
+@media (min-width: 1024px) {
+  .omanote-orbit {
+    height: 714px;
+    padding: 0;
+  }
+
+  .omanote-orbit-rings {
+    top: 50%;
+  }
+
+  .omanote-orbit-core {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    /* The cast shadow's 18px of padding sits under the mark; offset it so the
+       mark itself, not the mark plus shadow, is what's centred. */
+    transform: translate(-50%, calc(-50% + 9px));
+  }
+
+  .omanote-orbit-cards {
+    position: absolute;
+    inset: 0;
+    display: block;
+    margin: 0;
+  }
+
+  .omanote-orbit-card {
+    position: absolute;
+    left: var(--orbit-x);
+    top: var(--orbit-y);
+    width: clamp(240px, 23%, 363px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .omanote-orbit-ring {
+    animation: none;
+  }
+
+  .omanote-orbit,
+  .omanote-orbit-rings,
+  .omanote-orbit-core-inner,
+  .omanote-orbit-card,
+  .omanote-orbit-intro > * {
+    transition: none;
+  }
+
+  /* Keep the depth, drop the movement. */
+  .omanote-orbit-card:hover .omanote-orbit-folder {
+    transform: none;
+  }
+
+  .omanote-orbit {
+    clip-path: none;
+    opacity: 1;
+  }
+
+  .omanote-orbit-rings {
+    transform: translate(-50%, -50%);
+    opacity: 1;
+  }
+
+  .omanote-orbit-core-inner,
+  .omanote-orbit-card,
+  .omanote-orbit-intro > * {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* ─── Landing: section reveal ────────────────────────────────────────────────
+ *
+ * See Reveal.tsx. Direct children rise and fade in, staggered, the first time
+ * the block scrolls into view — the same motion language as the orbit
+ * section's heading, so everything below the tour arrives alike.
+ */
+
+.omanote-reveal > * {
+  opacity: 0;
+  transform: translateY(16px);
+  transition:
+    opacity 700ms ease,
+    transform 800ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.omanote-reveal > :nth-child(2) {
+  transition-delay: 80ms;
+}
+
+.omanote-reveal > :nth-child(3) {
+  transition-delay: 160ms;
+}
+
+.omanote-reveal > :nth-child(4) {
+  transition-delay: 240ms;
+}
+
+.omanote-reveal > :nth-child(n + 5) {
+  transition-delay: 320ms;
+}
+
+.omanote-reveal.is-revealed > * {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .omanote-reveal > * {
     opacity: 1;
     transform: none;
     transition: none;
   }
+}
+
+/* ─── Public pages: links ────────────────────────────────────────────────────
+ *
+ * No underline at rest; on hover or keyboard focus a 1px rule draws in from
+ * the left. Drawn with a background gradient rather than text-decoration so
+ * its width can animate, and it follows the text across line breaks. Sits
+ * after the Tailwind utilities, so its `transition` replaces any
+ * `transition-colors` on the same element — color is re-listed here.
+ * `.omanote-link-host` lets a control underline just its label (a button
+ * with an icon beside the text) while hovering anywhere on it.
+ */
+.omanote-link {
+  text-decoration: none;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  background-size: 0% 1px;
+  padding-bottom: 1px;
+  transition:
+    color 150ms ease,
+    background-size 320ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.omanote-link:hover,
+.omanote-link:focus-visible,
+.omanote-link-host:hover .omanote-link,
+.omanote-link-host:focus-visible .omanote-link {
+  background-size: 100% 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .omanote-link {
+    transition: color 150ms ease;
+  }
+}
+
+.raised-shadow{
+  box-shadow: 0px 4px 12px -4px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }

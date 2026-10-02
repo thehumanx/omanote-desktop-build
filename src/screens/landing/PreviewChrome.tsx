@@ -1,6 +1,6 @@
 import type React from "react";
 import { useRef } from "react";
-import { Plus } from "lucide-react";
+import { Plus, User } from "lucide-react";
 import { writeTabs } from "../../components/layout/BottomNav";
 import {
   SegmentedHighlight,
@@ -49,6 +49,9 @@ export function PreviewChrome({
 
   return (
     <div className="pointer-events-none mx-auto flex h-12 w-full max-w-[1024px] items-center justify-center gap-2 px-4">
+      <span ref={composeRef} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-app-line bg-app-surface p-0 text-app-ink-muted shadow-soft">
+        <Plus className="h-5 w-5" />
+      </span>
       <SegmentedShell ref={pillRef} className="min-w-0 gap-1 p-2 shadow-nav">
         {highlightStyle ? <SegmentedHighlight style={highlightStyle} /> : null}
         {writeTabs.map(({ to, label, icon: Icon }) => (
@@ -76,8 +79,9 @@ export function PreviewChrome({
           </span>
         ))}
       </SegmentedShell>
-      <span ref={composeRef} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-app-line bg-app-surface p-0 text-app-ink-muted shadow-soft">
-        <Plus className="h-5 w-5" />
+      {/* Stand-in for ProfileMenuButton, which needs Clerk and the settings drawer. */}
+      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-app-line bg-app-surface-muted text-app-ink-faint shadow-soft">
+        <User className="h-5 w-5" />
       </span>
     </div>
   );

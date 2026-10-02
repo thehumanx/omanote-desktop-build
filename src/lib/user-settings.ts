@@ -6,6 +6,11 @@ export type ReminderLeadMinutes = 0 | 5 | 10 | 15;
 export type DefaultSnoozeMinutes = 5 | 10 | 15 | 30;
 export type ReminderToastDurationSeconds = 10 | 20 | 30 | 60;
 export type OnboardingStep = 0 | 1 | 2 | 3 | 4;
+/** The calm horizon behind the app (see docs/superpowers/specs/2026-10-01-background-scenes-design.md). */
+export const BACKGROUND_SCENES = ["none", "morning", "afternoon", "clouds", "meadow", "evening", "night"] as const;
+export type BackgroundScene = (typeof BACKGROUND_SCENES)[number];
+export const SCENE_GRAINS = ["off", "faint", "subtle", "medium"] as const;
+export type SceneGrain = (typeof SCENE_GRAINS)[number];
 
 export interface UserSettings {
   showSaveShortcutHints: boolean;
@@ -18,7 +23,10 @@ export interface UserSettings {
   navLabelStyle: NavLabelStyle;
   fontFamily: FontFamily;
   cornerStyle: CornerStyle;
-  canvasDotGrid: boolean;
+  backgroundScene: BackgroundScene;
+  /** The scene's one slow ambient motion. Reduced motion still stops it. */
+  sceneDrift: boolean;
+  sceneGrain: SceneGrain;
   founderNoteSeen: boolean;
   rssReaderEnabled: boolean;
   /** When false (default), only the checkmark circle toggles a todo complete. When true, clicking anywhere on the row does too. */
@@ -43,7 +51,9 @@ export interface UserSettingsPatch {
   navLabelStyle?: NavLabelStyle;
   fontFamily?: FontFamily;
   cornerStyle?: CornerStyle;
-  canvasDotGrid?: boolean;
+  backgroundScene?: BackgroundScene;
+  sceneDrift?: boolean;
+  sceneGrain?: SceneGrain;
   founderNoteSeen?: boolean;
   rssReaderEnabled?: boolean;
   completeTodoOnRowClick?: boolean;
@@ -75,7 +85,9 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   navLabelStyle: "active-label",
   fontFamily: "sans",
   cornerStyle: "rounded",
-  canvasDotGrid: true,
+  backgroundScene: "none",
+  sceneDrift: true,
+  sceneGrain: "subtle",
   founderNoteSeen: false,
   rssReaderEnabled: false,
   completeTodoOnRowClick: false,
@@ -101,6 +113,10 @@ function isCornerStyle(value: unknown): value is CornerStyle {
   return typeof value === "string" && (CORNER_STYLES as readonly string[]).includes(value);
 }
 
+
+function isOneOf<T extends string>(options: readonly T[], value: unknown): value is T {
+  return typeof value === "string" && (options as readonly string[]).includes(value);
+}
 
 function isBoolean(value: unknown): value is boolean {
   return typeof value === "boolean";
@@ -145,7 +161,9 @@ export function normalizeUserSettings(input: Record<string, unknown> | null | un
     navLabelStyle: isNavLabelStyle(source.navLabelStyle) ? source.navLabelStyle : DEFAULT_USER_SETTINGS.navLabelStyle,
     fontFamily: isFontFamily(source.fontFamily) ? source.fontFamily : DEFAULT_USER_SETTINGS.fontFamily,
     cornerStyle: isCornerStyle(source.cornerStyle) ? source.cornerStyle : DEFAULT_USER_SETTINGS.cornerStyle,
-    canvasDotGrid: isBoolean(source.canvasDotGrid) ? source.canvasDotGrid : DEFAULT_USER_SETTINGS.canvasDotGrid,
+    backgroundScene: isOneOf(BACKGROUND_SCENES, source.backgroundScene) ? source.backgroundScene : DEFAULT_USER_SETTINGS.backgroundScene,
+    sceneDrift: isBoolean(source.sceneDrift) ? source.sceneDrift : DEFAULT_USER_SETTINGS.sceneDrift,
+    sceneGrain: isOneOf(SCENE_GRAINS, source.sceneGrain) ? source.sceneGrain : DEFAULT_USER_SETTINGS.sceneGrain,
     founderNoteSeen: isBoolean(source.founderNoteSeen) ? source.founderNoteSeen : DEFAULT_USER_SETTINGS.founderNoteSeen,
     rssReaderEnabled: isBoolean(source.rssReaderEnabled) ? source.rssReaderEnabled : DEFAULT_USER_SETTINGS.rssReaderEnabled,
     completeTodoOnRowClick: isBoolean(source.completeTodoOnRowClick)

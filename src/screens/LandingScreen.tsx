@@ -2,13 +2,15 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { SignInButton } from "@clerk/react";
 import { CookieNotice } from "../components/CookieNotice";
+import { Button } from "../components/ui";
 import { Zap, MousePointerClick, Lock, Puzzle, Monitor, ChevronDown } from "lucide-react";
-import { currentVersion as bundledVersion } from "virtual:changelog";
 import { SeoHead } from "../seo/SeoHead";
 import { color } from "../design-system/tokens";
 import { readDismissedFlag, writeDismissedFlag } from "../lib/local-storage";
 import { useOutsideClick } from "../lib/useOutsideClick";
-import { EcosystemSection } from "./landing/EcosystemSection";
+import { SiteFooter } from "../components/SiteFooter";
+import { EcosystemOrbit } from "./landing/EcosystemOrbit";
+import { Reveal } from "./landing/Reveal";
 import { ProductTour } from "./landing/ProductTour";
 import { ChromeLogo, FirefoxLogo } from "./landing/browser-logos";
 import { ExtensionCaptureDemo } from "./landing/ExtensionCaptureDemo";
@@ -19,6 +21,10 @@ const CTA_BORDER = color.brandCtaHover;
 const CTA_INK = color.brandCtaInk;
 const CTA_HAIRLINE = color.brandCtaHairline;
 const CLOSING_SECTION_BG = color.brandCtaWash;
+const NAV_LINK =
+  "text-sm font-medium text-app-ink-muted transition-colors duration-app-fast ease-app-out hover:text-app-ink";
+/** Nav text links: the hover underline draws in rather than snapping on. */
+const NAV_TEXT_LINK = `omanote-link ${NAV_LINK}`;
 const desktopAppReleaseUrl = "https://github.com/thehumanx/omanote-releases/releases/latest";
 
 // ─── Nav download dropdown ────────────────────────────────────────────────────
@@ -35,9 +41,10 @@ function DownloadNavDropdown() {
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((c) => !c)}
-        className="inline-flex items-center gap-1.5 text-sm text-app-ink-muted hover:text-app-ink transition-colors duration-app-fast ease-app-out font-medium"
+        className={`omanote-link-host inline-flex items-center gap-1.5 ${NAV_LINK}`}
       >
-        Download
+        {/* Underline on the label only — not under the chevron. */}
+        <span className="omanote-link">Download</span>
         <ChevronDown
           className={[
             "h-3.5 w-3.5 transition-transform duration-app-base ease-app-out",
@@ -98,7 +105,7 @@ function RssBanner() {
         <button
           type="button"
           onClick={dismiss}
-          className="font-bold text-white underline underline-offset-2 hover:no-underline cursor-pointer"
+          className="font-bold text-white omanote-link cursor-pointer"
         >
           Dismiss
         </button>
@@ -113,8 +120,8 @@ function ExtensionSection() {
     <section id="extension" className="border-t border-app-line">
       <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-16 sm:py-20 lg:py-24">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-          {/* Left: popup mockup */}
-          <div className="flex justify-center lg:justify-start order-2 lg:order-1">
+          {/* Right on desktop, below the copy on mobile: popup mockup */}
+          <Reveal className="flex justify-center lg:justify-start order-2">
             <div className="relative">
               {/* Subtle glow behind the popup */}
               <div
@@ -123,10 +130,10 @@ function ExtensionSection() {
               />
               <ExtensionCaptureDemo />
             </div>
-          </div>
+          </Reveal>
 
-          {/* Right: copy + download buttons */}
-          <div className="order-1 lg:order-2">
+          {/* Left on desktop: copy + download buttons */}
+          <Reveal className="order-1">
             <p className="text-[10px] font-bold uppercase text-app-ink-faint">
               Browser extension
             </p>
@@ -188,7 +195,7 @@ function ExtensionSection() {
                 Add to Firefox
               </a>
             </div>
-          </div>
+          </Reveal>
         </div>
       </div>
     </section>
@@ -226,8 +233,6 @@ function JournalCta({ label = "Start your daily canvas", inverted }: { label?: s
 
 // ─── Main landing page ────────────────────────────────────────────────────────
 export function LandingScreen() {
-  const year = new Date().getFullYear();
-  const currentVersion = bundledVersion?.version ?? "v0.9";
   // The tour takes the whole viewport, so the page nav slides away for the
   // duration — otherwise it sits on top of the app it's meant to be showing.
   const [tourActive, setTourActive] = useState(false);
@@ -239,32 +244,49 @@ export function LandingScreen() {
         description="omanote is a canvas for your thoughts: one page for each day, where notes, todos, bookmarks and events land in the order they happened."
       />
       <div className="public-page min-h-screen flex flex-col bg-app-surface text-app-ink">
-      {/* Nav */}
+      {/* RSS announcement banner — above the nav, which floats over the hero. */}
+      <RssBanner />
+
+      {/* Nav. A floating pill over the hero panel rather than a bar: the
+          wrapper is zero-height so the tour's panel starts at the very top of
+          the page and the pill sits inside it. */}
       <nav
-        className={`border-b border-app-line sticky top-0 bg-app-surface/95 backdrop-blur-sm z-20 transition-[transform,opacity] duration-app-slow ${
+        className={`pointer-events-none sticky top-0 z-20 h-0 transition-[transform,opacity] duration-app-slow ${
           // Leaves on an ease-in (accelerating out of the way), comes back on
           // an ease-out (decelerating into place) — an entrance that eases in
           // reads as sluggish, and this one is the noticeable half.
           tourActive
-            ? "pointer-events-none -translate-y-full opacity-0 ease-app-in"
+            ? "-translate-y-24 opacity-0 ease-app-in"
             : "translate-y-0 opacity-100 ease-app-out"
         }`}
       >
-        <div className="max-w-[1136px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-          <img src="/logo.svg" alt="omanote home" className="h-6 sm:h-7 w-auto" />
-          <div className="flex items-center gap-4 sm:gap-6">
-            <DownloadNavDropdown />
-            <SignInButton mode="modal" fallbackRedirectUrl="/canvas">
-              <button className="text-sm text-app-ink-muted hover:text-app-ink transition-colors duration-app-fast ease-app-out cursor-pointer font-medium">
-                Sign in
-              </button>
-            </SignInButton>
+        <div className="flex justify-center px-4 pt-5 sm:pt-8">
+          <div
+            className={`flex h-12 items-center gap-4 rounded-full border border-app-line bg-app-surface/85 pl-4 pr-1.5 shadow-app-soft backdrop-blur-md sm:gap-6 sm:pl-5 ${
+              tourActive ? "pointer-events-none" : "pointer-events-auto"
+            }`}
+          >
+            <img src="/logo.svg" alt="omanote home" className="h-6 w-auto" />
+            <div className="flex items-center gap-4 sm:gap-6">
+              <DownloadNavDropdown />
+              <a
+                href="https://omanote.com/s/FeUM44Rd"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`hidden sm:inline ${NAV_TEXT_LINK}`}
+              >
+                Plans
+              </a>
+              <Link to="/updates" className={`hidden sm:inline ${NAV_TEXT_LINK}`}>
+                Changelog
+              </Link>
+              <SignInButton mode="modal" fallbackRedirectUrl="/canvas">
+                <Button className="h-9 rounded-full px-4 cursor-pointer">Sign in</Button>
+              </SignInButton>
+            </div>
           </div>
         </div>
       </nav>
-
-      {/* RSS announcement banner */}
-      <RssBanner />
 
       <main className="flex-1">
         {/* Hero. The pinned product tour owns the hero copy at every width and
@@ -272,14 +294,14 @@ export function LandingScreen() {
         <ProductTour cta={<JournalCta label="Start today's canvas — it's free" />} onActiveChange={setTourActive} />
 
         {/* Core & ecosystem — what omanote is, and what grows out of it. */}
-        <EcosystemSection />
+        <EcosystemOrbit />
 
         {/* Extension */}
         <ExtensionSection />
 
         {/* Privacy */}
         <section className="border-t border-app-line">
-          <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-16 sm:py-20 text-center">
+          <Reveal className="max-w-[1136px] mx-auto px-4 sm:px-6 py-16 sm:py-20 text-center">
             <p className="text-[10px] font-bold uppercase text-app-ink-faint">Privacy</p>
             <h2 className="font-serif-heading mt-4 text-2xl sm:text-3xl font-black leading-tight">
               Your data stays private.
@@ -290,37 +312,39 @@ export function LandingScreen() {
             </p>
             <Link
               to="/privacy"
-              className="mt-5 inline-flex text-sm text-app-ink underline underline-offset-2 hover:no-underline transition-colors duration-app-fast ease-app-out"
+              className="mt-5 inline-flex text-sm text-app-ink omanote-link transition-colors duration-app-fast ease-app-out"
             >
               Read the privacy policy →
             </Link>
-          </div>
+          </Reveal>
         </section>
 
         {/* FAQ */}
         <section className="border-t border-app-line">
-          <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-16 sm:py-20">
+          <Reveal className="max-w-[760px] mx-auto px-4 sm:px-6 py-16 sm:py-20">
             <p className="text-[10px] font-bold uppercase text-app-ink-faint">FAQ</p>
             <h2 className="font-serif-heading mt-4 text-2xl sm:text-3xl font-black leading-tight">
               Common questions.
             </h2>
+            {/* Native <details>, so the answers stay in the DOM while collapsed —
+                they carry the page's keyword prose (see FAQ_ITEMS). */}
             <div className="mt-8 border-t border-app-line">
               {FAQ_ITEMS.map((item) => (
-                <div
-                  key={item.question}
-                  className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-12 py-6 border-b border-app-line"
-                >
-                  <p className="text-sm font-bold text-app-ink leading-snug">{item.question}</p>
-                  <p className="text-sm text-app-ink-muted leading-relaxed">{item.answer}</p>
-                </div>
+                <details key={item.question} className="group border-b border-app-line">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-5 [&::-webkit-details-marker]:hidden">
+                    <span className="text-sm font-bold text-app-ink leading-snug">{item.question}</span>
+                    <ChevronDown className="h-4 w-4 shrink-0 text-app-ink-faint transition-transform duration-app-fast ease-app-out group-open:rotate-180" />
+                  </summary>
+                  <p className="max-w-[720px] pb-5 text-sm text-app-ink-muted leading-relaxed">{item.answer}</p>
+                </details>
               ))}
             </div>
-          </div>
+          </Reveal>
         </section>
 
         {/* The name */}
         <section id="why" className="border-t border-app-line">
-          <div className="max-w-[620px] mx-auto px-4 sm:px-6 py-16 sm:py-20 lg:py-24 text-center">
+          <Reveal className="max-w-[620px] mx-auto px-4 sm:px-6 py-16 sm:py-20 lg:py-24 text-center">
             <p className="text-[10px] font-bold uppercase text-app-ink-faint">
               The name
             </p>
@@ -348,13 +372,13 @@ export function LandingScreen() {
                 href="https://omarchy.org"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-app-ink underline underline-offset-2 hover:no-underline"
+                className="text-app-ink omanote-link"
               >
                 Omarchy by DHH
               </a>{" "}
               and its ready-to-use approach. Oh, I use Omarchy btw.
             </p>
-          </div>
+          </Reveal>
         </section>
 
         {/* Closing CTA.
@@ -366,6 +390,7 @@ export function LandingScreen() {
             up, so this is just that — an exit ramp, one size on every
             breakpoint. */}
         <section className="border-t border-app-line">
+          <Reveal>
           <div
             className="max-w-[1136px] mx-auto px-4 sm:px-6 py-10 sm:py-14 text-center rounded-3xl my-8 sm:my-12" style={{ backgroundColor: CLOSING_SECTION_BG }}
           >
@@ -379,93 +404,12 @@ export function LandingScreen() {
               <JournalCta label="Start today's canvas →" />
             </div>
           </div>
+          </Reveal>
         </section>
 
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-app-line">
-        <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-8 sm:py-10">
-          <div className="flex flex-col sm:flex-row items-start justify-between gap-8">
-            {/* Left: identity, blurbs, copyright — all text copy lives here. */}
-            <div>
-              <div className="flex items-center gap-2">
-                <img src="/logo.svg" alt="omanote home" className="h-5 w-auto" />
-                <Link
-                  to="/updates"
-                  className="rounded-full border border-app-line bg-app-canvas px-2 py-0.5 text-[10px] font-bold text-app-ink-muted hover:border-app-line-strong hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out cursor-pointer"
-                >
-                  {currentVersion}
-                </Link>
-              </div>
-              <p className="mt-2.5 text-xs text-app-ink-faint leading-relaxed max-w-[300px]">
-                Personal notetaking app of{" "}
-                <a
-                  href="https://iambishistha.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
-                >
-                  iambishistha.com
-                </a>
-                .
-                <span className="block">Built for personal use, shared publicly.</span>
-              </p>
-              <p className="mt-3 text-xs text-app-ink-faint">© {year} omanote. All rights reserved.</p>
-            </div>
-
-            {/* Right: link groups only. */}
-            <div className="flex gap-12">
-              <div className="flex flex-col gap-2.5">
-                <p className="text-[10px] font-bold uppercase text-app-ink-faint">Product</p>
-                <a
-                  href="https://omanote.com/s/FeUM44Rd"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-app-ink-faint underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
-                >
-                  Roadmap
-                </a>
-                <Link
-                  to="/guide"
-                  className="text-xs text-app-ink-faint underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
-                >
-                  Guide
-                </Link>
-                <Link
-                  to="/updates"
-                  className="text-xs text-app-ink-faint underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
-                >
-                  Changelog
-                </Link>
-                <a
-                  href={desktopAppReleaseUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-app-ink-faint underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
-                >
-                  Desktop app
-                </a>
-              </div>
-              <div className="flex flex-col gap-2.5">
-                <p className="text-[10px] font-bold uppercase text-app-ink-faint">Legal</p>
-                <Link
-                  to="/privacy"
-                  className="text-xs text-app-ink-faint underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
-                >
-                  Privacy
-                </Link>
-                <Link
-                  to="/terms"
-                  className="text-xs text-app-ink-faint underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
-                >
-                  Terms
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
 
       {/* Cookie notice */}
       <CookieNotice />

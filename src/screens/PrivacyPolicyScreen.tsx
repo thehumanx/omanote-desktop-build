@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { SiteFooter } from "../components/SiteFooter";
 import { SeoHead } from "../seo/SeoHead";
 
 const LAST_UPDATED = "September 25, 2026";
@@ -62,7 +63,7 @@ export function PrivacyPolicyScreen() {
                 <li key={href}>
                   <a
                     href={href}
-                    className="text-sm text-app-ink-muted hover:text-app-ink transition-colors underline-offset-2 hover:underline"
+                    className="omanote-link text-sm text-app-ink-muted hover:text-app-ink"
                   >
                     {label}
                   </a>
@@ -92,7 +93,7 @@ export function PrivacyPolicyScreen() {
                   is reachable at{" "}
                   <a
                     href={`mailto:${CONTACT_EMAIL}`}
-                    className="text-app-ink underline underline-offset-2 hover:no-underline"
+                    className="text-app-ink omanote-link"
                   >
                     {CONTACT_EMAIL}
                   </a>
@@ -166,7 +167,7 @@ export function PrivacyPolicyScreen() {
                     If you choose to connect your Google account for Calendar sync, we receive
                     Google Calendar event data (titles, times, descriptions, and similar details) as
                     described in{" "}
-                    <a href="#google-calendar" className="text-app-ink underline underline-offset-2 hover:no-underline">
+                    <a href="#google-calendar" className="text-app-ink omanote-link">
                       Google Calendar integration
                     </a>{" "}
                     below.
@@ -327,7 +328,7 @@ export function PrivacyPolicyScreen() {
                         href={url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="mt-1.5 inline-block text-xs text-app-ink-faint underline underline-offset-2 hover:text-app-ink-muted transition-colors"
+                        className="mt-1.5 inline-block text-xs text-app-ink-faint omanote-link hover:text-app-ink-muted transition-colors"
                       >
                         {url}
                       </a>
@@ -387,7 +388,7 @@ export function PrivacyPolicyScreen() {
                     href="https://developers.google.com/terms/api-services-user-data-policy"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-app-ink underline underline-offset-2 hover:no-underline"
+                    className="text-app-ink omanote-link"
                   >
                     Google API Services User Data Policy
                   </a>
@@ -431,7 +432,7 @@ export function PrivacyPolicyScreen() {
                   To request deletion of your account and all associated data, email{" "}
                   <a
                     href={`mailto:${CONTACT_EMAIL}`}
-                    className="text-app-ink underline underline-offset-2 hover:no-underline"
+                    className="text-app-ink omanote-link"
                   >
                     {CONTACT_EMAIL}
                   </a>
@@ -517,7 +518,7 @@ export function PrivacyPolicyScreen() {
                   To exercise any of these rights, email{" "}
                   <a
                     href={`mailto:${CONTACT_EMAIL}`}
-                    className="text-app-ink underline underline-offset-2 hover:no-underline"
+                    className="text-app-ink omanote-link"
                   >
                     {CONTACT_EMAIL}
                   </a>
@@ -538,7 +539,7 @@ export function PrivacyPolicyScreen() {
                   please contact us at{" "}
                   <a
                     href={`mailto:${CONTACT_EMAIL}`}
-                    className="text-app-ink underline underline-offset-2 hover:no-underline"
+                    className="text-app-ink omanote-link"
                   >
                     {CONTACT_EMAIL}
                   </a>{" "}
@@ -576,7 +577,7 @@ export function PrivacyPolicyScreen() {
                   <p className="text-sm font-bold text-app-ink">omanote</p>
                   <a
                     href={`mailto:${CONTACT_EMAIL}`}
-                    className="mt-1 inline-block text-sm text-app-ink-muted underline underline-offset-2 hover:text-app-ink transition-colors"
+                    className="mt-1 inline-block text-sm text-app-ink-muted omanote-link hover:text-app-ink transition-colors"
                   >
                     {CONTACT_EMAIL}
                   </a>
@@ -585,7 +586,7 @@ export function PrivacyPolicyScreen() {
                     href="https://iambishistha.com"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-0.5 inline-block text-sm text-app-ink-faint underline underline-offset-2 hover:text-app-ink-muted transition-colors"
+                    className="mt-0.5 inline-block text-sm text-app-ink-faint omanote-link hover:text-app-ink-muted transition-colors"
                   >
                     iambishistha.com
                   </a>
@@ -597,78 +598,7 @@ export function PrivacyPolicyScreen() {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-app-line">
-        <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-8 sm:py-10">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-            <div>
-              <div className="flex items-center gap-2">
-                <Link to="/">
-                  <img src="/logo.svg" alt="omanote home" className="h-5 w-auto" />
-                </Link>
-              </div>
-              <p className="mt-2.5 text-xs text-app-ink-faint leading-relaxed max-w-[280px]">
-                Personal notetaking app of{" "}
-                <a
-                  href="https://iambishistha.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
-                >
-                  iambishistha.com
-                </a>
-                .
-                <span className="block">Built for personal use, shared publicly.</span>
-              </p>
-              <div className="mt-3 flex gap-4 text-xs text-app-ink-faint">
-                <a
-                  href="https://omanote.com/s/FeUM44Rd"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
-                >
-                  Roadmap
-                </a>
-                <Link
-                  to="/updates"
-                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
-                >
-                  Changelog
-                </Link>
-                <a
-                  href="https://github.com/thehumanx/omanote-releases/releases/latest"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
-                >
-                  Desktop app
-                </a>
-              </div>
-            </div>
-            <div className="flex flex-col gap-1.5 text-xs text-app-ink-faint sm:text-right">
-              <span>© {new Date().getFullYear()} omanote. All rights reserved.</span>
-              <span className="max-w-[300px] sm:max-w-none leading-snug">
-                Your data is encrypted client-side and stored securely.
-                <br className="hidden sm:block" /> We don't sell, share, or read your data. Ever.
-              </span>
-              <div className="flex gap-4 w-fit sm:ml-auto">
-                <Link
-                  to="/privacy"
-                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
-                >
-                  Privacy
-                </Link>
-                <Link
-                  to="/terms"
-                  className="underline underline-offset-2 hover:text-app-ink-muted transition-colors duration-app-fast ease-app-out"
-                >
-                  Terms
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
     </>
   );

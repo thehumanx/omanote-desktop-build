@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import type { DateKey, TabKey } from "@omanote/shared";
 import { searchArtifacts } from "@omanote/shared";
+import { runPageTransition } from "../lib/page-transition";
 import { useApp } from "../app/AppProvider";
 
 type SearchKind = "todo" | "note" | "bookmark" | "event" | "page";
@@ -89,7 +90,7 @@ export function SearchResultsList({
                 onClick={() => {
                   if (result.kind === "page") {
                     dispatch({ type: "ui/set-search-open", open: false });
-                    navigate(`/p/${result.id}`);
+                    runPageTransition(() => navigate(`/p/${result.id}`));
                     return;
                   }
                   const tab = targetTab(result.kind);

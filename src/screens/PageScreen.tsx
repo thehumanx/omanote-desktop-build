@@ -21,6 +21,7 @@ import { useAuth } from "@clerk/react";
 import { useEncryption } from "../contexts/EncryptionContext";
 import { useUserSettings } from "../contexts/UserSettingsContext";
 import { publishBlockImages, unpublishPageImages, type PublishedImage } from "../lib/page-images";
+import { runPageTransition } from "../lib/page-transition";
 
 function formatMetaDate(timestamp: number) {
   return new Date(timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -317,8 +318,10 @@ export function PageScreen() {
 
   const close = useCallback(() => {
     // The autosave hook flushes on unmount, so nothing needs saving here.
-    navigate("/canvas");
-  }, [navigate]);
+    // The sheet shrinks back into this page's card on the canvas (or sinks
+    // out when that card isn't on screen) — see runPageTransition.
+    runPageTransition(() => navigate("/canvas"), { toCardOf: page?.id });
+  }, [navigate, page?.id]);
 
   const [shareOpen, setShareOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -369,8 +372,8 @@ export function PageScreen() {
   // have offline, so say the honest thing and offer the way back.
   if (!page) {
     return (
-      <div className="fixed inset-0 z-app-drawer flex flex-col bg-app-canvas p-4">
-        <div className="flex h-full w-full flex-col items-center justify-center gap-4 rounded-2xl bg-app-surface-raised px-6 text-center shadow-soft">
+      <div className="app-scene-page fixed inset-0 z-app-drawer flex flex-col bg-app-backdrop p-4">
+        <div className="app-frost flex h-full w-full flex-col items-center justify-center gap-4 rounded-2xl bg-app-surface-raised px-6 text-center shadow-soft">
           <SeoHead title="Page | omanote" noIndex />
           <p className="text-sm text-app-ink-muted">This page isn’t available on this device.</p>
           <button
@@ -390,17 +393,14 @@ export function PageScreen() {
     // the composer sheet growing into a full document rather than a hard cut
     // to an edge-to-edge page. See use-create-canvas.ts for the morph.
     <div
-      className="fixed inset-0 z-app-drawer flex flex-col bg-app-canvas p-4"
+      className="app-scene-page fixed inset-0 z-app-drawer flex flex-col bg-app-backdrop p-4"
       style={{
         paddingTop: "calc(1rem + env(safe-area-inset-top))",
         paddingBottom: "calc(1rem + env(safe-area-inset-bottom))",
       }}
     >
       <div
-        className={cn(
-          "relative flex h-full w-full min-h-0 flex-col overflow-hidden rounded-2xl bg-app-surface-raised shadow-soft",
-          settings.canvasDotGrid && "omanote-canvas-grid",
-        )}
+        className="app-frost relative flex h-full w-full min-h-0 flex-col overflow-hidden rounded-2xl bg-app-surface-raised shadow-soft"
         style={{ viewTransitionName: "canvas-expand" }}
       >
         <SeoHead title={title.trim() ? `${title.trim()} | omanote` : "Page | omanote"} noIndex />

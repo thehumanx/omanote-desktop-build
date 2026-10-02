@@ -1625,7 +1625,7 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
                         ) : null}
                         {showTodoFolderMenu && todoFolderCombobox.items.length ? (
                           <div
-                            className="absolute left-0 right-0 top-full z-20 mt-2 overflow-y-auto rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
+                            className="app-overlay absolute left-0 right-0 top-full z-20 mt-2 overflow-y-auto rounded-xl border border-app-line bg-app-surface p-1 shadow-soft"
                             onMouseDown={(event) => event.preventDefault()}
                           >
                             <FolderComboboxOptions
@@ -1767,7 +1767,7 @@ export const CanvasDraftBlock = forwardRef<CanvasDraftBlockHandle, CanvasDraftBl
               <div
                 ref={pickerRef}
                 className={[
-                  "absolute left-0 z-30 w-40 overflow-hidden rounded-md border border-app-line bg-app-surface shadow-soft",
+                  "app-overlay absolute left-0 z-30 w-40 overflow-hidden rounded-md border border-app-line bg-app-surface shadow-soft",
                   pickerPlacement === "above" ? "bottom-full mb-1.5" : "top-full mt-1.5",
                 ].join(" ")}
               >

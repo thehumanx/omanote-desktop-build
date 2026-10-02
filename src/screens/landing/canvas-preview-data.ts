@@ -8,6 +8,7 @@ import type {
   NoteFolder,
   NoteItem,
   PageItem,
+  TodoFolder,
   TodoItem,
 } from "@omanote/shared";
 import type { CanvasArtifactItem } from "../../app/reducer";
@@ -62,15 +63,22 @@ function pageDoc(paragraphs: string[]): string {
 }
 
 export const PREVIEW_NOTE_FOLDERS: NoteFolder[] = [
-  { id: "folder-thinking", name: "Thinking out loud", icon: "💭", createdAt: daysAgoAt(90, 9), updatedAt: at(8, 40) },
-  { id: "folder-product", name: "Product", icon: "🧩", createdAt: daysAgoAt(120, 9), updatedAt: at(13, 20) },
+  { id: "folder-thinking", name: "Thinking out loud", icon: "💭", color: "violet", createdAt: daysAgoAt(90, 9), updatedAt: at(8, 40) },
+  { id: "folder-product", name: "Product", icon: "🧩", color: "sky", createdAt: daysAgoAt(120, 9), updatedAt: at(13, 20) },
+];
+
+// Coloured like a real user's folders would be — an all-grey feed undersold
+// the tinting the icon picker offers. Keys are from src/lib/folder-color.ts.
+export const PREVIEW_TODO_FOLDERS: TodoFolder[] = [
+  { id: "folder-personal", name: "Personal", color: "rose", createdAt: daysAgoAt(90, 9), updatedAt: at(12, 20) },
+  { id: "folder-roadmap", name: "Roadmap", color: "emerald", createdAt: daysAgoAt(120, 9), updatedAt: at(14, 10) },
 ];
 
 // Typed, and carrying `icon`, because the canvas folder tab renders a
 // category's own icon when it has one — the same as the note folders above.
 const BOOKMARK_CATEGORIES: BookmarkCategory[] = [
-  { id: "cat-reading", name: "Reading", icon: "📚", createdAt: daysAgoAt(90, 10) },
-  { id: "cat-dev", name: "Dev", icon: "🛠️", createdAt: daysAgoAt(90, 11) },
+  { id: "cat-reading", name: "Reading", icon: "📚", color: "amber", createdAt: daysAgoAt(90, 10) },
+  { id: "cat-dev", name: "Dev", icon: "🛠️", color: "teal", createdAt: daysAgoAt(90, 11) },
 ];
 
 export const PREVIEW_CATEGORY_BY_ID = new Map(

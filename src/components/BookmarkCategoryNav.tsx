@@ -1,5 +1,5 @@
 import type { KeyboardEvent, ReactNode, Ref } from "react";
-import { FolderNavActionMenu, FolderNavCard, FolderNavGroups, FolderNavRow } from "./FolderNav";
+import { FolderNavActionMenu, FolderNavGroups, FolderNavRow } from "./FolderNav";
 
 /**
  * Bookmark-category-flavoured names over the shared `FolderNav` primitives —
@@ -32,24 +32,6 @@ export function CategoryRow({
   actions?: ReactNode;
 }) {
   return <FolderNavRow name={categoryName} placeholder={placeholder} {...rest} />;
-}
-
-export function CategoryCard({
-  categoryName,
-  ...rest
-}: {
-  categoryName: string;
-  icon?: string;
-  color?: string;
-  count: number;
-  selected: boolean;
-  onClick: () => void;
-  isShared?: boolean;
-  onIconClick?: (ref: React.RefObject<HTMLButtonElement | null>) => void;
-  iconPickerActive?: boolean;
-  actions?: ReactNode;
-}) {
-  return <FolderNavCard name={categoryName} {...rest} />;
 }
 
 /** Re-exported under this file's naming so BookmarksScreen imports one module. */

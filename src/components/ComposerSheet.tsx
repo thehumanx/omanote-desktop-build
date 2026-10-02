@@ -159,7 +159,10 @@ export function ComposerSheet() {
           // Shared with PageScreen's root — lets "Create new page" morph
           // this sheet into the full canvas page (see use-create-canvas.ts)
           // instead of a hard cut. No-op outside that one transition.
-          viewTransitionName: "canvas-expand",
+          // Only while open: closed, it stays mounted off-screen, and a second
+          // element holding the name (a page card morphing open) would make
+          // the browser skip the transition.
+          viewTransitionName: open ? "canvas-expand" : undefined,
         }}
         onKeyDown={(event) => {
           // Fallback for focus that isn't inside one of CanvasDraftBlock's

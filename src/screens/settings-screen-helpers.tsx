@@ -12,6 +12,7 @@ import {
   Palette,
   ShieldCheck,
   SquarePen,
+  SunMoon,
   UserCircle,
 } from "lucide-react";
 import type {
@@ -26,11 +27,9 @@ import type {
 import { cn } from "../components/ui";
 
 export type AppearanceDraft = {
-  themeMode: ThemeMode;
   navLabelStyle: NavLabelStyle;
   fontFamily: FontFamily;
   cornerStyle: CornerStyle;
-  canvasDotGrid: boolean;
   showSaveShortcutHints: boolean;
 };
 
@@ -44,7 +43,7 @@ export type NotificationDraft = {
 
 export type BrowserPermissionState = NotificationPermission | "unsupported";
 
-export type CategoryId = "appearance" | "notifications" | "security" | "devices" | "data" | "storage" | "account" | "features";
+export type CategoryId = "theme" | "appearance" | "notifications" | "security" | "devices" | "data" | "storage" | "account" | "features";
 
 const LATO_STACK = '"Lato", ui-sans-serif, system-ui, sans-serif';
 const SERIF_STACK = '"Solway", Georgia, ui-serif, serif';
@@ -180,6 +179,7 @@ const NAV_PREVIEW_TABS = [
 ];
 
 export const CATEGORIES: { id: CategoryId; label: string; Icon: React.ElementType }[] = [
+  { id: "theme", label: "Theme", Icon: SunMoon },
   { id: "appearance", label: "Look & feel", Icon: Palette },
   { id: "features", label: "Features", Icon: Layers },
   { id: "notifications", label: "Notifications", Icon: Bell },
@@ -229,11 +229,9 @@ export function NavLabelPreview({ style }: { style: NavLabelStyle }) {
 
 export function appearanceDraftsMatch(left: AppearanceDraft, right: AppearanceDraft) {
   return (
-    left.themeMode === right.themeMode &&
     left.navLabelStyle === right.navLabelStyle &&
     left.fontFamily === right.fontFamily &&
     left.cornerStyle === right.cornerStyle &&
-    left.canvasDotGrid === right.canvasDotGrid &&
     left.showSaveShortcutHints === right.showSaveShortcutHints
   );
 }

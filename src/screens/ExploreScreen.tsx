@@ -2,10 +2,8 @@ import { useMemo, useState } from "react";
 import { useQuery } from "convex/react";
 import { Info, X } from "lucide-react";
 import { api } from "../../convex/_generated/api";
-import { useApp } from "../app/AppProvider";
 import { HashtagCombobox } from "../components/HashtagCombobox";
 import { HashtagGraph } from "../components/HashtagGraph";
-import { SearchResultsList } from "../components/SearchResultsList";
 import { BaseModal } from "../components/BaseModal";
 import { useTopChrome } from "../components/layout/useTopChrome";
 
@@ -55,16 +53,6 @@ function ExploreInfoModal({ onClose }: { onClose: () => void }) {
             </div>
           </div>
 
-          <div className="flex gap-3">
-            <span className="text-base leading-none">/</span>
-            <div>
-              <p className="font-medium text-app-ink">Full-text search</p>
-              <p className="mt-0.5 leading-relaxed">
-                Start typing in the search bar at the bottom to switch from the mind map to search results.
-              </p>
-            </div>
-          </div>
-
           <div className="rounded-2xl bg-app-surface-muted px-4 py-3 text-xs leading-relaxed text-app-ink-faint">
             <span className="font-medium text-app-ink-muted">Navigate: </span>
             Drag a tag to move it, drag the background to pan, and scroll to zoom.
@@ -76,11 +64,9 @@ function ExploreInfoModal({ onClose }: { onClose: () => void }) {
 }
 
 export function ExploreScreen() {
-  const { state } = useApp();
   const allHashtags = useQuery(api.hashtags.listAllUserHashtags, { limit: 300 });
   const [filterHashtags, setFilterHashtags] = useState<string[]>([]);
   const [infoOpen, setInfoOpen] = useState(false);
-  const showSearch = state.ui.searchQuery.trim().length > 0;
 
   const topChrome = useMemo(
     () => (
@@ -95,35 +81,27 @@ export function ExploreScreen() {
             <Info className="h-4 w-4" />
           </button>
         </div>
-        {!showSearch && (
-          allHashtags === undefined
-            ? <div className="h-7 w-24 animate-pulse rounded-full bg-app-surface-muted" />
-            : allHashtags.length > 0
-              ? <HashtagCombobox hashtags={allHashtags} selected={filterHashtags} onChange={setFilterHashtags} align="left" />
-              : null
-        )}
+        {allHashtags === undefined
+          ? <div className="h-7 w-24 animate-pulse rounded-full bg-app-surface-muted" />
+          : allHashtags.length > 0
+            ? <HashtagCombobox hashtags={allHashtags} selected={filterHashtags} onChange={setFilterHashtags} align="left" />
+            : null}
       </div>
     ),
-    [allHashtags, filterHashtags, showSearch],
+    [allHashtags, filterHashtags],
   );
 
   useTopChrome(topChrome);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {showSearch ? (
-        <div className="mx-auto min-h-0 w-full max-w-[1024px] flex-1 overflow-y-auto px-4 py-4">
-          <SearchResultsList emptyText="No matches found." />
-        </div>
-      ) : (
-        <div className="min-h-0 flex-1">
-          <HashtagGraph
-            filterHashtags={filterHashtags}
-            onFilterHashtagsChange={setFilterHashtags}
-            showFilter={false}
-          />
-        </div>
-      )}
+      <div className="min-h-0 flex-1">
+        <HashtagGraph
+          filterHashtags={filterHashtags}
+          onFilterHashtagsChange={setFilterHashtags}
+          showFilter={false}
+        />
+      </div>
 
       {infoOpen && <ExploreInfoModal onClose={() => setInfoOpen(false)} />}
     </div>
