@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode, type TouchEvent as ReactTouchEvent } from "react";
 import { Bookmark, BookmarkCheck, CalendarDays, CheckSquare, FileText, Plus, Rss, SquarePen, X } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { useApp } from "../../app/AppProvider";
+import { useAppActions } from "../../app/AppProvider";
 import { SegmentedHighlight, SegmentedItemLabel, SegmentedShell, segmentedItemClass } from "../ui";
 import { useMeasuredHighlight } from "../../hooks/useMeasuredHighlight";
 import { getComposerModeForPathname, getNavRouteIndex, getWrappedNavRoutePath } from "./navRoutes";
@@ -151,7 +151,7 @@ function FullBottomNav({ hidden = false, forceHidden = false, trailing }: { hidd
   const currentNavRouteIndexRef = useRef(-1);
   const location = useLocation();
   const navigate = useNavigate();
-  const { dispatch } = useApp();
+  const { dispatch } = useAppActions();
   const { settings } = useUserSettings();
   const navLabelStyle = settings.navLabelStyle;
   const [keyboardOpen, setKeyboardOpen] = useState(false);

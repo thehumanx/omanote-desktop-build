@@ -29,6 +29,8 @@ export interface UserSettings {
   sceneGrain: SceneGrain;
   founderNoteSeen: boolean;
   rssReaderEnabled: boolean;
+  /** When true, articles open without their remote images (newsletters' tracking pixels are always removed). */
+  blockReaderImages: boolean;
   /** When false (default), only the checkmark circle toggles a todo complete. When true, clicking anywhere on the row does too. */
   completeTodoOnRowClick: boolean;
   onboardingCompleted: boolean;
@@ -56,6 +58,7 @@ export interface UserSettingsPatch {
   sceneGrain?: SceneGrain;
   founderNoteSeen?: boolean;
   rssReaderEnabled?: boolean;
+  blockReaderImages?: boolean;
   completeTodoOnRowClick?: boolean;
   onboardingCompleted?: boolean;
   onboardingStep?: OnboardingStep;
@@ -90,6 +93,7 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   sceneGrain: "subtle",
   founderNoteSeen: false,
   rssReaderEnabled: false,
+  blockReaderImages: false,
   completeTodoOnRowClick: false,
   onboardingCompleted: false,
   onboardingStep: 0,
@@ -166,6 +170,7 @@ export function normalizeUserSettings(input: Record<string, unknown> | null | un
     sceneGrain: isOneOf(SCENE_GRAINS, source.sceneGrain) ? source.sceneGrain : DEFAULT_USER_SETTINGS.sceneGrain,
     founderNoteSeen: isBoolean(source.founderNoteSeen) ? source.founderNoteSeen : DEFAULT_USER_SETTINGS.founderNoteSeen,
     rssReaderEnabled: isBoolean(source.rssReaderEnabled) ? source.rssReaderEnabled : DEFAULT_USER_SETTINGS.rssReaderEnabled,
+    blockReaderImages: isBoolean(source.blockReaderImages) ? source.blockReaderImages : DEFAULT_USER_SETTINGS.blockReaderImages,
     completeTodoOnRowClick: isBoolean(source.completeTodoOnRowClick)
       ? source.completeTodoOnRowClick
       : DEFAULT_USER_SETTINGS.completeTodoOnRowClick,

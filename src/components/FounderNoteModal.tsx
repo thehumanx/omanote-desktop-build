@@ -66,7 +66,7 @@ export function FounderNoteModal({ open, onClose }: FounderNoteModalProps) {
   if (!open) return null;
 
   return (
-    <BaseModal
+    <BaseModal label="A note from Bibek"
       onClose={onClose}
       zIndex="z-app-modal"
       className={[

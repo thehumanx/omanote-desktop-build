@@ -462,7 +462,7 @@ function DeleteUserModal({
   }
 
   return (
-    <BaseModal onClose={() => { if (!submitting) onClose(); }}>
+    <BaseModal label={`Delete ${label}`} role="alertdialog" onClose={() => { if (!submitting) onClose(); }}>
       <div
         className="w-full max-w-md rounded-app-card border border-app-line bg-app-surface p-5 shadow-app-dialog"
         onMouseDown={(e) => e.stopPropagation()}
@@ -896,7 +896,7 @@ function useDashboardSnapshot() {
     catchUpNow({})
       // A failed catch-up still leaves the last hourly roll-up to show.
       .catch(() => undefined)
-      .then(() => convex.query(api.adminMetrics.getDashboard, {}))
+      .then(() => convex.action(api.adminMetrics.getDashboard, {}))
       .then((next) => {
         if (alive) setData(next);
       })

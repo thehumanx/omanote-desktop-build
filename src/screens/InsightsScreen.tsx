@@ -444,13 +444,14 @@ function HeatmapTooltip({ dateKey, clientX, clientY, count, breakdown }: Heatmap
   return (
     <ModalPortal>
       <div
+        role="tooltip"
         style={{
           position: "fixed",
           left: clientX,
           top: showBelow ? clientY + 14 : clientY,
           transform: showBelow ? "translate(-50%, 0)" : "translate(-50%, calc(-100% - 10px))",
           pointerEvents: "none",
-          zIndex: 9999,
+          zIndex: "var(--z-app-tooltip)",
         }}
         className="app-overlay w-44 rounded-xl border border-app-line bg-app-surface-raised shadow-menu"
       >
@@ -491,13 +492,14 @@ function ActivityRhythmInfoTooltip({ clientX, clientY }: InfoTooltipState) {
   return (
     <ModalPortal>
       <div
+        role="tooltip"
         style={{
           position: "fixed",
           left: clientX,
           top: clientY + 14,
           transform: "translate(-50%, 0)",
           pointerEvents: "none",
-          zIndex: 9999,
+          zIndex: "var(--z-app-tooltip)",
         }}
         className="app-overlay omanote-tooltip-pop w-56 rounded-xl border border-app-line bg-app-surface-raised p-3 shadow-menu"
       >
@@ -521,13 +523,14 @@ function ActivityRhythmHourTooltip({ hour, clientX, clientY, count, breakdown }:
   return (
     <ModalPortal>
       <div
+        role="tooltip"
         style={{
           position: "fixed",
           left: clientX,
           top: clientY,
           transform: "translate(-50%, calc(-100% - 10px))",
           pointerEvents: "none",
-          zIndex: 9999,
+          zIndex: "var(--z-app-tooltip)",
         }}
         className="app-overlay omanote-tooltip-pop w-44 rounded-xl border border-app-line bg-app-surface-raised shadow-menu"
       >
@@ -565,13 +568,14 @@ function DayDistributionTooltip({ dayLabel, clientX, clientY, total, breakdown }
   return (
     <ModalPortal>
       <div
+        role="tooltip"
         style={{
           position: "fixed",
           left: clientX,
           top: clientY,
           transform: "translate(-50%, calc(-100% - 10px))",
           pointerEvents: "none",
-          zIndex: 9999,
+          zIndex: "var(--z-app-tooltip)",
         }}
         className="app-overlay w-44 rounded-xl border border-app-line bg-app-surface-raised shadow-menu"
       >
@@ -612,13 +616,14 @@ function ContentCompositionTooltip({
   return (
     <ModalPortal>
       <div
+        role="tooltip"
         style={{
           position: "fixed",
           left: clientX,
           top: clientY,
           transform: "translate(-50%, calc(-100% - 10px))",
           pointerEvents: "none",
-          zIndex: 9999,
+          zIndex: "var(--z-app-tooltip)",
         }}
         className="app-overlay omanote-tooltip-pop w-44 rounded-xl border border-app-line bg-app-surface-raised shadow-menu"
       >
@@ -1111,7 +1116,7 @@ export function InsightsScreen() {
     state.noteFolders,
     state.bookmarkCategories,
   );
-  const streak = useQuery(api.insights.getActivityStreak, { windowStart });
+  const streak = useQuery(api.insights.getActivityStreak, {});
 
   const hasComp = comparison !== undefined && comparison !== null;
   const dRate = hasComp && productivity ? productivity.completionRate - comparison.completionRate : null;

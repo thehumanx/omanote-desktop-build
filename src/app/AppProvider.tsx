@@ -2,15 +2,9 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { useAction, useConvex, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { useLocation } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
-import type { Doc, Id } from "../../convex/_generated/dataModel";
-import {
-  conjugateTitleToPastTense,
-  getLiveOccurrenceDateKey,
-  makeVirtualOccurrenceId,
-  parseVirtualOccurrenceId,
-  toDateKey,
-} from "@omanote/shared";
-import type { ActivityItem, BookmarkCategory, BookmarkItem, DateKey, NoteFolder, NoteItem, PageItem, EventEntry, TodoFolder, TodoItem } from "@omanote/shared";
+import type { Doc } from "../../convex/_generated/dataModel";
+import { toDateKey } from "@omanote/shared";
+import type { BookmarkItem, NoteItem, PageItem, EventEntry, TodoItem } from "@omanote/shared";
 import { useEncryption } from "../contexts/EncryptionContext";
 import { useUserSettings } from "../contexts/UserSettingsContext";
 
@@ -27,21 +21,11 @@ function normalizeBookmarkUrl(raw: string): string {
 }
 import { readStorage, storageKeys, writeStorage } from "./storage";
 import { removeCanvasDraft } from "./canvas-drafts";
-import {
-  clearCanvasDraftForKey,
-  enqueueCanvasMutation,
-  flushCanvasOutbox,
-  isStorageLimitError,
-  runWithCanvasOutboxFallback,
-  setCanvasOutboxObserver,
-  type CanvasKind,
-} from "./canvas-outbox";
+import { enqueueCanvasMutation, runWithCanvasOutboxFallback } from "./canvas-outbox";
 import { restoreOptimisticRows } from "./optimistic-restore";
 import { applyPendingOverlay, applyQueuedSeriesEdits, buildPendingOverlay, EMPTY_OVERLAY, type PendingOverlay } from "./pending-overlay";
-import { runIncrementalSync } from "./sync";
 import { reportError } from "../lib/error-reporting";
-import type { SyncQueryFn, SyncTableName } from "./sync";
-import type { FunctionReference, FunctionArgs } from "convex/server";
+import type { SyncTableName } from "./sync";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "./db";
 import { useAuth } from "./auth/AuthContext";
@@ -51,7 +35,6 @@ import { useTodoActions } from "./actions/todo-actions";
 import { useNoteActions } from "./actions/note-actions";
 import { useBookmarkActions } from "./actions/bookmark-actions";
 import {
-  buildGuestEmailsFromText,
   buildHashtagsFromText,
   createNameEncryptionCache,
   getAppProviderQueryScope,
@@ -59,16 +42,18 @@ import {
   isLocalFolderId,
   mergeTodosForState,
   needsHashtagRepair,
-  normalizeTodoDueInput,
   resolveTodoFolder,
-  shouldScheduleRemoteSync,
+  dateToSnapToOnReturn,
   shouldSyncRss,
 } from "./app-provider-logic";
 import { detectWebClientType, getCurrentDeviceMetadata } from "../lib/device-info";
 import { readLocalStorage, stringCodec, writeLocalStorage } from "../lib/local-storage";
 import type { AppAction, AppState, DraftMode, RecurringDeletePrompt, ToastItem } from "./types";
 import { prefixedRandomId, randomId } from "@omanote/shared";
-import { mapActivity, mapBookmark, mapBookmarkCategory, mapEvent, mapNote, mapNoteFolder, mapPage, mapTodo, mapTodoFolder } from "./mappers";
+import { useDecryptedTables } from "./useDecryptedTables";
+import { useSyncLoop } from "./useSyncLoop";
+import { useOutboxReplay } from "./useOutboxReplay";
+import { useOutboxNotifications } from "./useOutboxNotifications";
 
 // Stable empty array used as the fallback for not-yet-loaded Dexie queries.
 // A plain `useLiveQuery(...) ?? []` creates a new array reference on every
@@ -92,7 +77,14 @@ interface AppContextValue {
   isCanvasContentLoading: boolean;
 }
 
+
+/** `habits` is retired but still on AppState; one shared empty array keeps it stable. */
+const EMPTY_HABITS: AppState["habits"] = [];
+
 const AppContext = createContext<AppContextValue | null>(null);
+
+type AppActions = Pick<AppContextValue, "dispatch" | "undo" | "redo" | "scheduleSync">;
+const AppActionsContext = createContext<AppActions | null>(null);
 const DELETE_MASK_RELEASE_MS = 220;
 // Kept in sync with BookmarksScreen.tsx's isGcalCategoryName() label for the
 // analogous "Synced from GCal" bookmark folder.
@@ -100,56 +92,6 @@ const GOOGLE_CALENDAR_TODO_FOLDER_NAME = "Synced from GCal";
 /** Per-user marker: the client-side hashtag repair found nothing left to fix. */
 const HASHTAG_REPAIR_DONE_KEY = "omanote.hashtag-repair-done";
 
-// What to call each queued operation when telling the user it was lost. Only
-// the artifact matters to them, not the verb — "a note couldn't be synced"
-// reads better than "note/update failed", and the Google entries say "calendar
-// event" because that is the thing they'd go looking for.
-const OUTBOX_KIND_NOUNS: Partial<Record<CanvasKind, string>> = {
-  "note/create": "note",
-  "note/update": "note",
-  "note/delete": "note",
-  "note/restore": "note",
-  "page/create": "page",
-  "page/update": "page",
-  "page/delete": "page",
-  "page/restore": "page",
-  "todo/create": "todo",
-  "todo/update": "todo",
-  "todo/delete": "todo",
-  "todo/delete-occurrence": "todo",
-  "todo/truncate-series": "todo",
-  "todo/restore": "todo",
-  "todo/toggle": "todo",
-  "todo/complete-occurrence": "todo",
-  "todo/uncomplete-occurrence": "todo",
-  "todo/snooze": "reminder",
-  "todo/mark-fired": "reminder",
-  "event/create": "reminder",
-  "event/update": "reminder",
-  "event/delete": "reminder",
-  "event/restore": "reminder",
-  "bookmark/create": "bookmark",
-  "bookmark/update": "bookmark",
-  "bookmark/delete": "bookmark",
-  "bookmark/restore": "bookmark",
-  "rss/mark-read": "reading-list change",
-  "rss/toggle-saved": "saved article",
-  "rss/mark-feed-read": "reading-list change",
-  "rss/category-update": "reader folder",
-  "rss/category-delete": "reader folder",
-  "rss/subscription-update": "feed",
-  "rss/unsubscribe": "feed",
-  "todo-folder/update": "folder",
-  "todo-folder/delete": "folder",
-  "note-folder/update": "folder",
-  "note-folder/delete": "folder",
-  "bookmark-category/update": "category",
-  "bookmark-category/delete": "category",
-  "google/event-push": "calendar event",
-  "google/event-delete": "calendar event",
-  "google/event-entry-push": "calendar event",
-  "google/event-entry-delete": "calendar event",
-};
 
 const defaultUiState: UiState = {
   selectedDateKey: toDateKey(new Date()),
@@ -525,7 +467,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Canvases sort by last edit, not creation: their two surfaces are the
   // "Continue writing" row (most recently worked on first) and the day card.
   const rawPages = useLiveQuery(
-    () => db.pages.filter(p => !p.deletedAt).toArray().then(rows => rows.sort((a, b) => b.updatedAt - a.updatedAt)),
+    () => db.pages.filter(p => !p.deletedAt).toArray().then(rows => rows.sort((a, b) => (b.editedAt ?? b.updatedAt) - (a.editedAt ?? a.updatedAt))),
   ) ?? EMPTY;
   const rawBookmarkCategories = useLiveQuery(
     () => db.bookmarkCategories.toArray().then(rows => rows.sort((a, b) => b.createdAt - a.createdAt)),
@@ -551,18 +493,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [queryScope.includeActivity],
   ) ?? EMPTY;
 
-  // Decrypted copies of each query result (populated asynchronously).
-  const [decryptedTodos, setDecryptedTodos] = useState<TodoItem[]>([]);
-  const [decryptedTodoFolders, setDecryptedTodoFolders] = useState<TodoFolder[]>([]);
-  const [decryptedNotes, setDecryptedNotes] = useState<NoteItem[]>([]);
-  const [decryptedDeletedNotes, setDecryptedDeletedNotes] = useState<NoteItem[]>([]);
-  const [decryptedNoteFolders, setDecryptedNoteFolders] = useState<NoteFolder[]>([]);
-  const [decryptedPages, setDecryptedPages] = useState<PageItem[]>([]);
-  const [decryptedBookmarkCategories, setDecryptedBookmarkCategories] = useState<BookmarkCategory[]>([]);
-  const [decryptedBookmarks, setDecryptedBookmarks] = useState<BookmarkItem[]>([]);
-  const [decryptedDeletedBookmarks, setDecryptedDeletedBookmarks] = useState<BookmarkItem[]>([]);
-  const [decryptedEvents, setDecryptedEvents] = useState<EventEntry[]>([]);
-  const [decryptedActivity, setDecryptedActivity] = useState<ActivityItem[]>([]);
 
   // Tracks whether each of the four canvas-relevant categories has finished
   // its first decrypt pass this session — see isCanvasContentLoading below.
@@ -571,33 +501,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setContentLoadedOnce((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
   }, []);
 
-  useEffect(() => {
-    if (isLocked) { setDecryptedTodos([]); return; }
-    let cancelled = false;
-    void (async () => {
-      const result = await Promise.all(serverTodos.map(async (t) => ({
-        ...mapTodo(t),
-        title: await decrypt(t.title),
-        notes: t.notes ? await decrypt(t.notes) : undefined,
-        folderName: t.folderName ? await decrypt(t.folderName) : undefined,
-      })));
-      if (!cancelled) { setDecryptedTodos(result); markContentLoaded("todos"); }
-    })();
-    return () => { cancelled = true; };
-  }, [serverTodos, isLocked, decrypt]);
+  // Decrypted copies of each table, rebuilt as the raw rows change; see
+  // useDecryptedTables for how unchanged rows are kept stable.
+  const {
+    decryptedTodos,
+    decryptedTodoFolders,
+    decryptedNotes,
+    decryptedDeletedNotes,
+    decryptedNoteFolders,
+    decryptedPages,
+    decryptedBookmarkCategories,
+    decryptedBookmarks,
+    decryptedDeletedBookmarks,
+    decryptedEvents,
+    decryptedActivity,
+    setDecryptedTodoFolders,
+    setDecryptedNoteFolders,
+    setDecryptedBookmarkCategories,
+    setDecryptedPages,
+  } = useDecryptedTables({
+    raw: {
+      todos: serverTodos,
+      todoFolders: rawTodoFolders,
+      notes: rawNotes,
+      deletedNotes: rawDeletedNotes,
+      noteFolders: rawNoteFolders,
+      pages: rawPages,
+      bookmarkCategories: rawBookmarkCategories,
+      bookmarks: rawBookmarks,
+      deletedBookmarks: rawDeletedBookmarks,
+      events: rawEvents,
+      activity: rawActivity,
+    },
+    isLocked,
+    decrypt,
+    decryptArray,
+    markContentLoaded,
+  });
 
-  useEffect(() => {
-    if (isLocked) { setDecryptedTodoFolders([]); return; }
-    let cancelled = false;
-    void (async () => {
-      const result = await Promise.all(rawTodoFolders.map(async (folder) => ({
-        ...mapTodoFolder(folder),
-        name: await decrypt(folder.name),
-      })));
-      if (!cancelled) setDecryptedTodoFolders(result);
-    })();
-    return () => { cancelled = true; };
-  }, [rawTodoFolders, isLocked, decrypt]);
 
   useEffect(() => {
     const confirmedDeletes = localState.deletingTodoIds.filter((todoId) => !serverTodoIds.has(todoId));
@@ -644,211 +585,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => window.clearTimeout(timer);
   }, [localState.deletingEventIds, serverEventIds]);
 
-  useEffect(() => {
-    if (isLocked) { setDecryptedNotes([]); return; }
-    let cancelled = false;
-    void (async () => {
-      const settled = await Promise.allSettled(rawNotes.map(async (n) => ({
-        ...mapNote(n),
-        title: n.title ? await decrypt(n.title) : undefined,
-        body: await decrypt(n.body),
-        tags: await decryptArray(n.tags),
-        folderName: n.folderName ? await decrypt(n.folderName) : undefined,
-      })));
-      const result = settled.flatMap((r) => r.status === "fulfilled" ? [r.value] : []);
-      if (!cancelled) { setDecryptedNotes(result); markContentLoaded("notes"); }
-    })();
-    return () => { cancelled = true; };
-  }, [rawNotes, isLocked, decrypt, decryptArray]);
-
-  // `allSettled` rather than `all`, same as notes: one canvas whose ciphertext
-  // can't be decrypted (a key rotation, a corrupted row) must not blank out
-  // every other canvas the user has.
-  useEffect(() => {
-    if (isLocked) { setDecryptedPages([]); return; }
-    let cancelled = false;
-    void (async () => {
-      const settled = await Promise.allSettled(rawPages.map(async (p) => ({
-        ...mapPage(p),
-        title: p.title ? await decrypt(p.title) : undefined,
-        docJson: await decrypt(p.docJson),
-        preview: await decrypt(p.preview),
-      })));
-      const result = settled.flatMap((r) => r.status === "fulfilled" ? [r.value] : []);
-      if (!cancelled) setDecryptedPages(result);
-    })();
-    return () => { cancelled = true; };
-  }, [rawPages, isLocked, decrypt]);
-
-  useEffect(() => {
-    if (isLocked) { setDecryptedDeletedNotes([]); return; }
-    let cancelled = false;
-    void (async () => {
-      const settled = await Promise.allSettled(rawDeletedNotes.map(async (n) => ({
-        ...mapNote(n),
-        title: n.title ? await decrypt(n.title) : undefined,
-        body: await decrypt(n.body),
-        tags: await decryptArray(n.tags),
-        folderName: n.folderName ? await decrypt(n.folderName) : undefined,
-      })));
-      const result = settled.flatMap((r) => r.status === "fulfilled" ? [r.value] : []);
-      if (!cancelled) setDecryptedDeletedNotes(result);
-    })();
-    return () => { cancelled = true; };
-  }, [rawDeletedNotes, isLocked, decrypt, decryptArray]);
-
-  useEffect(() => {
-    if (isLocked) { setDecryptedNoteFolders([]); return; }
-    let cancelled = false;
-    void (async () => {
-      const settled = await Promise.allSettled(rawNoteFolders.map(async (f) => ({
-        ...mapNoteFolder(f),
-        name: await decrypt(f.name),
-      })));
-      const result = settled.flatMap((entry) => (entry.status === "fulfilled" ? [entry.value] : []));
-      if (!cancelled) setDecryptedNoteFolders(result);
-    })();
-    return () => { cancelled = true; };
-  }, [rawNoteFolders, isLocked, decrypt]);
-
-  useEffect(() => {
-    if (isLocked) { setDecryptedBookmarkCategories([]); return; }
-    let cancelled = false;
-    void (async () => {
-      const result = await Promise.all(rawBookmarkCategories.map(async (c) => ({
-        ...mapBookmarkCategory(c),
-        name: await decrypt(c.name),
-      })));
-      if (!cancelled) setDecryptedBookmarkCategories(result);
-    })();
-    return () => { cancelled = true; };
-  }, [rawBookmarkCategories, isLocked, decrypt]);
-
-  useEffect(() => {
-    if (isLocked) { setDecryptedBookmarks([]); return; }
-    let cancelled = false;
-    void (async () => {
-      const settled = await Promise.allSettled(rawBookmarks.map(async (b) => ({
-        ...mapBookmark(b),
-        url: await decrypt(b.url),
-        title: await decrypt(b.title),
-        siteName: b.siteName ? await decrypt(b.siteName) : undefined,
-        description: b.description ? await decrypt(b.description) : undefined,
-        thumbnailUrl: b.thumbnailUrl ? await decrypt(b.thumbnailUrl) : undefined,
-        faviconUrl: b.faviconUrl ? await decrypt(b.faviconUrl) : undefined,
-      })));
-      if (!cancelled) {
-        setDecryptedBookmarks(
-          settled.filter((r): r is PromiseFulfilledResult<ReturnType<typeof mapBookmark> & { url: string; title: string }> => r.status === "fulfilled").map((r) => r.value),
-        );
-        markContentLoaded("bookmarks");
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [rawBookmarks, isLocked, decrypt]);
-
-  useEffect(() => {
-    if (isLocked) { setDecryptedDeletedBookmarks([]); return; }
-    let cancelled = false;
-    void (async () => {
-      const settled = await Promise.allSettled(rawDeletedBookmarks.map(async (b) => ({
-        ...mapBookmark(b),
-        url: await decrypt(b.url),
-        title: await decrypt(b.title),
-        siteName: b.siteName ? await decrypt(b.siteName) : undefined,
-        description: b.description ? await decrypt(b.description) : undefined,
-        thumbnailUrl: b.thumbnailUrl ? await decrypt(b.thumbnailUrl) : undefined,
-        faviconUrl: b.faviconUrl ? await decrypt(b.faviconUrl) : undefined,
-      })));
-      if (!cancelled) {
-        setDecryptedDeletedBookmarks(
-          settled.filter((r): r is PromiseFulfilledResult<ReturnType<typeof mapBookmark> & { url: string; title: string }> => r.status === "fulfilled").map((r) => r.value),
-        );
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [rawDeletedBookmarks, isLocked, decrypt]);
-
-  useEffect(() => {
-    if (isLocked) { setDecryptedEvents([]); return; }
-    let cancelled = false;
-    void (async () => {
-      const result = await Promise.all(rawEvents.map(async (r) => ({
-        ...mapEvent(r),
-        label: await decrypt(r.label).catch(() => ""),
-        // A "completed" event shows just its name. Older ones were stored
-        // with the todo's notes (a Google-imported todo's description).
-        notes: r.notes && r.sourceType !== "todo_completed" ? await decrypt(r.notes) : undefined,
-      })));
-      if (!cancelled) { setDecryptedEvents(result); markContentLoaded("events"); }
-    })();
-    return () => { cancelled = true; };
-  }, [rawEvents, isLocked, decrypt]);
-
-  useEffect(() => {
-    if (isLocked) { setDecryptedActivity([]); return; }
-    let cancelled = false;
-    void (async () => {
-      const result = await Promise.all(rawActivity.map(async (a) => ({
-        ...mapActivity(a),
-        itemTitle: await decrypt(a.itemTitle).catch(() => ""),
-        diff: a.diff ? await decrypt(a.diff).catch(() => undefined) : undefined,
-      })));
-      if (!cancelled) setDecryptedActivity(result);
-    })();
-    return () => { cancelled = true; };
-  }, [rawActivity, isLocked, decrypt]);
-
   // Mutations
   const createTodo = useMutation(api.todos.createTodo);
   const createTodoFolder = useMutation(api.todos.createTodoFolder);
-  const updateTodoFolder = useMutation(api.todos.updateTodoFolder);
   const updateTodo = useMutation(api.todos.updateTodo);
-  const toggleTodo = useMutation(api.todos.toggleTodo);
-  const completeRecurringOccurrence = useMutation(api.todos.completeRecurringOccurrence);
-  const uncompleteRecurringOccurrence = useMutation(api.todos.uncompleteRecurringOccurrence);
-  const deleteTodo = useMutation(api.todos.deleteTodo);
-  const deleteRecurringOccurrence = useMutation(api.todos.deleteRecurringOccurrence);
-  const truncateRecurringSeries = useMutation(api.todos.truncateRecurringSeries);
-  const restoreTodo = useMutation(api.todos.restoreTodo);
   const pushEventForTodo = useAction(api.googleCalendar.pushEventForTodo);
   const deleteGoogleEventForTodo = useAction(api.googleCalendar.deleteGoogleEventForTodo);
   const pushEventForEventEntry = useAction(api.googleCalendar.pushEventForEventEntry);
   const deleteGoogleEventForEventEntry = useAction(api.googleCalendar.deleteGoogleEventForEventEntry);
-  const snoozeTodo = useMutation(api.todos.snoozeTodo);
-  const markFired = useMutation(api.todos.markFired);
-  const createNote = useMutation(api.notes.createNote);
   const createNoteFolder = useMutation(api.notes.createNoteFolder);
-  const deleteNoteFolder = useMutation(api.notes.deleteNoteFolder);
-  const deleteNoteFolderWithNotes = useMutation(api.notes.deleteNoteFolderWithNotes);
-  const deleteTodoFolder = useMutation(api.todos.deleteTodoFolder);
-  const deleteTodoFolderWithTodos = useMutation(api.todos.deleteTodoFolderWithTodos);
-  const updateNoteFolder = useMutation(api.notes.updateNoteFolder);
-  const updateNote = useMutation(api.notes.updateNote);
-  const deleteNote = useMutation(api.notes.deleteNote);
-  const restoreNote = useMutation(api.notes.restoreNote);
-  const createPage = useMutation(api.pages.createPage);
-  const updatePage = useMutation(api.pages.updatePage);
-  const deletePage = useMutation(api.pages.deletePage);
-  const restorePage = useMutation(api.pages.restorePage);
-  const markRssRead = useMutation(api.rss.markRead);
-  const toggleRssSaved = useMutation(api.rss.toggleSaved);
-  const markRssFeedRead = useMutation(api.rss.markFeedRead);
-  const updateRssCategory = useMutation(api.rss.updateCategory);
-  const deleteRssCategory = useMutation(api.rss.deleteCategory);
-  const updateRssSubscription = useMutation(api.rss.updateSubscription);
-  const unsubscribeRss = useMutation(api.rss.unsubscribe);
   const setTodoFolderPinned = useMutation(api.todos.setTodoFolderPinned);
   const setNoteFolderPinned = useMutation(api.notes.setNoteFolderPinned);
   const setBookmarkCategoryPinned = useMutation(api.bookmarks.setBookmarkCategoryPinned);
   const createBookmark = useMutation(api.bookmarks.createBookmark);
   const updateBookmark = useMutation(api.bookmarks.updateBookmark);
-  const deleteBookmark = useMutation(api.bookmarks.deleteBookmark);
-  const restoreBookmark = useMutation(api.bookmarks.restoreBookmark);
   const createBookmarkCategory = useMutation(api.bookmarks.createBookmarkCategory);
-  const updateBookmarkCategory = useMutation(api.bookmarks.updateBookmarkCategory);
-  const deleteBookmarkCategory = useMutation(api.bookmarks.deleteBookmarkCategory);
-  const deleteBookmarkCategoryWithBookmarks = useMutation(api.bookmarks.deleteBookmarkCategoryWithBookmarks);
   const createEventEntry = useMutation(api.events.createEventEntry);
   const updateEventEntry = useMutation(api.events.updateEventEntry);
   const deleteEventEntry = useMutation(api.events.deleteEventEntry);
@@ -881,37 +632,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [decryptedPages],
   );
 
-  // Incremental sync — runs once after unlock then every 5 minutes.
-  // The queryFn wraps ConvexReactClient.watchQuery() in a one-shot Promise so
-  // the sync worker can call Convex queries outside React without a new client.
   const convexClient = useConvex();
-  const syncQueryFnRef = useRef<SyncQueryFn | null>(null);
-  useEffect(() => {
-    syncQueryFnRef.current = <Q extends FunctionReference<"query">>(fn: Q, args: FunctionArgs<Q>) =>
-      new Promise((resolve, reject) => {
-        const watch = convexClient.watchQuery(fn as FunctionReference<"query">, args);
-        const unsubscribe = watch.onUpdate(() => {
-          try {
-            const result = watch.localQueryResult();
-            if (result !== undefined) {
-              unsubscribe();
-              resolve(result as Awaited<Q["_returnType"]>);
-            }
-          } catch (e) {
-            unsubscribe();
-            reject(e);
-          }
-        });
-      });
-  }, [convexClient]);
 
-  const syncRunningRef = useRef(false);
-  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastRemoteSyncTimestampRef = useRef<number | null>(null);
-  const latestRemoteSyncTimestamp = useQuery(
-    api.canvas.latestRemoteSyncTimestamp,
-    isAuthenticated && !isLocked ? {} : "skip",
-  );
+  // Incremental sync into Dexie: once after unlock, on a background poll, when
+  // another device writes, and on demand after a mutation. See useSyncLoop.
+  const { scheduleSync } = useSyncLoop({ isAuthenticated, isLocked, includeRss: includeRssSync });
 
   // Todo ids imported from Google Calendar, so meeting links pulled from
   // their notes can be filed into the "Synced from GCal" bookmark folder
@@ -925,106 +650,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [importedTodoIdsResult],
   );
 
-  const doSync = useCallback(async (tables?: readonly SyncTableName[]) => {
-    if (syncRunningRef.current) return;
-    if (!syncQueryFnRef.current) return;
-    const fn = syncQueryFnRef.current;
-    syncRunningRef.current = true;
-    try {
-      if ("locks" in navigator) {
-        await navigator.locks.request("omanote-sync", { ifAvailable: true }, async (lock) => {
-          if (!lock) return; // another tab is syncing
-          await runIncrementalSync(fn, { includeRss: includeRssSync, tables });
-        });
-      } else {
-        await runIncrementalSync(fn, { includeRss: includeRssSync, tables });
-      }
-    } finally {
-      syncRunningRef.current = false;
-    }
-  }, [includeRssSync]);
-
-  // Call after a mutation to pull its result into Dexie within ~300ms. Pass
-  // the table(s) that mutation touched to skip re-querying the other tables;
-  // omit it (e.g. for the interval poller or a cross-tab/device staleness
-  // signal, which can't tell what changed) to sync everything. Calls within
-  // the same debounce window accumulate their table sets rather than the
-  // last caller winning, so two different mutations scheduled back-to-back
-  // both get synced.
-  const pendingSyncTablesRef = useRef<Set<SyncTableName> | "all" | null>(null);
-  const scheduleSync = useCallback((tables?: readonly SyncTableName[]) => {
-    if (pendingSyncTablesRef.current !== "all") {
-      if (tables === undefined) {
-        pendingSyncTablesRef.current = "all";
-      } else {
-        const set = pendingSyncTablesRef.current ?? new Set<SyncTableName>();
-        for (const t of tables) set.add(t);
-        pendingSyncTablesRef.current = set;
-      }
-    }
-    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
-    syncTimerRef.current = setTimeout(() => {
-      const pending = pendingSyncTablesRef.current;
-      pendingSyncTablesRef.current = null;
-      void doSync(pending === "all" || pending === null ? undefined : Array.from(pending));
-    }, 300);
-  }, [doSync]);
-
-  useEffect(() => {
-    const previousTimestamp = lastRemoteSyncTimestampRef.current;
-    const shouldSync = shouldScheduleRemoteSync({
-      isAuthenticated,
-      isLocked,
-      previousTimestamp,
-      nextTimestamp: latestRemoteSyncTimestamp,
-    });
-    if (latestRemoteSyncTimestamp !== undefined) {
-      lastRemoteSyncTimestampRef.current = latestRemoteSyncTimestamp;
-    }
-    if (shouldSync) {
-      scheduleSync();
-    }
-  }, [isAuthenticated, isLocked, latestRemoteSyncTimestamp, scheduleSync]);
-
-  // Sync interval: 5 min when actively used, 15 min when idle (>5 min no interaction).
-  // Mutations still trigger immediate sync via scheduleSync(), so this only affects
-  // background polling frequency.
-  useEffect(() => {
-    if (!isAuthenticated || isLocked) return;
-    void doSync();
-
-    let lastActivity = Date.now();
-    const IDLE_THRESHOLD = 5 * 60 * 1000; // 5 min
-    const ACTIVE_INTERVAL = 5 * 60 * 1000;
-    const IDLE_INTERVAL = 15 * 60 * 1000;
-
-    const trackActivity = () => { lastActivity = Date.now(); };
-    for (const event of ["mousedown", "keydown", "scroll", "touchstart"]) {
-      window.addEventListener(event, trackActivity, { passive: true });
-    }
-
-    const interval = setInterval(() => {
-      const idle = Date.now() - lastActivity > IDLE_THRESHOLD;
-      void doSync();
-      // If we just synced and are idle, reschedule with longer interval
-      if (idle) {
-        clearInterval(interval);
-        idleIntervalRef.current = setInterval(() => {
-          void doSync();
-        }, IDLE_INTERVAL);
-      }
-    }, ACTIVE_INTERVAL);
-
-    const idleIntervalRef = { current: null as ReturnType<typeof setInterval> | null };
-
-    return () => {
-      clearInterval(interval);
-      if (idleIntervalRef.current) clearInterval(idleIntervalRef.current);
-      for (const event of ["mousedown", "keydown", "scroll", "touchstart"]) {
-        window.removeEventListener(event, trackActivity);
-      }
-    };
-  }, [isAuthenticated, isLocked, doSync]);
 
   // Client-side hashtag repair: once decrypted content is available, recover
   // missing hashtag arrays (undefined) and hashes that were accidentally wiped
@@ -1193,13 +818,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     writeStorage(storageKeys.uiState, { ...localState.ui, searchOpen: false });
   }, [localState.ui]);
 
-  // When the tab regains focus after the date has rolled over, snap back to today.
+  // When the tab regains focus after the date has rolled over, move a tab that
+  // was showing today on to the new today. It used to snap whenever the
+  // selected day wasn't today, which yanked anyone browsing a past day back
+  // every time they switched tabs.
+  const todayWhenHiddenRef = useRef(toDateKey(new Date()));
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState !== "visible") return;
       const today = toDateKey(new Date());
-      if (localState.ui.selectedDateKey !== today) {
-        localDispatch({ type: "ui/set-selected-date", dateKey: today });
+      if (document.visibilityState !== "visible") {
+        todayWhenHiddenRef.current = today;
+        return;
+      }
+      const target = dateToSnapToOnReturn({
+        selectedDateKey: localState.ui.selectedDateKey,
+        todayWhenHidden: todayWhenHiddenRef.current,
+        today,
+      });
+      todayWhenHiddenRef.current = today;
+      if (target) {
+        localDispatch({ type: "ui/set-selected-date", dateKey: target });
         localDispatch({ type: "ui/set-date-window-offset", offset: 0 });
       }
     };
@@ -1701,321 +1339,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [adoptServerFolderId, scheduleSync],
   );
 
-  const flushCanvasQueue = useCallback(() => {
-    // Payloads in the outbox already contain encrypted content (they were
-    // encrypted before being enqueued), so pass them through directly.
-    void flushCanvasOutbox({
-      "note/create": async (payload) => {
-        const title = payload.title?.trim() || payload.body.split("\n")[0]?.trim() || undefined;
-        await createNote({ clientKey: payload.clientKey, body: payload.body, title, tags: payload.tags ?? [], dateKey: payload.dateKey, source: "web" });
-        clearCanvasDraftForKey(payload.draftKey);
-      },
-      "note/update": async (payload) => {
-        await updateNote({ noteId: payload.noteId as any, body: payload.body, title: payload.title, tags: payload.tags });
-        clearCanvasDraftForKey(payload.draftKey);
-      },
-      "note/delete": async (payload) => {
-        await deleteNote({ noteId: payload.noteId as any });
-        clearCanvasDraftForKey(payload.draftKey);
-      },
-      "page/create": async (payload) => {
-        await createPage({
-          clientKey: payload.clientKey,
-          docJson: payload.docJson,
-          preview: payload.preview,
-          title: payload.title,
-          icon: payload.icon,
-          hashtags: payload.hashtags,
-          dateKey: payload.dateKey,
-        });
-      },
-      "page/update": async (payload) => {
-        await updatePage({
-          pageId: payload.pageId as any,
-          docJson: payload.docJson,
-          preview: payload.preview,
-          title: payload.title,
-          icon: payload.icon,
-          hashtags: payload.hashtags,
-        });
-      },
-      "page/delete": async (payload) => {
-        await deletePage({ pageId: payload.pageId as any });
-      },
-      "page/restore": async (payload) => {
-        await restorePage({ pageId: payload.pageId as any });
-      },
-      "bookmark/create": async (payload) => {
-        await saveBookmarkCreate(payload);
-      },
-      "bookmark/update": async (payload) => {
-        await saveBookmarkUpdate(payload);
-      },
-      "bookmark/delete": async (payload) => {
-        await deleteBookmark({ bookmarkId: payload.bookmarkId as any });
-      },
-      "bookmark/restore": async (payload) => {
-        await restoreBookmark({ bookmarkId: payload.bookmarkId as any });
-      },
-      "todo-folder/create": (payload) =>
+  // Queued offline writes are replayed by useOutboxReplay. Folder creates go
+  // through flushFolderCreate, which also adopts the server's id locally, so
+  // they're handed over pre-bound to their table.
+  const folderCreate = useMemo(
+    () => ({
+      todo: (payload: Parameters<typeof flushFolderCreate>[0]) =>
         flushFolderCreate(payload, createTodoFolder, db.todoFolders, setDecryptedTodoFolders, "todoFolders"),
-      "todo-folder/update": async (payload) => {
-        await updateTodoFolder({ folderId: payload.id as any, name: payload.name, icon: payload.icon, color: payload.color, appearanceOnly: payload.appearanceOnly });
-      },
-      "todo-folder/delete": async (payload) => {
-        if (payload.withContents) await deleteTodoFolderWithTodos({ folderId: payload.id as any });
-        else await deleteTodoFolder({ folderId: payload.id as any });
-      },
-      "note-folder/create": (payload) =>
+      note: (payload: Parameters<typeof flushFolderCreate>[0]) =>
         flushFolderCreate(payload, createNoteFolder, db.noteFolders, setDecryptedNoteFolders, "noteFolders"),
-      "note-folder/update": async (payload) => {
-        await updateNoteFolder({ folderId: payload.id as any, name: payload.name, icon: payload.icon, color: payload.color });
-      },
-      "note-folder/delete": async (payload) => {
-        if (payload.withContents) await deleteNoteFolderWithNotes({ folderId: payload.id as any });
-        else await deleteNoteFolder({ folderId: payload.id as any });
-      },
-      "bookmark-category/create": (payload) =>
+      bookmark: (payload: Parameters<typeof flushFolderCreate>[0]) =>
         flushFolderCreate(payload, createBookmarkCategory, db.bookmarkCategories, setDecryptedBookmarkCategories, "bookmarkCategories"),
-      "bookmark-category/update": async (payload) => {
-        await updateBookmarkCategory({ categoryId: payload.id as any, name: payload.name, icon: payload.icon, color: payload.color });
-      },
-      "bookmark-category/delete": async (payload) => {
-        if (payload.withContents) await deleteBookmarkCategoryWithBookmarks({ categoryId: payload.id as any });
-        else await deleteBookmarkCategory({ categoryId: payload.id as any });
-      },
-      "rss/mark-read": async (payload) => {
-        await markRssRead({ feedId: payload.feedId as any, itemId: payload.itemId, read: payload.read });
-        scheduleSync();
-      },
-      "rss/toggle-saved": async (payload) => {
-        await toggleRssSaved({ ...payload, feedId: payload.feedId as any });
-        scheduleSync();
-      },
-      "rss/mark-feed-read": async (payload) => {
-        await markRssFeedRead({ feedId: payload.feedId as any });
-        scheduleSync();
-      },
-      "rss/category-update": async (payload) => {
-        await updateRssCategory({ categoryId: payload.categoryId as any, name: payload.name, icon: payload.icon });
-        scheduleSync();
-      },
-      "rss/category-delete": async (payload) => {
-        await deleteRssCategory({ categoryId: payload.categoryId as any });
-        scheduleSync();
-      },
-      "rss/subscription-update": async (payload) => {
-        await updateRssSubscription({ subscriptionId: payload.subscriptionId as any, categoryId: payload.categoryId as any });
-        scheduleSync();
-      },
-      "rss/unsubscribe": async (payload) => {
-        await unsubscribeRss({ subscriptionId: payload.subscriptionId as any });
-        scheduleSync();
-      },
-      "folder/set-pinned": async (payload) => {
-        if (payload.scope === "todo") await setTodoFolderPinned({ folderId: payload.id as any, pinned: payload.pinned });
-        else if (payload.scope === "note") await setNoteFolderPinned({ folderId: payload.id as any, pinned: payload.pinned });
-        else await setBookmarkCategoryPinned({ categoryId: payload.id as any, pinned: payload.pinned });
-      },
-      "event/create": async (payload) => {
-        await createEventEntry({ clientKey: payload.clientKey, label: payload.label, dateKey: payload.dateKey, loggedAt: payload.loggedAt, notes: payload.notes, hashtags: payload.hashtags });
-        clearCanvasDraftForKey(payload.draftKey);
-      },
-      "event/update": async (payload) => {
-        const isReadOnly = stateRef.current?.events.find((e) => e.id === payload.eventId)?.sourceType === "todo_completed";
-        if (isReadOnly) return;
-        await updateEventEntry({ eventId: payload.eventId as any, label: payload.label, loggedAt: payload.loggedAt, notes: payload.notes, hashtags: payload.hashtags });
-        clearCanvasDraftForKey(payload.draftKey);
-      },
-      "event/delete": async (payload) => {
-        await deleteEventEntry({ eventId: payload.eventId as any });
-        clearCanvasDraftForKey(payload.draftKey);
-      },
-      "todo/snooze": async (payload) => {
-        await snoozeTodo({ todoId: payload.todoId as any, minutes: payload.minutes });
-      },
-      "todo/mark-fired": async (payload) => {
-        await markFired({ todoId: payload.todoId as any });
-      },
-      "todo/toggle": async (payload) => {
-        await toggleTodo({ todoId: payload.todoId as any, completedAt: payload.completedAt });
-      },
-      // Retries drop the encrypted past-tense event label (same trade-off as
-      // the plain toggle retry above); the server falls back to the title.
-      "todo/complete-occurrence": async (payload) => {
-        await completeRecurringOccurrence({
-          todoId: payload.todoId as any,
-          occurrenceDateKey: payload.occurrenceDateKey,
-          eventDateKey: payload.eventDateKey,
-          completedAt: payload.completedAt,
-        });
-      },
-      "todo/uncomplete-occurrence": async (payload) => {
-        await uncompleteRecurringOccurrence({ todoId: payload.todoId as any });
-      },
-      "todo/delete-occurrence": async (payload) => {
-        await deleteRecurringOccurrence({ todoId: payload.todoId as any, occurrenceDateKey: payload.occurrenceDateKey });
-      },
-      "todo/truncate-series": async (payload) => {
-        await truncateRecurringSeries({ todoId: payload.todoId as any, fromDateKey: payload.fromDateKey });
-      },
-      "todo/create": async (payload) => {
-        await createTodo({
-          title: payload.title,
-          createdDateKey: payload.dateKey,
-          clientKey: payload.clientKey,
-          source: "web",
-          dueDateKey: payload.dueDateKey,
-          dueTime: payload.dueTime,
-          hashtags: payload.hashtags,
-          guestEmails: payload.guestEmails,
-          folderId: payload.folderId as any,
-          folderName: payload.folderName,
-          recurrence: payload.recurrence,
-          reminderEveryMinutes: payload.reminderEveryMinutes,
-          reminderUntil: payload.reminderUntil,
-        });
-      },
-      "todo/update": async (payload) => {
-        await updateTodo({
-          todoId: payload.todoId as any,
-          title: payload.title,
-          dueDateKey: payload.dueDateKey,
-          dueTime: payload.dueTime,
-          hashtags: payload.hashtags,
-          guestEmails: payload.guestEmails,
-          folderId: payload.folderId as any,
-          folderName: payload.folderName,
-          recurrence: payload.recurrence,
-          reminderEveryMinutes: payload.reminderEveryMinutes,
-          reminderUntil: payload.reminderUntil,
-        });
-      },
-      "google/event-push": async (payload) => {
-        await pushEventForTodo({
-          todoId: payload.todoId as any,
-          plaintextTitle: payload.plaintextTitle,
-          plaintextNotes: payload.plaintextNotes,
-          timeZone: payload.timeZone,
-        });
-      },
-      "google/event-delete": async (payload) => {
-        await deleteGoogleEventForTodo({ todoId: payload.todoId as any });
-      },
-      "google/event-entry-push": async (payload) => {
-        await pushEventForEventEntry({
-          eventEntryId: payload.eventEntryId as any,
-          plaintextLabel: payload.plaintextLabel,
-          plaintextNotes: payload.plaintextNotes,
-          timeZone: payload.timeZone,
-        });
-      },
-      "google/event-entry-delete": async (payload) => {
-        await deleteGoogleEventForEventEntry({ eventEntryId: payload.eventEntryId as any });
-      },
-    }).then(() => scheduleSync());
-  }, [
-    completeRecurringOccurrence,
-    deleteRecurringOccurrence,
-    truncateRecurringSeries,
-    createTodo,
-    createNote,
-    createEventEntry,
-    uncompleteRecurringOccurrence,
-    deleteNote,
-    deleteEventEntry,
-    markFired,
-    pushEventForTodo,
-    deleteGoogleEventForTodo,
-    pushEventForEventEntry,
-    deleteGoogleEventForEventEntry,
-    saveBookmarkCreate,
-    saveBookmarkUpdate,
-    snoozeTodo,
-    updateTodo,
-    updateNote,
-    updateEventEntry,
-    createPage,
-    updatePage,
-    deletePage,
-    restorePage,
-    markRssRead,
-    toggleRssSaved,
-    markRssFeedRead,
-    updateRssCategory,
-    deleteRssCategory,
-    updateRssSubscription,
-    unsubscribeRss,
-    flushFolderCreate,
-    scheduleSync,
-  ]);
+    }),
+    [flushFolderCreate, createTodoFolder, createNoteFolder, createBookmarkCategory, setDecryptedTodoFolders, setDecryptedNoteFolders, setDecryptedBookmarkCategories],
+  );
+  const flushCanvasQueue = useOutboxReplay({ scheduleSync, saveBookmarkCreate, saveBookmarkUpdate, folderCreate, stateRef });
 
   const wasOfflineRef = useRef(false);
 
-  // Anything the outbox gives up on is a user write that is now gone. Losing
-  // one quietly is the single worst failure this app can have — the offline
-  // promise is the whole point of the queue — so every discard surfaces.
-  useEffect(() => {
-    setCanvasOutboxObserver({
-      onDiscarded: ({ kind, reason, error }) => {
-        // Tell us as well as the user. A discarded write is the worst failure
-        // this app has, and until this was wired nobody but the affected user
-        // could know it happened.
-        reportError(error ?? new Error(`outbox discarded ${kind}`), `outbox/${reason}`);
-        const noun = OUTBOX_KIND_NOUNS[kind] ?? "change";
-
-        // Out of space is its own thing. "The server rejected it, try again"
-        // is wrong advice here — trying again cannot work until something is
-        // deleted — so it gets its own copy and a way to act on it.
-        if (isStorageLimitError(error)) {
-          localDispatch({
-            type: "toast/add",
-            toast: {
-              id: randomId(),
-              createdAt: Date.now(),
-              tone: "warning",
-              title: `That ${noun} couldn't be saved — you're out of storage`,
-              body: "You've hit the 200MB limit. Delete something to free up space, then try again.",
-              actionLabel: "Manage storage",
-              actionHref: "/settings?category=storage",
-            },
-          });
-          return;
-        }
-
-        localDispatch({
-          type: "toast/add",
-          toast: {
-            id: randomId(),
-            createdAt: Date.now(),
-            tone: "warning",
-            title:
-              reason === "rejected"
-                ? `That ${noun} couldn't be saved`
-                : `A ${noun} couldn't be synced`,
-            body:
-              reason === "rejected"
-                ? "The server rejected it, so it wasn't retried. Try again, or copy the text somewhere safe first."
-                : "It stayed unsent for too long and has been dropped from the queue.",
-          },
-        });
-      },
-      onPersistFailed: ({ kind }) => {
-        reportError(new Error(`outbox could not persist ${kind}`), "outbox/persist-failed");
-        localDispatch({
-          type: "toast/add",
-          toast: {
-            id: randomId(),
-            createdAt: Date.now(),
-            tone: "warning",
-            title: "Offline changes may not be saved",
-            body: "This browser's storage is full. Free up space, or reconnect so pending changes can finish sending.",
-          },
-        });
-      },
-    });
-    return () => setCanvasOutboxObserver(null);
-  }, []);
+  // Every write the outbox has to give up on is reported and shown.
+  useOutboxNotifications(localDispatch);
 
   useEffect(() => {
     const handleOffline = () => {
@@ -2333,10 +1676,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Derived state
   // ---------------------------------------------------------------------------
 
-  const state: AppState = useMemo(
-    () => ({
-      ui: localState.ui,
-      todos: mergeTodosForState({
+  // Each slice is memoised on its own inputs. As one memo, a change to any
+  // table rebuilt every slice — a new `notes` array because a todo was ticked
+  // — and every screen's `useMemo([state.notes])` recomputed for nothing.
+  const todosSlice = useMemo(
+    () =>
+      mergeTodosForState({
         decryptedTodos: applyQueuedSeriesEdits(
           applyPendingOverlay(decryptedTodos, pendingOverlay.todos, pendingOverlay.deleted),
           pendingOverlay.series,
@@ -2351,95 +1696,105 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         serverTodoClientKeys,
         deletingTodoIds: localState.deletingTodoIds,
       }),
+    [decryptedTodos, pendingOverlay, localState.togglingTodos, localState.optimisticTodos, localState.deletingTodoIds, serverTodoClientKeys],
+  );
+
+  const notesSlice = useMemo(
+    () => [
+      ...applyPendingOverlay(decryptedNotes, pendingOverlay.notes, pendingOverlay.deleted).filter(
+        (note) => !localState.deletingNoteIds.includes(note.id),
+      ),
+      ...localState.optimisticNotes.filter(
+        (optimisticNote) =>
+          !serverNoteClientKeys.has(optimisticNote.clientKey ?? "") &&
+          !localState.deletingNoteIds.includes(optimisticNote.id),
+      ),
+    ],
+    [decryptedNotes, pendingOverlay, localState.deletingNoteIds, localState.optimisticNotes, serverNoteClientKeys],
+  );
+
+  const pagesSlice = useMemo(
+    () => [
+      ...applyPendingOverlay(decryptedPages, pendingOverlay.pages, pendingOverlay.deleted).filter(
+        (page) => !localState.deletingPageIds.includes(page.id),
+      ),
+      ...localState.optimisticPages.filter(
+        (optimisticPage) =>
+          !serverPageClientKeys.has(optimisticPage.clientKey ?? "") &&
+          !localState.deletingPageIds.includes(optimisticPage.id),
+      ),
+    ],
+    [decryptedPages, pendingOverlay, localState.deletingPageIds, localState.optimisticPages, serverPageClientKeys],
+  );
+
+  const bookmarksSlice = useMemo(
+    () => [
+      ...applyPendingOverlay(decryptedBookmarks, pendingOverlay.bookmarks, pendingOverlay.deleted).filter(
+        (bookmark) => !localState.deletingBookmarkIds.includes(bookmark.id),
+      ),
+      ...localState.optimisticBookmarks.filter(
+        (optimisticBookmark) =>
+          !serverBookmarkClientKeys.has(optimisticBookmark.clientKey ?? "") &&
+          !localState.deletingBookmarkIds.includes(optimisticBookmark.id),
+      ),
+    ],
+    [decryptedBookmarks, pendingOverlay, localState.deletingBookmarkIds, localState.optimisticBookmarks, serverBookmarkClientKeys],
+  );
+
+  const eventsSlice = useMemo(
+    () => [
+      ...applyPendingOverlay(decryptedEvents, pendingOverlay.events, pendingOverlay.deleted).filter(
+        (event) => !localState.deletingEventIds.includes(event.id),
+      ),
+      ...localState.optimisticEvents.filter((optimisticEvent) => {
+        if (serverEventClientKeys.has(optimisticEvent.clientKey ?? "")) return false;
+        if (localState.deletingEventIds.includes(optimisticEvent.id)) return false;
+        // Hide toggle-event optimistics the moment the real event lands in decryptedEvents,
+        // preventing a one-frame duplicate that causes a visible blink.
+        if (optimisticEvent.sourceTodoId) {
+          return !decryptedEvents.some(
+            (e) => e.sourceType === "todo_completed" && e.sourceTodoId === optimisticEvent.sourceTodoId,
+          );
+        }
+        return true;
+      }),
+    ],
+    [decryptedEvents, pendingOverlay, localState.deletingEventIds, localState.optimisticEvents, serverEventClientKeys],
+  );
+
+  const state: AppState = useMemo(
+    () => ({
+      ui: localState.ui,
+      todos: todosSlice,
       todoFolders: decryptedTodoFolders,
-      notes: [
-        ...applyPendingOverlay(decryptedNotes, pendingOverlay.notes, pendingOverlay.deleted).filter(
-          (note) => !localState.deletingNoteIds.includes(note.id),
-        ),
-        ...localState.optimisticNotes.filter(
-          (optimisticNote) =>
-            !serverNoteClientKeys.has(optimisticNote.clientKey ?? "") &&
-            !localState.deletingNoteIds.includes(optimisticNote.id),
-        ),
-      ],
+      notes: notesSlice,
       deletedNotes: decryptedDeletedNotes,
       noteFolders: decryptedNoteFolders,
-      pages: [
-        ...applyPendingOverlay(decryptedPages, pendingOverlay.pages, pendingOverlay.deleted).filter(
-          (page) => !localState.deletingPageIds.includes(page.id),
-        ),
-        ...localState.optimisticPages.filter(
-          (optimisticPage) =>
-            !serverPageClientKeys.has(optimisticPage.clientKey ?? "") &&
-            !localState.deletingPageIds.includes(optimisticPage.id),
-        ),
-      ],
-      bookmarks: [
-        ...applyPendingOverlay(decryptedBookmarks, pendingOverlay.bookmarks, pendingOverlay.deleted).filter(
-          (bookmark) => !localState.deletingBookmarkIds.includes(bookmark.id),
-        ),
-        ...localState.optimisticBookmarks.filter(
-          (optimisticBookmark) =>
-            !serverBookmarkClientKeys.has(optimisticBookmark.clientKey ?? "") &&
-            !localState.deletingBookmarkIds.includes(optimisticBookmark.id),
-        ),
-      ],
+      pages: pagesSlice,
+      bookmarks: bookmarksSlice,
       deletedBookmarks: decryptedDeletedBookmarks,
       bookmarkCategories: decryptedBookmarkCategories,
-      events: [
-        ...applyPendingOverlay(decryptedEvents, pendingOverlay.events, pendingOverlay.deleted).filter(
-          (event) => !localState.deletingEventIds.includes(event.id),
-        ),
-        ...localState.optimisticEvents.filter((optimisticEvent) => {
-          if (serverEventClientKeys.has(optimisticEvent.clientKey ?? "")) return false;
-          if (localState.deletingEventIds.includes(optimisticEvent.id)) return false;
-          // Hide toggle-event optimistics the moment the real event lands in decryptedEvents,
-          // preventing a one-frame duplicate that causes a visible blink.
-          if (optimisticEvent.sourceTodoId) {
-            return !decryptedEvents.some(
-              (e) => e.sourceType === "todo_completed" && e.sourceTodoId === optimisticEvent.sourceTodoId,
-            );
-          }
-          return true;
-        }),
-      ],
-      habits: [],
+      events: eventsSlice,
+      habits: EMPTY_HABITS,
       activity: decryptedActivity,
       toasts: localState.toasts,
       recurringDeletePrompt: localState.recurringDeletePrompt,
     }),
     [
-      decryptedActivity,
-      decryptedBookmarkCategories,
-      decryptedBookmarks,
-      decryptedDeletedBookmarks,
+      localState.ui,
+      todosSlice,
       decryptedTodoFolders,
-      decryptedNotes,
+      notesSlice,
       decryptedDeletedNotes,
       decryptedNoteFolders,
-      decryptedPages,
-      decryptedEvents,
-      decryptedTodos,
-      pendingOverlay,
-      localState.deletingTodoIds,
-      localState.deletingNoteIds,
-      localState.deletingBookmarkIds,
-      localState.deletingEventIds,
-      localState.deletingPageIds,
-      localState.togglingTodos,
-      localState.optimisticBookmarks,
-      localState.optimisticNotes,
-      localState.optimisticEvents,
-      localState.optimisticTodos,
-      localState.optimisticPages,
+      pagesSlice,
+      bookmarksSlice,
+      decryptedDeletedBookmarks,
+      decryptedBookmarkCategories,
+      eventsSlice,
+      decryptedActivity,
       localState.toasts,
       localState.recurringDeletePrompt,
-      localState.ui,
-      serverBookmarkClientKeys,
-      serverNoteClientKeys,
-      serverEventClientKeys,
-      serverPageClientKeys,
-      serverTodoClientKeys,
     ],
   );
 
@@ -2455,17 +1810,49 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // `useLiveQuery` subscriptions feeding 11 decrypted-state arrays), so the
   // difference is the whole app reconciling on every small change versus only
   // the components whose data actually moved.
-  const contextValue = useMemo(
-    () => ({ state, dispatch, undo, redo, scheduleSync, googleImportedTodoIds, isCanvasContentLoading }),
-    [state, dispatch, undo, redo, scheduleSync, googleImportedTodoIds, isCanvasContentLoading],
+  // Stable for the provider's whole life: each forwards to the latest
+  // implementation through a ref. `dispatch` closes over the action handlers
+  // and `scheduleSync` over the sync loop, so their own identities change — and
+  // passing those through made every consumer re-render, and every effect
+  // depending on them re-run, whenever they did.
+  const latestActionsRef = useRef({ dispatch, undo, redo, scheduleSync });
+  latestActionsRef.current = { dispatch, undo, redo, scheduleSync };
+  const actions = useMemo<AppActions>(
+    () => ({
+      dispatch: (action) => latestActionsRef.current.dispatch(action),
+      undo: () => latestActionsRef.current.undo(),
+      redo: () => latestActionsRef.current.redo(),
+      scheduleSync: (tables) => latestActionsRef.current.scheduleSync(tables),
+    }),
+    [],
   );
 
-  return <AppContext.Provider value={contextValue}>{children}</AppContext.Provider>;
+  const contextValue = useMemo(
+    () => ({ state, ...actions, googleImportedTodoIds, isCanvasContentLoading }),
+    [state, actions, googleImportedTodoIds, isCanvasContentLoading],
+  );
+
+  return (
+    <AppActionsContext.Provider value={actions}>
+      <AppContext.Provider value={contextValue}>{children}</AppContext.Provider>
+    </AppActionsContext.Provider>
+  );
 }
 
 export function useApp() {
   const value = useContext(AppContext);
   if (!value) throw new Error("useApp must be used inside AppProvider");
+  return value;
+}
+
+/**
+ * Just the actions — stable for the life of the app, so a component that only
+ * dispatches or schedules a sync doesn't re-render whenever data changes, the
+ * way it would reading them through `useApp()`.
+ */
+export function useAppActions(): AppActions {
+  const value = useContext(AppActionsContext);
+  if (!value) throw new Error("useAppActions must be used inside AppProvider");
   return value;
 }
 

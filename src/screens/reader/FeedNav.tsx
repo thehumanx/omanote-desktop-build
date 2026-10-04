@@ -4,7 +4,7 @@ import { useMutation } from "convex/react";
 import { Check, CheckCheck, ChevronLeft, ChevronRight, Ellipsis, Pencil, RefreshCw, Rss, Trash2 } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { useApp } from "../../app/AppProvider";
+import { useAppActions } from "../../app/AppProvider";
 import { db } from "../../app/db";
 import { runWithCanvasOutboxFallback } from "../../app/canvas-outbox";
 import { LoadingSpinner, Select, Tooltip, cn } from "../../components/ui";
@@ -368,7 +368,7 @@ export function SelectedFeedBar({
   onRefresh: () => void;
   isRefreshing: boolean;
 }) {
-  const { scheduleSync } = useApp();
+  const { scheduleSync } = useAppActions();
   const unsubscribe = useMutation(api.rss.unsubscribe);
   const updateSubscription = useMutation(api.rss.updateSubscription);
   const [confirming, setConfirming] = useState(false);

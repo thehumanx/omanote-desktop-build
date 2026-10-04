@@ -228,7 +228,6 @@ export function FolderNavActionMenu({
   isOpen,
   menuRef,
   size = "sm",
-  alwaysVisible = false,
   isShared,
   isPinned,
   onToggle,
@@ -244,7 +243,6 @@ export function FolderNavActionMenu({
   isOpen: boolean;
   menuRef?: Ref<HTMLDivElement>;
   size?: "sm" | "md";
-  alwaysVisible?: boolean;
   isShared?: boolean;
   isPinned?: boolean;
   onToggle: () => void;
@@ -314,7 +312,12 @@ export function FolderNavActionMenu({
           }}
           className={cn(
             "flex items-center justify-center rounded-md text-app-ink-faint transition hover:bg-app-surface hover:text-app-ink-muted",
-            alwaysVisible ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+            // Revealed on hover, but also whenever it's focused, its menu is
+            // open, or the device can't hover at all (a tablet at desktop
+            // width) — otherwise a keyboard user tabs onto an invisible button.
+            isOpen
+              ? "opacity-100"
+              : "opacity-0 focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100",
             size === "sm" ? "h-6 w-6" : "h-7 w-7",
           )}
         >

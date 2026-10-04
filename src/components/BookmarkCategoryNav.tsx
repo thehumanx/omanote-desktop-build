@@ -50,7 +50,6 @@ export function CategoryActionMenu({
   menuRef?: Ref<HTMLDivElement>;
   size?: "sm" | "md";
   isShared?: boolean;
-  alwaysVisible?: boolean;
   isPinned?: boolean;
   onToggle: () => void;
   onRename: () => void;

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useConvex, useMutation, useQuery } from "convex/react";
+import { purgeAccountImages } from "../lib/page-images";
 import {
   GripHorizontal,
   X,
@@ -91,7 +92,8 @@ export function SettingsScreen() {
   const initialCategory =
     (location.state as { category?: CategoryId } | null)?.category ??
     (CATEGORIES.some((c) => c.id === categoryParam) ? (categoryParam as CategoryId) : undefined);
-  const { user, deleteAccount, signOut } = useAuth();
+  const { user, deleteAccount, signOut, getSessionToken } = useAuth();
+  const convex = useConvex();
   const { settings, loading, updateSettings } = useUserSettings();
   const { changePassphrase, exportRecoveryKeyText, lock, verifyPassphrase } = useEncryption();
   const deleteMyData = useMutation(api.account.deleteMyData);
@@ -557,6 +559,11 @@ export function SettingsScreen() {
         setDeletingAccount(true);
         setDeleteError(null);
         try {
+          // Images first, while the session is still valid: R2 is outside
+          // Convex, so nothing in deleteMyData can reach it, and once the login
+          // is gone there's no token left to ask the image worker with.
+          const publishedImageKeys = await convex.query(api.account.listMyPublishedImageKeys, {});
+          await purgeAccountImages(publishedImageKeys, getSessionToken);
           await deleteMyData({});
           await deleteAccount();
           removeStorage(storageKeys.uiState);
@@ -681,6 +688,36 @@ export function SettingsScreen() {
                   </button>
                 </div>
               </div>
+              {settings.rssReaderEnabled ? (
+                <div className="rounded-2xl border border-app-line bg-app-surface p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-app-ink">Block images in articles</p>
+                      <p className="mt-0.5 text-[13px] leading-5 text-app-ink-faint">
+                        Open articles without their pictures, so the sites hosting them can't tell when you read. You can still load them per article. Tracking pixels are always removed.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={settings.blockReaderImages}
+                      aria-label="Block images in articles"
+                      onClick={() => void updateSettings({ blockReaderImages: !settings.blockReaderImages }).catch(() => {})}
+                      className={cn(
+                        "mt-0.5 flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-focus focus-visible:ring-offset-2",
+                        settings.blockReaderImages ? "bg-app-ink" : "bg-app-line-strong",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "pointer-events-none block h-4 w-4 rounded-full bg-white shadow-sm ring-0 transition-transform duration-200",
+                          settings.blockReaderImages ? "translate-x-5" : "translate-x-0",
+                        )}
+                      />
+                    </button>
+                  </div>
+                </div>
+              ) : null}
               <div className="rounded-2xl border border-app-line bg-app-surface p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
@@ -1305,7 +1342,7 @@ export function SettingsScreen() {
 
       {/* Confirm dialog */}
       {confirmDialog ? (
-        <BaseModal
+        <BaseModal label={confirmDialog?.title ?? "Confirm"} role="alertdialog" describedBy="settings-confirm-message"
           onClose={closeConfirm}
           zIndex="z-app-dialog"
           className="bg-black/30 transition-[background-color,opacity] duration-200 ease-out"
@@ -1319,8 +1356,8 @@ export function SettingsScreen() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-5">
-              <p className="text-base font-bold text-app-ink">{confirmDialog?.title}</p>
-              <p className="mt-1.5 text-sm leading-relaxed text-app-ink-faint">{confirmDialog?.message}</p>
+              <p id="settings-confirm-title" className="text-base font-bold text-app-ink">{confirmDialog?.title}</p>
+              <p id="settings-confirm-message" className="mt-1.5 text-sm leading-relaxed text-app-ink-faint">{confirmDialog?.message}</p>
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-app-line px-5 py-4">
               <Button type="button" variant="plain" onClick={closeConfirm} disabled={confirmLoading}>

@@ -8,7 +8,9 @@
  * which is exactly the kind of thing a grep for the symbol lands on and
  * misreads.
  */
-export type ChangelogProduct = "application" | "extension";
+import type { ChangelogProduct } from "../lib/changelog-parse";
+
+export type { ChangelogProduct };
 
 export const CHANGELOG_TABS: Array<{ id: ChangelogProduct; label: string; sectionTitle: string }> = [
   { id: "application", label: "Application", sectionTitle: "Versions" },

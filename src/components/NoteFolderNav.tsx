@@ -49,7 +49,6 @@ export function FolderActionMenu({
   isOpen: boolean;
   menuRef?: Ref<HTMLDivElement>;
   size?: "sm" | "md";
-  alwaysVisible?: boolean;
   isShared?: boolean;
   onToggle: () => void;
   isPinned?: boolean;

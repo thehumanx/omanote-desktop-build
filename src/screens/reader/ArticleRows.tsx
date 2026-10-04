@@ -1,8 +1,17 @@
 import { BookmarkCheck, Rss } from "lucide-react";
 import { cn } from "../../components/ui";
 import { FeedIcon, ReaderItem, timeAgo } from "./reader-shared";
+import { RemoteImage } from "../../components/RemoteImage";
+import { useUserSettings } from "../../contexts/UserSettingsContext";
+
+/** The feed's own artwork, unless the reader is set to leave remote images unloaded. */
+function useThumbnail(item: ReaderItem): string | undefined {
+  const { settings } = useUserSettings();
+  return settings.blockReaderImages ? undefined : item.thumbnailUrl;
+}
 
 export function ArticleRow({ item, onOpen }: { item: ReaderItem; onOpen: () => void }) {
+  const thumbnailUrl = useThumbnail(item);
   return (
     <button
       onClick={onOpen}
@@ -22,11 +31,10 @@ export function ArticleRow({ item, onOpen }: { item: ReaderItem; onOpen: () => v
           <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-app-ink-faint">{item.summary}</p>
         ) : null}
       </div>
-      {item.thumbnailUrl ? (
-        <img
-          src={item.thumbnailUrl}
+      {thumbnailUrl ? (
+        <RemoteImage
+          src={thumbnailUrl}
           alt=""
-          loading="lazy"
           className="mt-1 h-16 w-24 shrink-0 rounded-lg border border-app-line object-cover"
           onError={(e) => (e.currentTarget.style.display = "none")}
         />
@@ -37,6 +45,7 @@ export function ArticleRow({ item, onOpen }: { item: ReaderItem; onOpen: () => v
 
 // Compact card for the saved view — matches the horizontal BookmarkCard layout.
 export function SavedArticleCard({ item, onOpen }: { item: ReaderItem; onOpen: () => void }) {
+  const thumbnailUrl = useThumbnail(item);
   return (
     <button
       type="button"
@@ -46,11 +55,10 @@ export function SavedArticleCard({ item, onOpen }: { item: ReaderItem; onOpen: (
       <div className="relative flex h-full flex-col gap-3 p-3">
         {/* Thumbnail */}
         <div className="aspect-[1.91/1] overflow-hidden rounded-md bg-app-surface-muted">
-          {item.thumbnailUrl ? (
-            <img
-              src={item.thumbnailUrl}
+          {thumbnailUrl ? (
+            <RemoteImage
+              src={thumbnailUrl}
               alt=""
-              loading="lazy"
               className="h-full w-full object-cover"
               onError={(e) => (e.currentTarget.style.display = "none")}
             />

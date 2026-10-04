@@ -5,6 +5,7 @@ import { extractFirstPreviewableUrl } from "../lib/attachment-link-preview";
 import { cn } from "./ui";
 import { db, isLinkPreviewFresh } from "../app/db";
 import { useLinkCopyPopover } from "./LinkCopyPopover";
+import { RemoteImage } from "./RemoteImage";
 
 const WORKER_URL = "https://omanote-link-preview.iambishistha.workers.dev";
 
@@ -176,10 +177,9 @@ export function UrlLinkPreview({ url, className }: { url: string; className?: st
         <div className="relative flex h-20 w-20 flex-none items-center justify-center overflow-hidden rounded-lg border border-app-line bg-app-surface-muted text-app-ink-faint">
           <Bookmark className="absolute h-6 w-6" />
           {thumbnailUrl ? (
-            <img
+            <RemoteImage
               src={thumbnailUrl}
               alt=""
-              referrerPolicy="no-referrer"
               className="relative z-10 h-full w-full object-cover"
               onError={(e) => {
                 (e.currentTarget as HTMLImageElement).style.display = "none";
@@ -192,10 +192,9 @@ export function UrlLinkPreview({ url, className }: { url: string; className?: st
             <div className="relative flex h-4 w-4 flex-none items-center justify-center overflow-hidden rounded-sm bg-app-surface-muted text-app-ink-faint">
               <Bookmark className="absolute h-3.5 w-3.5" />
               {faviconUrl ? (
-                <img
+                <RemoteImage
                   src={faviconUrl}
                   alt=""
-                  referrerPolicy="no-referrer"
                   className="relative z-10 h-full w-full object-cover"
                   onError={(e) => {
                     (e.currentTarget as HTMLImageElement).style.display = "none";
@@ -255,10 +254,9 @@ export function AttachmentLinkPreview({
         <div className="relative flex h-20 w-20 flex-none items-center justify-center overflow-hidden rounded-lg border border-app-line bg-app-surface-muted text-app-ink-faint">
           <Bookmark className="absolute h-6 w-6" />
           {thumbnailUrl ? (
-            <img
+            <RemoteImage
               src={thumbnailUrl}
               alt=""
-              referrerPolicy="no-referrer"
               className="relative z-10 h-full w-full object-cover"
               onError={(e) => {
                 (e.currentTarget as HTMLImageElement).style.display = "none";
@@ -272,10 +270,9 @@ export function AttachmentLinkPreview({
             <div className="relative flex h-4 w-4 flex-none items-center justify-center overflow-hidden rounded-sm bg-app-surface-muted text-app-ink-faint">
               <Bookmark className="absolute h-3.5 w-3.5" />
               {faviconUrl ? (
-                <img
+                <RemoteImage
                   src={faviconUrl}
                   alt=""
-                  referrerPolicy="no-referrer"
                   className="relative z-10 h-full w-full object-cover"
                   onError={(e) => {
                     (e.currentTarget as HTMLImageElement).style.display = "none";

@@ -16,7 +16,7 @@ Because your passphrase is the only thing that can unlock your data, omanote giv
 
 ## What's protected, and what isn't
 
-- **Protected:** the content itself, including note text, todo titles, bookmark details, event descriptions, canvas pages, images you add to a page, and folder names.
+- **Protected:** the content itself, including note text, todo titles, bookmark details, event descriptions, canvas pages, images you add to a page, and folder names. Unsaved drafts kept on your device are encrypted too.
 - **Not hidden:** structural metadata such as timestamps, how many items you have, and which day something belongs to. This lets the app stay fast without exposing what you wrote.
 - **Deliberately public:** anything you turn a public link on for. To be readable by someone without your passphrase, a shared folder or page is copied to our servers unencrypted while the link is on. Turning the link off deletes the copy.
 

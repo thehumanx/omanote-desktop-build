@@ -847,6 +847,19 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
 .omanote-scene[data-variant="page"] { position: fixed; z-index: 0; }
 .omanote-scene[data-variant="thumb"] { --horizon-h: 30px; }
 @media (max-width: 767px) { .omanote-scene[data-variant="page"] { --horizon-h: 104px; } }
+/* Public site footer: one screen tall, anchored to the footer's bottom edge
+   and reaching up behind the page above, full strength at the bottom and
+   fading out by the top. z-index -1 inside the isolated .public-page puts it
+   over the page fill but under every section and card. Footer text over it
+   is full ink, which keeps WCAG AA over every scene (scene-contrast.test.ts). */
+.omanote-scene[data-variant="footer"] { top: auto; bottom: 0; height: 100vh; height: 100svh; z-index: -1;
+  -webkit-mask-image: linear-gradient(to top, #000 20%, transparent);
+  mask-image: linear-gradient(to top, #000 20%, transparent); }
+@media (max-width: 767px) { .omanote-scene[data-variant="footer"] { --horizon-h: 104px; } }
+/* Footer picker swatches: a thumb squeezed into a 20px circle. */
+.omanote-scene-swatch .omanote-scene[data-variant="thumb"] { --horizon-h: 8px; }
+.omanote-scene-swatch .omanote-scene[data-variant="thumb"] .omanote-scene-moon { width: 4px; height: 4px; bottom: 12px; box-shadow: none; }
+.omanote-scene-swatch .omanote-scene[data-variant="thumb"] .omanote-scene-cloud { bottom: 12px; height: 4px; }
 .omanote-scene-sky {
   position: absolute; inset: 0;
   background:
@@ -1063,17 +1076,6 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
   }
   to {
     opacity: 1;
-  }
-}
-
-@keyframes omanote-sheet-in-right {
-  from {
-    opacity: 0;
-    transform: translateX(32px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
   }
 }
 

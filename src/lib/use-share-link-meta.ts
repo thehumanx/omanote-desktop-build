@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import type { Id } from "../../convex/_generated/dataModel";
-import { slugify } from "./slug";
+import { slugify } from "@omanote/shared";
 import { cropImageToThumbnail } from "./thumbnail-crop";
 
 const DESCRIPTION_SAVE_DEBOUNCE_MS = 600;

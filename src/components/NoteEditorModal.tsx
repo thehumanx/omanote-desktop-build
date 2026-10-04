@@ -27,7 +27,7 @@ export function NoteEditorModal({
   const [canSave, setCanSave] = useState(false);
 
   return (
-    <BaseModal onClose={onClose} backdropProps={{ className: BACKDROP_CLASS }}>
+    <BaseModal label="Edit note" onClose={onClose} backdropProps={{ className: BACKDROP_CLASS }}>
       <div className={SURFACE_CLASS} onMouseDown={(event) => event.stopPropagation()}>
         <DrawerHeaderRow
           className="-mx-5 -mt-5 mb-2 px-4 pt-3 pb-2"

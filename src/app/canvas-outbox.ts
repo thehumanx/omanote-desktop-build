@@ -1,7 +1,7 @@
 import type { DateKey, RecurrenceRule } from "@omanote/shared";
 import { prefixedRandomId } from "@omanote/shared";
 import { ConvexError } from "convex/values";
-import { CANVAS_DRAFTS_STORAGE_KEY, draftMapCodec } from "./canvas-drafts";
+import { removeCanvasDrafts } from "./canvas-drafts";
 import { jsonCodec, readLocalStorage, writeLocalStorage } from "../lib/local-storage";
 import { db, type OutboxRecord } from "./db";
 import type { FolderScope } from "./types";
@@ -63,6 +63,13 @@ type PageDeletePayload = {
 
 type PageRestorePayload = {
   pageId: string;
+};
+
+/** Pin/hide toggle. Plaintext flags; either may be absent. */
+type PageSetFlagsPayload = {
+  pageId: string;
+  pinned?: boolean;
+  hidden?: boolean;
 };
 
 type EventCreatePayload = {
@@ -304,6 +311,7 @@ type CanvasPayloadMap = {
   "page/update": PageUpdatePayload;
   "page/delete": PageDeletePayload;
   "page/restore": PageRestorePayload;
+  "page/set-flags": PageSetFlagsPayload;
   "event/create": EventCreatePayload;
   "event/update": EventUpdatePayload;
   "event/delete": EventDeletePayload;
@@ -360,7 +368,8 @@ type OutboxItem<K extends CanvasKind = CanvasKind> = {
   nextAttemptAt?: number;
 };
 
-type HandlerMap = Partial<{
+/** How each queued kind is sent: one handler per kind, given its payload. */
+export type CanvasOutboxHandlers = Partial<{
   [K in CanvasKind]: (payload: CanvasPayloadMap[K]) => Promise<void>;
 }>;
 
@@ -483,12 +492,29 @@ export function setCanvasOutboxObserver(next: CanvasOutboxObserver | null) {
  * write. The first was reachable by writing enough offline; the second needs a
  * close in a specific instant.
  */
+/** The last `createdAt` handed out, so the next one can be made strictly later. */
+let lastEnqueuedAt = 0;
+
+/**
+ * `Date.now()`, nudged forward so no two writes queued by this tab share a
+ * timestamp.
+ *
+ * The queue replays in `createdAt` order, and ties fall back to the random row
+ * id — so two writes queued in the same millisecond replayed in a random order.
+ * Back-to-back enqueues do land in one millisecond (a folder created offline
+ * and then a todo filed into it), and replaying the second first fails it.
+ */
+function nextEnqueuedAt(): number {
+  lastEnqueuedAt = Math.max(Date.now(), lastEnqueuedAt + 1);
+  return lastEnqueuedAt;
+}
+
 export async function enqueueCanvasMutation<K extends CanvasKind>(
   kind: K,
   payload: CanvasPayloadMap[K],
   delayMs = 0,
 ): Promise<void> {
-  const now = Date.now();
+  const now = nextEnqueuedAt();
   try {
     const supersededId = await findSupersededItemId(kind, payload);
     await db.outbox.put(
@@ -671,7 +697,7 @@ let flushInFlight: Promise<void> | null = null;
  * on reconnect. Handlers are idempotent server-side, but every copy still
  * spent a write rate-limit token.
  */
-export function flushCanvasOutbox(handlers: HandlerMap): Promise<void> {
+export function flushCanvasOutbox(handlers: CanvasOutboxHandlers): Promise<void> {
   if (typeof navigator !== "undefined" && navigator.onLine === false) return Promise.resolve();
   if (flushInFlight) return flushInFlight;
   flushInFlight = flushCanvasOutboxOnce(handlers).finally(() => {
@@ -680,7 +706,7 @@ export function flushCanvasOutbox(handlers: HandlerMap): Promise<void> {
   return flushInFlight;
 }
 
-async function flushCanvasOutboxOnce(handlers: HandlerMap) {
+async function flushCanvasOutboxOnce(handlers: CanvasOutboxHandlers) {
   await migrateLegacyOutbox();
 
   const items = await readOutbox();
@@ -762,32 +788,10 @@ async function flushCanvasOutboxOnce(handlers: HandlerMap) {
 }
 
 export function clearCanvasDraftForKey(draftKey?: string) {
-  if (!draftKey || typeof window === "undefined") return;
-  try {
-    // Bails out without writing if nothing was ever stored, same as before —
-    // deleting keys from (and re-writing) an empty map would be a harmless
-    // no-op, but there's no reason to do the write at all in that case.
-    //
-    // Read through `readLocalStorage`, not a raw `getItem`: this key is
-    // user-scoped, and the matching write below already goes through the
-    // scoped helper. A raw read here would inspect a key nobody writes and
-    // silently clear nothing.
-    const parsed = readLocalStorage(CANVAS_DRAFTS_STORAGE_KEY, draftMapCodec, null);
-    if (!parsed) return;
-    delete parsed[`${draftKey}:body`];
-    delete parsed[`${draftKey}:title`];
-    delete parsed[`${draftKey}:tags`];
-    delete parsed[`${draftKey}:categoryId`];
-    delete parsed[`${draftKey}:url`];
-    delete parsed[`${draftKey}:siteName`];
-    delete parsed[`${draftKey}:description`];
-    delete parsed[`${draftKey}:thumbnailUrl`];
-    delete parsed[`${draftKey}:faviconUrl`];
-    delete parsed[`${draftKey}:text`];
-    delete parsed[`${draftKey}:checked`];
-    delete parsed[`${draftKey}:notes`];
-    writeLocalStorage(CANVAS_DRAFTS_STORAGE_KEY, draftMapCodec, parsed);
-  } catch {
-    // Ignore storage failures.
-  }
+  if (!draftKey) return;
+  removeCanvasDrafts(
+    ["body", "title", "tags", "categoryId", "url", "siteName", "description", "thumbnailUrl", "faviconUrl", "text", "checked", "notes"].map(
+      (field) => `${draftKey}:${field}`,
+    ),
+  );
 }

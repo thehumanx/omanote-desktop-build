@@ -114,6 +114,148 @@ export function shouldScheduleRemoteSync({
   return nextTimestamp > previousTimestamp;
 }
 
+export const SYNC_POLL_TICK_MS = 5 * 60 * 1000;
+const SYNC_IDLE_AFTER_MS = 5 * 60 * 1000;
+const SYNC_IDLE_INTERVAL_MS = 15 * 60 * 1000;
+
+/** A tab coming back into view syncs at once if its last sync is older than this. */
+export const SYNC_ON_VISIBLE_AFTER_MS = 60 * 1000;
+
+/**
+ * Whether a background-poll tick should sync: every tick while the user is
+ * active, every third one (15 min) once they've been idle for 5 min or the tab
+ * is hidden — and back to every tick as soon as they return. A hidden tab
+ * still hears about real changes through the live `latestRemoteSyncTimestamp`
+ * subscription; the poll is only the backstop.
+ */
+export function shouldPollSync({
+  now,
+  lastActivity,
+  lastSync,
+  hidden = false,
+}: {
+  now: number;
+  lastActivity: number;
+  lastSync: number;
+  hidden?: boolean;
+}) {
+  const idle = hidden || now - lastActivity > SYNC_IDLE_AFTER_MS;
+  return !idle || now - lastSync >= SYNC_IDLE_INTERVAL_MS;
+}
+
+/**
+ * The date to jump to when a tab comes back into view, or null to stay put.
+ *
+ * Only a tab that was showing "today" when it was hidden follows the date
+ * across midnight. One showing any other day keeps it: the user picked it.
+ */
+export function dateToSnapToOnReturn({
+  selectedDateKey,
+  todayWhenHidden,
+  today,
+}: {
+  selectedDateKey: DateKey;
+  todayWhenHidden: DateKey;
+  today: DateKey;
+}): DateKey | null {
+  if (today === todayWhenHidden) return null;
+  return selectedDateKey === todayWhenHidden ? today : null;
+}
+
+/** Equal as Dexie hands rows back: fresh objects each read, same values. */
+function sameRawValue(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return a.length === b.length && a.every((item, index) => sameRawValue(item, b[index]));
+  }
+  if (a && b && typeof a === "object" && typeof b === "object") {
+    const aKeys = Object.keys(a);
+    const bKeys = Object.keys(b);
+    return (
+      aKeys.length === bKeys.length &&
+      aKeys.every((key) => sameRawValue((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]))
+    );
+  }
+  return false;
+}
+
+/**
+ * Decrypts a table's rows into display rows, reusing the previous result for
+ * every row whose raw (encrypted) record hasn't changed — and handing back the
+ * *same array* when none has.
+ *
+ * Every Dexie write — including sync re-putting rows it already had, which it
+ * does on purpose at page boundaries — gives `useLiveQuery` a new array of new
+ * objects. Mapped naively, that produced a new object for every row and a new
+ * list, so each change to one row re-rendered every component reading the
+ * list and recomputed every memo keyed on it. Reusing unchanged rows keeps
+ * `React.memo` and `useMemo` effective; returning the previous array lets a
+ * no-op change stop at `setState`, which bails out on an identical value.
+ *
+ * Holds plaintext, so `clear()` must run whenever the content key is dropped.
+ */
+export class RowMemo<Out> {
+  private cache = new Map<string, { raw: unknown; value: Out }>();
+  private last: Out[] = [];
+
+  async map<Raw extends { _id: unknown }>(
+    rows: readonly Raw[],
+    decryptRow: (row: Raw) => Promise<Out>,
+    onFailures: (failed: number, firstError: unknown) => void,
+  ): Promise<Out[]> {
+    const next = new Map<string, { raw: unknown; value: Out }>();
+    const values = await decryptEach(
+      rows,
+      async (row) => {
+        const id = String(row._id);
+        const hit = this.cache.get(id);
+        const value = hit && sameRawValue(hit.raw, row) ? hit.value : await decryptRow(row);
+        next.set(id, { raw: row, value });
+        return value;
+      },
+      onFailures,
+    );
+    this.cache = next;
+    if (values.length === this.last.length && values.every((value, index) => value === this.last[index])) {
+      return this.last;
+    }
+    this.last = values;
+    return values;
+  }
+
+  clear(): void {
+    this.cache.clear();
+    this.last = [];
+  }
+}
+
+/**
+ * Decrypts every row independently, keeping the ones that succeed.
+ *
+ * `Promise.all` here meant one row whose ciphertext couldn't be decrypted (a
+ * corrupted value, a key mismatch) rejected the whole pass, so the list kept
+ * whatever it showed before — an empty one on first load — with nothing on
+ * screen to say why. A failed row is dropped rather than shown as a
+ * placeholder: a placeholder could be edited and saved back over the
+ * ciphertext. Failures are reported once per pass.
+ */
+export async function decryptEach<Row, Out>(
+  rows: readonly Row[],
+  decryptRow: (row: Row) => Promise<Out>,
+  onFailures: (failed: number, firstError: unknown) => void,
+): Promise<Out[]> {
+  const settled = await Promise.allSettled(rows.map(decryptRow));
+  const values: Out[] = [];
+  let failed = 0;
+  let firstError: unknown;
+  for (const entry of settled) {
+    if (entry.status === "fulfilled") values.push(entry.value);
+    else if (failed++ === 0) firstError = entry.reason;
+  }
+  if (failed) onFailures(failed, firstError);
+  return values;
+}
+
 /**
  * RSS sync runs when the reader is enabled, or unconditionally while the user
  * is on a reader route — opening a shared feed link should work even for

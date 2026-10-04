@@ -5,9 +5,10 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { CheckCheck, ChevronLeft, ChevronRight, Ellipsis, GripHorizontal, Pencil, Plus, RefreshCw, Rss, Trash2 } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { useApp } from "../../app/AppProvider";
+import { useAppActions } from "../../app/AppProvider";
 import { useAuth } from "../../app/auth/AuthContext";
 import { db } from "../../app/db";
+import { loadReaderItems, loadUnreadCounts } from "./reader-items";
 import { runWithCanvasOutboxFallback } from "../../app/canvas-outbox";
 import { fetchFeedForDisplay } from "../../lib/rssFetcher";
 import { BookmarkCategoryIconPicker } from "../../components/BookmarkCategoryIconPicker";
@@ -20,7 +21,7 @@ import { VirtualList } from "../../components/VirtualList";
 import { CategoryIconView } from "../../lib/bookmark-category-icon";
 import { useDrawerDrag } from "../../lib/useDrawerDrag";
 import { useOutsideClick } from "../../lib/useOutsideClick";
-import { FeedIcon, ReaderCategory, ReaderItem, Subscription, friendlyErrorMessage, menuPosition, timeAgo } from "./reader-shared";
+import { FeedIcon, ReaderCategory, ReaderItem, Subscription, readerErrorMessage, menuPosition, timeAgo } from "./reader-shared";
 import { FeedNavRow, RssCategoryNavRow, SelectedFeedBar } from "./FeedNav";
 import { ArticleRow, SavedArticleCard } from "./ArticleRows";
 import { ArticleSheet } from "./ArticleSheet";
@@ -34,7 +35,7 @@ const readerItemKey = (item: ReaderItem) => String(item._id);
 
 export function ReaderScreen({ savedView = false }: { savedView?: boolean }) {
   const { user, getSessionToken } = useAuth();
-  const { scheduleSync } = useApp();
+  const { scheduleSync } = useAppActions();
   const [selectedFeedId, setSelectedFeedId] = useState<Id<"rssFeeds"> | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<Id<"rssCategories"> | null>(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -99,53 +100,10 @@ export function ReaderScreen({ savedView = false }: { savedView?: boolean }) {
   const categories = rawCategories ?? EMPTY_CATS;
 
   // Build enriched items from Dexie items + read state.
-  const allItems = useLiveQuery(async () => {
-    const activeSubs = await db.rssSubscriptions.filter((s) => !s.deletedAt).toArray();
-    const feedIds = new Set(activeSubs.map((s) => String(s.feedId)));
-    const feedMap = new Map(activeSubs.map((s) => [String(s.feedId), s]));
-    const markAllMap = new Map(activeSubs.map((s) => [String(s.feedId), s.lastMarkAllReadAt ?? 0]));
-
-    let rawItems = await db.rssItems
-      .orderBy("publishedAt")
-      .reverse()
-      .filter((item) => feedIds.has(String(item.feedId)))
-      .limit(200)
-      .toArray();
-
-    if (selectedFeedId) {
-      rawItems = rawItems.filter((i) => String(i.feedId) === String(selectedFeedId));
-    } else if (selectedCategoryId) {
-      const catFeeds = new Set(activeSubs.filter((s) => String(s.categoryId) === String(selectedCategoryId)).map((s) => String(s.feedId)));
-      rawItems = rawItems.filter((i) => catFeeds.has(String(i.feedId)));
-    }
-
-    const readStateMap = new Map(
-      (await db.rssReadState.toArray()).map((rs) => [String(rs.itemId), rs])
-    );
-
-    return rawItems.map((item): ReaderItem => {
-      const sub = feedMap.get(String(item.feedId));
-      const rs = readStateMap.get(String(item._id));
-      const markAllAt = markAllMap.get(String(item.feedId)) ?? 0;
-      const isRead = rs?.readAt || item.publishedAt < markAllAt;
-      return {
-        _id: item._id,
-        feedId: item.feedId,
-        guid: item.guid,
-        url: item.url,
-        title: item.title,
-        author: item.author,
-        summary: item.summary,
-        contentHtml: item.contentHtml,
-        thumbnailUrl: item.thumbnailUrl,
-        publishedAt: item.publishedAt,
-        feedTitle: sub?.title ?? "",
-        faviconUrl: sub?.faviconUrl,
-        readAt: isRead ? (rs?.readAt ?? markAllAt) : undefined,
-        savedAt: rs?.savedAt,
-      };
-    });
-  }, [selectedFeedId, selectedCategoryId]) as ReaderItem[] | undefined;
+  const allItems = useLiveQuery(
+    () => loadReaderItems({ selectedFeedId, selectedCategoryId }),
+    [selectedFeedId, selectedCategoryId],
+  );
 
   const savedItemsList = useLiveQuery(async () => {
     if (!savedView) return [];
@@ -179,23 +137,7 @@ export function ReaderScreen({ savedView = false }: { savedView?: boolean }) {
 
   // Per-feed unread counts computed locally — no Convex query needed.
   // Accounts for lastMarkAllReadAt: items published before that timestamp are read.
-  const unreadCounts = useLiveQuery(async () => {
-    const allReadState = await db.rssReadState.toArray();
-    const rsMap = new Map(allReadState.map((rs) => [String(rs.itemId), rs]));
-    const allDbItems = await db.rssItems.toArray();
-    const subs = await db.rssSubscriptions.filter((s) => !s.deletedAt).toArray();
-    const markAllMap = new Map(subs.map((s) => [String(s.feedId), s.lastMarkAllReadAt ?? 0]));
-    const counts: Record<string, number> = {};
-    for (const item of allDbItems) {
-      const feedId = String(item.feedId);
-      const rs = rsMap.get(String(item._id));
-      const isRead = rs?.readAt || item.publishedAt < (markAllMap.get(feedId) ?? 0);
-      if (!isRead) {
-        counts[feedId] = (counts[feedId] ?? 0) + 1;
-      }
-    }
-    return counts;
-  }) as Record<string, number> | undefined;
+  const unreadCounts = useLiveQuery(loadUnreadCounts);
 
   const markRead = useMutation(api.rss.markRead);
   const openItemForModal = useMemo<ReaderItem | null>(() => {
@@ -274,7 +216,7 @@ export function ReaderScreen({ savedView = false }: { savedView?: boolean }) {
       setClientFetchedAt((prev) => ({ ...prev, [feedId]: now }));
     } catch (error) {
       console.error("Failed to refresh feed:", error);
-      setFetchError(friendlyErrorMessage(error, "Failed to refresh the feed. Please try again."));
+      setFetchError(readerErrorMessage(error, "Failed to refresh the feed. Please try again."));
     } finally {
       setFetchingFeedNow(false);
     }
@@ -789,6 +731,10 @@ export function ReaderScreen({ savedView = false }: { savedView?: boolean }) {
           onClick={() => setMobileArticlesOpen(false)}
         />
         <section
+          role="dialog"
+          aria-modal={mobileArticlesOpen}
+          aria-label="Articles"
+          aria-hidden={!mobileArticlesOpen}
           className={cn(
             "fixed inset-x-0 bottom-0 z-app-drawer flex max-h-[92dvh] min-h-0 flex-col rounded-t-2xl bg-app-surface shadow-app-drawer transform-gpu lg:hidden",
             isDragging ? "" : "transition-transform duration-app-drawer ease-app-drawer",

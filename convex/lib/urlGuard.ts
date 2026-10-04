@@ -2,6 +2,7 @@
 
 import { isIP } from "node:net";
 import { lookup } from "node:dns/promises";
+import { isPrivateIpv4, isPrivateIpv6 } from "@omanote/shared";
 
 /**
  * SSRF guards for the Node-runtime Convex actions.
@@ -15,51 +16,26 @@ import { lookup } from "node:dns/promises";
  * a security bug hides in: a fix applied to one copy silently leaves the other
  * exploitable, and nothing about either file tells you the other exists.
  *
- * NOT shared with `workers/shared/url-guard.ts`, deliberately. Cloudflare
- * Workers have no `node:net`/`node:dns`, so that copy inspects the hostname
- * string only and cannot catch a public name resolving to a private address
- * (the `localtest.me` trick). It also fails *closed* on unparseable input,
- * where this one can afford to fail open because `isIP()` gates the call. Two
- * runtimes, two threat models, two implementations — but only two, and each
- * says so.
+ * The address ranges are shared with `workers/shared/url-guard.ts` (both read
+ * `@omanote/shared`'s ip-ranges). What differs is resolution: Workers have no
+ * `node:dns`, so that guard inspects the hostname string only and cannot catch
+ * a public name resolving to a private address (the `localtest.me` trick);
+ * this one resolves and checks every address.
  */
 
 const BLOCKED_HOSTNAMES = new Set(["localhost", "localhost.localdomain", "ip6-localhost"]);
 
-export function isPrivateIpv4(ip: string): boolean {
-  const octets = ip.split(".").map(Number);
-  if (octets.length !== 4 || octets.some((o) => !Number.isInteger(o) || o < 0 || o > 255)) {
-    return true; // malformed — treat as unsafe
-  }
-  const [a, b] = octets;
-  return (
-    a === 0 || // 0.0.0.0/8
-    a === 10 || // 10.0.0.0/8
-    a === 127 || // loopback
-    (a === 100 && b >= 64 && b <= 127) || // 100.64.0.0/10 (CGNAT)
-    (a === 169 && b === 254) || // link-local / cloud metadata
-    (a === 172 && b >= 16 && b <= 31) || // 172.16.0.0/12
-    (a === 192 && b === 168) // 192.168.0.0/16
-  );
-}
+/** Re-exported for the tests that pin these ranges against this guard. */
+export { isPrivateIpv4 };
 
 /**
- * True for loopback, link-local, and private-range addresses.
- *
- * Only ever reached for strings `isIP()` has already accepted, which is what
- * makes the final `return false` safe — an unrecognised *valid* IPv6 address is
- * a public one.
+ * True for loopback, link-local, private-range addresses, and IPv6 addresses
+ * carrying one. The ranges live in `@omanote/shared` (ip-ranges.ts), shared
+ * with the Workers and the client so the copies can't drift again.
  */
 export function isPrivateIp(ip: string): boolean {
   if (isIP(ip) === 4) return isPrivateIpv4(ip);
-  const lower = ip.toLowerCase();
-  // IPv4-mapped IPv6 (::ffff:a.b.c.d)
-  const mapped = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  if (mapped) return isPrivateIpv4(mapped[1]);
-  if (lower === "::" || lower === "::1") return true; // unspecified / loopback
-  if (lower.startsWith("fc") || lower.startsWith("fd")) return true; // fc00::/7 unique local
-  if (/^fe[89ab]/.test(lower)) return true; // fe80::/10 link-local
-  return false;
+  return isPrivateIpv6(ip);
 }
 
 /**

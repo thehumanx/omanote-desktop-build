@@ -3,14 +3,14 @@ import { useAction, useMutation } from "convex/react";
 import { Check, ChevronDown, X } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { useApp } from "../../app/AppProvider";
+import { useAppActions } from "../../app/AppProvider";
 import { useAuth } from "../../app/auth/AuthContext";
 import { db } from "../../app/db";
 import { fetchFeedForDisplay } from "../../lib/rssFetcher";
 import { BaseModal } from "../../components/BaseModal";
 import { Button, Input, LoadingSpinner } from "../../components/ui";
 import { useOutsideClick } from "../../lib/useOutsideClick";
-import { DiscoverResult, FeedIcon, ReaderCategory, friendlyErrorMessage } from "./reader-shared";
+import { DiscoverResult, FeedIcon, ReaderCategory, readerErrorMessage } from "./reader-shared";
 
 // Same combobox UX as the bookmark editor's category field: type to filter,
 // pick an existing category, or create a new one from what you typed.
@@ -157,7 +157,7 @@ export function AddFeedModal({
   categories: ReaderCategory[];
   onClose: () => void;
 }) {
-  const { scheduleSync } = useApp();
+  const { scheduleSync } = useAppActions();
   const { getSessionToken } = useAuth();
   const subscribe = useMutation(api.rss.subscribe);
   const createCategory = useMutation(api.rss.createCategory);
@@ -187,7 +187,7 @@ export function AddFeedModal({
         latestItemTitle: found.latestItemTitle,
       });
     } catch (err) {
-      setError(friendlyErrorMessage(err, "Something went wrong while looking for the feed. Please try again."));
+      setError(readerErrorMessage(err, "Something went wrong while looking for the feed. Please try again."));
     } finally {
       setDiscovering(false);
     }
@@ -247,13 +247,13 @@ export function AddFeedModal({
       scheduleSync();
       onClose();
     } catch (err) {
-      setError(friendlyErrorMessage(err, "Something went wrong while subscribing. Please try again."));
+      setError(readerErrorMessage(err, "Something went wrong while subscribing. Please try again."));
       setSubscribing(false);
     }
   };
 
   return (
-    <BaseModal onClose={onClose}>
+    <BaseModal label="Add a feed" onClose={onClose}>
       <div className="w-full max-w-md rounded-xl border border-app-line bg-app-surface p-6 shadow-soft">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-bold text-app-ink">Add a feed</h2>

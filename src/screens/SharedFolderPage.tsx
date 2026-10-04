@@ -24,6 +24,7 @@ import { CategoryIconView } from "../lib/bookmark-category-icon";
 import { SharedCanvasView } from "./SharedCanvasView";
 import { unpublishPageImages } from "../lib/page-images";
 import { useAuth } from "@clerk/react";
+import { RemoteImage } from "../components/RemoteImage";
 
 type PublicBookmark = {
   id: string;
@@ -124,10 +125,9 @@ function OwnerAvatar({ name, imageUrl }: { name: string; imageUrl?: string | nul
       <div className="flex h-full w-full items-center justify-center text-[10px] font-bold uppercase text-app-ink-muted">
         {initial}
       </div>
-      <img
+      <RemoteImage
         src={imageUrl}
         alt={name}
-        referrerPolicy="no-referrer"
         className="absolute inset-0 h-full w-full rounded-full object-cover"
         onError={(e) => {
           (e.currentTarget as HTMLImageElement).style.display = "none";
@@ -164,10 +164,9 @@ function PublicBookmarkCard({ bookmark }: { bookmark: PublicBookmark }) {
             <Bookmark className="h-8 w-8" />
           </div>
           {thumbnailUrl && (
-            <img
+            <RemoteImage
               src={thumbnailUrl}
               alt=""
-              referrerPolicy="no-referrer"
               className="relative z-10 h-full w-full object-cover transition group-hover:scale-[1.02]"
               onError={(e) => {
                 (e.currentTarget as HTMLImageElement).style.display = "none";
@@ -189,10 +188,9 @@ function PublicBookmarkCard({ bookmark }: { bookmark: PublicBookmark }) {
           {logoUrl && (
             <div className="relative h-4 w-4 flex-shrink-0 overflow-hidden rounded-sm bg-app-surface-muted text-app-ink-faint">
               <Bookmark className="absolute inset-0 h-3.5 w-3.5" />
-              <img
+              <RemoteImage
                 src={logoUrl}
                 alt=""
-                referrerPolicy="no-referrer"
                 className="absolute inset-0 h-full w-full object-contain"
                 onError={(e) => {
                   (e.currentTarget as HTMLImageElement).style.display = "none";

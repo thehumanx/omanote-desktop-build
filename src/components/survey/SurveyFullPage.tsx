@@ -212,6 +212,9 @@ export function SurveyFullPage({ initialAnswers, onClose, onCompleted }: SurveyF
   return (
     <ModalPortal>
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Product survey"
         className={[
           "omanote-canvas-grid fixed inset-0 z-app-modal overflow-y-auto bg-app-canvas transition-opacity duration-app-slow ease-app-in-out",
           isEntered ? "opacity-100" : "opacity-0",

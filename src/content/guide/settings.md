@@ -13,7 +13,7 @@ Settings is organized into categories so each kind of control is easy to find.
 
 ## Features
 
-Turn optional features on or off, such as the **RSS reader** or **Google Calendar sync**.
+Turn optional features on or off, such as the **RSS reader** or **Google Calendar sync**. With the reader on, **Block images in articles** opens articles without their pictures (see the RSS reader guide).
 
 ## Notifications
 

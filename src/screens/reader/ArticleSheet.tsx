@@ -10,7 +10,8 @@ import { runWithCanvasOutboxFallback } from "../../app/canvas-outbox";
 import { BaseModal } from "../../components/BaseModal";
 import { Button, Input, cn } from "../../components/ui";
 import { useOutsideClick } from "../../lib/useOutsideClick";
-import { ReaderItem, sanitizeArticleHtml, timeAgo } from "./reader-shared";
+import { ReaderItem, prepareArticleHtml, timeAgo } from "./reader-shared";
+import { useUserSettings } from "../../contexts/UserSettingsContext";
 
 // Full-height sheet sliding in from the right — the list stays visible behind
 // it, so reading feels like a place within the reader rather than a popup.
@@ -98,10 +99,17 @@ export function ArticleSheet({
   }, [bmMenuItems.length, bookmarkCategoryMenuOpen]);
   useOutsideClick(bookmarkCategoryMenuRef, bookmarkCategoryMenuOpen, () => setBookmarkCategoryMenuOpen(false));
 
-  const html = useMemo(
-    () => (item.contentHtml ? sanitizeArticleHtml(item.contentHtml) : null),
-    [item.contentHtml],
+  // Remote images are held back when the setting asks for it, until the
+  // reader chooses to load them for this article. The choice resets per article.
+  const { settings } = useUserSettings();
+  const [imagesAllowedFor, setImagesAllowedFor] = useState<string | null>(null);
+  const blockImages = settings.blockReaderImages && imagesAllowedFor !== item._id;
+  const prepared = useMemo(
+    () => (item.contentHtml ? prepareArticleHtml(item.contentHtml, { blockImages }) : null),
+    [item.contentHtml, blockImages],
   );
+  const html = prepared?.html ?? null;
+  const hiddenImages = prepared?.hiddenImages ?? 0;
 
   const confirmSaveToBookmarks = async () => {
     if (bookmarked || bookmarkSaving || !item.url) return;
@@ -139,7 +147,7 @@ export function ArticleSheet({
   };
 
   return (
-    <BaseModal onClose={onClose} onBackdropMouseDown={onClose} className="!px-0">
+    <BaseModal label={item.title} onClose={onClose} onBackdropMouseDown={onClose} className="!px-0">
       {/* Relative wrapper so buttons position relative to the modal panel */}
       <div className="relative w-full sm:w-auto" onMouseDown={(event) => event.stopPropagation()}>
         {hasPrev && (
@@ -203,6 +211,16 @@ export function ArticleSheet({
           className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6"
           style={{ animation: "omanote-article-fade-in 180ms ease-out both" }}
         >
+          {hiddenImages > 0 ? (
+            <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-app-line bg-app-surface-muted px-3 py-2">
+              <p className="text-[13px] leading-5 text-app-ink-muted">
+                {hiddenImages === 1 ? "1 image" : `${hiddenImages} images`} not loaded, so the sites hosting them can't see you reading.
+              </p>
+              <Button type="button" variant="soft" onClick={() => setImagesAllowedFor(item._id)}>
+                Load images
+              </Button>
+            </div>
+          ) : null}
           {html ? (
             <div
               className="omanote-article max-w-none text-[15px] leading-7 text-app-ink [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-app-line [&_blockquote]:pl-4 [&_h2]:mt-6 [&_h2]:text-base [&_h2]:font-bold [&_h3]:mt-4 [&_h3]:font-bold [&_img]:my-3 [&_img]:max-w-full [&_img]:rounded-lg [&_li]:my-1 [&_p]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-app-surface-hover [&_pre]:p-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"

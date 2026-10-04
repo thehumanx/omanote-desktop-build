@@ -5,9 +5,9 @@ import { SeoHead } from "../../seo/SeoHead";
 import { getPageTitleLabel } from "./pageTitle";
 import { ErrorBoundary } from "../ErrorBoundary";
 import { BottomNav } from "./BottomNav";
-import { ComposerSheet } from "../ComposerSheet";
 import { ModeSwitch } from "./ModeSwitch";
 import { ToastHost } from "../ToastHost";
+import { lazyWithReload } from "../../lib/lazy-with-reload";
 import { ReminderMonitor } from "../ReminderMonitor";
 import { PushSubscriptionSync } from "../PushSubscriptionSync";
 import { NotificationPermissionBanner } from "../NotificationPermissionBanner";
@@ -33,6 +33,14 @@ import { ZoomIndicator } from "../ZoomIndicator";
 import { useUserSettings } from "../../contexts/UserSettingsContext";
 import { desktopPlatform } from "../../lib/desktop";
 import { WindowControls } from "../desktop/WindowControls";
+
+// Lazy so the rich-text editor it pulls in (TipTap + ProseMirror, ~400 KB) is
+// off the critical path of every signed-in screen. Rendered unconditionally
+// below, so the chunk still loads straight after the shell paints and is
+// ready long before anyone opens the composer.
+const ComposerSheet = lazyWithReload(() =>
+  import("../ComposerSheet").then((module) => ({ default: module.ComposerSheet })),
+);
 
 /**
  * Routes rendered with no app chrome at all — the early return below means
@@ -361,7 +369,9 @@ export function AppShell() {
         trailing={<ProfileMenuButton onOpenAbout={openFounderNote} placement="above" />}
       />
       <FounderNoteModal open={founderNoteOpen} onClose={closeFounderNote} />
-      <ComposerSheet />
+      <Suspense fallback={null}>
+        <ComposerSheet />
+      </Suspense>
       <CookieNotice />
       <ZoomIndicator percent={zoomPercent} visible={indicatorVisible} />
       {settings.rssReaderEnabled ? (

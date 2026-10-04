@@ -6,6 +6,7 @@ import "@testing-library/jest-dom/vitest";
 import "fake-indexeddb/auto";
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
+import { closeSealedStorage } from "../lib/sealed-storage";
 
 class ResizeObserverMock {
   observe() {}
@@ -84,6 +85,9 @@ if (typeof window !== "undefined") {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  // Drafts live in this module's memory between writes (sealed-storage.ts),
+  // so clearing localStorage alone wouldn't isolate them.
+  closeSealedStorage();
   // Keep tests isolated from each other's persisted state.
   try {
     window.localStorage?.clear?.();

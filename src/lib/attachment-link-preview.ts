@@ -1,4 +1,4 @@
-import { normalizeLinkUrl } from "@omanote/shared";
+import { isPrivateIpLiteral, normalizeLinkUrl } from "@omanote/shared";
 
 const LINK_TOKEN_PATTERN =
   /\[[^\]]+\]\(([^)]+)\)|(https?:\/\/[^\s<]+|(?:www\.)?[a-z0-9.-]+\.[a-z]{2,}(?:\/[^\s<]*)?)/gi;
@@ -37,17 +37,6 @@ function stripLinkPunctuation(value: string) {
   return next;
 }
 
-function isPrivateIpv4(hostname: string) {
-  const parts = hostname.split(".").map((part) => Number(part));
-  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return false;
-  const [first, second] = parts;
-  if (first === 10 || first === 127 || first === 0) return true;
-  if (first === 169 && second === 254) return true;
-  if (first === 172 && second >= 16 && second <= 31) return true;
-  if (first === 192 && second === 168) return true;
-  return false;
-}
-
 function isPreviewAllowedHost(url: string) {
   try {
     const parsed = new URL(url);
@@ -56,10 +45,10 @@ function isPreviewAllowedHost(url: string) {
     if (hostname === "localhost" || hostname.endsWith(".localhost") || hostname.endsWith(".local") || hostname.endsWith(".internal")) {
       return false;
     }
-    if (isPrivateIpv4(hostname)) return false;
-    if (hostname === "::" || hostname === "::1") return false;
-    if (hostname.startsWith("fc") || hostname.startsWith("fd") || /^fe[89ab]/.test(hostname)) return false;
-    return true;
+    // Same ranges as the server-side guards, so the client doesn't offer a
+    // preview the server would refuse (and its old IPv4-only copy missed the
+    // CGNAT range and every IPv6 form that carries an IPv4 address).
+    return !isPrivateIpLiteral(hostname);
   } catch {
     return false;
   }

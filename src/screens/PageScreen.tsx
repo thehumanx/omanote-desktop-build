@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { useNavigate, useParams } from "react-router-dom";
 import { Check, Copy, ExternalLink, Pin, Share2, Trash2, X } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
@@ -133,6 +134,10 @@ export function PageScreen() {
   const iconRef = useRef(icon);
   const colorRef = useRef(color);
   const docJsonRef = useRef(docJson);
+  // The editor's latest document, kept by reference on every edit (cheap) and
+  // serialised only when saving. Still readable once the editor is destroyed,
+  // which is when the unmount flush runs.
+  const latestDocRef = useRef<ProseMirrorNode | null>(null);
   titleRef.current = title;
   iconRef.current = icon;
   colorRef.current = color;
@@ -204,7 +209,12 @@ export function PageScreen() {
     // for the same reason — the attribute write lands in the editor
     // synchronously, but React state is a render behind.
     reconcileRef.current();
-    const latestDoc = editor && !editor.isDestroyed ? JSON.stringify(editor.getJSON()) : docJsonRef.current;
+    const liveDoc = editor && !editor.isDestroyed ? editor.state.doc : latestDocRef.current;
+    const latestDoc = liveDoc ? JSON.stringify(liveDoc.toJSON()) : docJsonRef.current;
+    // The word counts and the public share snapshot read this, so they follow
+    // the document at autosave cadence instead of re-parsing it per keystroke.
+    docJsonRef.current = latestDoc;
+    setDocJson(latestDoc);
     dispatch({
       type: "page/update",
       pageId: pageIdRef.current,
@@ -224,8 +234,8 @@ export function PageScreen() {
     schedule();
   }, [schedule]);
 
-  const handleDocChange = useCallback((next: string) => {
-    setDocJson(next);
+  const handleDocChange = useCallback((doc: ProseMirrorNode) => {
+    latestDocRef.current = doc;
     schedule();
   }, [schedule]);
 

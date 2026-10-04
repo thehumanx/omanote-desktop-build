@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
@@ -46,7 +47,12 @@ export function PageEditor({
   todoLookup: PageTodoLookup;
   /** Live bookmark rows behind the link blocks — see PageBookmarkNode. */
   bookmarkLookup: PageBookmarkLookup;
-  onDocChange: (nextDocJson: string) => void;
+  /**
+   * Called on every edit with the new ProseMirror document — a reference, not
+   * a serialisation. Turning it into JSON costs time proportional to the whole
+   * canvas, so the caller does that once per autosave, not once per keystroke.
+   */
+  onDocChange: (doc: ProseMirrorNode) => void;
   onEditorReady?: (editor: ReturnType<typeof useEditor>) => void;
   /** Surfaced to the user — a silently dropped image looks like a broken paste. */
   onImageError?: (message: string) => void;
@@ -102,7 +108,7 @@ export function PageEditor({
     ],
     content: safeParse(docJson),
     onUpdate: ({ editor }) => {
-      onDocChange(JSON.stringify(editor.getJSON()));
+      onDocChange(editor.state.doc);
     },
     editorProps: {
       attributes: {

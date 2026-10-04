@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { closeSealedStorage, openSealedStorage } from "../lib/sealed-storage";
 import { useEncryption } from "../contexts/EncryptionContext";
 import { OnboardingWizard } from "./onboarding/OnboardingWizard";
 import { OnboardingLogoReveal } from "./onboarding/OnboardingLogoReveal";
@@ -203,8 +204,34 @@ function ResetPassphraseScreen() {
 // Gate — renders children only when unlocked
 // ---------------------------------------------------------------------------
 
+/**
+ * Opens the encrypted draft store (src/lib/sealed-storage.ts) once the key is
+ * unlocked, and closes it again when it isn't. The app below the gate reads
+ * drafts synchronously as it mounts, so it waits for this.
+ */
+function useSealedStorageReady(isUnlocked: boolean): boolean {
+  const { encrypt, decrypt } = useEncryption();
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (!isUnlocked) {
+      closeSealedStorage();
+      setReady(false);
+      return;
+    }
+    let cancelled = false;
+    void openSealedStorage({ encrypt, decrypt }).finally(() => {
+      if (!cancelled) setReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isUnlocked, encrypt, decrypt]);
+  return ready;
+}
+
 export function EncryptionGate({ children }: { children: React.ReactNode }) {
   const { isSetup, isLocked, isRestoringSession, needsPassphraseReset } = useEncryption();
+  const sealedStorageReady = useSealedStorageReady(isSetup === true && !isLocked);
 
   // Tracks the *previous* render's isSetup so we can tell "just finished the
   // onboarding wizard" apart from "isSetup was already true on every other
@@ -230,6 +257,7 @@ export function EncryptionGate({ children }: { children: React.ReactNode }) {
   if (!isSetup) return <OnboardingWizard />;
   if (isLocked) return <UnlockScreen />;
   if (needsPassphraseReset) return <ResetPassphraseScreen />;
+  if (!sealedStorageReady) return <AppLoadingScreen />;
   if (postOnboardingPhase === "logo") {
     return <OnboardingLogoReveal onDone={() => setPostOnboardingPhase("reveal")} />;
   }

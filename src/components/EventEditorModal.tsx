@@ -152,7 +152,7 @@ export function EventEditorModal({
   };
 
   return (
-    <BaseModal onClose={cancel} onBackdropMouseDown={cancel}>
+    <BaseModal label="Edit event" onClose={cancel} onBackdropMouseDown={cancel}>
       <div
         className="w-full max-w-2xl rounded-app-dialog border border-app-line bg-app-surface p-5 shadow-soft"
         onMouseDown={(event) => event.stopPropagation()}

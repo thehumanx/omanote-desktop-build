@@ -36,7 +36,8 @@ function Land({ children }: { children: React.ReactNode }) {
 /**
  * One background scene: a sky gradient, a horizon footer, one slow drift and
  * a grain layer. `page` is the fixed full-window backdrop AppShell paints
- * behind everything; `thumb` is a static, in-flow preview for the picker.
+ * behind everything; `thumb` is a static, in-flow preview for the picker;
+ * `footer` fills the public site footer and fades out towards its top.
  * Purely decorative — CSS in src/index.css does all the painting.
  */
 export function SceneBackdrop({
@@ -45,7 +46,7 @@ export function SceneBackdrop({
   className,
 }: {
   scene: SceneId;
-  variant?: "page" | "thumb";
+  variant?: "page" | "thumb" | "footer";
   className?: string;
 }) {
   const uid = useId().replace(/:/g, "");

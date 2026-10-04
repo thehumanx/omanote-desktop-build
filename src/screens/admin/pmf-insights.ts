@@ -86,10 +86,11 @@ export function totalActiveUsers(data: PmfDashboard): number {
 // someone who created a Clerk account and abandoned before finishing
 // `PassphraseStep` never appears in that data at all.
 //
-// The true signup count lives only in Clerk, which is why it can't be added to
-// `getDashboard` (a query — it can't make the network call). It comes from
+// The true signup count lives only in Clerk. It comes from
 // `adminMetrics.getUserDirectory`, an action the dashboard already fetches for
 // names/emails; `signups` here is that action's result count, non-admin.
+// (`getDashboard` is an action too now, but folding the Clerk call into it
+// would make the whole dashboard wait on, and fail with, Clerk's API.)
 
 type ActivationStage = {
   id: "signups" | "onboarded" | "everCreated" | "returnedDay2";

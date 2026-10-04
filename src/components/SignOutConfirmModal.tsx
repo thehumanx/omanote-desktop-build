@@ -27,13 +27,10 @@ export function SignOutConfirmModal({
   const noun = pendingCount === 1 ? "change" : "changes";
 
   return (
-    <BaseModal onClose={onCancel} onBackdropMouseDown={onCancel}>
+    <BaseModal label="Sign out with unsynced changes?" role="alertdialog" describedBy="signout-confirm-body" onClose={onCancel} onBackdropMouseDown={onCancel}>
       <div
         className="w-full max-w-md rounded-app-dialog border border-app-line bg-app-surface shadow-soft"
         onMouseDown={(event) => event.stopPropagation()}
-        role="alertdialog"
-        aria-labelledby="signout-confirm-title"
-        aria-describedby="signout-confirm-body"
       >
         <div className="flex items-start justify-between gap-4 p-5 pb-3">
           <div className="min-w-0">

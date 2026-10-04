@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { SignInButton } from "@clerk/react";
 import { CookieNotice } from "../components/CookieNotice";
@@ -6,7 +6,6 @@ import { Button } from "../components/ui";
 import { Zap, MousePointerClick, Lock, Puzzle, Monitor, ChevronDown } from "lucide-react";
 import { SeoHead } from "../seo/SeoHead";
 import { color } from "../design-system/tokens";
-import { readDismissedFlag, writeDismissedFlag } from "../lib/local-storage";
 import { useOutsideClick } from "../lib/useOutsideClick";
 import { SiteFooter } from "../components/SiteFooter";
 import { EcosystemOrbit } from "./landing/EcosystemOrbit";
@@ -20,7 +19,6 @@ const CTA_BG = color.brandCta;
 const CTA_BORDER = color.brandCtaHover;
 const CTA_INK = color.brandCtaInk;
 const CTA_HAIRLINE = color.brandCtaHairline;
-const CLOSING_SECTION_BG = color.brandCtaWash;
 const NAV_LINK =
   "text-sm font-medium text-app-ink-muted transition-colors duration-app-fast ease-app-out hover:text-app-ink";
 /** Nav text links: the hover underline draws in rather than snapping on. */
@@ -77,39 +75,6 @@ function DownloadNavDropdown() {
           Desktop app
         </a>
       </div>
-    </div>
-  );
-}
-
-// ─── RSS announcement banner ──────────────────────────────────────────────────
-const RSS_BANNER_KEY = "omanote_pages_banner_dismissed";
-
-function RssBanner() {
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    if (!readDismissedFlag(RSS_BANNER_KEY)) setVisible(true);
-  }, []);
-
-  function dismiss() {
-    writeDismissedFlag(RSS_BANNER_KEY);
-    setVisible(false);
-  }
-
-  if (!visible) return null;
-
-  return (
-    <div className="px-4 py-2" style={{ backgroundColor: CTA_BG }}>
-      <p className="text-center text-sm font-medium text-white">
-        Feature announcement: canvas pages and image uploads are here. Write full documents and drop in images.{" "}
-        <button
-          type="button"
-          onClick={dismiss}
-          className="font-bold text-white omanote-link cursor-pointer"
-        >
-          Dismiss
-        </button>
-      </p>
     </div>
   );
 }
@@ -243,15 +208,13 @@ export function LandingScreen() {
         title="omanote | A canvas for your thoughts"
         description="omanote is a canvas for your thoughts: one page for each day, where notes, todos, bookmarks and events land in the order they happened."
       />
-      <div className="public-page min-h-screen flex flex-col bg-app-surface text-app-ink">
-      {/* RSS announcement banner — above the nav, which floats over the hero. */}
-      <RssBanner />
-
+      <div className="public-page isolate min-h-screen flex flex-col bg-app-surface text-app-ink">
       {/* Nav. A floating pill over the hero panel rather than a bar: the
           wrapper is zero-height so the tour's panel starts at the very top of
-          the page and the pill sits inside it. */}
+          the page and the pill sits inside it. Not sticky — it scrolls away
+          with the hero instead of hovering over the content below. */}
       <nav
-        className={`pointer-events-none sticky top-0 z-20 h-0 transition-[transform,opacity] duration-app-slow ${
+        className={`pointer-events-none relative z-20 h-0 transition-[transform,opacity] duration-app-slow ${
           // Leaves on an ease-in (accelerating out of the way), comes back on
           // an ease-out (decelerating into place) — an entrance that eases in
           // reads as sluggish, and this one is the noticeable half.
@@ -389,11 +352,10 @@ export function LandingScreen() {
             of the page still owes a visitor is a way in without scrolling back
             up, so this is just that — an exit ramp, one size on every
             breakpoint. */}
-        <section className="border-t border-app-line">
+        <section>
           <Reveal>
-          <div
-            className="max-w-[1136px] mx-auto px-4 sm:px-6 py-10 sm:py-14 text-center rounded-3xl my-8 sm:my-12" style={{ backgroundColor: CLOSING_SECTION_BG }}
-          >
+          {/* A faint grey wash: reads as a card on the plain page, and lets the footer's background scene glow through. */}
+          <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-10 sm:py-14 text-center rounded-3xl my-8 sm:my-12 bg-app-ink-faint/10">
             <h2 className="font-serif-heading text-2xl sm:text-3xl font-black leading-tight text-app-ink">
               Ready when you are.
             </h2>

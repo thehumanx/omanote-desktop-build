@@ -1,6 +1,6 @@
 import type { QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import { slugify } from "./slug";
+import { slugify } from "@omanote/shared";
 
 /**
  * Resolves a `sharedFolders` row (bookmark or todo folder share) from either

@@ -5,6 +5,7 @@ import { Check, Rss } from "lucide-react";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { RssFetchError } from "../../lib/rssFetcher";
 import { cn } from "../../components/ui";
+import { RemoteImage } from "../../components/RemoteImage";
 
 DOMPurify.addHook("afterSanitizeAttributes", (node) => {
   if (node.tagName === "A") {
@@ -13,11 +14,65 @@ DOMPurify.addHook("afterSanitizeAttributes", (node) => {
   }
 });
 
-export function sanitizeArticleHtml(html: string): string {
-  return DOMPurify.sanitize(html, {
+/** A 1×1 or hidden image: almost always an open-tracking pixel, never content. */
+function isTrackingPixel(img: HTMLImageElement): boolean {
+  const tiny = (value: string | null) => value !== null && /^\s*[01](px)?\s*$/i.test(value);
+  if (tiny(img.getAttribute("width")) || tiny(img.getAttribute("height"))) return true;
+  const style = (img.getAttribute("style") ?? "").replace(/\s+/g, "").toLowerCase();
+  return /(^|;)display:none/.test(style) || /(^|;)visibility:hidden/.test(style) || /(^|;)(width|height):[01]px/.test(style);
+}
+
+/**
+ * Sanitises a feed article's HTML for display, and limits what showing it
+ * reveals to other servers.
+ *
+ * Always: tracking pixels are dropped (newsletters embed them to learn when,
+ * and from where, an issue was read), and every remaining image is fetched
+ * lazily with no referrer. With `blockImages`, nothing remote is fetched at
+ * all — images, `<picture>` sources, video posters and CSS backgrounds are
+ * removed — and `hiddenImages` says how many, so the reader can offer to load
+ * them.
+ */
+export function prepareArticleHtml(html: string, { blockImages = false }: { blockImages?: boolean } = {}): {
+  html: string;
+  hiddenImages: number;
+} {
+  const fragment = DOMPurify.sanitize(html, {
     USE_PROFILES: { html: true },
     FORBID_TAGS: ["style", "form", "input", "button"],
+    RETURN_DOM_FRAGMENT: true,
   });
+  let hiddenImages = 0;
+
+  for (const img of Array.from(fragment.querySelectorAll("img"))) {
+    if (isTrackingPixel(img)) {
+      img.remove();
+    } else if (blockImages) {
+      img.remove();
+      hiddenImages += 1;
+    } else {
+      img.setAttribute("referrerpolicy", "no-referrer");
+      img.setAttribute("loading", "lazy");
+      img.setAttribute("decoding", "async");
+    }
+  }
+
+  if (blockImages) {
+    // Other ways the same HTML would still reach out for media.
+    for (const element of Array.from(fragment.querySelectorAll("picture, source, video, audio"))) {
+      element.remove();
+    }
+    for (const element of Array.from(fragment.querySelectorAll("[srcset], [poster], [background], [style]"))) {
+      element.removeAttribute("srcset");
+      element.removeAttribute("poster");
+      element.removeAttribute("background");
+      if (/url\s*\(/i.test(element.getAttribute("style") ?? "")) element.removeAttribute("style");
+    }
+  }
+
+  const container = document.createElement("div");
+  container.appendChild(fragment);
+  return { html: container.innerHTML, hiddenImages };
 }
 
 export function timeAgo(timestamp: number): string {
@@ -98,7 +153,13 @@ const RSS_FETCH_ERROR_COPY: Record<string, string> = {
   unknown: "Something went wrong while fetching the feed. Please try again.",
 };
 
-export function friendlyErrorMessage(err: unknown, fallback: string): string {
+/**
+ * Copy for the reader's own failure codes (feed discovery, subscribing,
+ * fetching). Not the app-wide `friendlyErrorMessage` in src/lib/errors.ts —
+ * that one surfaces a server message; this one maps known reader codes and
+ * otherwise shows the fallback. Named apart so the two aren't mixed up.
+ */
+export function readerErrorMessage(err: unknown, fallback: string): string {
   if (err instanceof ConvexError) {
     const data = err.data as { code?: string } | string | undefined;
     const code = typeof data === "string" ? data : data?.code;
@@ -150,7 +211,7 @@ export function FeedIcon({
   }
 
   return (
-    <img
+    <RemoteImage
       src={src}
       alt=""
       className={cn("shrink-0 rounded-sm", className)}

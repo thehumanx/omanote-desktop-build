@@ -73,7 +73,7 @@ export function todoFolderProgress(items: readonly TodoItem[], todayKey: DateKey
   return { done, total };
 }
 
-export type TodoPreviewBucket = "overdue" | "today" | "upcoming" | "undated" | "done";
+type TodoPreviewBucket = "overdue" | "today" | "upcoming" | "undated" | "done";
 const BUCKET_RANK: Record<TodoPreviewBucket, number> = { overdue: 0, today: 1, upcoming: 2, undated: 3, done: 4 };
 
 export function todoPreviewBucket(todo: TodoItem, todayKey: DateKey): TodoPreviewBucket {

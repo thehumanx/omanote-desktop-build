@@ -53,6 +53,9 @@ function setLatch(value: boolean) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function lazyWithReload<T extends ComponentType<any>>(
   factory: () => Promise<{ default: T }>,
+  // A parameter only so tests can observe it — jsdom's `location.reload`
+  // can't be stubbed.
+  reload: () => void = () => window.location.reload(),
 ) {
   return lazy(async () => {
     try {
@@ -64,7 +67,7 @@ export function lazyWithReload<T extends ComponentType<any>>(
     } catch (error) {
       if (readLatch()) throw error;
       setLatch(true);
-      window.location.reload();
+      reload();
       // Never settles: the reload is already in flight and resolving here would
       // let React render against a module we don't have.
       return new Promise<never>(() => {});

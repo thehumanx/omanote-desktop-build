@@ -4,6 +4,7 @@ import type { BookmarkItem } from "@omanote/shared";
 import { bookmarkPreviewOrder, formatCount, formatFolderUpdated, matchesFirst } from "../../lib/folder-stats";
 import { FOLDER_CARD_ROW_LIMIT, FolderGalleryCard, folderStatusMeta } from "./FolderGalleryCard";
 import type { GalleryFolder } from "./types";
+import { RemoteImage } from "../RemoteImage";
 
 function domainOf(url: string): string {
   try {
@@ -16,7 +17,7 @@ function domainOf(url: string): string {
 function Favicon({ src }: { src?: string }) {
   const [failed, setFailed] = useState(false);
   if (!src || failed) return <Globe aria-hidden="true" className="h-4 w-4 shrink-0 text-app-ink-faint" />;
-  return <img src={src} alt="" className="h-4 w-4 shrink-0 rounded-sm object-cover" onError={() => setFailed(true)} />;
+  return <RemoteImage src={src} alt="" className="h-4 w-4 shrink-0 rounded-sm object-cover" onError={() => setFailed(true)} />;
 }
 
 export function BookmarkFolderPreview({

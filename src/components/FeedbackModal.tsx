@@ -81,7 +81,7 @@ export function FeedbackModal({ onClose }: FeedbackModalProps) {
   }
 
   return (
-    <BaseModal
+    <BaseModal label="Share your thoughts"
       onClose={onClose}
       zIndex="z-app-modal"
       className={[

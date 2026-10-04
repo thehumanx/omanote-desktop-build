@@ -12,3 +12,5 @@ export * from "./recurring-todos";
 export * from "./search";
 export * from "./verb-utils";
 
+export * from "./ip-ranges";
+export * from "./slug";

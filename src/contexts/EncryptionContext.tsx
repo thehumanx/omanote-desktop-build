@@ -26,6 +26,7 @@ import {
   unwrapContentKey,
   wrapContentKey,
 } from "../lib/crypto";
+import { closeSealedStorage } from "../lib/sealed-storage";
 import { DecryptionCache } from "../lib/decryption-cache";
 import { friendlyErrorMessage } from "../lib/errors";
 import { readLocalStorageOptional, stringCodec, writeLocalStorage } from "../lib/local-storage";
@@ -112,7 +113,9 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
   const userSessionKey = userId ? `clerk:${userId}` : null;
   const { isOffline } = useNetworkStatus();
 
-  // The decrypted CryptoKey lives only in memory (never serialised).
+  // The decrypted CryptoKey for this render tree. A copy is also cached in
+  // IndexedDB so a reload doesn't re-prompt — see persistSessionContentKey and
+  // StaleSessionKeySweeper, which bounds how long that copy outlives a session.
   const keyRef = useRef<CryptoKey | null>(null);
   // Holds plaintext, so its lifetime is tied to the key's — see forgetContentKey.
   const decryptionCacheRef = useRef(new DecryptionCache());
@@ -127,6 +130,8 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
   const forgetContentKey = useCallback(() => {
     keyRef.current = null;
     decryptionCacheRef.current.clear();
+    // The decrypted drafts are plaintext too; they go with the key.
+    closeSealedStorage();
   }, []);
 
   const [isLocked, setIsLocked] = useState(true);

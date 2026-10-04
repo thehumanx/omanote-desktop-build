@@ -9,8 +9,9 @@
  *   2. A random 256-bit AES-GCM content key is generated.
  *   3. A wrapping key is derived from the passphrase via PBKDF2.
  *   4. The content key is wrapped with AES-KW and stored in Convex.
- *   5. The unlocked content key can be cached locally to avoid re-prompting.
- *   6. The unwrapped CryptoKey lives in React context (memory only).
+ *   5. The unlocked content key is cached in IndexedDB (on disk, as raw key
+ *      bytes) to avoid re-prompting on reload — see persistSessionContentKey.
+ *   6. In the running app, the unwrapped CryptoKey is held in a React ref.
  */
 
 /** Prefix prepended to every encrypted value so we can detect legacy plaintext. */
@@ -210,6 +211,33 @@ export async function clearSessionContentKey(userSessionKey: string): Promise<vo
   try {
     const tx = db.transaction(SESSION_KEY_STORE_NAME, "readwrite");
     tx.objectStore(SESSION_KEY_STORE_NAME).delete(userSessionKey);
+    await waitForTransaction(tx);
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * Deletes every cached content key except `keepUserSessionKey`'s (pass null to
+ * keep none).
+ *
+ * `clearSessionContentKey` only runs when an open tab watches the user sign
+ * out. A session that expired, or was revoked from another device, while no
+ * tab was open never triggered it, so the raw key stayed on disk next to that
+ * account's encrypted cache indefinitely — together, everything needed to read
+ * it. Called once Clerk has settled online, this removes any key whose account
+ * no longer has a session in this browser.
+ */
+export async function retainOnlySessionContentKey(keepUserSessionKey: string | null): Promise<void> {
+  if (!hasIndexedDb()) return;
+  const db = await openSessionKeyDb();
+  try {
+    const tx = db.transaction(SESSION_KEY_STORE_NAME, "readwrite");
+    const store = tx.objectStore(SESSION_KEY_STORE_NAME);
+    const keys = await waitForRequest(store.getAllKeys());
+    for (const key of keys) {
+      if (key !== keepUserSessionKey) store.delete(key);
+    }
     await waitForTransaction(tx);
   } finally {
     db.close();

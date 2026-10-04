@@ -86,7 +86,9 @@ export function mapPage(page: Doc<"pages">): PageItem {
     hidden: page.hidden ?? undefined,
     deletedAt: page.deletedAt ?? undefined,
     createdAt: page.createdAt,
-    updatedAt: page.updatedAt,
+    // The UI's "updated"/"edited" times and orderings mean the last document
+    // edit, not the last write — a pin/hide bumps `updatedAt` for sync only.
+    updatedAt: page.editedAt ?? page.updatedAt,
     createdDateKey: asDateKey(page.createdDateKey),
   };
 }

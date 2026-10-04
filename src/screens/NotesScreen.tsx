@@ -1244,7 +1244,7 @@ export function NotesScreen() {
       ) : null}
 
       {deleteTarget ? (
-        <BaseModal onClose={() => setDeleteTarget(null)} zIndex="z-app-dialog">
+        <BaseModal label={`Delete "${deleteTarget.name}"?`} role="alertdialog" onClose={() => setDeleteTarget(null)} zIndex="z-app-dialog">
           <div className="w-full max-w-md rounded-xl border border-app-line bg-app-surface p-5 shadow-soft">
             <h2 className="text-lg font-bold text-app-ink">{`Delete "${deleteTarget.name}"?`}</h2>
             <p className="mt-2 text-sm leading-6 text-app-ink-muted">

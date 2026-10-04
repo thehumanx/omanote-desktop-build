@@ -1,8 +1,6 @@
 import { useMemo } from "react";
 import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { SeoHead } from "../seo/SeoHead";
 import { useTopChrome } from "../components/layout/useTopChrome";
 import { cn } from "../components/ui";
@@ -13,6 +11,7 @@ import {
   guideCategories,
   type GuideTopic,
 } from "../content/guide/manifest";
+import { renderGuideMarkdown } from "../content/guide/render";
 
 // Prose styling for rendered markdown — mirrors the reader's article styles so
 // guide content matches the rest of omanote without extra design work.
@@ -29,6 +28,7 @@ const PROSE_CLASS =
   "[&_strong]:font-semibold [&_strong]:text-app-ink [&_hr]:my-8 [&_hr]:border-app-line";
 
 function TopicContent({ topic }: { topic: GuideTopic }) {
+  const html = useMemo(() => (topic.body ? renderGuideMarkdown(topic.body) : ""), [topic.body]);
   if (!topic.body) {
     return (
       <div className="py-16 text-center text-app-ink-faint">
@@ -39,7 +39,7 @@ function TopicContent({ topic }: { topic: GuideTopic }) {
   }
   return (
     <article className={PROSE_CLASS}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{topic.body}</ReactMarkdown>
+      <div dangerouslySetInnerHTML={{ __html: html }} />
     </article>
   );
 }

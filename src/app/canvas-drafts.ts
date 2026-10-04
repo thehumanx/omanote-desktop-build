@@ -1,22 +1,22 @@
-import { jsonCodec, readLocalStorage, writeLocalStorage } from "../lib/local-storage";
+import { jsonCodec } from "../lib/local-storage";
+import { readSealed, writeSealed } from "../lib/sealed-storage";
 
-// Exported so canvas-outbox.ts's clearCanvasDraftForKey can read/write the
-// same map without re-declaring the key as a second string literal — the two
-// modules going out of sync on that string was the actual bug risk, not the
-// try/catch boilerplate around it.
-export const CANVAS_DRAFTS_STORAGE_KEY = "omanote.canvas-drafts";
+// Encrypted at rest — see src/lib/sealed-storage.ts. Every read and write goes
+// through this module (canvas-outbox.ts included), so the key's format can't
+// drift between callers.
+const CANVAS_DRAFTS_KEY = "omanote.canvas-drafts";
 
 type DraftMap = Record<string, unknown>;
 
 const isDraftMap = (value: unknown): value is DraftMap => value !== null && typeof value === "object";
-export const draftMapCodec = jsonCodec(isDraftMap);
+const draftMapCodec = jsonCodec(isDraftMap);
 
 function readAllDrafts(): DraftMap {
-  return readLocalStorage(CANVAS_DRAFTS_STORAGE_KEY, draftMapCodec, {});
+  return readSealed(CANVAS_DRAFTS_KEY, draftMapCodec, {});
 }
 
 function writeAllDrafts(drafts: DraftMap) {
-  writeLocalStorage(CANVAS_DRAFTS_STORAGE_KEY, draftMapCodec, drafts);
+  writeSealed(CANVAS_DRAFTS_KEY, draftMapCodec, drafts);
 }
 
 export function readCanvasDraft<T>(key: string, fallback: T): T {
@@ -31,8 +31,14 @@ export function writeCanvasDraft<T>(key: string, value: T) {
 }
 
 export function removeCanvasDraft(key: string) {
+  removeCanvasDrafts([key]);
+}
+
+/** Removes several drafts with one write. A no-op when none of them exist. */
+export function removeCanvasDrafts(keys: readonly string[]) {
   const drafts = readAllDrafts();
-  if (!(key in drafts)) return;
-  delete drafts[key];
+  const present = keys.filter((key) => key in drafts);
+  if (!present.length) return;
+  for (const key of present) delete drafts[key];
   writeAllDrafts(drafts);
 }

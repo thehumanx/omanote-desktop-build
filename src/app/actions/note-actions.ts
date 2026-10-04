@@ -5,6 +5,7 @@ import type { Doc } from "../../../convex/_generated/dataModel";
 import type { NoteFolder, PageItem } from "@omanote/shared";
 import { enqueueCanvasMutation, runWithCanvasOutboxFallback } from "../canvas-outbox";
 import { db } from "../db";
+import { reportError } from "../../lib/error-reporting";
 import type { AppAction } from "../types";
 import { prefixedRandomId } from "@omanote/shared";
 import type { Dispatch, SetStateAction } from "react";
@@ -258,28 +259,26 @@ export function useNoteActions({
         // Only a synced canvas can be pinned/hidden — PageScreen and PageCard
         // both gate their pin/hide buttons behind serverPageId, so a
         // clientKey ever reaching here would mean a caller bypassed that gate.
-        setDecryptedPages((prev) =>
-          prev.map((p) => (p.id === action.pageId ? { ...p, pinned: action.pinned ?? p.pinned, hidden: action.hidden ?? p.hidden } : p)),
-        );
-        void setPageFlagsMutation({ pageId: action.pageId as any, pinned: action.pinned, hidden: action.hidden })
-          .then(() => scheduleSync(["pages"]))
-          .catch(() => {
-            // Best-effort: revert the optimistic flip rather than queueing a
-            // retry — a missed pin/hide toggle is low-stakes compared to the
-            // outbox machinery document edits need, and the user can just
-            // press the button again.
-            setDecryptedPages((prev) =>
-              prev.map((p) =>
-                p.id === action.pageId
-                  ? {
-                      ...p,
-                      pinned: action.pinned === undefined ? p.pinned : !action.pinned,
-                      hidden: action.hidden === undefined ? p.hidden : !action.hidden,
-                    }
-                  : p,
-              ),
-            );
-          });
+        const flags = {
+          ...(action.pinned === undefined ? {} : { pinned: action.pinned }),
+          ...(action.hidden === undefined ? {} : { hidden: action.hidden }),
+        };
+        setDecryptedPages((prev) => prev.map((p) => (p.id === action.pageId ? { ...p, ...flags } : p)));
+        void (async () => {
+          // Into Dexie as well as state, so the flip survives a reload before
+          // the write reaches the server. It used to live only in state behind
+          // a `.catch` revert — which never fires offline, where a Convex
+          // mutation pends instead of rejecting — so a reload lost it.
+          await db.pages.update(action.pageId as any, flags);
+          await runWithCanvasOutboxFallback(
+            "page/set-flags",
+            { pageId: action.pageId, ...flags },
+            async () => {
+              await setPageFlagsMutation({ pageId: action.pageId as any, ...flags });
+              scheduleSync(["pages"]);
+            },
+          );
+        })().catch((error) => reportError(error, "page/set-flags"));
         return true;
       }
       case "page/delete": {

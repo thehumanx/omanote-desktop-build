@@ -301,6 +301,27 @@ export async function reconcileImageUsage(getToken: ImageTokenGetter): Promise<{
   return response.json();
 }
 
+/**
+ * Deletes every image the account holds in R2 — its private originals and the
+ * public copies listed in `publicKeys` — as part of account deletion.
+ *
+ * Throws on failure, unlike `unpublishPageImages`: this runs *before* the
+ * account is deleted, and a deletion that went ahead regardless would leave
+ * the published copies world-readable with no account left to clean them up.
+ */
+export async function purgeAccountImages(publicKeys: readonly string[], getToken: ImageTokenGetter): Promise<void> {
+  const token = await getToken();
+  if (!token) throw new PageImageError("Not signed in", "auth");
+  const response = await fetch(`${IMAGES_URL}/purge`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ publicKeys }),
+  });
+  if (!response.ok) {
+    throw new PageImageError(`Could not delete your images (${response.status})`, "network");
+  }
+}
+
 /** A published plaintext copy, and the private object it was made from. */
 export interface PublishedImage {
   sourceKey: string;

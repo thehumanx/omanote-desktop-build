@@ -9,7 +9,7 @@ import type { GalleryFolder } from "./types";
 export const FOLDER_CARD_ROW_LIMIT = 3;
 
 /** One entry of the footer's "·"-separated line. `emphasis` (Public) uses the darker ink. */
-export type FolderMeta = { label: string; emphasis?: boolean };
+type FolderMeta = { label: string; emphasis?: boolean };
 
 /** The folder's actions, shown as an icon strip over the tab row (desktop, on hover). */
 export type FolderCardActions = {
@@ -20,7 +20,7 @@ export type FolderCardActions = {
   onTogglePin: () => void;
 };
 
-export type FolderGalleryCardProps = {
+type FolderGalleryCardProps = {
   name: string;
   icon?: string;
   color?: string;

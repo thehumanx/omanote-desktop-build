@@ -28,7 +28,7 @@ export function EventClusterModal({
   const sortedEntries = [...entries].sort((left, right) => left.startMinutes - right.startMinutes);
 
   return (
-    <BaseModal onClose={onClose} onBackdropMouseDown={onClose}>
+    <BaseModal label={`${sortedEntries.length} items`} onClose={onClose} onBackdropMouseDown={onClose}>
       <div
         className="w-full max-w-lg rounded-app-dialog border border-app-line bg-app-surface p-5 shadow-soft"
         onMouseDown={(event) => event.stopPropagation()}

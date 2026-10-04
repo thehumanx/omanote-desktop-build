@@ -3,7 +3,7 @@ import { useUserSettings } from "../../contexts/UserSettingsContext";
 import { jsonCodec, readLocalStorageOptional, writeLocalStorage } from "../../lib/local-storage";
 import { BACKGROUND_SCENES, DEFAULT_USER_SETTINGS, SCENE_GRAINS, type BackgroundScene, type SceneGrain } from "../../lib/user-settings";
 
-export type SceneSettings = { scene: BackgroundScene; drift: boolean; grain: SceneGrain };
+type SceneSettings = { scene: BackgroundScene; drift: boolean; grain: SceneGrain };
 
 /** Device-level like the stored theme mode, so a reload paints the scene before settings arrive. */
 export const SCENE_CACHE_KEY = "omanote:scene";

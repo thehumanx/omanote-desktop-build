@@ -2,7 +2,7 @@ import type { BackgroundScene } from "../../lib/user-settings";
 
 export type SceneId = Exclude<BackgroundScene, "none">;
 /** How the scene's horizon is drawn. */
-export type SceneLand = "hills" | "sea" | "clouds" | "sky" | "night";
+type SceneLand = "hills" | "sea" | "clouds" | "sky" | "night";
 
 /**
  * The background scenes, in picker order. Visual source of truth:

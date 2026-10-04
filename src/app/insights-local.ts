@@ -1,7 +1,7 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { useEffect, useMemo } from "react";
 import { db } from "./db";
-import type { BookmarkCategory, NoteFolder } from "@omanote/shared";
+import { toDateKey, type BookmarkCategory, type NoteFolder } from "@omanote/shared";
 import { jsonCodec, readLocalStorageOptional, writeLocalStorage } from "../lib/local-storage";
 
 const DAY_MS = 86_400_000;
@@ -34,17 +34,15 @@ const HOUR_LABELS = [
   "11pm",
 ] as const;
 
-function timestampToKey(ts: number): string {
-  const d = new Date(ts);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+/** Local calendar day of a timestamp. */
+const dateKeyOf = (ts: number) => toDateKey(new Date(ts));
 
 function weekStartKey(): string {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
   const daysFromMonday = d.getDay() === 0 ? 6 : d.getDay() - 1;
   d.setDate(d.getDate() - daysFromMonday);
-  return timestampToKey(d.getTime());
+  return dateKeyOf(d.getTime());
 }
 
 function median(values: number[]): number | null {
@@ -78,7 +76,7 @@ function buildBuckets(timestamps: number[], windowStart: number, now: number): n
 }
 
 function dayKey(ts: number): string {
-  return timestampToKey(ts);
+  return dateKeyOf(ts);
 }
 
 function formatHour(hour: number): string {
@@ -261,7 +259,7 @@ export function useLocalInsights(
   const productivity = useMemo(() => {
     if (!rawData) return undefined;
     const now = Date.now();
-    const startKey = windowStart === 0 ? null : timestampToKey(windowStart);
+    const startKey = windowStart === 0 ? null : dateKeyOf(windowStart);
 
     const todos = rawData.todos.filter(
       (t) => !t.deletedAt && (startKey === null || t.createdDateKey >= startKey),
@@ -304,7 +302,7 @@ export function useLocalInsights(
       now,
     );
 
-    const todayKey = timestampToKey(now);
+    const todayKey = dateKeyOf(now);
     const todosWithDue = todos.filter((t) => t.dueDateKey !== undefined);
     const overdueCount = todosWithDue.filter((t) => {
       if (t.status === "open") return t.dueDateKey! < todayKey;
@@ -376,7 +374,7 @@ export function useLocalInsights(
   const content = useMemo(() => {
     if (!rawData) return undefined;
     const now = Date.now();
-    const startKey = windowStart === 0 ? null : timestampToKey(windowStart);
+    const startKey = windowStart === 0 ? null : dateKeyOf(windowStart);
 
     const todos = rawData.todos.filter(
       (t) => !t.deletedAt && (startKey === null || t.createdDateKey >= startKey),
@@ -508,8 +506,8 @@ export function useLocalInsights(
   const streaks = useMemo(() => {
     if (!rawData) return undefined;
     return buildStreakHighlights(
-      rawData.history.map((item) => timestampToKey(item.timestamp)),
-      timestampToKey(Date.now()),
+      rawData.history.map((item) => dateKeyOf(item.timestamp)),
+      dateKeyOf(Date.now()),
     );
   }, [rawData]);
 
@@ -543,7 +541,7 @@ export function useLocalInsights(
     const byDate: Record<string, { count: number; breakdown: HeatmapBreakdown }> = {};
     for (const item of rawData.history) {
       if (item.action !== "created" && item.action !== "completed") continue;
-      const key = timestampToKey(item.timestamp);
+      const key = dateKeyOf(item.timestamp);
       if (!byDate[key]) {
         byDate[key] = {
           count: 0,
@@ -566,7 +564,7 @@ export function useLocalInsights(
   const comparison = useMemo(() => {
     if (!rawData || !previousWindow) return null;
     const { start, end } = previousWindow;
-    const startKey = timestampToKey(start);
+    const startKey = dateKeyOf(start);
 
     const todos = rawData.todos.filter(
       (t) => !t.deletedAt && t.createdDateKey >= startKey && t.createdAt < end,
@@ -656,20 +654,20 @@ export function useWeekAtGlance(): WeekAtGlance | undefined {
     const bookmarksCount = allBookmarks.filter((b) => !b.deletedAt && b.createdDateKey >= wStartKey).length;
     const eventsCount = allEvents.filter((e) => !e.deletedAt && e.createdDateKey >= wStartKey).length;
 
-    const ninetyDaysAgoKey = timestampToKey(now - 90 * DAY_MS);
+    const ninetyDaysAgoKey = dateKeyOf(now - 90 * DAY_MS);
     const activeDates = new Set<string>();
     for (const t of allTodos) if (t.createdDateKey >= ninetyDaysAgoKey) activeDates.add(t.createdDateKey);
     for (const n of allNotes) if (n.createdDateKey >= ninetyDaysAgoKey) activeDates.add(n.createdDateKey);
     for (const b of allBookmarks) if (b.createdDateKey >= ninetyDaysAgoKey) activeDates.add(b.createdDateKey);
     for (const e of allEvents) if (e.createdDateKey >= ninetyDaysAgoKey) activeDates.add(e.createdDateKey);
-    const todayKey = timestampToKey(now);
+    const todayKey = dateKeyOf(now);
     // Today always counts, even before anything's been saved yet — a brand
     // new user opening the app for the first time is on day 1 of their
     // streak, not day 0. Consecutive prior days extend it further back.
     let streakDays = 1;
     const cur = new Date(todayKey + "T12:00:00");
     cur.setDate(cur.getDate() - 1);
-    while (activeDates.has(timestampToKey(cur.getTime()))) {
+    while (activeDates.has(dateKeyOf(cur.getTime()))) {
       streakDays++;
       cur.setDate(cur.getDate() - 1);
     }

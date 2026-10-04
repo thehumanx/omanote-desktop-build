@@ -89,7 +89,7 @@ export function UpdateModal() {
   };
 
   return (
-    <BaseModal
+    <BaseModal label="What's new"
       onClose={closeModal}
       zIndex="z-app-modal"
       className={[

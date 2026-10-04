@@ -773,6 +773,10 @@ export function HashtagGraph({
           onPointerDown={closeArtifactSheet}
         />
         <section
+          role="dialog"
+          aria-modal={sheetOpen}
+          aria-label="Tagged items"
+          aria-hidden={!sheetOpen}
           className={cn(
             "fixed inset-x-0 bottom-0 z-app-drawer flex max-h-[92dvh] min-h-0 flex-col rounded-t-2xl bg-app-surface shadow-app-drawer transform-gpu lg:hidden",
             isDragging ? "" : "transition-transform duration-app-drawer ease-app-drawer",

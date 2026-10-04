@@ -28,6 +28,7 @@ import { useOutsideClick } from "../lib/useOutsideClick";
 import { db, isLinkPreviewFresh } from "../app/db";
 import { normalizeLegacyNoteBodyForTiptap } from "../lib/note-body-migration";
 import { isTauri, openInSystemBrowser } from "../lib/desktop";
+import { RemoteImage } from "./RemoteImage";
 
 type BookmarkPreviewFallback = {
   title?: string;
@@ -543,7 +544,7 @@ export const BookmarkCard = memo(function BookmarkCard({
               <div className="flex items-start gap-2 md:gap-3">
                 <div className="flex-none overflow-hidden rounded-lg border border-app-line bg-app-surface-muted text-app-ink-faint">
                   {showThumbnail ? (
-                    <img
+                    <RemoteImage
                       src={thumbnailUrl}
                       alt=""
                       className="block w-24 object-cover h-full"
@@ -561,7 +562,7 @@ export const BookmarkCard = memo(function BookmarkCard({
                       <div className="relative flex h-4 w-4 flex-none items-center justify-center overflow-hidden rounded-sm bg-app-surface-muted text-app-ink-faint">
                         <Bookmark className="h-3.5 w-3.5" />
                         {logoUrl && (
-                          <img src={logoUrl} alt="" className="absolute inset-0 h-full w-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                          <RemoteImage src={logoUrl} alt="" className="absolute inset-0 h-full w-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
                         )}
                       </div>
                       <p className="min-w-0 truncate text-xs font-medium text-app-ink-faint">{siteLabel}</p>
@@ -634,7 +635,7 @@ export const BookmarkCard = memo(function BookmarkCard({
             >
               <div className="flex-none overflow-hidden rounded-md border border-app-line bg-app-surface-muted text-app-ink-faint" style={{ width: 88, height: 88 }}>
                 {showThumbnail ? (
-                  <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" onError={handleThumbnailError} />
+                  <RemoteImage src={thumbnailUrl} alt="" className="h-full w-full object-cover" onError={handleThumbnailError} />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center">
                     <Bookmark className="h-7 w-7" />
@@ -646,7 +647,7 @@ export const BookmarkCard = memo(function BookmarkCard({
                   <div className="relative flex h-4 w-4 flex-none items-center justify-center overflow-hidden rounded-sm bg-app-surface-muted text-app-ink-faint">
                     <Bookmark className="h-3 w-3" />
                     {logoUrl && (
-                      <img src={logoUrl} alt="" className="absolute inset-0 h-full w-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                      <RemoteImage src={logoUrl} alt="" className="absolute inset-0 h-full w-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
                     )}
                   </div>
                   <p className="min-w-0 truncate text-[11px] font-medium text-app-ink-faint">{siteLabel}</p>
@@ -723,7 +724,7 @@ export const BookmarkCard = memo(function BookmarkCard({
               <div className="relative z-10 flex h-full flex-col gap-3 p-3">
                 <div className="aspect-[1.91/1] w-full overflow-hidden rounded-md bg-app-surface-muted">
                   {showThumbnail ? (
-                    <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" onError={handleThumbnailError} />
+                    <RemoteImage src={thumbnailUrl} alt="" className="h-full w-full object-cover" onError={handleThumbnailError} />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-app-ink-faint">
                       <Bookmark className="h-10 w-10" />
@@ -738,7 +739,7 @@ export const BookmarkCard = memo(function BookmarkCard({
                   <div className="relative flex h-5 w-5 flex-none items-center justify-center overflow-hidden bg-app-surface-muted text-app-ink-faint">
                     <Bookmark className="h-3.5 w-3.5" />
                     {logoUrl && (
-                      <img src={logoUrl} alt="" className="absolute inset-0 h-full w-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                      <RemoteImage src={logoUrl} alt="" className="absolute inset-0 h-full w-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
                     )}
                   </div>
                   <p className="min-w-0 truncate text-xs font-medium text-app-ink-faint">{siteLabel}</p>

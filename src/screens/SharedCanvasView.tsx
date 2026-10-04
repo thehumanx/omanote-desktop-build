@@ -4,6 +4,7 @@ import { ExternalLink, Link2 } from "lucide-react";
 import { normalizeLinkUrl } from "@omanote/shared";
 import { publicPageImageUrl } from "../lib/page-images";
 import { cn } from "../components/ui";
+import { RemoteImage } from "../components/RemoteImage";
 
 interface PublicCanvasTextRun {
   text: string;
@@ -171,7 +172,7 @@ function LinkBlock({ block }: { block: PublicCanvasBlock }) {
       className="group flex items-center gap-3 rounded-2xl border border-app-line bg-app-surface p-3 no-underline transition hover:bg-app-surface-hover"
     >
       {block.thumbnailUrl ? (
-        <img src={block.thumbnailUrl} alt="" className="h-16 w-24 shrink-0 rounded-xl border border-app-line object-cover" />
+        <RemoteImage src={block.thumbnailUrl} alt="" className="h-16 w-24 shrink-0 rounded-xl border border-app-line object-cover" />
       ) : null}
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold text-app-ink">{block.title?.trim() || hostnameOf(href)}</p>

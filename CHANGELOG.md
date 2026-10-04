@@ -2,9 +2,39 @@
 
 All notable changes to omanote are documented here, organized by product.
 
+<!-- Timeline: add a "milestone: Short title" HTML comment on the line under a release heading to show it on the Updates timeline. Save it for releases people would want to know about. -->
+
 ## Versions
 
+### v0.34.1 [October 4, 2026]
+
+> The big moments at a glance, a little scenery on the website, and a thorough tune-up: more private, better at syncing, and quicker on its feet.
+
+- [Add] The updates page opens on a timeline of the releases worth knowing about, app and extension together. Tap one to read it in full
+- [Add] The website footer has the background scenes too, with a small picker under the copyright. Evergreen meadow by default
+- [Add] Block images in articles: turn it on in Settings → Features to read articles without their pictures. A note says how many were held back, and Load images brings them in for that article
+- [Update] The reader never loads newsletters' tracking pixels, the invisible images that report when you opened an issue. Pictures from other sites no longer learn you came from omanote, and only load once you scroll to them
+- [Update] Drafts you haven't saved yet are encrypted on your device, just like everything you've saved
+- [Update] Deleting your account now also deletes the images you added to pages, including the copies behind public links, plus any feedback you sent with your email
+- [Update] If your session ends while the app is closed, or you sign out on another device, this device forgets your unlock key the next time it opens
+- [Update] Snappier all round: screens without an editor open faster, typing in a long page is smoother, ticking a todo no longer makes the rest of the app redraw, and the guide loads in a fraction of the time
+- [Update] Tighter security against injected scripts, and link previews and feeds can no longer be aimed at private network addresses
+- [Update] The landing page's top bar scrolls away with the page instead of following you down
+- [Fix] Pinning or hiding a page now sticks after a reload and shows up on your other devices. It used to quietly undo itself
+- [Fix] Pages and todo folders you change on another device show up within seconds instead of minutes
+- [Fix] An app left idle for a while goes back to checking for changes every few minutes once you're back, instead of staying slow
+- [Fix] Picking a quieter feed in the reader shows its articles even when a busier feed has been posting a lot
+- [Fix] Switching back to omanote no longer yanks you to today while you're looking at another day. It still moves on to the new day after midnight
+- [Fix] One damaged item can no longer leave your whole list of todos, folders, categories or events looking empty
+- [Fix] Things you do offline in quick succession, like making a folder and then a todo inside it, are sent in the order you did them
+- [Fix] Turning on the reader, a font or tap-to-complete before you'd ever changed a setting is now remembered
+- [Fix] The folder menu button shows up for keyboard and tablet users instead of staying invisible until hovered
+- [Fix] Screen readers announce dialogs and sheets by name
+- [Fix] On Linux, the desktop app runs natively on Wayland, so scrolling is smooth and goes the full distance
+- [Remove] The feature announcement banner on the landing page
+
 ### v0.34.0 [October 2, 2026]
+<!-- milestone: Background scenes and folder galleries -->
 
 > Calm backgrounds for the whole app, and folders you can see into.
 
@@ -34,6 +64,7 @@ All notable changes to omanote are documented here, organized by product.
 - [Update] Setup moves between steps smoothly, and an empty canvas tells you how to start: hit / or click +
 
 ### v0.33.8 [September 25, 2026]
+<!-- milestone: Offline changes that always stick -->
 
 > Everything you do offline now sticks, and the app is lighter.
 
@@ -136,6 +167,7 @@ All notable changes to omanote are documented here, organized by product.
 - [Fix] Continue Writing cards now show the canvas page's icon when it has one
 
 ### v0.33.0 [September 6, 2026]
+<!-- milestone: Image uploads and canvas pages -->
 
 > Much-needed image uploads and multiple canvas pages are finally here. A canvas page is now a full-fledged document editor, like Google Docs or Notion.
 
@@ -239,6 +271,7 @@ All notable changes to omanote are documented here, organized by product.
 - [Update] Merged the desktop and web app changelogs into one from this version — web and desktop ship together, so they now share a single version history instead of two separate ones
 
 ### v0.31.0 [August 18, 2026]
+<!-- milestone: Quick capture from anywhere -->
 
 > Reworked how you add anything, on Canvas and everywhere else — quick capture works from wherever you are now.
 
@@ -252,6 +285,7 @@ All notable changes to omanote are documented here, organized by product.
 - [Update] The top and bottom bars no longer hide while scrolling — they stay in place
 
 ### v0.30.0 [August 15, 2026]
+<!-- milestone: Canvas redesign -->
 
 > Canvas redesigned: today stays put, History is one click away, and the top bar is gone for good.
 
@@ -360,6 +394,7 @@ All notable changes to omanote are documented here, organized by product.
 - [Fix] Desktop app now checks for updates and changelog from omanote.com instead of relying on the bundled version, so the What's New modal always shows the latest release notes
 
 ### v0.27.0 [July 21, 2026]
+<!-- milestone: Two-way Google Calendar sync -->
 
 > Two-way Google Calendar sync, and one consistent way to edit any todo — on every screen, at every size.
 
@@ -373,6 +408,7 @@ All notable changes to omanote are documented here, organized by product.
 - [Fix] Reminders no longer fire for a todo whose due time has already passed by the time you create it
 
 ### v0.26.0 [July 18, 2026]
+<!-- milestone: Repeating todos -->
 
 > Todos that repeat. Set a cadence, and omanote keeps the day-to-day going.
 
@@ -428,6 +464,7 @@ All notable changes to omanote are documented here, organized by product.
 - [Fix] URL preview cards not opening in browser on desktop — capture-phase link handler intercepts before stopPropagation
 
 ### v0.24 [June 23, 2026]
+<!-- milestone: Todo folders -->
 
 > Todo/tasks finally got its home. Organize your todos as folders (and share if you want to)
 
@@ -482,6 +519,7 @@ All notable changes to omanote are documented here, organized by product.
 - [Fix] Saving a todo from the mobile canvas switcher no longer leaves the same text behind in the note composer.
 
 ### v0.22.0 [June 11, 2026]
+<!-- milestone: RSS reader -->
 
 > The RSS reader is here, and the desktop app grew up — it's a real app now, not a website in a window.
 
@@ -502,6 +540,7 @@ All notable changes to omanote are documented here, organized by product.
 - [Fix] Linux AppImage now bundles without its own Wayland package — it uses the one already on your system
 
 ### v0.21.1 [June 10, 2026]
+<!-- milestone: First desktop app -->
 
 > First desktop build — plus minor fixes here and there.
 
@@ -554,6 +593,7 @@ All notable changes to omanote are documented here, organized by product.
 - [Fix] Notes page list cards now render bullet/number markers correctly in preview mode.
 
 ### v0.20.0 [May 29, 2026]
+<!-- milestone: New rich-text editor -->
 
 > Major fixes/enhancements on the richtext with a new Tiptap library and your profile edit is here.
 
@@ -603,6 +643,7 @@ All notable changes to omanote are documented here, organized by product.
 
 
 ### v0.17.0 [May 25, 2026]
+<!-- milestone: Insights page -->
 
 > Your workspace now tells you how it's going. The new Insights page breaks down everything — productivity, content, and every day across the year. Plus the header redesign to show just the stat you need. Greetings? New serif font? bug fixes? this update feels like a whole app redesign.
 
@@ -684,6 +725,7 @@ All notable changes to omanote are documented here, organized by product.
 - [Fix] Removed old references to screens and controls that no longer exist, because haunted documentation helps nobody.
 
 ### v0.14.0 [May 10, 2026]
+<!-- milestone: Dark mode and a full design system -->
 
 > Dark mode is here — and so is the full design system underneath it.
 
@@ -692,6 +734,7 @@ All notable changes to omanote are documented here, organized by product.
 - [Add] Added the icons for navbar on desktop. Hate how it looks? configure them on the settings page. 
 
 ### v0.13.1 [May 9, 2026]
+<!-- milestone: Shareable note folders and timeline view -->
 
 > Sharable notes folder and timeline view are here.
 
@@ -719,6 +762,7 @@ All notable changes to omanote are documented here, organized by product.
 - [Update] Completing your todos should now feel instant
 
 ### v0.12.7 [May 7, 2026]
+<!-- milestone: Local-first: instant loads on any connection -->
 
 > Your data now lives on your device first — the app loads instantly and stays snappy no matter your connection.
 
@@ -782,6 +826,7 @@ All notable changes to omanote are documented here, organized by product.
 - [Update] Redesigned bookmark and note drawer tos how context menu
 
 ### v0.11.1 [May 2, 2026]
+<!-- milestone: Browser extension arrives -->
 
 > Extensions are here! Now you can save from wherever you are to your omanote workspace. Plus, you can view your logged in device on your setting page now.
 
@@ -819,6 +864,7 @@ All notable changes to omanote are documented here, organized by product.
 - [Add] Navbar on mobile are now swipeable to change the page.
 
 ### v0.7 [April 28, 2026]
+<!-- milestone: Works offline -->
 
 > omanote now works even when your internet doesn't. Keep capturing, keep editing, and everything catches up when you're back online.
 
@@ -839,6 +885,7 @@ All notable changes to omanote are documented here, organized by product.
 
 
 ### v0.5 [April 24, 2026]
+<!-- milestone: Settings and passphrase lock -->
 
 > Your very own Settings page has arrived, and a refreshed landing page! Tweak notifications, customize keyboard shortcuts, lock things down with a new passphrase, and yes — you can now delete your account if you dare. Full control, finally in one spot.
 
@@ -871,6 +918,7 @@ All notable changes to omanote are documented here, organized by product.
 
 
 ### v0.3 [April 21, 2026]
+<!-- milestone: Swipe navigation, gallery view, import and export -->
 
 > Swipe everything! Move between canvas days with a flick, browse notes and bookmarks in gallery view, and pull your data in or out any time. A big visual and capability upgrade across the board.
 
@@ -893,6 +941,7 @@ All notable changes to omanote are documented here, organized by product.
 - [Update] Date/time hidden from same date's canvas and "today" view of /todos
 
 ### v0.1 [April 17, 2026]
+<!-- milestone: omanote's first release -->
 
 > The updates page is born! Now you can see what's new right inside the app — no digging around. Changelog and roadmap, right from the profile menu.
 
@@ -909,6 +958,7 @@ See what's planned next: [omanote.com/s/FeUM44Rd](https://omanote.com/s/FeUM44Rd
 ## Extension Versions
 
 ### v3.0 [September 21, 2026]
+<!-- milestone: Instant folders and safer key storage -->
 
 > Folders show up instantly, the folder list is searchable, and your encryption key no longer stays on this device unless you ask it to.
 
@@ -930,6 +980,7 @@ See what's planned next: [omanote.com/s/FeUM44Rd](https://omanote.com/s/FeUM44Rd
 - [Fix] Folders could fail to load entirely if a single folder had an unreadable record — now the rest of your folders still show up instead of the whole list disappearing.
 
 ### v2.4 [July 09, 2026]
+<!-- milestone: Subscribe to RSS from the extension -->
 
 > Extension extended for RSS.
 
@@ -988,6 +1039,7 @@ See what's planned next: [omanote.com/s/FeUM44Rd](https://omanote.com/s/FeUM44Rd
 - [Add] Animated SVG checkmark on save: the circle draws first, then the tick strokes in — consistent across the popup, selected-text bubble, and context menu flows.
 
 ### v2.0.0 [May 7, 2026]
+<!-- milestone: Extension redesign -->
 
 > The extension feels like omanote now, stays connected longer, and lets you save into the right folder faster.
 
@@ -997,6 +1049,7 @@ See what's planned next: [omanote.com/s/FeUM44Rd](https://omanote.com/s/FeUM44Rd
 - [Fix] Small omanote save helper to save selected text now consistently appears wherever you are. Previously it only appeared above the fold.
 
 ### v1.0.0 [May 2, 2026]
+<!-- milestone: First extension release -->
 
 > The first omanote extension release brings quick capture to the browser so saving does not interrupt what you are doing.
 

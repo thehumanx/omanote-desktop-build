@@ -9,7 +9,7 @@ import { useTopChrome } from "../components/layout/useTopChrome";
 
 function ExploreInfoModal({ onClose }: { onClose: () => void }) {
   return (
-    <BaseModal
+    <BaseModal label="Welcome to Explore"
       onClose={onClose}
       onBackdropMouseDown={onClose}
       zIndex="z-app-modal"

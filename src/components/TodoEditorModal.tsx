@@ -319,7 +319,7 @@ export function TodoEditorModal({
 
   if (todo && isDone) {
     return (
-      <BaseModal onClose={onClose} onBackdropMouseDown={onClose} className={BACKDROP_CLASS}>
+      <BaseModal label="Completed todo" onClose={onClose} onBackdropMouseDown={onClose} className={BACKDROP_CLASS}>
         <div className={SURFACE_CLASS} onMouseDown={(event) => event.stopPropagation()}>
           <div className="flex w-full items-start justify-between gap-6">
             <div className="flex min-w-0 items-center gap-3">
@@ -358,7 +358,7 @@ export function TodoEditorModal({
   }
 
   return (
-    <BaseModal onClose={onClose} onBackdropMouseDown={onClose} className={BACKDROP_CLASS}>
+    <BaseModal label={todo ? "Edit todo" : "New todo"} onClose={onClose} onBackdropMouseDown={onClose} className={BACKDROP_CLASS}>
       <div className={SURFACE_CLASS} onMouseDown={(event) => event.stopPropagation()}>
         <DrawerHeaderRow
           className="-mx-5 -mt-5 mb-2 px-4 pt-3 pb-2 md:hidden"

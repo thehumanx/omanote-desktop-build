@@ -5,7 +5,7 @@ import { useScrollEdgeFade } from "../../hooks/useScrollEdgeFade";
 // "back to gallery" lands where the user left off. Session-lifetime only.
 const scrollPositions = new Map<string, number>();
 
-export type FolderGalleryProps<T> = {
+type FolderGalleryProps<T> = {
   /** Scroll-restore key, one per screen. */
   storageKey: string;
   /** True until content has decrypted — shows skeletons, never an empty state. */

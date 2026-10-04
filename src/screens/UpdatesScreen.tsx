@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import changelogMarkdown from "../../CHANGELOG.md?raw";
 import { CHANGELOG_TABS, type ChangelogProduct } from "../content/changelog-tabs";
-import { SegmentedPill } from "../components/ui";
+import { Badge, SegmentedPill } from "../components/ui";
 import { useTopChrome } from "../components/layout/useTopChrome";
 import { currentVersion } from "virtual:changelog";
+import { extractSection, MILESTONE_RE, parseMilestones, type Milestone } from "../lib/changelog-parse";
 
 type MarkdownBlock =
   | { type: "h3"; text: string }
@@ -19,23 +20,15 @@ type VersionGroup = {
   blocks: MarkdownBlock[];
 };
 
-const UPDATES_TAB_ITEMS = CHANGELOG_TABS.map((tab) => ({ key: tab.id, label: tab.label }));
+type UpdatesTab = "timeline" | ChangelogProduct;
 
-function extractVersionsSection(markdown: string, sectionTitle = "Versions"): string {
-  const lines = markdown.split(/\r?\n/);
-  const normalizedSectionTitle = `## ${sectionTitle}`.toLowerCase();
-  const start = lines.findIndex((line) => line.trim().toLowerCase() === normalizedSectionTitle);
-  if (start === -1) return "";
+const UPDATES_TAB_ITEMS = [{ key: "timeline", label: "Timeline" }, ...CHANGELOG_TABS.map((tab) => ({ key: tab.id, label: tab.label }))];
 
-  let end = lines.length;
-  for (let i = start + 1; i < lines.length; i += 1) {
-    if (/^##\s+/.test(lines[i])) {
-      end = i;
-      break;
-    }
-  }
+const PRODUCT_LABEL: Record<ChangelogProduct, string> = { application: "App", extension: "Extension" };
 
-  return lines.slice(start + 1, end).join("\n").trim();
+function versionAnchorId(product: ChangelogProduct, heading: string): string {
+  const version = heading.match(/^v[\d.]+/)?.[0] ?? heading;
+  return `updates-${product}-${version}`;
 }
 
 function parseSimpleMarkdown(markdown: string): MarkdownBlock[] {
@@ -44,7 +37,7 @@ function parseSimpleMarkdown(markdown: string): MarkdownBlock[] {
 
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i].trim();
-    if (!line) continue;
+    if (!line || MILESTONE_RE.test(line)) continue;
 
     if (line.startsWith("### ")) {
       blocks.push({ type: "h3", text: line.slice(4).trim() });
@@ -132,9 +125,102 @@ function renderInline(text: string): ReactNode[] {
     });
 }
 
+function VersionBlocks({ blocks }: { blocks: MarkdownBlock[] }) {
+  return (
+    <>
+      {blocks.map((block, i) => {
+        if (block.type === "ul") {
+          return (
+            <ul key={i} className="space-y-1.5 pl-4 text-sm text-app-ink-muted">
+              {block.items.map((item) => (
+                <li key={item} className="list-disc">
+                  {renderInline(item)}
+                </li>
+              ))}
+            </ul>
+          );
+        }
+        if (block.type === "p") {
+          return (
+            <p key={i} className="text-sm leading-relaxed text-app-ink-muted">
+              {renderInline(block.text)}
+            </p>
+          );
+        }
+        return null;
+      })}
+    </>
+  );
+}
+
+function groupMilestonesByMonth(milestones: Milestone[]): Array<{ month: string; items: Milestone[] }> {
+  const groups: Array<{ month: string; items: Milestone[] }> = [];
+  for (const milestone of milestones) {
+    const month = Number.isNaN(milestone.time)
+      ? milestone.date
+      : new Date(milestone.time).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    const last = groups[groups.length - 1];
+    if (last?.month === month) last.items.push(milestone);
+    else groups.push({ month, items: [milestone] });
+  }
+  return groups;
+}
+
+function shortDate(milestone: Milestone): string {
+  return Number.isNaN(milestone.time)
+    ? milestone.date
+    : new Date(milestone.time).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function MilestoneTimeline({ onOpen }: { onOpen: (milestone: Milestone) => void }) {
+  const months = useMemo(() => groupMilestonesByMonth(parseMilestones(changelogMarkdown)), []);
+
+  if (!months.length) {
+    return <p className="mt-4 text-sm text-app-ink-muted">No milestones yet.</p>;
+  }
+
+  return (
+    <ol className="mt-5 space-y-6">
+      {months.map(({ month, items }) => (
+        <li key={month}>
+          <h3 className="text-xs font-bold uppercase text-app-ink-faint">{month}</h3>
+          <ol className="mt-2">
+            {items.map((milestone, index) => (
+              <li key={`${milestone.product}-${milestone.version}`} className="flex gap-3">
+                <div aria-hidden="true" className="flex w-3 shrink-0 flex-col items-center pt-4">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-app-ink" />
+                  {index < items.length - 1 && <span className="mt-1 w-px flex-1 bg-app-line" />}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onOpen(milestone)}
+                  className="min-w-0 flex-1 rounded-app-field px-3 py-2.5 text-left transition-colors hover:bg-app-surface-muted"
+                >
+                  <span className="flex flex-wrap items-center gap-2 text-xs text-app-ink-faint">
+                    <span>{shortDate(milestone)}</span>
+                    <Badge variant={milestone.product === "application" ? "muted" : "outline"}>{PRODUCT_LABEL[milestone.product]}</Badge>
+                    <span>{milestone.version}</span>
+                  </span>
+                  <span className="mt-1 block text-sm font-bold text-app-ink">{milestone.title}</span>
+                  {milestone.summary && (
+                    <span className="mt-0.5 block text-sm leading-relaxed text-app-ink-muted">{renderInline(milestone.summary)}</span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ol>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 export function UpdatesScreen() {
-  const [activeTab, setActiveTab] = useState<ChangelogProduct>("application");
-  const activeTabConfig = CHANGELOG_TABS.find((tab) => tab.id === activeTab) ?? CHANGELOG_TABS[0];
+  const [activeTab, setActiveTab] = useState<UpdatesTab>("timeline");
+  // Version opened from the timeline: expanded and scrolled to in its product tab.
+  const [focusedAnchor, setFocusedAnchor] = useState<string | null>(null);
+  const productTab = activeTab === "timeline" ? null : activeTab;
+  const activeTabConfig = CHANGELOG_TABS.find((tab) => tab.id === productTab) ?? CHANGELOG_TABS[0];
   const versionLabel = currentVersion?.version ?? "";
 
   const topChrome = useMemo(
@@ -152,9 +238,20 @@ export function UpdatesScreen() {
   );
   useTopChrome(topChrome);
 
-  const versionsMarkdown = useMemo(() => extractVersionsSection(changelogMarkdown, activeTabConfig.sectionTitle), [activeTabConfig.sectionTitle]);
-  const versionBlocks = useMemo(() => parseSimpleMarkdown(versionsMarkdown), [versionsMarkdown]);
-  const versionGroups = useMemo(() => groupVersionBlocks(versionBlocks), [versionBlocks]);
+  const versionGroups = useMemo(
+    () => groupVersionBlocks(parseSimpleMarkdown(extractSection(changelogMarkdown, activeTabConfig.sectionTitle))),
+    [activeTabConfig.sectionTitle],
+  );
+
+  useEffect(() => {
+    if (!focusedAnchor) return;
+    document.getElementById(focusedAnchor)?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [focusedAnchor, activeTab]);
+
+  const openMilestone = (milestone: Milestone) => {
+    setActiveTab(milestone.product);
+    setFocusedAnchor(versionAnchorId(milestone.product, milestone.version));
+  };
 
   return (
     <div className="mx-auto w-full max-w-[980px] px-4 py-8 sm:px-6">
@@ -162,7 +259,7 @@ export function UpdatesScreen() {
         <p className="text-xs font-bold uppercase text-app-ink-faint">omanote updates</p>
         <h2 className="mt-3 text-2xl font-black text-app-ink">What shipped and what is coming next.</h2>
         <p className="mt-3 max-w-[760px] text-sm leading-relaxed text-app-ink-muted">
-          Every release, big or small, right here — nothing held back.
+          The big moments are on the timeline. Every release, big or small, is under Application and Extension.
         </p>
       </section>
 
@@ -170,57 +267,44 @@ export function UpdatesScreen() {
         <div className="flex w-full justify-start">
           <SegmentedPill
             activeKey={activeTab}
-            ariaLabel="Changelog product"
+            ariaLabel="Changelog view"
             items={UPDATES_TAB_ITEMS}
-            onChange={(key) => setActiveTab(key as ChangelogProduct)}
+            onChange={(key) => {
+              setActiveTab(key as UpdatesTab);
+              setFocusedAnchor(null);
+            }}
           />
         </div>
-        {versionGroups.length ? (
+        {productTab === null ? (
+          <MilestoneTimeline onOpen={openMilestone} />
+        ) : versionGroups.length ? (
           <div className="mt-4 space-y-3">
             {versionGroups.map((group, groupIndex) => {
-              const isLatest = groupIndex === 0;
-              const changelogContent = (
-                <div className="space-y-3">
-                  {group.summary && (
-                    <p className="rounded-lg bg-app-surface-muted px-4 py-2.5 text-sm leading-relaxed text-app-ink-muted">
-                      {renderInline(group.summary)}
-                    </p>
-                  )}
-                  {group.blocks.map((block, i) => {
-                    if (block.type === "ul") {
-                      return (
-                        <ul key={i} className="space-y-1.5 pl-4 text-sm text-app-ink-muted">
-                          {block.items.map((item) => (
-                            <li key={item} className="list-disc">
-                              {renderInline(item)}
-                            </li>
-                          ))}
-                        </ul>
-                      );
-                    }
-                    if (block.type === "p") {
-                      return (
-                        <p key={i} className="text-sm leading-relaxed text-app-ink-muted">
-                          {renderInline(block.text)}
-                        </p>
-                      );
-                    }
-                    return null;
-                  })}
-                </div>
-              );
+              const anchorId = versionAnchorId(productTab, group.heading);
 
-              if (isLatest) {
+              if (groupIndex === 0) {
                 return (
-                  <div key={group.heading} className="space-y-3">
+                  <div key={group.heading} id={anchorId} className="scroll-mt-24 space-y-3">
                     <h3 className="text-base font-bold text-app-ink">{renderInline(group.heading)}</h3>
-                    {changelogContent}
+                    <div className="space-y-3">
+                      {group.summary && (
+                        <p className="rounded-lg bg-app-surface-muted px-4 py-2.5 text-sm leading-relaxed text-app-ink-muted">
+                          {renderInline(group.summary)}
+                        </p>
+                      )}
+                      <VersionBlocks blocks={group.blocks} />
+                    </div>
                   </div>
                 );
               }
 
               return (
-                <details key={group.heading} className="group border-b border-app-line last:border-b-0">
+                <details
+                  key={group.heading}
+                  id={anchorId}
+                  open={anchorId === focusedAnchor || undefined}
+                  className="group scroll-mt-24 border-b border-app-line last:border-b-0"
+                >
                   <summary className="flex cursor-pointer list-none items-start gap-3 py-3 [&::-webkit-details-marker]:hidden">
                     <div className="min-w-0 flex-1">
                       <h3 className="text-sm font-bold text-app-ink">{renderInline(group.heading)}</h3>
@@ -235,27 +319,7 @@ export function UpdatesScreen() {
                     </span>
                   </summary>
                   <div className="border-t border-app-line pb-4 pt-3 space-y-3">
-                    {group.blocks.map((block, i) => {
-                      if (block.type === "ul") {
-                        return (
-                          <ul key={i} className="space-y-1.5 pl-4 text-sm text-app-ink-muted">
-                            {block.items.map((item) => (
-                              <li key={item} className="list-disc">
-                                {renderInline(item)}
-                              </li>
-                            ))}
-                          </ul>
-                        );
-                      }
-                      if (block.type === "p") {
-                        return (
-                          <p key={i} className="text-sm leading-relaxed text-app-ink-muted">
-                            {renderInline(block.text)}
-                          </p>
-                        );
-                      }
-                      return null;
-                    })}
+                    <VersionBlocks blocks={group.blocks} />
                   </div>
                 </details>
               );

@@ -148,7 +148,7 @@ export function ShareFolderModalShell({
   };
 
   return (
-    <BaseModal onClose={onClose} onBackdropMouseDown={onClose} zIndex="z-app-dialog">
+    <BaseModal label="Share folder" onClose={onClose} onBackdropMouseDown={onClose} zIndex="z-app-dialog">
       <div
         className="w-full max-w-md rounded-app-dialog border border-app-line bg-app-surface p-5 shadow-soft"
         onMouseDown={(e) => e.stopPropagation()}

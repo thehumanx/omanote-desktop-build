@@ -303,6 +303,9 @@ export function HistoryScreen() {
       {isMobile && dateKeys.length ? (
         <ModalPortal>
           <section
+            role="dialog"
+            aria-modal={mobileDayOpen}
+            aria-label="Day details"
             aria-hidden={!mobileDayOpen}
             className={cn(
               "fixed inset-0 z-app-drawer flex min-h-0 flex-col bg-app-surface shadow-app-drawer transform-gpu",

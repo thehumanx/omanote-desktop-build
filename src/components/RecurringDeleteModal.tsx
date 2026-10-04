@@ -22,7 +22,7 @@ export function RecurringDeleteModal() {
   const title = prompt.title?.trim() || "this todo";
 
   return (
-    <BaseModal onClose={close} onBackdropMouseDown={close}>
+    <BaseModal label="Delete recurring todo" role="alertdialog" onClose={close} onBackdropMouseDown={close}>
       <div
         className="w-full max-w-md rounded-app-dialog border border-app-line bg-app-surface shadow-soft"
         onMouseDown={(event) => event.stopPropagation()}

@@ -13,7 +13,7 @@ export function PrivacyPolicyScreen() {
         description="omanote privacy policy — how we handle your data in this personal daily canvas."
         canonical="https://omanote.com/privacy"
       />
-      <div className="public-page min-h-screen flex flex-col bg-app-surface text-app-ink">
+      <div className="public-page isolate min-h-screen flex flex-col bg-app-surface text-app-ink">
       {/* Nav */}
       <nav className="border-b border-app-line sticky top-0 bg-app-surface/95 backdrop-blur-sm z-20">
         <div className="max-w-[1136px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">

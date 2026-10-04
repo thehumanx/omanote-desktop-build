@@ -23,6 +23,23 @@ Each entry is one of:
 - **Renamed** `Component.propName` → `Component.newPropName`. <why>. <migration note>.
 ```
 
+## 2026-10-04
+
+- **Added** `RemoteImage` (`src/components/RemoteImage.tsx`) — an `<img>` for
+  third-party sources (bookmark thumbnails and favicons, feed artwork, link
+  previews) that always sets `referrerPolicy="no-referrer"` and lazy loading.
+  Use it for any `src` that isn't ours; `src/components/RemoteImage.test.tsx`
+  fails on a dynamic-source `<img>` that isn't listed as an own asset.
+- **Changed** `BaseModal` now renders `role="dialog"` and `aria-modal`, and
+  requires a `label` prop (the dialog's accessible name). Optional `role`
+  (`"alertdialog"` for confirms) and `describedBy`.
+
+## 2026-10-03
+
+- **Added** `SceneBackdrop variant="footer"` — a screen-tall scene anchored to
+  the public site footer, fading upward at z-index -1. The page wrapper must be
+  `isolate`, or its fill paints over the scene.
+
 ## 2026-10-01
 
 - **Added** `.app-scene-page` — marks a full-screen view that sits on a

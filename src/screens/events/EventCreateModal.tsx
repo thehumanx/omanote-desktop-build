@@ -43,7 +43,7 @@ export function EventCreateModal({
   }, [value]);
 
   return (
-    <BaseModal onClose={onClose} onBackdropMouseDown={onClose} className={EVENT_CREATE_BACKDROP_CLASS}>
+    <BaseModal label="New event" onClose={onClose} onBackdropMouseDown={onClose} className={EVENT_CREATE_BACKDROP_CLASS}>
       <div className={EVENT_CREATE_SURFACE_CLASS} onMouseDown={(event) => event.stopPropagation()}>
         <DrawerHeaderRow
           className="-mx-5 -mt-5 mb-2 px-4 pt-3 pb-2 md:hidden"

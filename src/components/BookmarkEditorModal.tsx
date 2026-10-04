@@ -118,7 +118,7 @@ export function BookmarkEditorModal({
     });
 
   return (
-    <BaseModal onClose={onClose} className={BACKDROP_CLASS}>
+    <BaseModal label={bookmark ? "Edit bookmark" : "Save bookmark"} onClose={onClose} className={BACKDROP_CLASS}>
       <div ref={modalBodyRef} className={SURFACE_CLASS}>
           <DrawerHeaderRow
             className="-mx-5 -mt-5 mb-2 px-4 pt-3 pb-2 md:hidden"

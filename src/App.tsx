@@ -11,6 +11,7 @@ import { lazyWithReload } from "./lib/lazy-with-reload";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { AppLoadingScreen } from "./components/ui";
 import { DesktopAuthListener } from "./components/desktop/DesktopAuthListener";
+import { StaleSessionKeySweeper } from "./components/StaleSessionKeySweeper";
 import { DesktopUpdateBanner } from "./components/desktop/DesktopUpdateBanner";
 
 const AuthenticatedAppLayout = lazyWithReload(() =>
@@ -200,6 +201,7 @@ export default function App() {
     {/* While a route chunk downloads. Was `null` once, which made a slow chunk
         and a failed one look identical. */}
     <Suspense fallback={<AppLoadingScreen />}>
+      <StaleSessionKeySweeper />
       {inDesktopShell && <DesktopAuthListener />}
       {inDesktopShell && <DesktopUpdateBanner />}
       <Routes>
