@@ -159,12 +159,20 @@ const FEATURES: OrbitFeature[] = [
 
 /**
  * Tab colours. The ink is the folder palette's own; the surface is that ink
- * mixed into white, a few steps stronger than the app's folder surface.
+ * mixed into the page surface (white in light, near-black in dark), a few steps
+ * stronger than the app's folder surface.
  */
 function tintStyle(tint: FolderTint): React.CSSProperties {
-  if (tint === "brand") return { backgroundColor: color.brandCtaTint, color: color.brandCtaHover };
+  // `light-dark()` follows the `color-scheme` the landing wrapper sets, so the
+  // pale brand tint doesn't glare on the dark page.
+  if (tint === "brand") {
+    return {
+      backgroundColor: color.brandCtaTintThemed,
+      color: `light-dark(${color.brandCtaHover}, ${color.brandCta})`,
+    };
+  }
   return {
-    backgroundColor: `color-mix(in srgb, var(--folder-${tint}-ink) 13%, white)`,
+    backgroundColor: `color-mix(in srgb, var(--folder-${tint}-ink) 13%, rgb(var(--color-surface)))`,
     color: `var(--folder-${tint}-ink)`,
   };
 }

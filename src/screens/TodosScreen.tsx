@@ -40,6 +40,7 @@ import { parseMentions } from "../lib/mentions";
 import { useOutsideClick } from "../lib/useOutsideClick";
 import { CategoryIconView } from "../lib/bookmark-category-icon";
 import { useIsDesktop, usePersistedFolderSort, usePersistedFolderViewMode } from "../hooks/useFolderNavigation";
+import { useOpenOnMount, type FolderSheetOverlay } from "../components/folder-gallery/folder-sheet-overlay";
 
 function normalizeTodoFolderName(name: string) {
   return name.trim().toLowerCase();
@@ -441,7 +442,12 @@ function TodosGallery({
   );
 }
 
-export function TodosScreen() {
+/**
+ * With `overlay`, renders only the folder sheet (and the modals it opens) for
+ * one folder, over whatever route mounted it — the canvas's folder tabs. The
+ * page itself, its top bar and its remembered folder are left untouched.
+ */
+export function TodosScreen({ overlay }: { overlay?: FolderSheetOverlay } = {}) {
   const { state, dispatch, isCanvasContentLoading } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
@@ -456,7 +462,7 @@ export function TodosScreen() {
   // The inline row edit (onStartEdit above) only covers title/due/folder;
   // this opens the full editor (recurrence, reminders) for an existing todo.
   const [editingModalTodoId, setEditingModalTodoId] = useState<string | null>(null);
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(() => readLastSelectedTodoFolder() || null);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(() => overlay?.folderKey ?? (readLastSelectedTodoFolder() || null));
   const [todoViewFading, setTodoViewFading] = useState(false);
   const [completionFilterByTodoId, setCompletionFilterByTodoId] = useState<CompletionFilterByTodoId>({});
   const [uncompletionFilterByTodoId, setUncompletionFilterByTodoId] = useState<CompletionFilterByTodoId>({});
@@ -671,8 +677,8 @@ export function TodosScreen() {
     if (!selectedFolder) return;
     if (selectedFolderId === selectedFolder.id) return;
     setSelectedFolderId(selectedFolder.id);
-    writeLastSelectedTodoFolder(selectedFolder.id);
-  }, [selectedFolder, selectedFolderId]);
+    if (!overlay) writeLastSelectedTodoFolder(selectedFolder.id);
+  }, [overlay, selectedFolder, selectedFolderId]);
 
   useEffect(() => {
     const todosById = new Map(folderTodos.map((todo) => [todo.id, todo]));
@@ -1096,7 +1102,7 @@ export function TodosScreen() {
   const galleryMode = folderViewMode === "gallery";
   const todoFolderIdSet = useMemo(() => new Set(effectiveTodoFolders.map((folder) => folder.id)), [effectiveTodoFolders]);
   const galleryFolderParam = useGalleryFolderParam({
-    enabled: galleryMode && isDesktop,
+    enabled: galleryMode && isDesktop && !overlay,
     validKeys: todoFolderIdSet,
     ready: !isCanvasContentLoading,
   });
@@ -1106,9 +1112,17 @@ export function TodosScreen() {
   // full-screen drawer on phones (local state).
   const showGalleryOverview = galleryMode;
   const showDesktopOverview = galleryMode && isDesktop;
-  const desktopFolderSheet = galleryMode && isDesktop;
-  const folderSheetOpen = desktopFolderSheet ? Boolean(galleryOpenFolderId) : mobileTodosOpen;
-  const closeFolderSheet = desktopFolderSheet ? galleryFolderParam.closeFolder : () => setMobileTodosOpen(false);
+  // As an overlay the sheet is the whole screen, whatever the view mode: the
+  // side peek on desktop, the drawer on phones, both driven by local state.
+  const desktopFolderSheet = overlay ? isDesktop : galleryMode && isDesktop;
+  const folderSheetOpen = desktopFolderSheet && !overlay ? Boolean(galleryOpenFolderId) : mobileTodosOpen;
+  // The sheet's content is only rendered while it's needed, but "needed"
+  // lasts until the slide-out ends: unmounting it as closing began slid a
+  // blank panel off screen. Set during render so the first open frame has it.
+  const [sheetContentMounted, setSheetContentMounted] = useState(folderSheetOpen);
+  if (folderSheetOpen && !sheetContentMounted) setSheetContentMounted(true);
+  const closeFolderSheet = desktopFolderSheet && !overlay ? galleryFolderParam.closeFolder : () => setMobileTodosOpen(false);
+  useOpenOnMount(Boolean(overlay), () => setMobileTodosOpen(true));
 
   useEffect(() => {
     if (!galleryOpenFolderId || galleryOpenFolderId === selectedFolderId) return;
@@ -1252,16 +1266,18 @@ export function TodosScreen() {
       <ExpandableSearch value={todoSearch} onChange={setTodoSearch} placeholder="Search in Todos" />
       {folderToolbar}
     </div>,
+    !overlay,
   );
 
   return (
     <div
-      className="fixed left-0 right-0 z-0 flex min-h-0 flex-1 flex-col overflow-hidden"
+      className={overlay ? "contents" : "fixed left-0 right-0 z-0 flex min-h-0 flex-1 flex-col overflow-hidden"}
       style={{
         top: "var(--omanote-top-chrome-height, 0px)",
         bottom: "0px",
       }}
     >
+        {overlay ? null : (
         <div
           className={cn(
             "grid h-full min-h-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-4 overflow-hidden lg:grid-rows-1",
@@ -1495,6 +1511,7 @@ export function TodosScreen() {
                   />
                 ) : (
                   <EmptyState
+                    pending={isCanvasContentLoading}
                     className="h-full"
                     icon={<PartyPopper className="h-8 w-8" />}
                     title="Done and dusted!"
@@ -1513,24 +1530,29 @@ export function TodosScreen() {
                   onAddTodo={() => setCreating(true)}
                 />
               ) : (
-                <EmptyState className="h-full" title="No completed todos" description="Complete a todo to see it here" />
+                <EmptyState pending={isCanvasContentLoading} className="h-full" title="No completed todos" description="Complete a todo to see it here" />
               )}
               </div>
             </div>
           </div>
         </section>
       </div>
+        )}
 
       <ModalPortal>
         <FolderSheet
           open={folderSheetOpen}
           onClose={closeFolderSheet}
+          onClosed={() => {
+            setSheetContentMounted(false);
+            overlay?.onClosed?.();
+          }}
           desktop={desktopFolderSheet}
           label={selectedFolder?.name ?? "Folder"}
           dragOffset={dragOffset}
           isDragging={isDragging}
         >
-          {folderSheetOpen ? (
+          {sheetContentMounted ? (
             <div className="relative flex h-full min-h-0 flex-col">
               {/* Slim invisible hotzone: swiping right from here (not the whole
                   panel) dismisses it, so the rest of the panel keeps native
@@ -1643,6 +1665,7 @@ export function TodosScreen() {
                     />
                   ) : (
                     <EmptyState
+                      pending={isCanvasContentLoading}
                       className="h-full"
                       icon={<PartyPopper className="h-8 w-8" />}
                       title="Done and dusted!"
@@ -1662,6 +1685,7 @@ export function TodosScreen() {
                   />
                 ) : (
                   <EmptyState
+                    pending={isCanvasContentLoading}
                     className="h-full"
                     title="No completed todos"
                     description="Complete a todo to see it here"

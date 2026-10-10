@@ -140,13 +140,22 @@ export default {
         "app-bubble": "var(--shadow-app-bubble)",
         "app-bubble-hover": "var(--shadow-app-bubble-hover)",
       },
+      // DEFAULT and the bare ease-* names point at the motion tokens, so the
+      // ~250 plain `transition` utilities and every `ease-out` use the app's
+      // curve instead of Tailwind's own. Before this the same kind of motion
+      // ran on three different curves depending on who wrote the class.
       transitionDuration: {
+        DEFAULT: "var(--motion-duration-fast)",
         "app-fast": "var(--motion-duration-fast)",
         "app-base": "var(--motion-duration-base)",
         "app-slow": "var(--motion-duration-slow)",
         "app-drawer": "var(--motion-duration-drawer)",
       },
       transitionTimingFunction: {
+        DEFAULT: "var(--motion-easing-out)",
+        in: "var(--motion-easing-in)",
+        out: "var(--motion-easing-out)",
+        "in-out": "var(--motion-easing-in-out)",
         "app-in": "var(--motion-easing-in)",
         "app-out": "var(--motion-easing-out)",
         "app-in-out": "var(--motion-easing-in-out)",

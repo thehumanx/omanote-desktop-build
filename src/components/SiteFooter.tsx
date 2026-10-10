@@ -8,6 +8,7 @@ import { Tooltip, cn } from "./ui";
 import { color } from "../design-system/tokens";
 import { enumCodec, readLocalStorage, writeLocalStorage } from "../lib/local-storage";
 import { BACKGROUND_SCENES, type BackgroundScene } from "../lib/user-settings";
+import { BrandLogo } from "./BrandLogo";
 
 const currentVersion = bundledVersion?.version ?? "v0.9";
 const desktopAppReleaseUrl = "https://github.com/thehumanx/omanote-releases/releases/latest";
@@ -75,7 +76,7 @@ export function SiteFooter() {
           <div>
             <div className="flex items-center gap-2">
               <Link to="/">
-                <img src="/logo.svg" alt="omanote home" className="h-5 w-auto" />
+                <BrandLogo alt="omanote home" className="h-5 w-auto" />
               </Link>
               <Link
                 to="/updates"

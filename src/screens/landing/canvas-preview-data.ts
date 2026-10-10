@@ -11,7 +11,7 @@ import type {
   TodoFolder,
   TodoItem,
 } from "@omanote/shared";
-import type { CanvasArtifactItem } from "../../app/reducer";
+import type { CanvasArtifactItem } from "../../app/canvas-day-items";
 import type { WeekAtGlance } from "../../app/insights-local";
 
 /**

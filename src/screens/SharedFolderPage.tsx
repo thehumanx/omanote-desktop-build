@@ -25,6 +25,7 @@ import { SharedCanvasView } from "./SharedCanvasView";
 import { unpublishPageImages } from "../lib/page-images";
 import { useAuth } from "@clerk/react";
 import { RemoteImage } from "../components/RemoteImage";
+import { BrandLogo } from "../components/BrandLogo";
 
 type PublicBookmark = {
   id: string;
@@ -393,7 +394,7 @@ export function SharedFolderPage() {
         <SeoHead title="omanote | Shared folder" noIndex />
         <div className="public-page flex min-h-screen flex-col items-center justify-center gap-4 bg-app-canvas px-4">
         <Link to="/" className="flex items-center gap-2 text-app-ink">
-          <img src="/logo.svg" alt="Omanote" className="h-7 w-auto" />
+          <BrandLogo alt="Omanote" className="h-7 w-auto" />
         </Link>
         <p className="text-sm text-app-ink-muted">This link is no longer available.</p>
       </div>
@@ -443,7 +444,7 @@ export function SharedFolderPage() {
         <header className="sticky top-0 z-10 border-b border-app-line bg-app-surface/80 backdrop-blur-sm">
           <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
             <Link to="/" className="flex items-center transition hover:opacity-70">
-              <img src="/logo.svg" alt="Omanote" className="h-7 w-auto" />
+              <BrandLogo alt="Omanote" className="h-7 w-auto" />
             </Link>
             {td.isOwner && (
               <button
@@ -566,7 +567,7 @@ export function SharedFolderPage() {
           <header className="sticky top-0 z-10 border-b border-app-line bg-app-surface/80 backdrop-blur-sm">
             <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
               <Link to="/" className="flex items-center transition hover:opacity-70">
-                <img src="/logo.svg" alt="Omanote" className="h-7 w-auto" />
+                <BrandLogo alt="Omanote" className="h-7 w-auto" />
               </Link>
               {nd.isOwner && (
                 <button
@@ -644,7 +645,7 @@ export function SharedFolderPage() {
       <header className="sticky top-0 z-10 border-b border-app-line bg-app-surface/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <Link to="/" className="flex items-center transition hover:opacity-70">
-            <img src="/logo.svg" alt="Omanote" className="h-7 w-auto" />
+            <BrandLogo alt="Omanote" className="h-7 w-auto" />
           </Link>
           {bd.isOwner && (
             <button

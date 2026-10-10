@@ -1,21 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode, type TouchEvent as ReactTouchEvent } from "react";
-import { Bookmark, BookmarkCheck, CalendarDays, CheckSquare, FileText, Plus, Rss, SquarePen, X } from "lucide-react";
+import { BookmarkCheck, Plus, Rss, X } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAppActions } from "../../app/AppProvider";
 import { SegmentedHighlight, SegmentedItemLabel, SegmentedShell, segmentedItemClass } from "../ui";
 import { useMeasuredHighlight } from "../../hooks/useMeasuredHighlight";
+import { useScrollEdgeFade } from "../../hooks/useScrollEdgeFade";
 import { getComposerModeForPathname, getNavRouteIndex, getWrappedNavRoutePath } from "./navRoutes";
+import { writeTabs } from "./navTabs";
 import { useUserSettings } from "../../contexts/UserSettingsContext";
-
-/** Exported so the landing page's preview chrome shows the same tabs, in the
- *  same order, without duplicating the list. */
-export const writeTabs = [
-  { to: "/canvas", label: "Canvas", icon: SquarePen },
-  { to: "/todos", label: "Todos", icon: CheckSquare },
-  { to: "/notes", label: "Notes", icon: FileText },
-  { to: "/bookmarks", label: "Bookmarks", icon: Bookmark },
-  { to: "/event", label: "Events", icon: CalendarDays },
-];
 
 // Tabs shown while in read mode (the /reader side of the app).
 const readerTabs = [
@@ -188,8 +180,31 @@ function FullBottomNav({ hidden = false, forceHidden = false, trailing }: { hidd
     containerRef: mobileTabRowRef,
     itemRefs: mobileTabRefs,
     layoutKey: isReaderRoute ? "read" : "write",
-    observeResize: false,
   });
+  const mobileTabsFade = useScrollEdgeFade(mobileTabRowRef, { size: "1.5rem", axis: "x" });
+  // While the tabs overflow, a sideways swipe on the pill scrolls it rather
+  // than switching page (a swipe on the page itself still switches).
+  const [mobileTabsOverflow, setMobileTabsOverflow] = useState(false);
+  useEffect(() => {
+    const row = mobileTabRowRef.current;
+    if (!row) return;
+    const check = () => setMobileTabsOverflow(row.scrollWidth > row.clientWidth + 1);
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [isReaderRoute]);
+  // Keep the active tab in view when the row scrolls. Scrolls the row only:
+  // scrollIntoView would also scroll the page while the nav is hidden below it.
+  useEffect(() => {
+    const row = mobileTabRowRef.current;
+    const tab = activeTab ? mobileTabRefs.current[activeTab] : null;
+    if (!mobileTabsOverflow || !row || !tab) return;
+    const left = tab.offsetLeft;
+    const right = left + tab.offsetWidth;
+    if (left < row.scrollLeft) row.scrollTo({ left, behavior: "smooth" });
+    else if (right > row.scrollLeft + row.clientWidth) row.scrollTo({ left: right - row.clientWidth, behavior: "smooth" });
+  }, [activeTab, mobileTabsOverflow]);
 
   const shouldHide = forceHidden || hidden;
 
@@ -368,19 +383,28 @@ function FullBottomNav({ hidden = false, forceHidden = false, trailing }: { hidd
 
           </div>
 
-          {/* Mobile: icon-only tabs hugging their content */}
-          <div data-testid="mobile-tab-row" className="flex h-full min-w-0 items-center justify-center md:hidden">
-            <div className="relative">
-              <SegmentedShell
+          {/* Mobile: icon-only tabs at full size. The pill fills the space
+              between "+" and the avatar and the tabs spread across it; on a
+              phone too narrow for all of them, the tabs scroll sideways inside
+              the pill (no scrollbar, a fade on the cut-off edge). The shell
+              stays put so its rounded ends never fade. */}
+          <div data-testid="mobile-tab-row" className="flex h-full min-w-0 flex-1 items-center md:hidden">
+            <SegmentedShell className="app-frost w-full p-2 shadow-nav">
+              <div
                 ref={mobileTabRowRef}
+                data-testid="mobile-tab-scroller"
                 data-omanote-page-swipe-zone="true"
-                onTouchStart={handlePageSwipeTouchStart}
-                onTouchMove={handlePageSwipeTouchMove}
-                onTouchEnd={handlePageSwipeTouchEnd}
-                onTouchCancel={handlePageSwipeTouchCancel}
-                onClickCapture={handlePageSwipeClickCapture}
-                style={{ touchAction: "none" }}
-                className="app-frost gap-1 p-2 shadow-nav"
+                {...(mobileTabsOverflow
+                  ? {}
+                  : {
+                      onTouchStart: handlePageSwipeTouchStart,
+                      onTouchMove: handlePageSwipeTouchMove,
+                      onTouchEnd: handlePageSwipeTouchEnd,
+                      onTouchCancel: handlePageSwipeTouchCancel,
+                      onClickCapture: handlePageSwipeClickCapture,
+                    })}
+                style={{ touchAction: mobileTabsOverflow ? "pan-x" : "none", ...mobileTabsFade }}
+                className="scrollbar-hide relative flex w-full min-w-0 items-center gap-1 overflow-x-auto overflow-y-hidden"
               >
                 {mobileHighlightStyle ? <SegmentedHighlight style={mobileHighlightStyle} /> : null}
                 {tabs.map(({ to, label, icon: Icon }) => (
@@ -395,14 +419,14 @@ function FullBottomNav({ hidden = false, forceHidden = false, trailing }: { hidd
                     className={segmentedItemClass({
                       active: to === activeTab,
                       className:
-                        "relative flex items-center justify-center px-3 py-2 text-app-ink-muted transition-[transform,color,opacity] duration-150 ease-out active:translate-y-px active:scale-[0.98]",
+                        "relative flex shrink-0 grow basis-auto items-center justify-center px-3 py-2 text-app-ink-muted transition-[transform,color,opacity] duration-150 ease-out active:translate-y-px active:scale-[0.98]",
                     })}
                   >
-                    <Icon className="relative z-10 h-4 w-4" />
+                    <Icon className="relative z-10 h-4 w-4 shrink-0" />
                   </NavLink>
                 ))}
-              </SegmentedShell>
-            </div>
+              </div>
+            </SegmentedShell>
           </div>
           {trailing ? <div className="flex shrink-0 items-center">{trailing}</div> : null}
           </div>

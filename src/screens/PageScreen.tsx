@@ -17,6 +17,7 @@ import { emptyPageDoc, pageDocStats, pageDocToHashtags, pageDocToPreview, pageDo
 import { usePageAutosave } from "../lib/use-page-autosave";
 import { usePageArtifactSync } from "../lib/use-page-artifact-sync";
 import { SeoHead } from "../seo/SeoHead";
+import { useScrollEdgeFade } from "../hooks/useScrollEdgeFade";
 import type { Editor } from "@tiptap/react";
 import { useAuth } from "@clerk/react";
 import { useEncryption } from "../contexts/EncryptionContext";
@@ -138,6 +139,8 @@ export function PageScreen() {
   // serialised only when saving. Still readable once the editor is destroyed,
   // which is when the unmount flush runs.
   const latestDocRef = useRef<ProseMirrorNode | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const edgeFade = useScrollEdgeFade(scrollRef);
   titleRef.current = title;
   iconRef.current = icon;
   colorRef.current = color;
@@ -423,53 +426,58 @@ export function PageScreen() {
           />
         ) : null}
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-[1024px] px-5 pb-32 pt-6">
-            {/* Icon on the left, actions on the right — both inside the same
-                1024px column as the content below, not the wider card. */}
-            <div className="mb-4 flex items-center justify-between gap-2">
-              <button
-                ref={iconButtonRef}
-                type="button"
-                aria-label="Change page icon"
-                onClick={() => setIconPickerOpen((open) => !open)}
-                className="flex h-10 w-10 items-center justify-center rounded-xl text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink"
-                style={iconPalette ? { backgroundColor: iconPalette.surface } : undefined}
-              >
-                <CategoryIconView icon={icon} size="md" color={color} />
-              </button>
-              <div className="flex items-center gap-2">
-                {serverPageId ? (
-                  <>
-                    <HeaderActionButton icon={ExternalLink} label="Open in new tab" href={pageUrl} />
-                    {/* Only shows up once there's an actual public link to hand out. */}
-                    {isShared ? (
-                      <HeaderActionButton
-                        icon={copied ? Check : Copy}
-                        label={copied ? "Copied" : "Copy share link"}
-                        onClick={copyLink}
-                      />
-                    ) : null}
+        {/* Icon on the left, actions on the right, in the same 1024px column
+            as the content. Outside the scroll area, so close and the page
+            actions stay in reach on a long page; the content fades out
+            beneath it (useScrollEdgeFade). pt-4 + py-2 keeps the icon 24px
+            from the card's top edge. */}
+        <div className="mx-auto w-full max-w-[1024px] shrink-0 px-5 pt-4">
+          <div data-testid="page-header-bar" className="flex items-center justify-between gap-2 py-2">
+            <button
+              ref={iconButtonRef}
+              type="button"
+              aria-label="Change page icon"
+              onClick={() => setIconPickerOpen((open) => !open)}
+              className="flex h-10 w-10 items-center justify-center rounded-xl text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink"
+              style={iconPalette ? { backgroundColor: iconPalette.surface } : undefined}
+            >
+              <CategoryIconView icon={icon} size="md" color={color} />
+            </button>
+            <div className="flex items-center gap-2">
+              {serverPageId ? (
+                <>
+                  <HeaderActionButton icon={ExternalLink} label="Open in new tab" href={pageUrl} />
+                  {/* Only shows up once there's an actual public link to hand out. */}
+                  {isShared ? (
                     <HeaderActionButton
-                      icon={Pin}
-                      label={page.pinned ? "Unpin" : "Pin"}
-                      onClick={togglePin}
-                      active={page.pinned}
+                      icon={copied ? Check : Copy}
+                      label={copied ? "Copied" : "Copy share link"}
+                      onClick={copyLink}
                     />
-                    <HeaderActionButton icon={Share2} label="Share" onClick={() => setShareOpen(true)} />
-                    <HeaderActionButton icon={Trash2} label="Delete" onClick={handleDelete} danger />
-                  </>
-                ) : null}
-                <button
-                  type="button"
-                  aria-label="Close page"
-                  onClick={close}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-full text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink active:scale-[0.98]"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
+                  ) : null}
+                  <HeaderActionButton
+                    icon={Pin}
+                    label={page.pinned ? "Unpin" : "Pin"}
+                    onClick={togglePin}
+                    active={page.pinned}
+                  />
+                  <HeaderActionButton icon={Share2} label="Share" onClick={() => setShareOpen(true)} />
+                  <HeaderActionButton icon={Trash2} label="Delete" onClick={handleDelete} danger />
+                </>
+              ) : null}
+              <button
+                type="button"
+                aria-label="Close page"
+                onClick={close}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full text-app-ink-muted transition hover:bg-app-surface-hover hover:text-app-ink active:scale-[0.98]"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
+          </div>
+        </div>
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto" style={edgeFade}>
+          <div className="mx-auto w-full max-w-[1024px] px-5 pb-32 pt-2">
             {iconPickerOpen ? (
               <BookmarkCategoryIconPicker
                 anchorRef={iconButtonRef}

@@ -9,7 +9,7 @@ import { color } from "../../../design-system/tokens";
 import { OnboardingFooter, OnboardingStepHeader } from "../OnboardingChrome";
 
 // Flat brand accents, not themed surfaces — see the brand block in tokens.ts.
-const CONNECTED_PILL_BG = color.brandCtaTint;
+const CONNECTED_PILL_BG = color.brandCtaTintThemed;
 const CONNECTED_DOT_BG = color.brandCta;
 
 const EXAMPLE_FEED_URL = "iambishistha.com";

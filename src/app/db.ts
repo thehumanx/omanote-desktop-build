@@ -23,6 +23,8 @@ interface RssItem {
 interface SyncCursor {
   table: string;
   cursor: number;
+  /** When this table last synced successfully (device clock). Not indexed. */
+  syncedAt?: number;
 }
 
 interface CachedLinkPreview {

@@ -6,6 +6,33 @@ All notable changes to omanote are documented here, organized by product.
 
 ## Versions
 
+### v0.34.2 [October 10, 2026]
+
+> Steadier offline, more private reminders, and smoother menus and sheets all round.
+
+- [Add] Reminder notifications have a Mark done button, so you can tick a todo off without opening the app
+- [Add] Tapping a folder tab on the canvas opens that folder right over the canvas, without leaving it
+- [Update] A reminder that arrives while omanote is closed just says a todo is due. Your todo stays encrypted, so the server never sees what it says
+- [Update] Deleted items are kept for 7 days, then removed from our servers for good. Undo still works right after you delete something
+- [Update] Menus, dialogs and drawers now animate out as well as in. The profile menu grows out of your avatar and fades back into it
+- [Update] In dark mode the omanote logo has a white wordmark
+- [Update] On a long page, the icon and page actions stay at the top while the text fades out beneath them
+- [Update] On phones, the tabs fill the whole bar. On narrow screens they scroll sideways at full size instead of getting squeezed
+- [Update] The app opens faster and syncs less: only what changed is fetched, and a tab in the background stops checking in
+- [Update] If the connection drops while your browser still thinks it's online, changes are saved to send later instead of waiting in memory. omanote warns you before closing with changes still unsent
+- [Fix] Reminders arrive at your local time. They used to fire hours off unless you lived on UTC
+- [Fix] Saving an article from the reader to bookmarks is encrypted and works offline
+- [Fix] Editing a note offline keeps its folder, tags and colour
+- [Fix] Deleting or restoring todos, notes and events while offline now reaches your other devices. Deleting a synced todo also removes its Google Calendar event
+- [Fix] Changes to things you created offline are sent once you're back online, instead of being dropped
+- [Fix] A folder you delete disappears from your other devices too
+- [Fix] Notifications show above open sheets instead of behind them
+- [Fix] Row buttons that appear on hover are always visible on touch screens
+- [Fix] Pressing Esc in the folder picker closes just the picker, not the whole composer
+- [Fix] The profile menu's storage bar is there as soon as it opens, and its total matches Settings
+- [Fix] The version in the profile menu reads v0.34.2 instead of vv0.34.2, and its row is readable in dark mode
+- [Fix] The landing page and the "Connected" badges in setup look right in dark mode
+
 ### v0.34.1 [October 4, 2026]
 
 > The big moments at a glance, a little scenery on the website, and a thorough tune-up: more private, better at syncing, and quicker on its feet.

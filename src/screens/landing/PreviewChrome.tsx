@@ -1,7 +1,7 @@
 import type React from "react";
 import { useRef } from "react";
 import { Plus, User } from "lucide-react";
-import { writeTabs } from "../../components/layout/BottomNav";
+import { writeTabs } from "../../components/layout/navTabs";
 import {
   SegmentedHighlight,
   SegmentedItemLabel,

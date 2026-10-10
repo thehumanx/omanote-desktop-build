@@ -14,7 +14,7 @@ import { PagePinButton } from "./PagePinButton";
 
 
 /** Hover/focus-only visibility — used for the row-1 actions that aren't the pin. */
-const HOVER_ONLY = "opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100";
+const HOVER_ONLY = "opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100";
 
 /**
  * A canvas as it appears in a feed — modelled on BookmarkCard's

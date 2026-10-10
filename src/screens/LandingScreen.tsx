@@ -14,6 +14,7 @@ import { ProductTour } from "./landing/ProductTour";
 import { ChromeLogo, FirefoxLogo } from "./landing/browser-logos";
 import { ExtensionCaptureDemo } from "./landing/ExtensionCaptureDemo";
 import { FAQ_ITEMS } from "./landing-data";
+import { BrandLogo } from "../components/BrandLogo";
 
 const CTA_BG = color.brandCta;
 const CTA_BORDER = color.brandCtaHover;
@@ -208,7 +209,7 @@ export function LandingScreen() {
         title="omanote | A canvas for your thoughts"
         description="omanote is a canvas for your thoughts: one page for each day, where notes, todos, bookmarks and events land in the order they happened."
       />
-      <div className="public-page isolate min-h-screen flex flex-col bg-app-surface text-app-ink">
+      <div className="public-page public-page-adaptive isolate min-h-screen flex flex-col bg-app-surface text-app-ink">
       {/* Nav. A floating pill over the hero panel rather than a bar: the
           wrapper is zero-height so the tour's panel starts at the very top of
           the page and the pill sits inside it. Not sticky — it scrolls away
@@ -229,7 +230,7 @@ export function LandingScreen() {
               tourActive ? "pointer-events-none" : "pointer-events-auto"
             }`}
           >
-            <img src="/logo.svg" alt="omanote home" className="h-6 w-auto" />
+            <BrandLogo alt="omanote home" className="h-6 w-auto" />
             <div className="flex items-center gap-4 sm:gap-6">
               <DownloadNavDropdown />
               <a
@@ -352,7 +353,7 @@ export function LandingScreen() {
             of the page still owes a visitor is a way in without scrolling back
             up, so this is just that — an exit ramp, one size on every
             breakpoint. */}
-        <section>
+        <section className="px-4 sm:px-6">
           <Reveal>
           {/* A faint grey wash: reads as a card on the plain page, and lets the footer's background scene glow through. */}
           <div className="max-w-[1136px] mx-auto px-4 sm:px-6 py-10 sm:py-14 text-center rounded-3xl my-8 sm:my-12 bg-app-ink-faint/10">

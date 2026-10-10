@@ -76,8 +76,14 @@ export const color = {
   brandCtaInk: "#ffffff",
   /** Hairline border on the inverted CTA. */
   brandCtaHairline: "rgba(0,0,0,0.08)",
-  /** Onboarding "connected" pill background. */
+  /** Pale brand tint for light surfaces. On a dark surface it glares: use brandCtaTintThemed. */
   brandCtaTint: "#EEF4E4",
+  /**
+   * brandCtaTint that follows the theme: in dark, the brand green mixed low
+   * into the surface. `light-dark()` reads `color-scheme`, which `.dark` sets
+   * and `.public-page` pins to light, so it is right on public pages too.
+   */
+  brandCtaTintThemed: "light-dark(#EEF4E4, color-mix(in srgb, #578910 22%, rgb(var(--color-surface))))",
   /** Landing closing-CTA section background. */
   brandCtaWash: "#F7FCF1",
 } as const;

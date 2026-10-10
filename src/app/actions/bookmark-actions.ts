@@ -1,3 +1,4 @@
+import { isEffectivelyOffline } from "../connectivity";
 import { useCallback } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -93,7 +94,7 @@ export function useBookmarkActions({
           // Offline goes straight to the queue: a pending Convex mutation lives
           // in memory only, so a reload before reconnecting would lose the
           // delete while the row stayed hidden locally.
-          if (!navigator.onLine) {
+          if (isEffectivelyOffline()) {
             await enqueueCanvasMutation("bookmark/delete", { bookmarkId: action.bookmarkId });
             return;
           }
@@ -119,7 +120,7 @@ export function useBookmarkActions({
       }
       case "bookmark/restore":
         localDispatch({ type: "bookmark/clear-deleting", bookmarkIds: [action.bookmarkId] });
-        if (!navigator.onLine) {
+        if (isEffectivelyOffline()) {
           void enqueueCanvasMutation("bookmark/restore", { bookmarkId: action.bookmarkId });
           return true;
         }

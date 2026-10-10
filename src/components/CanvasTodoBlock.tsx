@@ -219,7 +219,7 @@ function CanvasTodoBlockComponent({
         </div>
       </div>
 
-      <div className="absolute right-1 top-1 flex items-center gap-1 opacity-0 transition group-hover:opacity-100 rounded-full group-hover:bg-app-surface group-focus-within:opacity-100">
+      <div className="absolute right-1 top-1 flex items-center gap-1 opacity-0 transition group-hover:opacity-100 rounded-full group-hover:bg-app-surface group-focus-within:opacity-100 [@media(hover:none)]:opacity-100">
         {onReschedule ? (
           <RescheduleMenu
             triggerLabel="Reschedule todo"

@@ -1,4 +1,5 @@
 import type { DateKey, RecurrenceRule } from "@omanote/shared";
+import { isEffectivelyOffline } from "./connectivity";
 import { prefixedRandomId } from "@omanote/shared";
 import { ConvexError } from "convex/values";
 import { removeCanvasDrafts } from "./canvas-drafts";
@@ -8,12 +9,17 @@ import type { FolderScope } from "./types";
 
 const STORAGE_KEY = "omanote.canvas-outbox";
 
+// Every field the online call sends must be here too: replay calls the same
+// mutation with only what was queued, and the server reads a missing folder
+// as "no folder" and missing hashtags as "none".
 type NoteCreatePayload = {
   clientKey?: string;
   body: string;
   dateKey: string;
   title?: string;
   tags?: string[];
+  hashtags?: string[];
+  folderId?: string;
   folderName?: string;
   draftKey?: string;
 };
@@ -23,6 +29,8 @@ type NoteUpdatePayload = {
   body: string;
   title?: string;
   tags: string[];
+  hashtags?: string[];
+  folderId?: string;
   folderName?: string;
   draftKey?: string;
 };
@@ -43,6 +51,7 @@ type PageCreatePayload = {
   preview: string;
   title?: string;
   icon?: string;
+  color?: string;
   hashtags?: string[];
   dateKey: string;
 };
@@ -370,8 +379,64 @@ type OutboxItem<K extends CanvasKind = CanvasKind> = {
 
 /** How each queued kind is sent: one handler per kind, given its payload. */
 export type CanvasOutboxHandlers = Partial<{
-  [K in CanvasKind]: (payload: CanvasPayloadMap[K]) => Promise<void>;
+  // A create handler returns the server's id for the new row (see
+  // resolveTargetIds); every other handler's result is ignored.
+  [K in CanvasKind]: (payload: CanvasPayloadMap[K]) => Promise<unknown>;
 }>;
+
+// ---------------------------------------------------------------------------
+// Items created offline
+// ---------------------------------------------------------------------------
+//
+// Until its create reaches the server, an item's id is its clientKey
+// ("todo-1f2e…"). A tick, edit or delete made in that window is queued against
+// the clientKey, and the server's `v.id(...)` validator rejects it — that used
+// to burn five retries and drop the write, so the todo came back open and the
+// edit vanished. At flush time each such id is swapped for the server's:
+// from a create sent earlier in the same flush, else from the synced row in
+// Dexie. Convex ids never contain "-"; clientKeys always do.
+
+const TARGET_ID_TABLES = {
+  todoId: "todos",
+  noteId: "notes",
+  eventId: "events",
+  bookmarkId: "bookmarks",
+  pageId: "pages",
+} as const;
+
+type TargetIdField = keyof typeof TARGET_ID_TABLES;
+
+function isClientKey(id: unknown): id is string {
+  return typeof id === "string" && id.includes("-") && !id.includes("::");
+}
+
+async function lookUpSyncedId(field: TargetIdField, clientKey: string): Promise<string | undefined> {
+  const table = db[TARGET_ID_TABLES[field]] as unknown as {
+    filter(fn: (row: { clientKey?: string }) => boolean): { first(): Promise<{ _id: string } | undefined> };
+  };
+  const row = await table.filter((row) => row.clientKey === clientKey).first();
+  return row?._id;
+}
+
+/**
+ * The payload with every clientKey target swapped for the server's id, or
+ * `null` when one can't be resolved yet (its create hasn't been delivered).
+ */
+async function resolveTargetIds(
+  payload: unknown,
+  createdIds: ReadonlyMap<string, string>,
+): Promise<unknown | null> {
+  if (!payload || typeof payload !== "object") return payload;
+  let resolved: Record<string, unknown> | null = null;
+  for (const field of Object.keys(TARGET_ID_TABLES) as TargetIdField[]) {
+    const value = (payload as Record<string, unknown>)[field];
+    if (!isClientKey(value)) continue;
+    const serverId = createdIds.get(value) ?? (await lookUpSyncedId(field, value));
+    if (!serverId) return null;
+    resolved = { ...(resolved ?? (payload as Record<string, unknown>)), [field]: serverId };
+  }
+  return resolved ?? payload;
+}
 
 function newId() {
   return prefixedRandomId("outbox");
@@ -623,9 +688,9 @@ export function isStorageLimitError(err: unknown): boolean {
   );
 }
 
-/** Whether the browser knows it currently has no network at all. */
+/** No network, or a Convex socket known to be down. See connectivity.ts. */
 function isBrowserOffline(): boolean {
-  return typeof navigator !== "undefined" && !navigator.onLine;
+  return isEffectivelyOffline();
 }
 
 /**
@@ -636,7 +701,7 @@ function isBrowserOffline(): boolean {
  *
  * - **Offline.** Checked up front via `navigator.onLine`, because a Convex
  *   mutation issued with no connection does not reject — it pends in the
- *   client's in-memory queue until reconnect (see AGENTS.md, "Offline writes").
+ *   client's in-memory queue until reconnect (see src/app/AGENTS.md, "Offline writes").
  *   So `operation` would simply never settle, the `catch` below would never
  *   run, and the write would exist nowhere durable: a reload before reconnecting
  *   drops it silently. Queue it and leave the optimistic UI in place, because
@@ -683,7 +748,7 @@ export async function runWithCanvasOutboxFallback<K extends CanvasKind>(
 const MAX_ATTEMPTS = 5;
 const MAX_ITEM_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-let flushInFlight: Promise<void> | null = null;
+let flushInFlight: Promise<number> | null = null;
 
 /**
  * Sends every queued write. Skipped while offline, and coalesced while a flush
@@ -697,8 +762,8 @@ let flushInFlight: Promise<void> | null = null;
  * on reconnect. Handlers are idempotent server-side, but every copy still
  * spent a write rate-limit token.
  */
-export function flushCanvasOutbox(handlers: CanvasOutboxHandlers): Promise<void> {
-  if (typeof navigator !== "undefined" && navigator.onLine === false) return Promise.resolve();
+export function flushCanvasOutbox(handlers: CanvasOutboxHandlers): Promise<number> {
+  if (isEffectivelyOffline()) return Promise.resolve(0);
   if (flushInFlight) return flushInFlight;
   flushInFlight = flushCanvasOutboxOnce(handlers).finally(() => {
     flushInFlight = null;
@@ -706,38 +771,51 @@ export function flushCanvasOutbox(handlers: CanvasOutboxHandlers): Promise<void>
   return flushInFlight;
 }
 
-async function flushCanvasOutboxOnce(handlers: CanvasOutboxHandlers) {
+/** Sends what it can; resolves to how many queued writes reached the server. */
+async function flushCanvasOutboxOnce(handlers: CanvasOutboxHandlers): Promise<number> {
   await migrateLegacyOutbox();
 
   const items = await readOutbox();
-  if (!items.length) return;
+  if (!items.length) return 0;
 
   const removedIds = new Set<string>();
   const attemptBumps = new Map<string, number>();
   const nextAttemptUpdates = new Map<string, number | undefined>();
   const now = Date.now();
 
-  for (const item of items) {
-    if (now - item.createdAt > MAX_ITEM_AGE_MS) {
-      removedIds.add(item.id);
-      observer?.onDiscarded({ kind: item.kind, reason: "expired" });
-      continue;
-    }
-    if (item.nextAttemptAt && item.nextAttemptAt > now) {
-      continue; // Still waiting out a rate-limit backoff.
-    }
+  let sent = 0;
+  // clientKey → server id for creates sent in this flush.
+  const createdIds = new Map<string, string>();
+  // A write to an item whose create is later in the queue (the create encrypts
+  // before it's queued, so a quick tick can land first) waits for one more
+  // pass, after that create has gone.
+  const deferred: OutboxItem[] = [];
+
+  const send = async (item: OutboxItem, isRetryPass: boolean) => {
     const handler = handlers[item.kind];
-    if (!handler) continue;
+    if (!handler) return;
+    const payload = await resolveTargetIds(item.payload, createdIds);
+    if (payload === null) {
+      // Not a failure: the create it depends on hasn't reached the server.
+      // Leave it queued without spending an attempt.
+      if (!isRetryPass) deferred.push(item);
+      return;
+    }
     try {
-      await handler(item.payload as never);
+      const result = await handler(payload as never);
       removedIds.add(item.id);
+      sent += 1;
+      const clientKey = (item.payload as { clientKey?: unknown } | null)?.clientKey;
+      if (item.kind.endsWith("/create") && typeof clientKey === "string" && typeof result === "string") {
+        createdIds.set(clientKey, result);
+      }
     } catch (err) {
       // A rejection that can never succeed shouldn't spend four more attempts
       // before being dropped — fail it now, and say so.
       if (isPermanentFailure(err)) {
         removedIds.add(item.id);
         observer?.onDiscarded({ kind: item.kind, reason: "rejected", error: err });
-        continue;
+        return;
       }
       const next = (item.attempts ?? 0) + 1;
       if (next >= MAX_ATTEMPTS) {
@@ -749,9 +827,22 @@ async function flushCanvasOutboxOnce(handlers: CanvasOutboxHandlers) {
         if (retryAfterMs > 0) nextAttemptUpdates.set(item.id, now + retryAfterMs);
       }
     }
-  }
+  };
 
-  if (removedIds.size === 0 && attemptBumps.size === 0 && nextAttemptUpdates.size === 0) return;
+  for (const item of items) {
+    if (now - item.createdAt > MAX_ITEM_AGE_MS) {
+      removedIds.add(item.id);
+      observer?.onDiscarded({ kind: item.kind, reason: "expired" });
+      continue;
+    }
+    if (item.nextAttemptAt && item.nextAttemptAt > now) {
+      continue; // Still waiting out a rate-limit backoff.
+    }
+    await send(item, false);
+  }
+  for (const item of deferred) await send(item, true);
+
+  if (removedIds.size === 0 && attemptBumps.size === 0 && nextAttemptUpdates.size === 0) return 0;
 
   // Row-level writes, where localStorage forced a rewrite of the entire queue
   // on every flush. Beyond being cheaper, it means a failure here can only
@@ -785,6 +876,7 @@ async function flushCanvasOutboxOnce(handlers: CanvasOutboxHandlers) {
     const stuck = items.find((item) => removedIds.has(item.id)) ?? items[0];
     observer?.onPersistFailed({ kind: stuck.kind });
   }
+  return sent;
 }
 
 export function clearCanvasDraftForKey(draftKey?: string) {

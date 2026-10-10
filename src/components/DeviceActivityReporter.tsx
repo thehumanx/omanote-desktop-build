@@ -45,11 +45,14 @@ export function DeviceActivityReporter() {
   useEffect(() => {
     let cancelled = false;
     let interval: number | undefined;
+    let onVisible: (() => void) | undefined;
 
     void getDesktopAppVersion().then((appVersion) => {
       if (cancelled) return;
       const payload = appVersion ? { ...device, appVersion } : device;
       const report = () => {
+        // A hidden tab has nothing to report; it reports when shown again.
+        if (document.visibilityState === "hidden") return;
         touchDevice(payload)
           .then((result) => {
             if (!cancelled && result?.wasRevoked) {
@@ -64,11 +67,16 @@ export function DeviceActivityReporter() {
 
       report();
       interval = window.setInterval(report, DEVICE_TOUCH_INTERVAL_MS);
+      onVisible = () => {
+        if (document.visibilityState === "visible") report();
+      };
+      document.addEventListener("visibilitychange", onVisible);
     });
 
     return () => {
       cancelled = true;
       if (interval !== undefined) window.clearInterval(interval);
+      if (onVisible) document.removeEventListener("visibilitychange", onVisible);
     };
   }, [device, touchDevice, lock, signOut]);
 

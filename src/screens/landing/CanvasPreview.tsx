@@ -22,7 +22,7 @@ import {
 } from "./canvas-preview-data";
 import { PreviewChrome } from "./PreviewChrome";
 import { useRoadmapPreviewTodos } from "./use-roadmap-preview";
-import type { CanvasArtifactItem } from "../../app/reducer";
+import type { CanvasArtifactItem } from "../../app/canvas-day-items";
 
 const noop = () => {};
 

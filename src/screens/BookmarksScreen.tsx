@@ -40,6 +40,7 @@ import {
   type LinkedArtifactReference,
 } from "../lib/linked-artifact-bookmarks";
 import { useIsDesktop, usePersistedEnum, usePersistedFolderSort, usePersistedFolderViewMode } from "../hooks/useFolderNavigation";
+import { useOpenOnMount, type FolderSheetOverlay } from "../components/folder-gallery/folder-sheet-overlay";
 
 type BookmarkSortDirection = "asc" | "desc";
 /** Module scope so it stays referentially stable across renders — VirtualList memoises its key map on it. */
@@ -99,7 +100,20 @@ function bookmarkCategoryName(bookmark: BookmarkItem, categoryNameById: Map<stri
   return categoryNameById.get(bookmark.categoryId) ?? "Saved";
 }
 
-export function BookmarksScreen() {
+/**
+ * The row id this screen selects for a bookmark's raw `categoryId`: every
+ * "Saved" category (and every GCal one) collapses into a single row, keyed
+ * by the first such category's id.
+ */
+function categoryRowId(categoryId: string, categories: ReadonlyArray<{ id: string; name: string }>) {
+  const category = categories.find((candidate) => candidate.id === categoryId);
+  if (!category) return categoryId;
+  const sameRow = isSavedCategoryName(category.name) ? isSavedCategoryName : isGcalCategoryName(category.name) ? isGcalCategoryName : null;
+  return sameRow ? categories.find((candidate) => sameRow(candidate.name))?.id ?? categoryId : categoryId;
+}
+
+/** `overlay`: only this category's sheet, over another route — see TodosScreen. */
+export function BookmarksScreen({ overlay }: { overlay?: FolderSheetOverlay } = {}) {
   const { state, dispatch, googleImportedTodoIds, isCanvasContentLoading } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
@@ -126,7 +140,9 @@ export function BookmarksScreen() {
   // gets its own handle and a jump is issued to both.
   const bookmarksListRefDesktop = useRef<VirtualListHandle>(null);
   const bookmarksListRefMobile = useRef<VirtualListHandle>(null);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(() => readLastSelectedBookmarkCategory() || null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(() =>
+    overlay ? categoryRowId(overlay.folderKey, state.bookmarkCategories) : readLastSelectedBookmarkCategory() || null,
+  );
   const [mobileBookmarksOpen, setMobileBookmarksOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryError, setNewCategoryError] = useState<string | null>(null);
@@ -473,7 +489,7 @@ export function BookmarksScreen() {
   const galleryMode = categoryViewMode === "gallery";
   const galleryValidKeys = useMemo(() => new Set(categoryRows.map((row) => row.id)), [categoryRows]);
   const galleryFolderParam = useGalleryFolderParam({
-    enabled: galleryMode && isDesktop,
+    enabled: galleryMode && isDesktop && !overlay,
     validKeys: galleryValidKeys,
     ready: !isCanvasContentLoading,
   });
@@ -483,9 +499,11 @@ export function BookmarksScreen() {
   // full-screen drawer on phones (local state).
   const showGalleryOverview = galleryMode;
   const showDesktopOverview = galleryMode && isDesktop;
-  const desktopFolderSheet = galleryMode && isDesktop;
-  const folderSheetOpen = desktopFolderSheet ? Boolean(galleryOpenCategoryId) : mobileBookmarksOpen;
-  const closeFolderSheet = desktopFolderSheet ? galleryFolderParam.closeFolder : () => setMobileBookmarksOpen(false);
+  // As an overlay: the sheet whatever the view mode, on local state (TodosScreen).
+  const desktopFolderSheet = overlay ? isDesktop : galleryMode && isDesktop;
+  const folderSheetOpen = desktopFolderSheet && !overlay ? Boolean(galleryOpenCategoryId) : mobileBookmarksOpen;
+  const closeFolderSheet = desktopFolderSheet && !overlay ? galleryFolderParam.closeFolder : () => setMobileBookmarksOpen(false);
+  useOpenOnMount(Boolean(overlay), () => setMobileBookmarksOpen(true));
 
   useEffect(() => {
     if (!galleryOpenCategoryId || galleryOpenCategoryId === selectedCategoryId) return;
@@ -539,9 +557,9 @@ export function BookmarksScreen() {
   }, [creatingCategory, renamingCategoryId, drawerRenaming]);
 
   useEffect(() => {
-    if (!selectedCategoryId) return;
+    if (!selectedCategoryId || overlay) return;
     writeLastSelectedBookmarkCategory(selectedCategoryId);
-  }, [selectedCategoryId]);
+  }, [overlay, selectedCategoryId]);
 
   useEffect(() => {
     const pendingName = pendingCategorySelectRef.current;
@@ -821,6 +839,7 @@ export function BookmarksScreen() {
         />
       ) : (
         <EmptyState
+          pending={isCanvasContentLoading}
           className="h-full"
           title={selectedCategoryId === null ? "No bookmarks yet" : `No bookmarks in ${selectedCategoryLabel}`}
           description={
@@ -933,16 +952,18 @@ export function BookmarksScreen() {
       <ExpandableSearch value={bookmarkSearch} onChange={setBookmarkSearch} placeholder="Search in Bookmarks" />
       {folderToolbar}
     </div>,
+    !overlay,
   );
 
   return (
     <div
-      className="fixed left-0 right-0 z-0 flex min-h-0 flex-1 flex-col overflow-hidden"
+      className={overlay ? "contents" : "fixed left-0 right-0 z-0 flex min-h-0 flex-1 flex-col overflow-hidden"}
       style={{
         top: "var(--omanote-top-chrome-height, 0px)",
         bottom: "0px",
       }}
     >
+      {overlay ? null : (
       <div
         className={cn(
           "relative grid h-full min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden",
@@ -1182,11 +1203,13 @@ export function BookmarksScreen() {
           {showDesktopOverview ? null : renderBookmarksPanel(false)}
         </section>
       </div>
+      )}
 
       <ModalPortal>
         <FolderSheet
           open={folderSheetOpen}
           onClose={closeFolderSheet}
+          onClosed={overlay?.onClosed}
           desktop={desktopFolderSheet}
           label={selectedCategoryLabel}
           dragOffset={dragOffset}

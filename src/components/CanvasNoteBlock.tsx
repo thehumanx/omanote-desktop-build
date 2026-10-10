@@ -1,10 +1,10 @@
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Suspense, memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent, TouchEvent } from "react";
 import { Trash2, WifiOff } from "lucide-react";
 import type { NoteItem } from "@omanote/shared";
 import type { AppAction } from "../app/types";
 import { useCanvasDraftValue } from "../app/useCanvasDraftValue";
-import { NoteCanvasEditor } from "./NoteCanvasEditor";
+import { lazyWithReload } from "../lib/lazy-with-reload";
 import { RichTextPreview } from "./rich-text";
 import { useOutsideClick } from "../lib/useOutsideClick";
 import { useIsMobileViewport } from "../lib/mobile";
@@ -14,6 +14,16 @@ import { AttachmentLinkPreview } from "./AttachmentLinkPreview";
 import { captureScrollSnapshot, restoreScrollForNextFrames } from "../lib/preserve-focus-scroll";
 import { resolveRichTextSourceOffsetFromPoint } from "../lib/rich-text-caret";
 import { normalizeLegacyNoteBodyForTiptap } from "../lib/note-body-migration";
+
+// Lazy: the editor pulls in TipTap + ProseMirror (~170 KB gzipped). A static
+// import put it on the first paint of every screen that shows notes — the
+// canvas, history, explore and the landing page's preview — though it's only
+// needed once a note is opened for editing. AppShell's ComposerSheet loads the
+// same chunk straight after the shell paints, so in the app it's ready by the
+// time anyone taps a note.
+const NoteCanvasEditor = lazyWithReload(() =>
+  import("./NoteCanvasEditor").then((module) => ({ default: module.NoteCanvasEditor })),
+);
 
 type CanvasNoteBlockProps = {
   note: NoteItem;
@@ -230,16 +240,18 @@ function CanvasNoteBlockComponent({ note, pendingSync, dispatch, onEditingChange
       {editingInline ? null : preview}
       {isEditing ? (
         <MobileEditDrawer onClose={commit} onCancel={cancelEdit} onSave={commit} canSave={Boolean(body.trim())}>
-          <NoteCanvasEditor
-            body={body}
-            autoFocus
-            initialSelectionStart={initialSelectionStart}
-            onBodyChange={setBody}
-            onCommit={commit}
-            onCancel={cancelEdit}
-            hideFolderPicker
-            hideMobileActions={isMobile}
-          />
+          <Suspense fallback={editingInline ? preview : null}>
+            <NoteCanvasEditor
+              body={body}
+              autoFocus
+              initialSelectionStart={initialSelectionStart}
+              onBodyChange={setBody}
+              onCommit={commit}
+              onCancel={cancelEdit}
+              hideFolderPicker
+              hideMobileActions={isMobile}
+            />
+          </Suspense>
         </MobileEditDrawer>
       ) : null}
       {!isEditing ? (
@@ -250,7 +262,7 @@ function CanvasNoteBlockComponent({ note, pendingSync, dispatch, onEditingChange
             dispatch({ type: "note/delete", noteId: note.id });
             clearDraft();
           }}
-          className="absolute right-1 top-1 rounded-full p-1 text-app-line-strong opacity-0 transition group-hover:bg-app-surface group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-app-surface-hover hover:text-danger-ink"
+          className="absolute right-1 top-1 rounded-full p-1 text-app-line-strong opacity-0 transition group-hover:bg-app-surface group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 hover:bg-app-surface-hover hover:text-danger-ink"
         >
           <Trash2 className="h-4 w-4" />
         </button>

@@ -92,7 +92,7 @@ export function useNoteActions({
           const encFolderName = folderName ? await encrypt(folderName) : undefined;
           await runWithCanvasOutboxFallback(
             "note/create",
-            { clientKey, body: encBody, dateKey: action.dateKey, title: encTitle, tags: encTags, folderName: encFolderName },
+            { clientKey, body: encBody, dateKey: action.dateKey, title: encTitle, tags: encTags, hashtags: action.hashtags, folderId: action.folderId, folderName: encFolderName },
             async () => {
               const noteId = (await createNote({ clientKey, body: encBody, title: encTitle, tags: encTags, hashtags: action.hashtags, folderId: action.folderId as any, folderName: encFolderName, dateKey: action.dateKey, source: "web" })) as string;
               localDispatch({ type: "note/confirm-optimistic", clientKey });
@@ -116,7 +116,7 @@ export function useNoteActions({
           const encFolderName = action.folderName ? await encrypt(action.folderName) : undefined;
           await runWithCanvasOutboxFallback(
             "note/update",
-            { noteId: action.noteId, body: encBody, title: encTitle, tags: encTags, folderName: encFolderName },
+            { noteId: action.noteId, body: encBody, title: encTitle, tags: encTags, hashtags: action.hashtags, folderId: action.folderId, folderName: encFolderName },
             async () => {
               await updateNote({ noteId: action.noteId as any, body: encBody, title: encTitle, tags: encTags, hashtags: action.hashtags, folderId: action.folderId as any, folderName: encFolderName });
               scheduleSync(["notes", "noteFolders"]);
@@ -187,9 +187,9 @@ export function useNoteActions({
           const encTitle = action.title ? await encrypt(action.title) : undefined;
           await runWithCanvasOutboxFallback(
             "page/create",
-            { clientKey, docJson: encDoc, preview: encPreview, title: encTitle, icon: action.icon, hashtags: action.hashtags, dateKey: action.dateKey },
+            { clientKey, docJson: encDoc, preview: encPreview, title: encTitle, icon: action.icon, color: action.color, hashtags: action.hashtags, dateKey: action.dateKey },
             async () => {
-              const doc = await createPage({ clientKey, docJson: encDoc, preview: encPreview, title: encTitle, icon: action.icon, hashtags: action.hashtags, dateKey: action.dateKey });
+              const doc = await createPage({ clientKey, docJson: encDoc, preview: encPreview, title: encTitle, icon: action.icon, color: action.color, hashtags: action.hashtags, dateKey: action.dateKey });
               if (doc) await persistSyncedPageLocally(doc);
               else scheduleSync(["pages"]);
             },
@@ -235,7 +235,7 @@ export function useNoteActions({
           const encPreview = await encrypt(action.preview);
           const encTitle = action.title ? await encrypt(action.title) : undefined;
           if (pending) {
-            await enqueueCanvasMutation("page/create", { clientKey: pending.clientKey!, docJson: encDoc, preview: encPreview, title: encTitle, icon: action.icon, hashtags: action.hashtags, dateKey: pending.createdDateKey });
+            await enqueueCanvasMutation("page/create", { clientKey: pending.clientKey!, docJson: encDoc, preview: encPreview, title: encTitle, icon: action.icon, color: action.color, hashtags: action.hashtags, dateKey: pending.createdDateKey });
             // Otherwise this sits in the outbox until the next full app load
             // or an online/offline toggle — neither of which happens during
             // a normal, continuously-online editing session, so the edit

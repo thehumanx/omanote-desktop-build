@@ -3,7 +3,6 @@ import { useMutation } from "convex/react";
 import { BookmarkCheck, BookmarkPlus, Check, ChevronLeft, ChevronRight, ExternalLink, X } from "lucide-react";
 import { toDateKey } from "@omanote/shared";
 import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
 import { useApp } from "../../app/AppProvider";
 import { db } from "../../app/db";
 import { runWithCanvasOutboxFallback } from "../../app/canvas-outbox";
@@ -26,18 +25,15 @@ export function ArticleSheet({
   items: ReaderItem[];
   onNavigate: (item: ReaderItem) => void;
 }) {
-  const { state, scheduleSync } = useApp();
+  const { state, dispatch, scheduleSync } = useApp();
   const toggleSaved = useMutation(api.rss.toggleSaved);
   const markRead = useMutation(api.rss.markRead);
-  const createBookmark = useMutation(api.bookmarks.createBookmark);
-  const createBookmarkCategory = useMutation(api.bookmarks.createBookmarkCategory);
   const [saved, setSaved] = useState(Boolean(item.savedAt));
   const [bookmarked, setBookmarked] = useState(false);
   const [bookmarkPanelOpen, setBookmarkPanelOpen] = useState(false);
   const [bookmarkCategoryName, setBookmarkCategoryName] = useState("");
   const [bookmarkCategoryMenuOpen, setBookmarkCategoryMenuOpen] = useState(false);
   const [bookmarkCategoryActiveIndex, setBookmarkCategoryActiveIndex] = useState(0);
-  const [bookmarkSaving, setBookmarkSaving] = useState(false);
   const bookmarkCategoryMenuRef = useRef<HTMLDivElement | null>(null);
 
   const currentIndex = items.findIndex((i) => i._id === item._id);
@@ -71,7 +67,6 @@ export function ArticleSheet({
     setBookmarkPanelOpen(false);
     setBookmarkCategoryName("");
     setBookmarkCategoryMenuOpen(false);
-    setBookmarkSaving(false);
   }, [item._id]);
 
   const bookmarkCategories = state.bookmarkCategories;
@@ -111,34 +106,24 @@ export function ArticleSheet({
   const html = prepared?.html ?? null;
   const hiddenImages = prepared?.hiddenImages ?? 0;
 
-  const confirmSaveToBookmarks = async () => {
-    if (bookmarked || bookmarkSaving || !item.url) return;
-    setBookmarkSaving(true);
-    try {
-      let categoryId: Id<"bookmarkCategories"> | undefined;
-      const trimmedCategory = bookmarkCategoryName.trim();
-      if (trimmedCategory) {
-        const existing = bookmarkCategories.find((c) => c.name.toLowerCase() === trimmedCategory.toLowerCase());
-        categoryId = existing
-          ? (existing.id as Id<"bookmarkCategories">)
-          : await createBookmarkCategory({ name: trimmedCategory });
-      }
-      await createBookmark({
-        url: item.url,
-        title: item.title,
-        siteName: item.feedTitle,
-        description: item.summary,
-        thumbnailUrl: item.thumbnailUrl,
-        faviconUrl: item.faviconUrl,
-        createdDateKey: toDateKey(new Date()),
-        source: "web",
-        categoryId,
-      });
-      setBookmarked(true);
-      setBookmarkPanelOpen(false);
-    } catch {
-      setBookmarkSaving(false);
-    }
+  // Through `dispatch`, never the Convex mutation directly: dispatch encrypts
+  // every field before it leaves the device and queues the write while
+  // offline. An existing folder is matched by name there too.
+  const confirmSaveToBookmarks = () => {
+    if (bookmarked || !item.url) return;
+    dispatch({
+      type: "bookmark/create",
+      url: item.url,
+      title: item.title,
+      siteName: item.feedTitle,
+      description: item.summary,
+      thumbnailUrl: item.thumbnailUrl,
+      faviconUrl: item.faviconUrl,
+      dateKey: toDateKey(new Date()),
+      categoryName: bookmarkCategoryName.trim() || undefined,
+    });
+    setBookmarked(true);
+    setBookmarkPanelOpen(false);
   };
 
   const selectBmCategory = (name: string) => {
@@ -336,8 +321,8 @@ export function ArticleSheet({
                     </div>
                   ) : null}
                 </div>
-                <Button onClick={() => void confirmSaveToBookmarks()} disabled={bookmarkSaving}>
-                  <span className="text-[13px]">{bookmarkSaving ? "Saving…" : "Save"}</span>
+                <Button onClick={confirmSaveToBookmarks}>
+                  <span className="text-[13px]">Save</span>
                 </Button>
                 <button
                   type="button"

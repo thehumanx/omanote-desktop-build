@@ -1,3 +1,4 @@
+import { sweepDisplayOnlyDrafts } from "../app/canvas-drafts";
 import React, { useEffect, useState } from "react";
 import { closeSealedStorage, openSealedStorage } from "../lib/sealed-storage";
 import { useEncryption } from "../contexts/EncryptionContext";
@@ -219,9 +220,11 @@ function useSealedStorageReady(isUnlocked: boolean): boolean {
       return;
     }
     let cancelled = false;
-    void openSealedStorage({ encrypt, decrypt }).finally(() => {
-      if (!cancelled) setReady(true);
-    });
+    void openSealedStorage({ encrypt, decrypt })
+      .then(() => sweepDisplayOnlyDrafts())
+      .finally(() => {
+        if (!cancelled) setReady(true);
+      });
     return () => {
       cancelled = true;
     };

@@ -230,7 +230,7 @@ export const NoteCard = memo(function NoteCard({
           <AttachmentLinkPreview textValues={[normalizedBody]} className="mt-2" />
         </div>
         {onEdit || onDelete || onRestore ? (
-          <div className="absolute right-1 top-1 flex items-center gap-1 rounded-full opacity-0 transition group-hover:bg-app-surface group-hover:opacity-100 group-focus-within:opacity-100">
+          <div className="absolute right-1 top-1 flex items-center gap-1 rounded-full opacity-0 transition group-hover:bg-app-surface group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100">
             {onDelete ? (
               <button
                 type="button"
@@ -577,7 +577,7 @@ export const BookmarkCard = memo(function BookmarkCard({
             </a>
           </div>
           {bookmark.url ? (
-            <div className="absolute right-4 top-4 z-app-overlay flex items-center gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
+            <div className="absolute right-4 top-4 z-app-overlay flex items-center gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100">
               <button
                 type="button"
                 aria-label={copyState === "copied" ? "bookmark link copied" : "copy bookmark link"}

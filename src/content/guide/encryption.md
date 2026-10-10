@@ -22,4 +22,4 @@ Because your passphrase is the only thing that can unlock your data, omanote giv
 
 ## Across your devices
 
-The same encryption works on the web app, mobile apps, and browser extension. Everything is locked with your key, so your data stays private as it syncs between them.
+The same encryption works on the web app, desktop app, and browser extension. Everything is locked with your key, so your data stays private as it syncs between them.

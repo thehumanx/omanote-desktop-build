@@ -107,6 +107,9 @@ export function NoteFolderPicker({
           onFocus={combobox.open}
           onKeyDown={(event) => {
             if (event.key === "Escape") {
+              // An open menu takes this Esc; the composer around it keeps
+              // the next one (ComposerSheet skips handled keys).
+              if (combobox.isOpen) event.preventDefault();
               combobox.close();
               return;
             }

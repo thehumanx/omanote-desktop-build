@@ -4,7 +4,7 @@ Events are the record of things that **happened**, as opposed to todos, which ar
 
 ## Logging an event
 
-Use `/event` in the composer, then write what happened in plain language and add a time if it matters, such as `finished the 10k run 8am`. On the mobile app you can start the line with `@` instead of typing the slash command. Each line becomes its own event, so you can log several at once.
+Use `/event` in the composer, then write what happened in plain language and add a time if it matters, such as `finished the 10k run 8am`. Each line becomes its own event, so you can log several at once.
 
 To log an event for a day other than today, navigate the canvas to that day first, then use the composer. The Event view's own "Log your event" button only logs for today. To edit an event already on the canvas, click it on desktop, or long-press it (or tap the time chip) on mobile.
 

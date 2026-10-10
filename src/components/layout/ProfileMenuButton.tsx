@@ -1,5 +1,7 @@
+import { useExitGhost } from "../../lib/exit-ghost";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "convex/react";
 import {
   BookOpen,
   ChevronLeft,
@@ -20,7 +22,7 @@ import {
   Sparkles,
   Sun,
 } from "lucide-react";
-import { useApp } from "../../app/AppProvider";
+import { api } from "../../../convex/_generated/api";
 import { useAuth } from "../../app/auth/AuthContext";
 import { removeStorage, storageKeys } from "../../app/storage";
 import { useUpdate } from "../../contexts/UpdateContext";
@@ -36,7 +38,8 @@ import { isTauri } from "../../lib/desktop";
 import { MenuItem, SegmentedHighlight, SegmentedItem, SegmentedShell } from "../ui";
 import { FeedbackModal } from "../FeedbackModal";
 import { ModalPortal } from "../ModalPortal";
-import { StorageUsageStat } from "./StorageUsageStat";
+import { StorageUsageStat, type StorageUsage } from "./StorageUsageStat";
+import { BrandLogo } from "../BrandLogo";
 
 const defaultAvatarSrc =
   "data:image/svg+xml;utf8," +
@@ -86,6 +89,7 @@ function ProfileOptionsDrawer({
   userName,
   userEmail,
   userImageUrl,
+  storageUsage,
   onClose,
   children,
 }: {
@@ -93,11 +97,17 @@ function ProfileOptionsDrawer({
   userName: string;
   userEmail: string;
   userImageUrl: string;
+  storageUsage: StorageUsage | undefined;
   onClose: () => void;
   children: React.ReactNode;
 }) {
   const { dragOffset, isDragging, dragHandleProps } = useDrawerDrag(onClose);
   const [isEntered, setIsEntered] = useState(false);
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const sheetRef = useRef<HTMLElement>(null);
+  // Closing renders nothing; the copies left behind slide and fade out.
+  useExitGhost(backdropRef, "omanote-backdrop-exit", 360, open);
+  useExitGhost(sheetRef, "omanote-drawer-exit", 360, open);
 
   useEffect(() => {
     if (!open) {
@@ -125,9 +135,13 @@ function ProfileOptionsDrawer({
   return (
     <ModalPortal>
       <div
+        ref={backdropRef}
         data-testid="profile-options-backdrop"
         aria-hidden="true"
-        className="fixed inset-0 z-app-overlay bg-black/65 opacity-100 transition-opacity duration-app-drawer ease-app-drawer md:hidden"
+        className={[
+          "fixed inset-0 z-app-overlay bg-black/65 transition-opacity duration-app-drawer ease-app-drawer md:hidden",
+          isEntered ? "opacity-100" : "opacity-0",
+        ].join(" ")}
         onPointerDown={(event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -143,6 +157,7 @@ function ProfileOptionsDrawer({
         }}
       />
       <section
+        ref={sheetRef}
         role="dialog"
         aria-label="Profile options"
         className={[
@@ -185,7 +200,7 @@ function ProfileOptionsDrawer({
           </div>
         </div>
         <div className="space-y-1 px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
-          <StorageUsageStat onNavigate={onClose} />
+          <StorageUsageStat usage={storageUsage} onNavigate={onClose} />
           <div className="my-2 h-px bg-app-line" />
           {children}
         </div>
@@ -214,6 +229,11 @@ export function ProfileMenuButton({
   const { themeMode, setThemeMode } = useTheme();
   const runningInDesktopApp = isTauri();
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const menuPanelRef = useRef<HTMLDivElement | null>(null);
+  // Subscribed for as long as the button is mounted, not only while the menu
+  // is open: subscribing on open meant the menu drew first and the storage
+  // row arrived a round trip later, pushing everything below it down.
+  const storageUsage = useQuery(api.storageUsage.getUsage);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
@@ -221,6 +241,7 @@ export function ProfileMenuButton({
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
 
   useOutsideClick(menuRef, menuOpen, () => setMenuOpen(false));
+  useExitGhost(menuPanelRef, "omanote-menu-exit", 150, menuOpen);
 
   const closeProfileOptions = () => {
     setMenuOpen(false);
@@ -389,9 +410,9 @@ export function ProfileMenuButton({
         {latestVersion ? (
           <div
             className="mt-2 flex items-center justify-between gap-3 rounded-app-panel px-app-field-x py-2.5"
-            style={{ backgroundColor: color.brandCtaTint }}
+            style={{ backgroundColor: color.brandCtaTintThemed }}
           >
-            <img src="/logo.svg" alt="omanote" className="h-4 w-auto" />
+            <BrandLogo alt="omanote" className="h-4 w-auto" />
             <button
               type="button"
               onClick={() => {
@@ -400,7 +421,7 @@ export function ProfileMenuButton({
               }}
               className="text-xs font-medium text-app-ink-faint transition-colors duration-app-fast ease-app-out hover:text-app-ink hover:underline"
             >
-              v{latestVersion.version}
+              {latestVersion.version.startsWith("v") ? latestVersion.version : `v${latestVersion.version}`}
             </button>
           </div>
         ) : null}
@@ -431,9 +452,11 @@ export function ProfileMenuButton({
         )}
         {menuOpen ? (
           <div
+            ref={menuPanelRef}
             className={[
-              "app-overlay backdrop-blur-lg absolute right-0 z-50 w-64 rounded-2xl border border-app-line bg-app-surface p-3 shadow-menu",
-              placement === "above" ? "bottom-full mb-2" : "top-full mt-2",
+              "app-overlay omanote-menu-enter backdrop-blur-lg absolute right-0 z-50 w-64 rounded-2xl border border-app-line bg-app-surface p-3 shadow-menu",
+              // Grows out of the avatar's corner.
+              placement === "above" ? "bottom-full mb-2 origin-bottom-right" : "top-full mt-2 origin-top-right",
             ].join(" ")}
           >
             <div className="px-1 py-1">
@@ -452,7 +475,7 @@ export function ProfileMenuButton({
                 </a>
               </div>
             </div>
-            <StorageUsageStat onNavigate={closeProfileOptions} />
+            <StorageUsageStat usage={storageUsage} onNavigate={closeProfileOptions} />
             <div className="my-2 h-px bg-app-line" />
             {renderProfileActions({
               includeExtension: !runningInDesktopApp,
@@ -466,6 +489,7 @@ export function ProfileMenuButton({
         userName={user?.name ?? "Guest"}
         userEmail={user?.email ? maskEmail(user.email) : ""}
         userImageUrl={user?.imageUrl ?? defaultAvatarSrc}
+        storageUsage={storageUsage}
         onClose={closeProfileOptions}
       >
         {renderProfileActions({ includeExtension: false, includeDownloadApp: false })}

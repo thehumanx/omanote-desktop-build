@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
+import { arrivalKey, useCanvasArrivals } from "./use-canvas-arrivals";
 import type { BookmarkCategory, NoteFolder, TodoFolder, TodoItem } from "@omanote/shared";
 import type { AppAction } from "../app/types";
-import type { CanvasArtifactItem } from "../app/reducer";
+import type { CanvasArtifactItem } from "../app/canvas-day-items";
 import { CanvasTodoBlock } from "./CanvasTodoBlock";
 import { CanvasNoteBlock } from "./CanvasNoteBlock";
 import { CanvasEventBlock } from "./CanvasEventBlock";
@@ -36,12 +37,21 @@ type CanvasDayArtifactsProps = {
   onSharePage?: (pageId: string) => void;
   /** See PageCard: show the full card for fixture pages with no server row. */
   staticPreview?: boolean;
+  /** Makes each folder tab a button that opens that folder's sheet. */
+  onOpenFolder?: (target: CanvasFolderTarget) => void;
 };
+
+/**
+ * Which folder sheet a canvas folder tab opens. `folderKey` is whatever the
+ * owning screen selects by: a todo folder id, a note folder *name* (notes
+ * select by name), or a bookmark category id.
+ */
+export type CanvasFolderTarget = { kind: "todo" | "note" | "bookmark"; folderKey: string };
 
 type ItemGroup =
   // Every artifact that belongs to a folder, collected into one card so the
   // folder is named once instead of once per row.
-  | { kind: "folder"; folderKey: string; label: string; icon?: string; color?: string; items: CanvasArtifactItem[]; sortAt: number }
+  | { kind: "folder"; folderKey: string; label: string; icon?: string; color?: string; target?: CanvasFolderTarget; items: CanvasArtifactItem[]; sortAt: number }
   // Consecutive "page" items stack horizontally instead of each taking its
   // own full-width row — one run per unbroken streak of pages in feed order,
   // so a page appearing between other artifacts still starts its own row.
@@ -64,14 +74,16 @@ function resolveFolder(
   noteFolders: NoteFolder[],
   todoFolders: TodoFolder[],
   categoryById: Map<string, BookmarkCategory>,
-): { key: string; label: string; icon?: string; color?: string } | null {
+): { key: string; label: string; icon?: string; color?: string; target?: CanvasFolderTarget } | null {
   if (item.kind === "todo") {
     const { folderId, folderName } = item.data;
     const current = folderId ? todoFolders.find((folder) => folder.id === folderId) : undefined;
     // Every todo gets a real folder on save, defaulting to "Others" — the
     // fallback here is only for rows written before that was true.
     const label = current?.name ?? folderName?.trim() ?? "Others";
-    return { key: `todo:${folderId ?? label.toLowerCase()}`, label, icon: current?.icon, color: current?.color };
+    // A legacy row with no folderId has nothing the Todos sheet can select.
+    const target = folderId ? { kind: "todo" as const, folderKey: folderId } : undefined;
+    return { key: `todo:${folderId ?? label.toLowerCase()}`, label, icon: current?.icon, color: current?.color, target };
   }
   if (item.kind === "note") {
     const { folderId, folderName } = item.data;
@@ -79,13 +91,14 @@ function resolveFolder(
     // Folderless notes land in a synthetic bucket rather than showing no
     // folder at all — matching NoteFolderPicker's placeholder.
     const label = current?.name ?? folderName?.trim() ?? "Uncategorized";
-    return { key: `note:${folderId ?? label.toLowerCase()}`, label, icon: current?.icon, color: current?.color };
+    return { key: `note:${folderId ?? label.toLowerCase()}`, label, icon: current?.icon, color: current?.color, target: { kind: "note", folderKey: label } };
   }
   if (item.kind === "bookmark") {
     const { categoryId } = item.data;
     const current = categoryById.get(categoryId);
     const label = current?.name?.trim() || "Uncategorized";
-    return { key: `bookmark:${categoryId || label.toLowerCase()}`, label, icon: current?.icon, color: current?.color };
+    const target = categoryId ? { kind: "bookmark" as const, folderKey: categoryId } : undefined;
+    return { key: `bookmark:${categoryId || label.toLowerCase()}`, label, icon: current?.icon, color: current?.color, target };
   }
   return null;
 }
@@ -124,8 +137,9 @@ export function groupDayItems(
         existing.label = folder.label;
         existing.icon = folder.icon;
         existing.color = folder.color;
+        existing.target = folder.target;
       } else {
-        const group = { kind: "folder" as const, folderKey: folder.key, label: folder.label, icon: folder.icon, color: folder.color, items: [item], sortAt: item.sortAt };
+        const group = { kind: "folder" as const, folderKey: folder.key, label: folder.label, icon: folder.icon, color: folder.color, target: folder.target, items: [item], sortAt: item.sortAt };
         foldersByKey.set(folder.key, group);
         groups.push(group);
       }
@@ -170,8 +184,11 @@ export function CanvasDayArtifacts({
   onEditBookmark,
   onSharePage,
   staticPreview = false,
+  onOpenFolder,
 }: CanvasDayArtifactsProps) {
   const groups = groupDayItems(items, noteFolders, todoFolders, categoryById);
+  const rootRef = useRef<HTMLDivElement>(null);
+  useCanvasArrivals(rootRef, items, canvasDateKey, staticPreview);
   // Which artifacts are open in an editor right now — drives the folder
   // icon's open state on the group they belong to.
   const [editingIds, setEditingIds] = useState<ReadonlySet<string>>(EMPTY_EDITING_IDS);
@@ -196,9 +213,11 @@ export function CanvasDayArtifacts({
   };
 
   // `data-artifact-id` gives each row a stable handle in the DOM, for
-  // anything that needs to find or scroll to one artifact.
+  // anything that needs to find or scroll to one artifact. Keyed by the
+  // clientKey where there is one, so an item keeps its row (and its editor
+  // state) when its optimistic copy is swapped for the synced one.
   const renderArtifact = (item: CanvasArtifactItem) => (
-    <div key={`${item.kind}:${item.data.id}`} data-artifact-id={item.data.id}>
+    <div key={arrivalKey(item)} data-artifact-id={item.data.id} data-arrival-key={arrivalKey(item)}>
       {item.kind === "todo" ? (
         <CanvasTodoBlock
           todo={item.data}
@@ -243,7 +262,7 @@ export function CanvasDayArtifacts({
     // containing a long unbroken run (a URL, a line of underscores from a
     // pasted email) forces the whole column wider instead of wrapping. The
     // regular Canvas page has enough width that this never gets exposed.
-    <div className="min-w-0 space-y-3">
+    <div ref={rootRef} className="min-w-0 space-y-3">
       {groups.map((group) =>
         group.kind === "folder" ? (
           // Not a card any more: the group is a folder tab with a single rule
@@ -255,13 +274,33 @@ export function CanvasDayArtifacts({
           // the rule below spans the full width, and makes the tab a flex item
           // so no baseline descender gap opens up between the two.
           <div key={group.folderKey} className="flex min-w-0 flex-col items-start">
-            <FolderLabel
-              name={group.label}
-              icon={group.icon}
-              color={group.color}
-              open={group.items.some((item) => editingIds.has(item.data.id))}
-              className="rounded-t-app-card bg-app-surface-muted px-3 py-1.5"
-            />
+            {onOpenFolder && group.target ? (
+              // The whole tab is the button (a bigger target than the name
+              // alone); the name underlines on hover like the gallery's tab.
+              <button
+                type="button"
+                aria-label={`Open ${group.label}`}
+                onClick={() => onOpenFolder(group.target!)}
+                className="group/folder-tab flex min-w-0 max-w-full rounded-t-app-card focus:outline-none focus-visible:ring-2 focus-visible:ring-app-focus/20"
+              >
+                <FolderLabel
+                  name={group.label}
+                  icon={group.icon}
+                  color={group.color}
+                  open={group.items.some((item) => editingIds.has(item.data.id))}
+                  className="min-w-0 rounded-t-app-card bg-app-surface-muted px-3 py-1.5"
+                  nameClassName="group-hover/folder-tab:underline"
+                />
+              </button>
+            ) : (
+              <FolderLabel
+                name={group.label}
+                icon={group.icon}
+                color={group.color}
+                open={group.items.some((item) => editingIds.has(item.data.id))}
+                className="rounded-t-app-card bg-app-surface-muted px-3 py-1.5"
+              />
+            )}
             {/* Top rule only, in the same `surface-muted` as the tab's
                 background, so the tab reads as a thickening of that one line
                 rather than a separate chip. No horizontal padding: the
@@ -278,7 +317,7 @@ export function CanvasDayArtifacts({
           // just because there's no third one to share the row with.
           <div key={`page-run:${group.items[0]!.data.id}`} className="flex flex-wrap gap-3">
             {group.items.map((item) => (
-              <div key={`page:${item.data.id}`} data-artifact-id={item.data.id} className="w-full sm:max-w-[calc((100%-1.5rem)/3)] sm:shrink-0 sm:basis-[calc((100%-1.5rem)/3)]">
+              <div key={arrivalKey(item)} data-artifact-id={item.data.id} data-arrival-key={arrivalKey(item)} className="w-full sm:max-w-[calc((100%-1.5rem)/3)] sm:shrink-0 sm:basis-[calc((100%-1.5rem)/3)]">
                 <PageCard
                   staticPreview={staticPreview}
                   page={item.data as Extract<CanvasArtifactItem, { kind: "page" }>["data"]}

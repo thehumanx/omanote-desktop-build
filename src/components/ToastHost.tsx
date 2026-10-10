@@ -1,3 +1,4 @@
+import { ModalPortal } from "./ModalPortal";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../app/AppProvider";
 import { Button } from "./ui";
@@ -266,9 +267,14 @@ export function ToastHost() {
 
   if (!renderedToasts.length) return null;
 
+  // Portalled to <body> so no ancestor's stacking context can trap it below a
+  // sheet: it used to sit under the folder sheet and every dialog, which hid
+  // the Undo of a delete made inside them.
   return (
-    <div className="app-overlay fixed left-1/2 top-4 z-50 w-[min(92vw,420px)] -translate-x-1/2">
-      <ToastStack toasts={renderedToasts} dispatch={dispatch} settings={settings} noSnoozeTodoIds={noSnoozeTodoIds} />
-    </div>
+    <ModalPortal>
+      <div className="app-overlay fixed left-1/2 top-4 z-app-toast w-[min(92vw,420px)] -translate-x-1/2">
+        <ToastStack toasts={renderedToasts} dispatch={dispatch} settings={settings} noSnoozeTodoIds={noSnoozeTodoIds} />
+      </div>
+    </ModalPortal>
   );
 }

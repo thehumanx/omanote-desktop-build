@@ -12,7 +12,7 @@ import { useCreateCanvas } from "../../lib/use-create-canvas";
 import { PagePinButton } from "./PagePinButton";
 
 /** Hover/focus-only visibility — same idiom as PageCard's row-1 actions. */
-const HOVER_ONLY = "opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100";
+const HOVER_ONLY = "opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100";
 
 export const CONTINUE_WRITING_LIMIT = 3;
 

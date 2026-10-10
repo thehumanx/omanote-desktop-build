@@ -18,6 +18,6 @@ On mobile, opening a category slides in a full page from the right instead of a 
 
 When a link's details can't be fetched, the bookmark still saves with a placeholder, so the link itself is never lost. Previews are stored on your device and load instantly on return visits.
 
-## Trash and sharing
+## Deleting and sharing
 
-Deleted bookmarks go to the trash and can be restored. A bookmark category can be shared as a public link, with the same card or list choice for viewers. See **Public links**.
+Deleting a bookmark shows a toast with **Undo**, and Cmd/Ctrl+Z works too. omanote keeps a deleted bookmark for 7 days and then removes it for good. A bookmark category can be shared as a public link, with the same card or list choice for viewers. See **Public links**.

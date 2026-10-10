@@ -10,7 +10,6 @@ Otherwise, a fresh composer matches the page you're on. Press **/** on Todos and
 
 - **Just type** a thought and save. It becomes a **note**.
 - **Paste a link.** It becomes a **bookmark**, with a preview fetched automatically.
-- **Start with `@`** for an **event** (something that happened). This works on the mobile app; on web and desktop, use `/event` instead.
 
 ## Slash commands
 

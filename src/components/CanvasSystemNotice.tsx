@@ -76,7 +76,7 @@ export function CanvasSystemNotice() {
 
   const showUpdateBanner = update.isBannerVisible && !!update.latestVersion;
   const showStorageWarning = storageUsage
-    ? (storageUsage.textBytes + storageUsage.imageBytes) / storageUsage.capBytes >= 0.9
+    ? (storageUsage.textBytes + storageUsage.imageBytes + storageUsage.thumbnailBytes) / storageUsage.capBytes >= 0.9
     : false;
   const surveyShouldPrompt = surveyResponse ? surveyResponse.shouldPrompt : (cachedEligibility?.shouldPrompt ?? false);
   const surveyResuming = surveyResponse ? surveyResponse.answers.length > 0 : (cachedEligibility?.resuming ?? false);

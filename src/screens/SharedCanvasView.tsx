@@ -5,6 +5,7 @@ import { normalizeLinkUrl } from "@omanote/shared";
 import { publicPageImageUrl } from "../lib/page-images";
 import { cn } from "../components/ui";
 import { RemoteImage } from "../components/RemoteImage";
+import { BrandLogo } from "../components/BrandLogo";
 
 interface PublicCanvasTextRun {
   text: string;
@@ -320,7 +321,7 @@ export function SharedCanvasView({
       <div className="mx-auto w-full max-w-[720px] px-5 py-10">
         <div className="mb-8 flex items-center justify-between gap-3">
           <Link to="/" className="flex items-center gap-2 text-app-ink">
-            <img src="/logo.svg" alt="Omanote" className="h-7 w-auto" />
+            <BrandLogo alt="Omanote" className="h-7 w-auto" />
           </Link>
           {canvas.isOwner ? (
             <button

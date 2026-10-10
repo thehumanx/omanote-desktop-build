@@ -431,7 +431,7 @@ function CanvasEventBlockComponent({ event, pendingSync, dispatch }: CanvasEvent
           <button
             aria-label="uncheck todo"
             onClick={() => dispatch({ type: "todo/toggle", todoId: event.sourceTodoId! })}
-            className="absolute right-1 top-1 rounded-full p-1 text-app-line-strong opacity-0 transition group-hover:bg-app-surface group-hover:opacity-100 hover:bg-app-surface-hover hover:text-app-ink-muted"
+            className="absolute right-1 top-1 rounded-full p-1 text-app-line-strong opacity-0 transition group-hover:bg-app-surface group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 hover:bg-app-surface-hover hover:text-app-ink-muted"
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -444,7 +444,7 @@ function CanvasEventBlockComponent({ event, pendingSync, dispatch }: CanvasEvent
             clearLabelDraft();
             clearNotesDraft();
           }}
-          className="absolute right-1 top-1 rounded-full p-1 text-app-line-strong opacity-0 transition group-hover:bg-app-surface group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-app-surface-hover hover:text-danger-ink"
+          className="absolute right-1 top-1 rounded-full p-1 text-app-line-strong opacity-0 transition group-hover:bg-app-surface group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 hover:bg-app-surface-hover hover:text-danger-ink"
         >
           <Trash2 className="h-4 w-4" />
         </button>

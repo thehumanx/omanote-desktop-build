@@ -83,7 +83,7 @@ function TodoFolderActionMenu({
           event.stopPropagation();
           onToggle();
         }}
-        className="flex h-6 w-6 items-center justify-center rounded-md text-app-ink-faint opacity-0 transition hover:bg-app-surface hover:text-app-ink-muted group-hover:opacity-100"
+        className="flex h-6 w-6 items-center justify-center rounded-md text-app-ink-faint opacity-0 transition hover:bg-app-surface hover:text-app-ink-muted group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
       >
         <Ellipsis className="h-3.5 w-3.5" />
       </button>

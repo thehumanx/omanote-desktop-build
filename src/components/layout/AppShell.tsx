@@ -8,6 +8,7 @@ import { BottomNav } from "./BottomNav";
 import { ModeSwitch } from "./ModeSwitch";
 import { ToastHost } from "../ToastHost";
 import { lazyWithReload } from "../../lib/lazy-with-reload";
+import { prefetchLikelyRoutes } from "../../lib/prefetch-routes";
 import { ReminderMonitor } from "../ReminderMonitor";
 import { PushSubscriptionSync } from "../PushSubscriptionSync";
 import { NotificationPermissionBanner } from "../NotificationPermissionBanner";
@@ -143,6 +144,10 @@ export function AppShell() {
         : desktopShellPlatform === "windows"
           ? { paddingRight: "max(1rem, calc(148px - max(0px, (100vw - 1056px) / 2)))" }
           : undefined;
+
+  // Tab screens and the canvas page editor, loaded while idle after the shell
+  // paints, so the first visit to each doesn't blank the screen.
+  useEffect(() => prefetchLikelyRoutes(), []);
 
   useEffect(() => {
     const updateTopChromeHeight = () => {

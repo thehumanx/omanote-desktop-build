@@ -13,7 +13,7 @@ Hover a todo and click the pencil icon, or double-click it, to open the full edi
 ## Due dates, reminders, and priority
 
 - **Due date & time:** todos with no date default to today. Add a time to get a reminder.
-- **Reminders:** when a todo's time arrives, omanote shows an in-app toast and, if you allow it, a browser or device notification. You can snooze or complete from the reminder itself.
+- **Reminders:** when a todo's time arrives, omanote shows an in-app toast and, if you allow it, a browser or device notification. You can snooze or complete from the reminder itself. When omanote is closed, the notification just says a todo is due: your todo titles are encrypted, so not even omanote's server can read them to show you. Tap **Mark done** on it to complete the todo. Reminders arrive at your local time, wherever you are.
 - **Priority:** mark a todo high-priority to make it stand out.
 
 ## Active and Done

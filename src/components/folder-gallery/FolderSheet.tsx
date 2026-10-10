@@ -25,6 +25,7 @@ export function FolderSheet({
   label,
   dragOffset = 0,
   isDragging = false,
+  onClosed,
   children,
 }: {
   open: boolean;
@@ -33,6 +34,8 @@ export function FolderSheet({
   label: string;
   dragOffset?: number;
   isDragging?: boolean;
+  /** Fires once the panel has finished sliding out, for a host that unmounts it. */
+  onClosed?: () => void;
   children: ReactNode;
 }) {
   const panelRef = useRef<HTMLElement>(null);
@@ -49,6 +52,21 @@ export function FolderSheet({
       if (open) node.removeAttribute("inert");
       else node.setAttribute("inert", "");
     }
+  }, [open]);
+
+  // The page behind stays put while the sheet is up — the canvas scrolls the
+  // window, so without this a wheel or swipe over the dimmed side moves it.
+  // Restores whatever was there before (the gallery pages lock it already).
+  useEffect(() => {
+    if (!open) return;
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
   }, [open]);
 
   useEffect(() => {
@@ -112,6 +130,10 @@ export function FolderSheet({
           open ? "translate-x-0" : "pointer-events-none translate-x-full",
         )}
         style={isDragging || dragOffset > 0 ? { transform: `translateX(${dragOffset}px)` } : undefined}
+        onTransitionEnd={(event) => {
+          if (open || event.target !== event.currentTarget || event.propertyName !== "transform") return;
+          onClosed?.();
+        }}
       >
         {children}
       </section>

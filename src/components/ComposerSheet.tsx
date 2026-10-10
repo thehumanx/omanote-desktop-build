@@ -165,6 +165,10 @@ export function ComposerSheet() {
           viewTransitionName: open ? "canvas-expand" : undefined,
         }}
         onKeyDown={(event) => {
+          // A field or dropdown inside already handled this key — e.g. Esc
+          // closing the folder combobox. Closing the whole sheet as well
+          // threw the user out of what they were writing.
+          if (event.defaultPrevented) return;
           // Fallback for focus that isn't inside one of CanvasDraftBlock's
           // own fields (e.g. the "Jump to today" button) — those each call
           // draftRef.current.dismiss() themselves on Esc, which closes

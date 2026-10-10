@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useExitGhost } from "../lib/exit-ghost";
 import { GripHorizontal } from "lucide-react";
 import { ModalPortal } from "./ModalPortal";
 import { DrawerHeaderRow } from "./DrawerHeaderRow";
@@ -33,6 +34,11 @@ export function MobileEditDrawer({
   const isMobile = useIsMobileViewport();
   const { dragOffset, isDragging, dragHandleProps } = useDrawerDrag(onClose);
   const [isEntered, setIsEntered] = useState(false);
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const sheetRef = useRef<HTMLElement>(null);
+  // Closing unmounts this; the copies left behind slide and fade out.
+  useExitGhost(backdropRef, "omanote-backdrop-exit", 360);
+  useExitGhost(sheetRef, "omanote-drawer-exit", 360);
 
   useEffect(() => {
     if (!isMobile) {
@@ -60,8 +66,13 @@ export function MobileEditDrawer({
   return (
     <ModalPortal>
       <div
+        ref={backdropRef}
         aria-hidden="true"
-        className="fixed inset-0 z-app-overlay bg-black/65 opacity-100 transition-opacity duration-app-drawer ease-app-drawer"
+        className={[
+          "fixed inset-0 z-app-overlay bg-black/65 transition-opacity duration-app-drawer ease-app-drawer",
+          // Fades in with the sheet; it used to be fully dark from the first frame.
+          isEntered ? "opacity-100" : "opacity-0",
+        ].join(" ")}
         onPointerDown={(event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -77,6 +88,7 @@ export function MobileEditDrawer({
         }}
       />
       <section
+        ref={sheetRef}
         role="dialog"
         aria-label={ariaLabel}
         className={[

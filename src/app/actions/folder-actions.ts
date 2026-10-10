@@ -1,3 +1,4 @@
+import { isEffectivelyOffline } from "../connectivity";
 import { useCallback } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { useMutation } from "convex/react";
@@ -35,10 +36,10 @@ export async function deleteFolderLocalFirst({
   // straight back on the next reload because the Dexie row was still there.
   await deleteLocal(folderId);
 
-  // `navigator.onLine` rather than a try/catch, for the same reason: there is
+  // An up-front offline check (connectivity.ts) rather than a try/catch, for the same reason: there is
   // no rejection to catch. Convex's own retry queue is in-memory, so relying on
   // it would drop the delete if the tab closed before reconnecting.
-  if (!navigator.onLine) {
+  if (isEffectivelyOffline()) {
     await enqueue();
     return;
   }
@@ -230,7 +231,7 @@ export function useFolderActions({
           // Queue rather than call while offline. Convex's own queue is
           // in-memory, so a reload before reconnecting would drop the create
           // and strand the local row; the outbox is a Dexie table and survives.
-          if (!navigator.onLine) {
+          if (isEffectivelyOffline()) {
             await enqueueCanvasMutation(`${scope.outbox}/create`, { localId, name: encryptedName, icon, color });
             return;
           }
@@ -279,10 +280,10 @@ export function useFolderActions({
             prev.map((f) => (f.id === id ? { ...f, name, icon, color, updatedAt: now } : f)),
           );
           const payload = { id, name: encryptedName, icon, color, ...(appearanceOnly === undefined ? {} : { appearanceOnly }) };
-          // `navigator.onLine`, not try/catch: a disconnected Convex mutation
+          // An up-front offline check, not try/catch: a disconnected Convex mutation
           // pends rather than rejecting, so the catch below never fires offline
           // and the edit would live only in Dexie until a reload dropped it.
-          if (!navigator.onLine) {
+          if (isEffectivelyOffline()) {
             await enqueueCanvasMutation(`${scope.outbox}/update`, payload);
             return;
           }

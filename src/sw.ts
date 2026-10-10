@@ -93,6 +93,8 @@ self.addEventListener("push", (event) => {
     icon: data.icon ?? "/android-chrome-192x192.png",
     tag: data.tag,
     data,
+    // Handled by the "complete" branch of notificationclick below.
+    actions: data.todoId ? [{ action: "complete", title: "Mark done" }] : undefined,
   };
 
   event.waitUntil(self.registration.showNotification(title, options));

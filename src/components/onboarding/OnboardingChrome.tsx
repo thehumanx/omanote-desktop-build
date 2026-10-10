@@ -4,6 +4,7 @@ import { SceneBackdrop } from "../scene/SceneBackdrop";
 import { useSceneAttributes } from "../scene/useSceneAttributes";
 import { useSceneSettings } from "../scene/useSceneSettings";
 import { cn } from "../ui";
+import { BrandLogo } from "../BrandLogo";
 
 const FooterNodeContext = createContext<HTMLDivElement | null>(null);
 
@@ -34,7 +35,7 @@ export function OnboardingShell({ children }: { children: React.ReactNode }) {
     <div className={cn("relative flex min-h-screen flex-col", activeScene ? "bg-app-backdrop" : "omanote-canvas-grid bg-app-canvas")}>
       {activeScene ? <SceneBackdrop scene={activeScene} /> : null}
       <div className="relative flex justify-center px-4 pt-10 pb-2">
-        <img src="/logo.svg" alt="omanote" className="omanote-stagger-in h-7 w-auto" />
+        <BrandLogo alt="omanote" className="omanote-stagger-in h-7 w-auto" />
       </div>
       {/* Top-anchored, not centred: every step's header lands on the same
           line whatever the step's height, so moving between steps doesn't

@@ -5,9 +5,14 @@ type TopChromeContextValue = {
   setTopChrome: (node: ReactNode | null) => void;
 };
 
-export function useTopChrome(node: ReactNode | null) {
+/**
+ * `enabled: false` leaves the bar alone entirely — for a screen mounted as an
+ * overlay on another route (a folder sheet over the canvas), which must not
+ * replace or clear that route's bar.
+ */
+export function useTopChrome(node: ReactNode | null, enabled = true) {
   const outletContext = useOutletContext<TopChromeContextValue | null>();
-  const setTopChrome = outletContext?.setTopChrome;
+  const setTopChrome = enabled ? outletContext?.setTopChrome : undefined;
 
   useLayoutEffect(() => {
     if (!setTopChrome) return;

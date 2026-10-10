@@ -30,7 +30,7 @@ export function PagePinButton({
   size?: "sm" | "md";
   className?: string;
 }) {
-  const hoverOnly = "opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100";
+  const hoverOnly = "opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100";
 
   return (
     <button

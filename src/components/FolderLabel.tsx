@@ -20,6 +20,7 @@ export function FolderLabel({
   color,
   open,
   className,
+  nameClassName,
 }: {
   name: string;
   /** The folder's own icon: a Lucide icon name or an emoji. */
@@ -28,6 +29,7 @@ export function FolderLabel({
   color?: string;
   open?: boolean;
   className?: string;
+  nameClassName?: string;
 }) {
   const palette = folderColorStyle(color);
   return (
@@ -42,7 +44,7 @@ export function FolderLabel({
         // has already set — no separate ink needed.
         <FolderIcon open={open} strokeWidth={1.75} className="h-4 w-4" />
       )}
-      <span className="truncate">{name}</span>
+      <span className={cn("truncate", nameClassName)}>{name}</span>
     </span>
   );
 }

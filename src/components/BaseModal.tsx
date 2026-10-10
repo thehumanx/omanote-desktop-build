@@ -1,4 +1,5 @@
-import { type HTMLAttributes, type ReactNode, useEffect } from "react";
+import { type HTMLAttributes, type ReactNode, useEffect, useRef } from "react";
+import { useExitGhost } from "../lib/exit-ghost";
 import { ModalPortal } from "./ModalPortal";
 import { cn } from "./ui";
 
@@ -17,6 +18,7 @@ export function BaseModal({
   zIndex = "z-app-dialog",
   className,
   backdropProps,
+  entrance = true,
 }: {
   children: ReactNode;
   /** Accessible name, read out when the dialog opens — usually its title. */
@@ -30,7 +32,13 @@ export function BaseModal({
   zIndex?: string;
   className?: string;
   backdropProps?: HTMLAttributes<HTMLDivElement>;
+  /** False when the modal runs its own entrance animation. The exit is always
+   *  played (see src/lib/exit-ghost.ts). */
+  entrance?: boolean;
 }) {
+  const backdropRef = useRef<HTMLDivElement>(null);
+  useExitGhost(backdropRef, "omanote-modal-exit", 150);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
@@ -45,11 +53,18 @@ export function BaseModal({
     <ModalPortal>
       <div
         {...backdropProps}
+        ref={backdropRef}
         role={role}
         aria-modal="true"
         aria-label={label}
         aria-describedby={describedBy}
-        className={cn("fixed inset-0 flex items-center justify-center bg-app-overlay px-app-page", zIndex, className, backdropProps?.className)}
+        className={cn(
+          "fixed inset-0 flex items-center justify-center bg-app-overlay px-app-page",
+          entrance && "omanote-modal-enter",
+          zIndex,
+          className,
+          backdropProps?.className,
+        )}
         onMouseDown={(event) => {
           backdropProps?.onMouseDown?.(event);
           onBackdropMouseDown?.();

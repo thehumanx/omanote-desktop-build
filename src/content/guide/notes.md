@@ -29,9 +29,9 @@ On mobile, opening a folder slides in a full page from the right instead of a bo
 
 Tag notes with `#` to connect them to related todos, events, and other notes. Tagged items show up together in the Explore map and in search.
 
-## Trash and restore
+## Deleting and undo
 
-Deleting a note moves it to the trash rather than removing it immediately, so you can restore it if you change your mind. Each artifact type has its own trashed view.
+Deleting a note shows a toast with **Undo**, and Cmd/Ctrl+Z works too. omanote keeps a deleted note for 7 days and then removes it from its servers for good.
 
 ## Sharing
 

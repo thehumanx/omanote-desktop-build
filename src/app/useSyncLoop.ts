@@ -2,15 +2,16 @@ import { useCallback, useEffect, useRef } from "react";
 import { useConvex, useQuery } from "convex/react";
 import type { FunctionArgs, FunctionReference } from "convex/server";
 import { api } from "../../convex/_generated/api";
-import { SYNC_ON_VISIBLE_AFTER_MS, SYNC_POLL_TICK_MS, shouldPollSync, shouldScheduleRemoteSync } from "./app-provider-logic";
-import { runIncrementalSync, type SyncQueryFn, type SyncTableName } from "./sync";
+import { SYNC_ON_VISIBLE_AFTER_MS, SYNC_POLL_TICK_MS, shouldPollSync } from "./app-provider-logic";
+import { runIncrementalSync, tablesBehind, type SyncQueryFn, type SyncTableName } from "./sync";
 
 /**
  * Keeps the local Dexie mirror in step with Convex.
  *
  * Syncs once after unlock; on a background poll (5 min while active, 15 min
- * while idle or hidden, at once when the tab comes back); whenever another
- * device's write moves `latestRemoteSyncTimestamp`; and on demand through the
+ * while idle or hidden, at once when the tab comes back); for the tables whose
+ * newest row moved past this device's cursor (`latestRemoteSyncTimestamps`);
+ * and on demand through the
  * returned `scheduleSync`, which a mutation calls to pull its own result in.
  *
  * Moved out of AppProvider as-is.
@@ -50,14 +51,21 @@ export function useSyncLoop({
 
   const syncRunningRef = useRef(false);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastRemoteSyncTimestampRef = useRef<number | null>(null);
-  const latestRemoteSyncTimestamp = useQuery(
-    api.canvas.latestRemoteSyncTimestamp,
+  const sawFirstTimestampsRef = useRef(false);
+  const latestRemoteSyncTimestamps = useQuery(
+    api.canvas.latestRemoteSyncTimestamps,
     isAuthenticated && !isLocked ? {} : "skip",
   );
 
-  const doSync = useCallback(async (tables?: readonly SyncTableName[]) => {
-    if (syncRunningRef.current) return;
+  // A sync asked for while one is running: run it once that one finishes. It
+  // used to be dropped, so a write landing mid-sync waited for the next poll.
+  const rerunRef = useRef<Set<SyncTableName> | "all" | null>(null);
+  const doSync = useCallback(async (tables?: readonly SyncTableName[]): Promise<void> => {
+    if (syncRunningRef.current) {
+      if (tables === undefined || rerunRef.current === "all") rerunRef.current = "all";
+      else rerunRef.current = new Set([...(rerunRef.current ?? []), ...tables]);
+      return;
+    }
     if (!syncQueryFnRef.current) return;
     const fn = syncQueryFnRef.current;
     syncRunningRef.current = true;
@@ -73,6 +81,9 @@ export function useSyncLoop({
     } finally {
       syncRunningRef.current = false;
     }
+    const rerun = rerunRef.current;
+    rerunRef.current = null;
+    if (rerun) await doSync(rerun === "all" ? undefined : [...rerun]);
   }, [includeRss]);
 
   // Call after a mutation to pull its result into Dexie within ~300ms. Pass
@@ -101,21 +112,23 @@ export function useSyncLoop({
     }, 300);
   }, [doSync]);
 
+  // Another device's write (or this one's) moved a table's newest timestamp:
+  // pull only the tables this device is behind on. The first result arrives
+  // with the full sync that runs on unlock, so it's skipped.
   useEffect(() => {
-    const previousTimestamp = lastRemoteSyncTimestampRef.current;
-    const shouldSync = shouldScheduleRemoteSync({
-      isAuthenticated,
-      isLocked,
-      previousTimestamp,
-      nextTimestamp: latestRemoteSyncTimestamp,
+    if (!isAuthenticated || isLocked || latestRemoteSyncTimestamps === undefined) return;
+    if (!sawFirstTimestampsRef.current) {
+      sawFirstTimestampsRef.current = true;
+      return;
+    }
+    let cancelled = false;
+    void tablesBehind(latestRemoteSyncTimestamps).then((tables) => {
+      if (!cancelled && tables.length) scheduleSync(tables);
     });
-    if (latestRemoteSyncTimestamp !== undefined) {
-      lastRemoteSyncTimestampRef.current = latestRemoteSyncTimestamp;
-    }
-    if (shouldSync) {
-      scheduleSync();
-    }
-  }, [isAuthenticated, isLocked, latestRemoteSyncTimestamp, scheduleSync]);
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, isLocked, latestRemoteSyncTimestamps, scheduleSync]);
 
   // Sync interval: 5 min when actively used, 15 min when idle (>5 min no interaction).
   // Mutations still trigger immediate sync via scheduleSync(), so this only affects

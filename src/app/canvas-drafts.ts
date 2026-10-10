@@ -42,3 +42,25 @@ export function removeCanvasDrafts(keys: readonly string[]) {
   for (const key of present) delete drafts[key];
   writeAllDrafts(drafts);
 }
+
+const DISPLAY_DRAFTS_SWEPT = "__displayDraftsSwept";
+// Keys the canvas note and event blocks wrote for every item they displayed,
+// before drafts were stored only for real edits (2026-10-09). The note body is
+// never restored from them (editing reseeds from the saved note), so dropping
+// them loses nothing typed; for events it loses at most an edit the block's
+// own autosave hadn't sent.
+const DISPLAY_DRAFT_KEY = /^(note:(?!new:)[^:]+:body|event:(?!new(:|$))[^:]+(:notes)?)$/;
+
+/**
+ * Removes, once per device, the draft entries written merely by displaying a
+ * note or event. Run when the store opens (EncryptionGate).
+ */
+export function sweepDisplayOnlyDrafts() {
+  const drafts = readAllDrafts();
+  if (drafts[DISPLAY_DRAFTS_SWEPT]) return;
+  for (const key of Object.keys(drafts)) {
+    if (DISPLAY_DRAFT_KEY.test(key)) delete drafts[key];
+  }
+  drafts[DISPLAY_DRAFTS_SWEPT] = true;
+  writeAllDrafts(drafts);
+}

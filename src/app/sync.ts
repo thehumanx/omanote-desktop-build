@@ -63,17 +63,40 @@ function eventCursor(item: { updatedAt?: number }): number {
   return item.updatedAt ?? 0;
 }
 
+// The server purges deleted items 7 days after deletion (convex/retention.ts).
+// A device that hasn't synced a table for that long may hold a row whose
+// deletion it never saw and never will — the row is gone. Such a table is
+// downloaded afresh and anything the server no longer has is dropped.
+const PURGE_WINDOW_MS = 6 * 24 * 60 * 60 * 1000; // a day inside the server's 7
+
+export function isStaleForPurge(stored: { cursor: number; syncedAt?: number } | undefined, now: number): boolean {
+  if (!stored) return false; // never synced: a full download anyway, nothing local to drop
+  // Rows synced before syncedAt existed: the cursor (newest row seen) is the
+  // best evidence of when this device last caught up.
+  const lastCaughtUp = stored.syncedAt ?? stored.cursor;
+  return now - lastCaughtUp > PURGE_WINDOW_MS;
+}
+
+type DexieMirror = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  bulkPut: (items: any[]) => Promise<any>;
+  toCollection?: () => { primaryKeys: () => Promise<string[]> };
+  bulkDelete?: (keys: string[]) => Promise<void>;
+};
+
 async function syncTable<Item extends { _id: string; updatedAt?: number }>(
   queryFn: SyncQueryFn,
   tableKey: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   convexQuery: FunctionReference<"query">,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  dexieTable: { bulkPut: (items: any[]) => Promise<any> },
+  dexieTable: DexieMirror,
   getCursor: (item: Item) => number,
+  options: { purgeable?: boolean } = {},
 ): Promise<number> {
   const stored = await db.syncCursors.get(tableKey);
-  let after = stored?.cursor ?? 0;
+  const fresh = Boolean(options.purgeable) && isStaleForPurge(stored, Date.now());
+  let after = fresh ? 0 : stored?.cursor ?? 0;
+  const seen = fresh ? new Set<string>() : null;
   let limit = BATCH_SIZE;
   let total = 0;
 
@@ -84,19 +107,51 @@ async function syncTable<Item extends { _id: string; updatedAt?: number }>(
 
     await dexieTable.bulkPut(batch);
     total += batch.length;
+    if (seen) for (const row of batch) seen.add(row._id);
 
     const { next, widenTo } = advanceCursor(batch.map(getCursor), batch.length, requestedLimit);
     after = Math.max(after, next);
     limit = widenTo ?? BATCH_SIZE;
 
-    await db.syncCursors.put({ table: tableKey, cursor: after });
+    await db.syncCursors.put({ table: tableKey, cursor: after, syncedAt: Date.now() });
 
     // A short batch means the table is drained. A widened one is a retry of the
     // same millisecond, so it keeps going even though it was short.
     if (batch.length < requestedLimit && widenTo === undefined) break;
   }
 
+  if (seen && dexieTable.toCollection && dexieTable.bulkDelete) {
+    const local = await dexieTable.toCollection().primaryKeys();
+    const gone = local.filter((id) => !seen.has(id));
+    if (gone.length) await dexieTable.bulkDelete(gone);
+  }
+  // Record a successful pass even when nothing was new, or a quiet table
+  // would look stale.
+  await db.syncCursors.put({ table: tableKey, cursor: after, syncedAt: Date.now() });
+
   return total;
+}
+
+const LOCAL_PRUNE_EVERY_MS = 24 * 60 * 60 * 1000;
+const LOCAL_DELETED_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Drops this device's copies of items deleted more than 7 days ago, matching
+ * the server's purge. At most once a day: it scans each content table.
+ */
+async function pruneLocalDeletedRows(now: number): Promise<void> {
+  const last = await db.syncCursors.get("localPrune");
+  if (last && now - last.cursor < LOCAL_PRUNE_EVERY_MS) return;
+  const cutoff = now - LOCAL_DELETED_RETENTION_MS;
+  const expired = (row: { deletedAt?: number }) => row.deletedAt !== undefined && row.deletedAt < cutoff;
+  await Promise.all([
+    db.todos.filter(expired).delete(),
+    db.notes.filter(expired).delete(),
+    db.bookmarks.filter(expired).delete(),
+    db.events.filter(expired).delete(),
+    db.pages.filter(expired).delete(),
+  ]);
+  await db.syncCursors.put({ table: "localPrune", cursor: now });
 }
 
 // Sync activityHistory — cursors on `createdAt` (write time), not `timestamp`
@@ -228,6 +283,50 @@ async function syncRssFeeds(queryFn: SyncQueryFn): Promise<void> {
   if (toUpdate.length) await db.rssSubscriptions.bulkPut(toUpdate);
 }
 
+/**
+ * Applies folder and category deletions made on other devices. The server
+ * hard-deletes those rows, so the folder tables' own sync can never report
+ * them gone; it records each deletion instead (convex/lib/folderDeletions.ts).
+ */
+async function syncDeletedFolders(queryFn: SyncQueryFn): Promise<number> {
+  const stored = await db.syncCursors.get("deletedFolders");
+  let after = stored?.cursor ?? 0;
+  let limit = BATCH_SIZE;
+  let total = 0;
+
+  while (true) {
+    const requestedLimit = limit;
+    const batch = await queryFn(api.canvas.listDeletedFoldersUpdatedAfter, { after, limit: requestedLimit });
+    if (!batch.length) break;
+
+    const byTable = new Map<string, string[]>();
+    for (const row of batch) byTable.set(row.table, [...(byTable.get(row.table) ?? []), row.folderId]);
+    await Promise.all(
+      [...byTable].map(([table, ids]) => {
+        const target = {
+          todoFolders: db.todoFolders,
+          noteFolders: db.noteFolders,
+          bookmarkCategories: db.bookmarkCategories,
+          rssCategories: db.rssCategories,
+        }[table as "todoFolders" | "noteFolders" | "bookmarkCategories" | "rssCategories"];
+        return target?.bulkDelete(ids);
+      }),
+    );
+    total += batch.length;
+
+    // Replaying a deletion is harmless (deleting a missing row is a no-op),
+    // so the same cursor rule as every other table applies, ties included.
+    const { next, widenTo } = advanceCursor(batch.map((row) => row.updatedAt), batch.length, requestedLimit);
+    after = Math.max(after, next);
+    limit = widenTo ?? BATCH_SIZE;
+    await db.syncCursors.put({ table: "deletedFolders", cursor: after });
+
+    if (batch.length < requestedLimit && widenTo === undefined) break;
+  }
+
+  return total;
+}
+
 interface SyncResult {
   todos: number;
   todoFolders: number;
@@ -279,16 +378,24 @@ export async function runIncrementalSync(queryFn: SyncQueryFn, options: SyncOpti
 
   const [todos, todoFolders, notes, noteFolders, pages, bookmarks, bookmarkCategories, events, activityHistoryCount] =
     await Promise.all([
-      want("todos") ? syncTable(queryFn, "todos", api.todos.listTodosUpdatedAfter, db.todos, (i) => i.updatedAt ?? 0) : 0,
+      want("todos") ? syncTable(queryFn, "todos", api.todos.listTodosUpdatedAfter, db.todos, (i) => i.updatedAt ?? 0, { purgeable: true }) : 0,
       want("todoFolders") ? syncTable(queryFn, "todoFolders", api.todos.listTodoFoldersUpdatedAfter, db.todoFolders, (i) => i.updatedAt ?? 0) : 0,
-      want("notes") ? syncTable(queryFn, "notes", api.notes.listNotesUpdatedAfter, db.notes, (i) => i.updatedAt ?? 0) : 0,
+      want("notes") ? syncTable(queryFn, "notes", api.notes.listNotesUpdatedAfter, db.notes, (i) => i.updatedAt ?? 0, { purgeable: true }) : 0,
       want("noteFolders") ? syncTable(queryFn, "noteFolders", api.notes.listNoteFoldersUpdatedAfter, db.noteFolders, (i) => i.updatedAt ?? 0) : 0,
-      want("pages") ? syncTable(queryFn, "pages", api.pages.listPagesUpdatedAfter, db.pages, (i) => i.updatedAt ?? 0) : 0,
-      want("bookmarks") ? syncTable(queryFn, "bookmarks", api.bookmarks.listBookmarksUpdatedAfter, db.bookmarks, (i) => i.updatedAt ?? 0) : 0,
+      want("pages") ? syncTable(queryFn, "pages", api.pages.listPagesUpdatedAfter, db.pages, (i) => i.updatedAt ?? 0, { purgeable: true }) : 0,
+      want("bookmarks") ? syncTable(queryFn, "bookmarks", api.bookmarks.listBookmarksUpdatedAfter, db.bookmarks, (i) => i.updatedAt ?? 0, { purgeable: true }) : 0,
       want("bookmarkCategories") ? syncTable(queryFn, "bookmarkCategories", api.bookmarks.listBookmarkCategoriesUpdatedAfter, db.bookmarkCategories, (i) => i.updatedAt ?? 0) : 0,
-      want("events") ? syncTable(queryFn, "events", api.events.listEventsUpdatedAfter, db.events, eventCursor) : 0,
+      want("events") ? syncTable(queryFn, "events", api.events.listEventsUpdatedAfter, db.events, eventCursor, { purgeable: true }) : 0,
       want("activityHistory") ? syncHistory(queryFn) : 0,
     ]);
+
+  await pruneLocalDeletedRows(Date.now());
+
+  // After the folder tables, so a folder created and deleted between two syncs
+  // ends up deleted whatever order its rows arrived in.
+  if (want("todoFolders") || want("noteFolders") || want("bookmarkCategories") || includeRss) {
+    await syncDeletedFolders(queryFn);
+  }
 
   let rssSubscriptionsCount = 0;
   let rssCategories = 0;
@@ -306,4 +413,34 @@ export async function runIncrementalSync(queryFn: SyncQueryFn, options: SyncOpti
   }
 
   return { todos, todoFolders, notes, noteFolders, pages, bookmarks, bookmarkCategories, events, activityHistory: activityHistoryCount, rssSubscriptions: rssSubscriptionsCount, rssCategories, rssReadState };
+}
+
+/**
+ * Which tables the server has newer rows in than this device has synced, from
+ * `canvas.latestRemoteSyncTimestamps`. Server table names map to the sync
+ * table that pulls them; a folder deletion is pulled by any folder sync.
+ */
+const REMOTE_TABLES: Record<string, { cursor: string; table: SyncTableName }> = {
+  todos: { cursor: "todos", table: "todos" },
+  todoFolders: { cursor: "todoFolders", table: "todoFolders" },
+  notes: { cursor: "notes", table: "notes" },
+  noteFolders: { cursor: "noteFolders", table: "noteFolders" },
+  pages: { cursor: "pages", table: "pages" },
+  bookmarks: { cursor: "bookmarks", table: "bookmarks" },
+  bookmarkCategories: { cursor: "bookmarkCategories", table: "bookmarkCategories" },
+  eventEntries: { cursor: "events", table: "events" },
+  deletedFolders: { cursor: "deletedFolders", table: "todoFolders" },
+};
+
+export async function tablesBehind(latest: Record<string, number>): Promise<SyncTableName[]> {
+  const behind = new Set<SyncTableName>();
+  await Promise.all(
+    Object.entries(latest).map(async ([remote, newest]) => {
+      const mapping = REMOTE_TABLES[remote];
+      if (!mapping || newest <= 0) return;
+      const stored = await db.syncCursors.get(mapping.cursor);
+      if (newest > (stored?.cursor ?? 0)) behind.add(mapping.table);
+    }),
+  );
+  return [...behind];
 }

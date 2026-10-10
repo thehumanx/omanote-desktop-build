@@ -10,7 +10,11 @@ const FADE_SIZE = 56;
  */
 export function useScrollEdgeFade(
   ref: RefObject<HTMLElement | null>,
-  { size = `${FADE_SIZE}px`, bottomSize = size }: { size?: string; bottomSize?: string } = {},
+  {
+    size = `${FADE_SIZE}px`,
+    bottomSize = size,
+    axis = "y",
+  }: { size?: string; bottomSize?: string; /** "x" fades the left and right edges of a sideways scroller. */ axis?: "x" | "y" } = {},
 ): CSSProperties {
   const [edges, setEdges] = useState({ top: false, bottom: true });
 
@@ -24,8 +28,10 @@ export function useScrollEdgeFade(
     bound.current = null;
     if (!node) return;
     const update = () => {
-      const top = node.scrollTop > 0;
-      const bottom = node.scrollTop + node.clientHeight < node.scrollHeight - 1;
+      const [offset, visible, total] =
+        axis === "x" ? [node.scrollLeft, node.clientWidth, node.scrollWidth] : [node.scrollTop, node.clientHeight, node.scrollHeight];
+      const top = offset > 0;
+      const bottom = offset + visible < total - 1;
       setEdges((current) => (current.top === top && current.bottom === bottom ? current : { top, bottom }));
     };
     update();
@@ -41,8 +47,17 @@ export function useScrollEdgeFade(
       },
     };
   });
-  useEffect(() => () => bound.current?.detach(), []);
+  // Forget the binding too: StrictMode unmounts and remounts in development,
+  // and a binding left in place after detaching made the remount skip
+  // re-attaching, so the fade never followed the scroll.
+  useEffect(
+    () => () => {
+      bound.current?.detach();
+      bound.current = null;
+    },
+    [],
+  );
 
-  const mask = `linear-gradient(to bottom, ${edges.top ? "transparent" : "black"}, black ${size}, black calc(100% - ${bottomSize}), ${edges.bottom ? "transparent" : "black"})`;
+  const mask = `linear-gradient(${axis === "x" ? "to right" : "to bottom"}, ${edges.top ? "transparent" : "black"}, black ${size}, black calc(100% - ${bottomSize}), ${edges.bottom ? "transparent" : "black"})`;
   return { maskImage: mask, WebkitMaskImage: mask };
 }

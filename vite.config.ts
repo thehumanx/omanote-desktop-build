@@ -19,8 +19,11 @@ export default defineConfig({
         // every install: the admin-only dashboard, the social-card image
         // (crawlers only), and the extension/desktop icon. The desktop-only
         // Clerk chunk stays in the manifest but src/sw.ts filters it out —
-        // see DESKTOP_ONLY_CACHE there.
-        globIgnores: ["**/AdminDashboardScreen-*.js", "og.png", "128.png"],
+        // see DESKTOP_ONLY_CACHE there. The Updates screen bundles the whole
+        // changelog (~85 KB) and changes with every release, so precaching it
+        // made every installed copy re-download it on each deploy; it loads
+        // on demand instead.
+        globIgnores: ["**/AdminDashboardScreen-*.js", "**/UpdatesScreen-*.js", "og.png", "128.png"],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
       },
       devOptions: {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Settings } from "lucide-react";
 import { color } from "../../design-system/tokens";
+import { BrandLogo } from "../../components/BrandLogo";
 
 /**
  * The extension's select-and-save flow, played as a loop.
@@ -16,6 +17,10 @@ import { color } from "../../design-system/tokens";
  */
 
 /** Invented, so no real page's content ends up in the marketing. */
+// The pale tint is for the light page; on dark it becomes a green wash over the
+// surface so the light article text stays legible.
+const HIGHLIGHT = `light-dark(${color.brandCtaTint}, color-mix(in srgb, ${color.brandCta} 30%, rgb(var(--color-surface))))`;
+
 const ARTICLE = {
   title: "Notes on product craft",
   domain: "designnotes.dev",
@@ -201,7 +206,7 @@ export function ExtensionCaptureDemo() {
           <span
             className="text-app-ink"
             style={{
-              backgroundImage: `linear-gradient(${color.brandCtaTint}, ${color.brandCtaTint})`,
+              backgroundImage: `linear-gradient(${HIGHLIGHT}, ${HIGHLIGHT})`,
               backgroundRepeat: "no-repeat",
               backgroundSize: highlighted ? "100% 100%" : "0% 100%",
               transition: "background-size 550ms ease-out",
@@ -222,7 +227,7 @@ export function ExtensionCaptureDemo() {
         }}
       >
         <span className="inline-flex items-center gap-1.5 rounded-full border border-app-line bg-app-surface px-3 py-1.5 shadow-app-soft">
-          <img src="/logo.svg" alt="" className="h-4 w-auto" />
+          <BrandLogo alt="" className="h-4 w-auto" />
           <span className="text-[12px] font-bold text-app-ink">Save</span>
         </span>
       </div>
@@ -237,7 +242,7 @@ export function ExtensionCaptureDemo() {
       >
         <div className="overflow-hidden rounded-2xl border border-app-line bg-app-surface text-left shadow-dialog">
           <div className="flex items-center justify-between border-b border-app-line px-3.5 py-2.5">
-            <img src="/logo.svg" alt="omanote" className="h-5 w-auto" />
+            <BrandLogo alt="omanote" className="h-5 w-auto" />
             <Settings size={13} className="text-app-ink-faint" />
           </div>
 

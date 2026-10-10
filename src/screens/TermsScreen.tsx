@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { SiteFooter } from "../components/SiteFooter";
 import { SeoHead } from "../seo/SeoHead";
+import { BrandLogo } from "../components/BrandLogo";
 
 const LAST_UPDATED = "July 21, 2026";
 const CONTACT_EMAIL = "omanote@iambishistha.com";
@@ -18,7 +19,7 @@ export function TermsScreen() {
       <nav className="border-b border-app-line sticky top-0 bg-app-surface/95 backdrop-blur-sm z-20">
         <div className="max-w-[1136px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <Link to="/">
-            <img src="/logo.svg" alt="omanote home" className="h-6 sm:h-7 w-auto" />
+            <BrandLogo alt="omanote home" className="h-6 sm:h-7 w-auto" />
           </Link>
           <Link
             to="/"

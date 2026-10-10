@@ -23,6 +23,52 @@ Each entry is one of:
 - **Renamed** `Component.propName` → `Component.newPropName`. <why>. <migration note>.
 ```
 
+## 2026-10-10
+
+- **Added** `color.brandCtaTintThemed` — the pale brand tint that follows the
+  theme (`light-dark()`: brand green mixed 22% into the surface in dark). Use
+  it, not `brandCtaTint`, on anything that can render dark; the onboarding
+  "connected" pills and the profile menu's version row had a light tint with
+  white text in dark mode. `brandCtaTint` stays for always-light surfaces.
+- **Added** `BrandLogo` (`src/components/BrandLogo.tsx`) — use it instead of
+  `<img src="/logo.svg">`. Dark mode shows `/logo-dark.svg` (white wordmark);
+  pinned-light public pages keep the green one.
+- **Added** `.omanote-menu-enter` / `.omanote-menu-exit` (index.css) for
+  popover menus: scale from 0.96 plus fade, from the trigger's corner
+  (`origin-*`), 200ms in, 150ms out. `useExitGhost` now plays a non-fixed
+  overlay's copy inside its own parent (`spawnExitGhost`'s new `container`
+  argument), so absolutely placed menus can use it.
+- **Changed** `StorageUsageStat` takes `usage` from its parent instead of
+  subscribing itself, and counts share thumbnails like Settings > Storage.
+
+## 2026-10-09
+
+- **Added** `BaseModal.entrance` (default `true`) — BaseModal now fades and
+  scales in on its own; a modal that runs its own entrance passes
+  `entrance={false}` (FeedbackModal, UpdateModal, FounderNoteModal do).
+  Every BaseModal, `MobileEditDrawer` and the profile drawer also animate out
+  through `useExitGhost` (`src/lib/exit-ghost.ts`) — callers unchanged.
+- **Added** `EmptyState.pending` — renders an empty, same-height placeholder
+  instead of the message while the view's data is still loading. Pass the
+  screen's `isCanvasContentLoading`.
+- **Changed** `--z-app-toast` 50 → 95: above dialogs (90) and drawers (81),
+  below popovers (100). `ToastHost` is now portalled to `<body>`.
+- **Changed** Tailwind's default `transition` duration/easing and the bare
+  `ease-out` / `ease-in` / `ease-in-out` utilities now resolve to the motion
+  tokens (`--motion-duration-fast`, `--motion-easing-*`). Same class names,
+  the app's curve.
+- **Moved** `writeTabs` from `layout/BottomNav.tsx` to `layout/navTabs.ts`, so
+  the landing page no longer imports BottomNav (and with it AppProvider).
+- **Added** `FolderSheet.onClosed` (`src/components/folder-gallery/FolderSheet.tsx`)
+  — fires when the panel finishes sliding out, for a host that unmounts it.
+- **Added** `TodosScreen` / `NotesScreen` / `BookmarksScreen` `overlay` prop
+  (`FolderSheetOverlay`, `src/components/folder-gallery/folder-sheet-overlay.ts`)
+  — renders only that folder's sheet over another route; the canvas folder
+  tabs use it through `useCanvasFolderSheet`.
+- **Added** `useTopChrome(node, enabled)` — `enabled: false` leaves the bar
+  alone, for a screen mounted as an overlay.
+- **Added** `FolderLabel.nameClassName` and `CanvasDayArtifacts.onOpenFolder`.
+
 ## 2026-10-04
 
 - **Added** `RemoteImage` (`src/components/RemoteImage.tsx`) — an `<img>` for

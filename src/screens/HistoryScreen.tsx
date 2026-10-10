@@ -4,7 +4,7 @@ import { ChevronLeft } from "lucide-react";
 import { addDays, buildRecurringCompletionIndex, parseVirtualOccurrenceId, searchArtifacts, toDateKey } from "@omanote/shared";
 import type { DateKey, TodoItem } from "@omanote/shared";
 import { useApp } from "../app/AppProvider";
-import { buildCanvasDayItems } from "../app/reducer";
+import { buildCanvasDayItems } from "../app/canvas-day-items";
 import { buildDateKeyRangeDescending, buildDatesWithContentSet, earliestDateKeyFromState } from "../app/history";
 import { CanvasDateRow } from "../components/CanvasDateRow";
 import { CanvasDayArtifacts } from "../components/CanvasDayArtifacts";

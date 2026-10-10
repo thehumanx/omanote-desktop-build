@@ -1,7 +1,7 @@
 import { useCallback, type MutableRefObject } from "react";
 import { useAction, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { clearCanvasDraftForKey, flushCanvasOutbox, type CanvasOutboxHandlers } from "./canvas-outbox";
+import { clearCanvasDraftForKey, enqueueCanvasMutation, flushCanvasOutbox, type CanvasOutboxHandlers } from "./canvas-outbox";
 import type { SyncTableName } from "./sync";
 import type { AppState } from "./types";
 
@@ -56,6 +56,10 @@ export function useOutboxReplay({
   const updateNoteFolder = useMutation(api.notes.updateNoteFolder);
   const updateNote = useMutation(api.notes.updateNote);
   const deleteNote = useMutation(api.notes.deleteNote);
+  const restoreNote = useMutation(api.notes.restoreNote);
+  const deleteTodo = useMutation(api.todos.deleteTodo);
+  const restoreTodo = useMutation(api.todos.restoreTodo);
+  const restoreEventEntry = useMutation(api.events.restoreEventEntry);
   const createPage = useMutation(api.pages.createPage);
   const updatePage = useMutation(api.pages.updatePage);
   const deletePage = useMutation(api.pages.deletePage);
@@ -86,11 +90,12 @@ export function useOutboxReplay({
     void flushCanvasOutbox({
       "note/create": async (payload) => {
         const title = payload.title?.trim() || payload.body.split("\n")[0]?.trim() || undefined;
-        await createNote({ clientKey: payload.clientKey, body: payload.body, title, tags: payload.tags ?? [], dateKey: payload.dateKey, source: "web" });
+        const noteId = await createNote({ clientKey: payload.clientKey, body: payload.body, title, tags: payload.tags ?? [], hashtags: payload.hashtags, folderId: payload.folderId as any, folderName: payload.folderName, dateKey: payload.dateKey, source: "web" });
         clearCanvasDraftForKey(payload.draftKey);
+        return noteId;
       },
       "note/update": async (payload) => {
-        await updateNote({ noteId: payload.noteId as any, body: payload.body, title: payload.title, tags: payload.tags });
+        await updateNote({ noteId: payload.noteId as any, body: payload.body, title: payload.title, tags: payload.tags, hashtags: payload.hashtags, folderId: payload.folderId as any, folderName: payload.folderName });
         clearCanvasDraftForKey(payload.draftKey);
       },
       "note/delete": async (payload) => {
@@ -104,6 +109,7 @@ export function useOutboxReplay({
           preview: payload.preview,
           title: payload.title,
           icon: payload.icon,
+          color: payload.color,
           hashtags: payload.hashtags,
           dateKey: payload.dateKey,
         });
@@ -115,6 +121,7 @@ export function useOutboxReplay({
           preview: payload.preview,
           title: payload.title,
           icon: payload.icon,
+          color: payload.color,
           hashtags: payload.hashtags,
         });
       },
@@ -129,7 +136,7 @@ export function useOutboxReplay({
         scheduleSync(["pages"]);
       },
       "bookmark/create": async (payload) => {
-        await saveBookmarkCreate(payload);
+        return await saveBookmarkCreate(payload);
       },
       "bookmark/update": async (payload) => {
         await saveBookmarkUpdate(payload);
@@ -204,7 +211,7 @@ export function useOutboxReplay({
         else await setBookmarkCategoryPinned({ categoryId: payload.id as any, pinned: payload.pinned });
       },
       "event/create": async (payload) => {
-        await createEventEntry({ clientKey: payload.clientKey, label: payload.label, dateKey: payload.dateKey, loggedAt: payload.loggedAt, notes: payload.notes, hashtags: payload.hashtags });
+        return await createEventEntry({ clientKey: payload.clientKey, label: payload.label, dateKey: payload.dateKey, loggedAt: payload.loggedAt, notes: payload.notes, hashtags: payload.hashtags });
         clearCanvasDraftForKey(payload.draftKey);
       },
       "event/update": async (payload) => {
@@ -216,6 +223,29 @@ export function useOutboxReplay({
       "event/delete": async (payload) => {
         await deleteEventEntry({ eventId: payload.eventId as any });
         clearCanvasDraftForKey(payload.draftKey);
+      },
+      // These four were queued while offline but had no handler, so the flush
+      // skipped them forever: a todo deleted offline was never deleted.
+      "event/restore": async (payload) => {
+        await restoreEventEntry({ eventId: payload.eventId as any });
+      },
+      "todo/delete": async (payload) => {
+        await deleteTodo({ todoId: payload.todoId as any });
+        // As the online delete does (AppProvider's removeTodoFromGoogleCalendar).
+        // An action, unlike a mutation, fails on a dropped connection; the todo
+        // is already deleted, so queue the removal on its own rather than
+        // failing — and re-sending — this item.
+        try {
+          await deleteGoogleEventForTodo({ todoId: payload.todoId as any });
+        } catch {
+          await enqueueCanvasMutation("google/event-delete", { todoId: payload.todoId });
+        }
+      },
+      "todo/restore": async (payload) => {
+        await restoreTodo({ todoId: payload.todoId as any });
+      },
+      "note/restore": async (payload) => {
+        await restoreNote({ noteId: payload.noteId as any });
       },
       "todo/snooze": async (payload) => {
         await snoozeTodo({ todoId: payload.todoId as any, minutes: payload.minutes });
@@ -246,7 +276,7 @@ export function useOutboxReplay({
         await truncateRecurringSeries({ todoId: payload.todoId as any, fromDateKey: payload.fromDateKey });
       },
       "todo/create": async (payload) => {
-        await createTodo({
+        return await createTodo({
           title: payload.title,
           createdDateKey: payload.dateKey,
           clientKey: payload.clientKey,
@@ -299,7 +329,12 @@ export function useOutboxReplay({
       "google/event-entry-delete": async (payload) => {
         await deleteGoogleEventForEventEntry({ eventEntryId: payload.eventEntryId as any });
       },
-    }).then(() => scheduleSync());
+    }).then((sent) => {
+      // Pull back what was just written. Only when something was: flushes
+      // also run on every mount and reconnect, and each one used to end in a
+      // sync of every table even with an empty queue.
+      if (sent > 0) scheduleSync();
+    });
   }, [
     completeRecurringOccurrence,
     deleteRecurringOccurrence,
@@ -309,6 +344,10 @@ export function useOutboxReplay({
     createEventEntry,
     uncompleteRecurringOccurrence,
     deleteNote,
+    restoreNote,
+    deleteTodo,
+    restoreTodo,
+    restoreEventEntry,
     deleteEventEntry,
     markFired,
     pushEventForTodo,

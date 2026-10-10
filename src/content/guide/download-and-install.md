@@ -1,12 +1,12 @@
 # Download & install
 
-omanote runs on the web, desktop, mobile, and as a browser extension. They all sync through the same encrypted account.
+omanote runs on the web (phone included), on desktop, and as a browser extension. They all sync through the same encrypted account.
 
 ## Web app (recommended for most people)
 
 The quickest way to start, with no installation needed. Open [omanote.com](https://omanote.com) in your browser and sign up. It works on any device with a modern browser.
 
-**Install it as a PWA** to get a standalone window: in Chrome or Edge, click the install icon in the address bar, or use the menu → Install omanote. This adds omanote to your taskbar or home screen with offline support and faster loading, without an app store. On mobile, your browser's "Add to Home Screen" option does the same thing until the dedicated mobile apps ship.
+**Install it as a PWA** to get a standalone window: in Chrome or Edge, click the install icon in the address bar, or use the menu → Install omanote. This adds omanote to your taskbar or home screen with offline support and faster loading, without an app store. On your phone, your browser's "Add to Home Screen" option does the same thing.
 
 ## Desktop app (macOS, Windows, Linux)
 
@@ -29,6 +29,6 @@ Once installed, click the toolbar icon or press **Alt+Shift+O** to open quick ca
 
 No account is needed to install the extension. Sign in once to sync with your canvas.
 
-## Mobile app (Android & iOS)
+## On your phone
 
-Native mobile apps are in active development. Until they're ready, the web app is fully functional on mobile. Added to your home screen as a PWA it runs full-screen and offline, with push notifications on supported browsers.
+There's no native mobile app yet. The web app works fully on your phone: added to your home screen, it runs full-screen and offline, with push notifications on supported browsers.

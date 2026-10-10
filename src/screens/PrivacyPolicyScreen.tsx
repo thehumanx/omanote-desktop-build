@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
 import { SiteFooter } from "../components/SiteFooter";
 import { SeoHead } from "../seo/SeoHead";
+import { BrandLogo } from "../components/BrandLogo";
 
-const LAST_UPDATED = "September 25, 2026";
+const LAST_UPDATED = "October 9, 2026";
 const CONTACT_EMAIL = "omanote@iambishistha.com";
 
 export function PrivacyPolicyScreen() {
@@ -18,7 +19,7 @@ export function PrivacyPolicyScreen() {
       <nav className="border-b border-app-line sticky top-0 bg-app-surface/95 backdrop-blur-sm z-20">
         <div className="max-w-[1136px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <Link to="/">
-            <img src="/logo.svg" alt="omanote home" className="h-6 sm:h-7 w-auto" />
+            <BrandLogo alt="omanote home" className="h-6 sm:h-7 w-auto" />
           </Link>
           <Link
             to="/"
@@ -426,7 +427,8 @@ export function PrivacyPolicyScreen() {
                 </p>
                 <p>
                   You can export all of your content at any time from the Settings screen. You can
-                  delete individual items within the app.
+                  delete individual items within the app, and undo a delete right after making it. A
+                  deleted item is kept on our servers for 7 days, then removed for good.
                 </p>
                 <p>
                   To request deletion of your account and all associated data, email{" "}

@@ -1,3 +1,4 @@
+import { isEffectivelyOffline } from "./connectivity";
 import { toDateKey } from "@omanote/shared";
 import type { DateKey, TodoItem } from "@omanote/shared";
 import { parseHashtags } from "../lib/hashtags";
@@ -91,27 +92,6 @@ export function getAppProviderQueryScope(pathname: string) {
     includeDeleted: !onCanvas,
     includeActivity: !onCanvas,
   };
-}
-
-/**
- * Whether a remote sync pass is worth scheduling. Requires an unlocked,
- * authenticated session and a server timestamp that has actually moved
- * forward — a first observation (null previous) is not a change.
- */
-export function shouldScheduleRemoteSync({
-  isAuthenticated,
-  isLocked,
-  previousTimestamp,
-  nextTimestamp,
-}: {
-  isAuthenticated: boolean;
-  isLocked: boolean;
-  previousTimestamp: number | null;
-  nextTimestamp: number | undefined;
-}) {
-  if (!isAuthenticated || isLocked) return false;
-  if (previousTimestamp === null || nextTimestamp === undefined) return false;
-  return nextTimestamp > previousTimestamp;
 }
 
 export const SYNC_POLL_TICK_MS = 5 * 60 * 1000;
@@ -323,7 +303,7 @@ export async function resolveTodoFolder(
   // todo create awaiting this never reached the outbox: shown optimistically,
   // gone after a reload. Send the name instead; `ensureTodoFolder` creates the
   // folder when the queued todo is delivered.
-  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+  if (isEffectivelyOffline()) {
     return { folderId: undefined, folderName: trimmed };
   }
 

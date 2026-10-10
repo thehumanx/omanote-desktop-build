@@ -118,7 +118,7 @@ export const TodoListRow = memo(function TodoListRow({
           type="button"
           aria-label="edit todo details"
           onClick={() => onOpenEditor(todo)}
-          className="rounded-md p-1 text-app-line-strong opacity-0 transition hover:bg-app-surface-hover hover:text-app-ink group-hover:opacity-100"
+          className="rounded-md p-1 text-app-line-strong opacity-0 transition hover:bg-app-surface-hover hover:text-app-ink group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
         >
           <Pencil className="h-4 w-4" />
         </button>
@@ -126,7 +126,7 @@ export const TodoListRow = memo(function TodoListRow({
           type="button"
           aria-label="delete todo"
           onClick={() => onDelete(todo.id)}
-          className="rounded-md p-1 text-app-line-strong opacity-0 transition hover:bg-app-surface-hover hover:text-danger-ink group-hover:opacity-100"
+          className="rounded-md p-1 text-app-line-strong opacity-0 transition hover:bg-app-surface-hover hover:text-danger-ink group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
         >
           <Trash2 className="h-4 w-4" />
         </button>

@@ -74,7 +74,7 @@ export function SurveyPrompt({ status, onTakeSurvey, onDismiss }: SurveyPromptPr
             event.stopPropagation();
             onDismiss?.();
           }}
-          className="mt-0.5 shrink-0 text-app-ink-faint opacity-0 transition-opacity duration-150 hover:text-app-ink group-hover:opacity-100"
+          className="mt-0.5 shrink-0 text-app-ink-faint opacity-0 transition-opacity duration-150 hover:text-app-ink group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
         >
           <X className="h-4 w-4" />
         </button>

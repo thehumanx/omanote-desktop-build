@@ -1,3 +1,4 @@
+import { isEffectivelyOffline, isConvexDisconnected, hasUnacknowledgedWrites, registerConvexConnection } from "./connectivity";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useAction, useConvex, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { useLocation } from "react-router-dom";
@@ -1380,6 +1381,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, [flushCanvasQueue]);
 
+  // The browser's online flag can stay true while the Convex socket is down
+  // (captive portal, dead VPN, the Tauri webview). Writes made then go to the
+  // outbox (see connectivity.ts), and no `online` event will ever announce the
+  // way back — so the socket reconnecting is what flushes them.
+  useEffect(() => {
+    registerConvexConnection(convexClient);
+    let wasDisconnected = isConvexDisconnected();
+    const unsubscribe =
+      typeof convexClient.subscribeToConnectionState === "function"
+        ? convexClient.subscribeToConnectionState((connection) => {
+            const disconnected = isConvexDisconnected(connection);
+            if (wasDisconnected && !disconnected) flushCanvasQueue();
+            wasDisconnected = disconnected;
+          })
+        : undefined;
+    return () => {
+      unsubscribe?.();
+      registerConvexConnection(null);
+    };
+  }, [convexClient, flushCanvasQueue]);
+
+  // A write already sent but not yet acknowledged lives only in the Convex
+  // client's memory; closing the tab now would drop it. Ask first.
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!hasUnacknowledgedWrites()) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
+
   // ---------------------------------------------------------------------------
   // Toast helper
   // ---------------------------------------------------------------------------
@@ -1582,7 +1616,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }[action.scope];
 
       void (async () => {
-        // Optimistic first, above the network call — see AGENTS.md: the
+        // Optimistic first, above the network call — see src/app/AGENTS.md: the
         // offline branch returns without ever invoking the mutation, so an
         // update written inside it would silently never happen.
         scopes.setLocal((prev: any[]) =>
@@ -1592,9 +1626,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // encrypted and a rebuild here would have to round-trip them.
         await scopes.patchRow();
 
-        // `navigator.onLine`, not try/catch: a disconnected Convex mutation
+        // An up-front offline check, not try/catch: a disconnected Convex mutation
         // pends rather than rejecting, so a catch here never fires offline.
-        if (!navigator.onLine) {
+        if (isEffectivelyOffline()) {
           await enqueueCanvasMutation("folder/set-pinned", {
             scope: action.scope,
             id: action.folderId,

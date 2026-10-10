@@ -35,5 +35,4 @@ One caveat: if you edit the notes on both sides, locally in omanote and on the G
 - **Google Tasks isn't used.** Google's Tasks API is one-way and can't show a time of day, even though Google's own apps can. That's a platform restriction omanote can't work around. Calendar supports times and recurrence, so everything syncs there instead.
 - **Editing a single occurrence of a recurring event directly in Google Calendar** doesn't sync back. Only changes to the whole series are picked up.
 - **Existing todos and events aren't backfilled.** Connecting Google only starts syncing things going forward. (Todos you'd already imported before the "Synced from GCal" folder existed do get moved into it automatically the next time you open omanote.)
-- **Web and desktop only, for now.** Google Calendar sync isn't available on the mobile app. Connecting your Google account in the web app doesn't change anything on mobile, and mobile has no way to connect Google yet.
 - **While in testing,** Google shows an "unverified app" warning during connect, and only pre-approved accounts can connect. This clears once Google finishes reviewing the app.

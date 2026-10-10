@@ -13,6 +13,7 @@ import { AppLoadingScreen } from "./components/ui";
 import { DesktopAuthListener } from "./components/desktop/DesktopAuthListener";
 import { StaleSessionKeySweeper } from "./components/StaleSessionKeySweeper";
 import { DesktopUpdateBanner } from "./components/desktop/DesktopUpdateBanner";
+import { BrandLogo } from "./components/BrandLogo";
 
 const AuthenticatedAppLayout = lazyWithReload(() =>
   import("./app/AuthenticatedAppLayout").then((module) => ({ default: module.AuthenticatedAppLayout })),
@@ -173,7 +174,7 @@ function PublicDocLayout() {
       <nav className="border-b border-zinc-200 sticky top-0 bg-white/95 backdrop-blur-sm z-20">
         <div className="max-w-[1136px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <Link to="/">
-            <img src="/logo.svg" alt="omanote home" className="h-6 sm:h-7 w-auto" />
+            <BrandLogo alt="omanote home" className="h-6 sm:h-7 w-auto" />
           </Link>
           <Link
             to="/"

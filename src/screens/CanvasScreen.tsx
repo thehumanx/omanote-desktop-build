@@ -8,9 +8,10 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useApp } from "../app/AppProvider";
 import { useAuth } from "../app/auth/AuthContext";
-import { buildCanvasDayItems } from "../app/reducer";
+import { buildCanvasDayItems } from "../app/canvas-day-items";
 import { CanvasDateRow, formatTodayLabel } from "../components/CanvasDateRow";
 import { CanvasDayArtifacts } from "../components/CanvasDayArtifacts";
+import { useCanvasFolderSheet } from "../components/CanvasFolderSheet";
 import { CanvasOverdueSection, type OverdueRecentAction } from "../components/CanvasOverdueSection";
 import type { RescheduleTarget } from "../components/RescheduleMenu";
 import { CanvasSkeleton } from "../components/CanvasSkeleton";
@@ -55,6 +56,7 @@ export function CanvasScreen() {
   const [sharingPageId, setSharingPageId] = useState<string | null>(null);
 
   const openHistory = useCallback(() => navigate("/history"), [navigate]);
+  const folderSheet = useCanvasFolderSheet();
 
   // The date row lives in the shared header bar (see AppShell) instead of
   // scrolling with the page. Memoized: useTopChrome's effect keys off this
@@ -279,6 +281,7 @@ export function CanvasScreen() {
               onDeleteTodo={handleDeleteTodo}
               onEditBookmark={(bookmarkId) => setEditingBookmarkId(bookmarkId)}
               onSharePage={(pageId) => setSharingPageId(pageId)}
+              onOpenFolder={folderSheet.openFolder}
             />
           </div>
 
@@ -289,6 +292,8 @@ export function CanvasScreen() {
           />
         </div>
       )}
+
+      {folderSheet.sheet}
 
       {editingBookmark ? (
         <BookmarkEditorModal

@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { SeoHead } from "../seo/SeoHead";
+import { BrandLogo } from "../components/BrandLogo";
 
 export function NotFoundPage() {
   return (
@@ -11,7 +12,7 @@ export function NotFoundPage() {
       />
       <div className="public-page flex min-h-screen flex-col items-center justify-center gap-6 bg-app-canvas px-4">
       <Link to="/" className="flex items-center transition hover:opacity-70">
-        <img src="/logo.svg" alt="Omanote" className="h-7 w-auto" />
+        <BrandLogo alt="Omanote" className="h-7 w-auto" />
       </Link>
       <div className="text-center">
         <p className="text-5xl font-bold text-app-line-strong">404</p>

@@ -38,6 +38,7 @@ import { extractAllPreviewableUrls } from "../lib/attachment-link-preview";
 import { captureScrollSnapshot, restoreScrollForNextFrames } from "../lib/preserve-focus-scroll";
 import { resolveRichTextSourceOffsetFromPoint } from "../lib/rich-text-caret";
 import { useIsDesktop, usePersistedFolderSort, usePersistedFolderViewMode } from "../hooks/useFolderNavigation";
+import { useOpenOnMount, type FolderSheetOverlay } from "../components/folder-gallery/folder-sheet-overlay";
 
 /** Module scope so it stays referentially stable across renders — VirtualList memoises its key map on it. */
 const noteRowKey = (note: NoteItem) => note.id;
@@ -86,7 +87,8 @@ function formatFolderDate(timestamp: number) {
   });
 }
 
-export function NotesScreen() {
+/** `overlay`: only this folder's sheet, over another route — see TodosScreen. */
+export function NotesScreen({ overlay }: { overlay?: FolderSheetOverlay } = {}) {
   const { state, dispatch, isCanvasContentLoading } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
@@ -95,7 +97,7 @@ export function NotesScreen() {
   const [focusedNoteId, setFocusedNoteId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [composerResetKey, setComposerResetKey] = useState(0);
-  const [selectedFolder, setSelectedFolder] = useState<string | null>(() => readLastSelectedNotesFolder() || null);
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(() => overlay?.folderKey ?? (readLastSelectedNotesFolder() || null));
   const [mobileNotesOpen, setMobileNotesOpen] = useState(false);
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
@@ -157,12 +159,15 @@ export function NotesScreen() {
     return cleanup;
   }, [editingNoteId]);
 
+  // An overlay on desktop opens the side sheet, not the drawer, so the
+  // bottom nav stays — as it does for the Todos and Bookmarks sheets.
+  const notesDrawerShown = mobileNotesOpen && !(overlay && isDesktop);
   useEffect(() => {
-    dispatch({ type: "ui/set-notes-drawer-open", open: mobileNotesOpen });
+    dispatch({ type: "ui/set-notes-drawer-open", open: notesDrawerShown });
     return () => {
       dispatch({ type: "ui/set-notes-drawer-open", open: false });
     };
-  }, [dispatch, mobileNotesOpen]);
+  }, [dispatch, notesDrawerShown]);
 
   // Mirrored globally so the "/" shortcut and nav "+" button (route
   // siblings, not children, of this screen) can default a fresh composer
@@ -337,7 +342,7 @@ export function NotesScreen() {
   const galleryRowByKey = useMemo(() => new Map(folderRows.map((row) => [galleryKeyOf(row), row] as const)), [folderRows, galleryKeyOf]);
   const galleryValidKeys = useMemo(() => new Set(galleryRowByKey.keys()), [galleryRowByKey]);
   const galleryFolderParam = useGalleryFolderParam({
-    enabled: galleryMode && isDesktop,
+    enabled: galleryMode && isDesktop && !overlay,
     validKeys: galleryValidKeys,
     ready: !isCanvasContentLoading,
   });
@@ -347,9 +352,11 @@ export function NotesScreen() {
   // full-screen drawer on phones (local state).
   const showGalleryOverview = galleryMode;
   const showDesktopOverview = galleryMode && isDesktop;
-  const desktopFolderSheet = galleryMode && isDesktop;
-  const folderSheetOpen = desktopFolderSheet ? Boolean(galleryOpenRow) : mobileNotesOpen;
-  const closeFolderSheet = desktopFolderSheet ? galleryFolderParam.closeFolder : () => setMobileNotesOpen(false);
+  // As an overlay: the sheet whatever the view mode, on local state (TodosScreen).
+  const desktopFolderSheet = overlay ? isDesktop : galleryMode && isDesktop;
+  const folderSheetOpen = desktopFolderSheet && !overlay ? Boolean(galleryOpenRow) : mobileNotesOpen;
+  const closeFolderSheet = desktopFolderSheet && !overlay ? galleryFolderParam.closeFolder : () => setMobileNotesOpen(false);
+  useOpenOnMount(Boolean(overlay), () => setMobileNotesOpen(true));
 
   useEffect(() => {
     if (!galleryOpenRow) return;
@@ -396,9 +403,9 @@ export function NotesScreen() {
   }, [allFolderNames, selectedFolder, visibleFolderRows]);
 
   useEffect(() => {
-    if (!selectedFolder) return;
+    if (!selectedFolder || overlay) return;
     writeLastSelectedNotesFolder(selectedFolder);
-  }, [selectedFolder]);
+  }, [overlay, selectedFolder]);
 
   const visibleNotes = useMemo(() => {
     if (!selectedFolder) return [];
@@ -835,6 +842,7 @@ export function NotesScreen() {
           {!isMobileDrawer ? renderCreateComposer() : null}
           <div className="flex min-h-[calc(100%-5rem)] items-center justify-center">
             <EmptyState
+              pending={isCanvasContentLoading}
               title={selectedFolder ? `No notes in ${selectedFolderLabel}` : "No notes yet"}
               description={
                 selectedFolder
@@ -943,16 +951,18 @@ export function NotesScreen() {
       <ExpandableSearch value={noteSearch} onChange={setNoteSearch} placeholder="Search in Notes" />
       {folderToolbar}
     </div>,
+    !overlay,
   );
 
   return (
     <div
-      className="fixed left-0 right-0 z-0 flex min-h-0 flex-1 flex-col overflow-hidden"
+      className={overlay ? "contents" : "fixed left-0 right-0 z-0 flex min-h-0 flex-1 flex-col overflow-hidden"}
       style={{
         top: "var(--omanote-top-chrome-height, 0px)",
         bottom: "0px",
       }}
     >
+      {overlay ? null : (
       <div
         className={cn(
           "relative grid h-full min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden",
@@ -1204,11 +1214,13 @@ export function NotesScreen() {
           {showDesktopOverview ? null : renderNotesPanel(false)}
         </section>
       </div>
+      )}
 
       <ModalPortal>
         <FolderSheet
           open={folderSheetOpen}
           onClose={closeFolderSheet}
+          onClosed={overlay?.onClosed}
           desktop={desktopFolderSheet}
           label={selectedFolderLabel}
           dragOffset={dragOffset}

@@ -182,7 +182,9 @@
   --z-app-bottom-nav: 50;
   --z-app-modal: 60;
   --z-app-floating: 70;
-  --z-app-toast: 50;
+  /* Above sheets, drawers and dialogs: the delete toast carries the only Undo,
+     and deletes happen inside those surfaces. Below popovers and menus. */
+  --z-app-toast: 95;
   --z-app-overlay: 80;
   --z-app-drawer: 81;
   --z-app-menu: 82;
@@ -228,7 +230,12 @@ html[data-corner-style="sharp"] {
   --component-todo-checkmark-radius: 0px;
 }
 
-.dark {
+/* `.public-page-adaptive` (the landing page) opts back in to the dark tokens:
+   `.public-page` pins the light palette, and this wins on specificity while
+   leaving its radius/font pins alone. `html.dark` already follows the stored
+   theme mode or, by default, the OS (see the inline script in index.html). */
+.dark,
+.dark .public-page-adaptive {
   color-scheme: dark;
   --color-canvas: 9 9 11;
   --color-canvas-dot: 30 30 36;
@@ -815,7 +822,7 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
    blooms pooled low, where the resting preview sits. The polka dots live on
    their own layer so they can be masked — faint behind the headline, fuller
    toward the bottom — without the mask also fading the colour. Raw values on
-   purpose: public pages are always light, and none of these are reused. */
+   purpose, none are reused; the `.dark` block below carries the night palette. */
 .landing-hero-backdrop {
   background-color: #f7f9f4;
   background-image:
@@ -824,6 +831,20 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
     radial-gradient(60% 45% at 52% 104%, rgb(196 226 96 / 0.4), transparent 70%),
     radial-gradient(40% 30% at 50% 0%, rgb(255 255 255 / 0.9), transparent 80%),
     linear-gradient(180deg, #f8f9f6 0%, #eef5e3 100%);
+}
+/* Dark: the same blooms at night — brand green, mint and lime glowing low over
+   a near-black panel, with the top highlight dropped to a faint cool lift. */
+.dark .landing-hero-backdrop {
+  background-color: #0b0d0a;
+  background-image:
+    radial-gradient(55% 50% at 8% 92%, rgb(87 137 16 / 0.34), transparent 70%),
+    radial-gradient(50% 55% at 94% 78%, rgb(72 184 150 / 0.22), transparent 72%),
+    radial-gradient(60% 45% at 52% 104%, rgb(140 190 50 / 0.3), transparent 70%),
+    radial-gradient(40% 30% at 50% 0%, rgb(255 255 255 / 0.05), transparent 80%),
+    linear-gradient(180deg, #0a0b0a 0%, #0d130a 100%);
+}
+.dark .landing-hero-backdrop::before {
+  background-image: radial-gradient(circle, rgb(190 225 120 / 0.14) 1.1px, transparent 1.5px);
 }
 .landing-hero-backdrop::before {
   content: "";
@@ -1087,6 +1108,98 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
+  }
+}
+
+/* Reduced motion, everywhere. Per-component rules only covered a few custom
+   keyframes; every Tailwind transition — sheets sliding 360ms, the route
+   fade, toasts — still ran in full. 1ms rather than none: FolderSheet unmounts
+   on transitionend and the todo/event lists clear state on animationend, and
+   those events must still fire. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes omanote-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes omanote-modal-scale-out {
+  to {
+    opacity: 0;
+    transform: scale(0.97) translateY(4px);
+  }
+}
+
+@keyframes omanote-drawer-out {
+  to {
+    transform: translateY(calc(100% + 2rem + env(safe-area-inset-bottom)));
+  }
+}
+
+/* BaseModal: the backdrop fades and the panel inside scales in. Modals that
+   run their own entrance pass entrance={false}. */
+.omanote-modal-enter {
+  animation: omanote-page-fade var(--motion-duration-fast) var(--motion-easing-out) both;
+}
+.omanote-modal-enter > * {
+  animation: omanote-modal-scale-in var(--motion-duration-base) var(--motion-easing-out) both;
+}
+
+/* Popover menus (the profile menu). Grows from the corner nearest its trigger
+   rather than the centre, starts at 96% not 0 so it never pops from nothing,
+   and leaves faster than it arrives. Ease-out both ways: an ease-in exit
+   lingers at the start, which reads as lag on something you just dismissed. */
+@keyframes omanote-menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+@keyframes omanote-menu-out {
+  to {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+.omanote-menu-enter {
+  animation: omanote-menu-in var(--motion-duration-base) var(--motion-easing-out) both;
+}
+.omanote-menu-exit {
+  animation: omanote-menu-out var(--motion-duration-fast) var(--motion-easing-out) both;
+}
+
+/* Exits play on the copy src/lib/exit-ghost.ts leaves behind when an overlay
+   unmounts. No `from`: each starts from wherever the overlay was — a drawer
+   half dragged down leaves from there. */
+.omanote-modal-exit {
+  animation: omanote-fade-out var(--motion-duration-fast) var(--motion-easing-in) both;
+}
+.omanote-modal-exit > * {
+  animation: omanote-modal-scale-out var(--motion-duration-fast) var(--motion-easing-in) both;
+}
+.omanote-drawer-exit {
+  animation: omanote-drawer-out var(--motion-duration-drawer) var(--motion-easing-drawer) both;
+}
+.omanote-backdrop-exit {
+  animation: omanote-fade-out var(--motion-duration-drawer) var(--motion-easing-drawer) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .omanote-modal-enter,
+  .omanote-modal-enter > * {
+    animation: none;
   }
 }
 
@@ -1418,6 +1531,16 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* A canvas item that just arrived (use-canvas-arrivals.ts). */
+.omanote-arrive {
+  animation: omanote-fade-in-up var(--motion-duration-slow) var(--motion-easing-out) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .omanote-arrive {
+    animation: none;
   }
 }
 
@@ -2252,3 +2375,16 @@ h1, h2, h3, h4, h5, h6, .app-title-font {
   box-shadow: 0px 4px 12px -4px rgba(0, 0, 0, 0.1);
   border: 1px solid rgba(0, 0, 0, 0.05);
 }
+/* BrandLogo: the white-wordmark copy in dark mode. Public pages pin the light
+   palette under html.dark, so they keep the green wordmark (the landing page,
+   .public-page-adaptive, goes dark and swaps). */
+.brand-logo-dark,
+.dark .brand-logo-light,
+.dark .public-page:not(.public-page-adaptive) .brand-logo-dark {
+  display: none;
+}
+.dark .brand-logo-dark,
+.dark .public-page:not(.public-page-adaptive) .brand-logo-light {
+  display: block;
+}
+
